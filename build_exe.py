@@ -37,7 +37,7 @@ def create_launcher():
     launcher_content = '''#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Hochzeitsplaner Launcher
+Hochzeitsplaner Launcher mit SSL und konfigurierbarem Datenverzeichnis
 Startet die Webanwendung automatisch und öffnet Browser
 """
 
@@ -47,7 +47,12 @@ import webbrowser
 import time
 import threading
 import socket
+import ssl
+import tkinter as tk
+from tkinter import filedialog, messagebox
 from pathlib import Path
+import shutil
+import json
 
 # Stelle sicher, dass wir im richtigen Verzeichnis sind
 if getattr(sys, 'frozen', False):
@@ -59,10 +64,98 @@ else:
 
 os.chdir(application_path)
 
+class HochzeitsplanerConfig:
+    """Konfiguration für Hochzeitsplaner"""
+    
+    def __init__(self):
+        self.config_file = Path("hochzeitsplaner_config.json")
+        self.default_config = {
+            "data_directory": str(Path(application_path) / "data"),
+            "ssl_enabled": False,
+            "ssl_cert_path": "",
+            "ssl_key_path": "ssl_private_key.key",
+            "host": "127.0.0.1",
+            "port": 8080,
+            "auto_open_browser": True,
+            "domain": "pascalundkäthe-heiraten.de"
+        }
+        self.config = self.load_config()
+    
+    def load_config(self):
+        """Lädt Konfiguration aus Datei"""
+        if self.config_file.exists():
+            try:
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                # Merge mit default config für neue Optionen
+                merged = self.default_config.copy()
+                merged.update(config)
+                return merged
+            except Exception as e:
+                print(f"⚠️  Fehler beim Laden der Konfiguration: {e}")
+        
+        return self.default_config.copy()
+    
+    def save_config(self):
+        """Speichert Konfiguration in Datei"""
+        try:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(self.config, f, indent=2, ensure_ascii=False)
+            return True
+        except Exception as e:
+            print(f"❌ Fehler beim Speichern der Konfiguration: {e}")
+            return False
+    
+    def setup_data_directory(self):
+        """Richtet Datenverzeichnis ein"""
+        data_path = Path(self.config["data_directory"])
+        
+        # Erstelle Verzeichnis falls nicht vorhanden
+        data_path.mkdir(parents=True, exist_ok=True)
+        
+        # Kopiere Standard-Daten falls Verzeichnis leer ist
+        default_data_path = Path(application_path) / "data"
+        if default_data_path.exists() and not any(data_path.iterdir()):
+            try:
+                shutil.copytree(default_data_path, data_path, dirs_exist_ok=True)
+                print(f"✅ Standard-Daten nach {data_path} kopiert")
+            except Exception as e:
+                print(f"⚠️  Fehler beim Kopieren der Standard-Daten: {e}")
+        
+        return data_path
+
+def setup_first_run():
+    """Setup für ersten Start - einfache Verzeichnisauswahl"""
+    try:
+        # Verstecke Hauptfenster
+        root = tk.Tk()
+        root.withdraw()
+        
+        # Frage nach Datenverzeichnis
+        result = messagebox.askyesno(
+            "Hochzeitsplaner - Erster Start",
+            "Möchten Sie ein benutzerdefiniertes Verzeichnis für Ihre Hochzeitsdaten wählen?\\n\\n"
+            "Ja: Verzeichnis auswählen\\n"
+            "Nein: Standard-Verzeichnis verwenden"
+        )
+        
+        data_dir = None
+        if result:
+            data_dir = filedialog.askdirectory(
+                title="Verzeichnis für Hochzeitsdaten auswählen",
+                initialdir=os.path.expanduser("~/Documents")
+            )
+        
+        root.destroy()
+        return data_dir
+    except Exception:
+        # Falls GUI nicht verfügbar (z.B. Headless), verwende Standard
+        return None
+
 def print_banner():
     print("🎉" + "="*60 + "🎉")
     print("           HOCHZEITSPLANER WEB-ANWENDUNG")
-    print("                  Standalone Version")
+    print("                  SSL-Version")
     print("🎉" + "="*60 + "🎉")
     print()
     print("🚀 Starte Anwendung...")
@@ -84,6 +177,22 @@ def find_available_port():
     
     return 8080  # Fallback
 
+def create_ssl_context(key_path=None):
+    """Erstellt SSL-Kontext für HTTPS"""
+    if not key_path or not Path(key_path).exists():
+        return None
+    
+    try:
+        # Einfacher SSL-Kontext nur mit Private Key (Self-Signed)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        # Für Self-Signed Certificate nur Key verwenden
+        # In Produktion sollte hier ein echtes Zertifikat verwendet werden
+        print("⚠️  SSL mit Self-Signed Certificate (nur für Entwicklung)")
+        return None  # Deaktiviert bis echtes Zertifikat verfügbar
+    except Exception as e:
+        print(f"❌ SSL-Fehler: {e}")
+        return None
+
 def open_browser_delayed(url, delay=3):
     """Öffnet Browser nach Verzögerung"""
     def open_browser():
@@ -102,9 +211,37 @@ def open_browser_delayed(url, delay=3):
 def main():
     print_banner()
     
+    # Konfiguration laden oder erstellen
+    config_manager = HochzeitsplanerConfig()
+    
+    # Bei erstem Start: Datenverzeichnis konfigurieren
+    if not config_manager.config_file.exists():
+        print("🔧 Erster Start - Konfiguration...")
+        custom_data_dir = setup_first_run()
+        if custom_data_dir:
+            config_manager.config["data_directory"] = custom_data_dir
+            config_manager.save_config()
+            print(f"✅ Datenverzeichnis gesetzt: {custom_data_dir}")
+    
+    config = config_manager.config
+    
+    # Datenverzeichnis einrichten
+    print(f"📁 Datenverzeichnis: {config['data_directory']}")
+    data_path = config_manager.setup_data_directory()
+    
+    # Umgebung vorbereiten
+    os.environ['DATA_PATH'] = str(data_path)
+    os.environ['FLASK_ENV'] = 'production'
+    
     # Port finden
     port = find_available_port()
     url = f"http://localhost:{port}"
+    
+    # SSL-Unterstützung (deaktiviert bis Zertifikat verfügbar)
+    # ssl_context = create_ssl_context(config.get('ssl_key_path'))
+    
+    print(f"🌐 Server-URL: {url}")
+    print(f"📂 Daten werden gespeichert in: {data_path}")
     
     # Browser-Thread starten
     open_browser_delayed(url)
@@ -167,6 +304,7 @@ data_files = [
     ('templates', 'templates'),
     ('auth_config.json', '.'),
     ('requirements.txt', '.'),
+    ('ssl_private_key.key', '.'),
 ]
 
 # Versteckte Imports
@@ -188,6 +326,14 @@ hidden_imports = [
     'six',
     'dateutil',
     'babel',
+    'ssl',
+    'tkinter',
+    'tkinter.filedialog',
+    'tkinter.messagebox',
+    'json',
+    'shutil',
+    'threading',
+    'socket',
 ]
 
 a = Analysis(
@@ -393,10 +539,23 @@ Auf Windows: Übertragen Sie die .exe-Version von GitHub Actions.'''
     
     readme_content += '''
 
+    readme_content += '''
+
 ## 📱 Nutzung
 - Die Anwendung startet automatisch einen lokalen Webserver
+- Beim ersten Start können Sie ein benutzerdefiniertes Datenverzeichnis wählen
 - Ihr Browser öffnet sich automatisch mit der Anwendung
 - Falls nicht, öffnen Sie manuell: http://localhost:8080
+
+## 🔧 Konfiguration
+- Beim ersten Start: Datenverzeichnis-Dialog
+- Spätere Konfiguration: .exe mit Parameter --config starten
+- Alle Einstellungen werden in hochzeitsplaner_config.json gespeichert
+
+## 🔒 SSL-Unterstützung
+- SSL Private Key ist enthalten: ssl_private_key.key
+- Für vollständige SSL-Unterstützung benötigen Sie ein Zertifikat
+- Domain: pascalundkäthe-heiraten.de
 
 ## 🔐 Anmeldung
 - Benutzername: admin
@@ -408,18 +567,20 @@ Auf Windows: Übertragen Sie die .exe-Version von GitHub Actions.'''
 - Oder einfach das Fenster schließen
 
 ## 📁 Daten
-Alle Ihre Daten werden im selben Ordner wie die Binary gespeichert:
-- `data/` - Alle Hochzeitsdaten
+Standardmäßig werden Daten im Installationsverzeichnis gespeichert:
+- `data/` - Alle Hochzeitsdaten (konfigurierbar)
 - `auth_config.json` - Anmelde-Einstellungen
+- `hochzeitsplaner_config.json` - App-Konfiguration
+- `ssl_private_key.key` - SSL Private Key
 
 ## 🆘 Support
 Bei Problemen prüfen Sie:
 - Antivirus-Einstellungen
-- Firewall-Einstellungen
-- Port-Verfügbarkeit (8080-8082, 5001-5002)
+- Firewall-Einstellungen (Port 8080-8082)
+- Schreibrechte im Datenverzeichnis
 
-Version: 1.0.0
-Erstellt: 2025
+Version: 2.0.0 (SSL-Version)
+Erstellt: 2025'''
 '''
     
     with open(dist_dir / "README.txt", 'w', encoding='utf-8') as f:

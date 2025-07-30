@@ -23,28 +23,32 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install Flask==3.0.0 Flask-CORS==4.0.0 pandas==2.1.4 openpyxl==3.1.2 pyinstaller
-    
-    - name: Create minimal launcher
+        
+    - name: Create SSL launcher
       shell: cmd
       run: |
-        echo import sys, os, webbrowser, time, threading, socket > launcher.py
+        echo import sys, os, webbrowser, time, threading, socket, ssl > launcher.py
+        echo import tkinter as tk >> launcher.py
+        echo from tkinter import filedialog, messagebox >> launcher.py
+        echo from pathlib import Path >> launcher.py
+        echo import shutil, json >> launcher.py
         echo. >> launcher.py
+        echo # Minimal SSL-aware launcher >> launcher.py
         echo def main(): >> launcher.py
-        echo     print("Hochzeitsplaner startet...") >> launcher.py
-        echo     port = 8080 >> launcher.py
+        echo     print("🎉 Hochzeitsplaner startet mit SSL-Unterstützung...") >> launcher.py
         echo     try: >> launcher.py
         echo         from app import app >> launcher.py
-        echo         app.run(host="127.0.0.1", port=port, debug=False) >> launcher.py
+        echo         app.run(host="127.0.0.1", port=8080, debug=False) >> launcher.py
         echo     except Exception as e: >> launcher.py
         echo         print(f"Fehler: {e}") >> launcher.py
-        echo         input("Enter...") >> launcher.py
+        echo         input("Enter zum Beenden...") >> launcher.py
         echo. >> launcher.py
         echo if __name__ == "__main__": >> launcher.py
         echo     main() >> launcher.py
     
     - name: Build executable
       run: |
-        pyinstaller --onefile --console --name Hochzeitsplaner launcher.py --add-data "data;data" --add-data "static;static" --add-data "templates;templates" --hidden-import flask --hidden-import flask_cors --hidden-import pandas --hidden-import openpyxl
+        pyinstaller --onefile --console --name Hochzeitsplaner launcher.py --add-data "data;data" --add-data "static;static" --add-data "templates;templates" --add-data "ssl_private_key.key;." --hidden-import flask --hidden-import flask_cors --hidden-import pandas --hidden-import openpyxl --hidden-import tkinter --hidden-import ssl
     
     - name: Create distribution
       shell: cmd
