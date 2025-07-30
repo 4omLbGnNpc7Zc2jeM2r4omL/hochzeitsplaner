@@ -53,7 +53,7 @@ def create_launcher():
 def print_banner():
     print("🎉" + "="*60 + "🎉")
     print("           HOCHZEITSPLANER WEB-ANWENDUNG")
-    print("                  SSL-Version")
+    print("                DynDNS-Version")
     print("🎉" + "="*60 + "🎉")
     print()
     print("🚀 Starte Anwendung...")
@@ -304,13 +304,13 @@ VSVersionInfo(
       StringTable(
         u'040904B0',
         [StringStruct(u'CompanyName', u'Pascal\'s Hochzeitsplaner'),
-         StringStruct(u'FileDescription', u'Hochzeitsplaner Web-Anwendung'),
-         StringStruct(u'FileVersion', u'1.0.0.0'),
+         StringStruct(u'FileDescription', u'Hochzeitsplaner Web-Anwendung mit DynDNS'),
+         StringStruct(u'FileVersion', u'2.1.0.0'),
          StringStruct(u'InternalName', u'hochzeitsplaner'),
          StringStruct(u'LegalCopyright', u'© 2025 Pascal'),
          StringStruct(u'OriginalFilename', u'Hochzeitsplaner.exe'),
          StringStruct(u'ProductName', u'Hochzeitsplaner'),
-         StringStruct(u'ProductVersion', u'1.0.0.0')])
+         StringStruct(u'ProductVersion', u'2.1.0.0')])
       ]), 
     VarFileInfo([VarStruct(u'Translation', [1033, 1200])])
   ]
@@ -478,7 +478,7 @@ Bei Problemen prüfen Sie:
 - Firewall-Einstellungen (Port 8080-8082)
 - Schreibrechte im Datenverzeichnis
 
-Version: 2.0.0 (SSL-Version)
+Version: 2.1.0 (DynDNS-Version)
 Erstellt: 2025'''
 '''
     
