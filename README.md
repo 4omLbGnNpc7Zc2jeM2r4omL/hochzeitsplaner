@@ -8,7 +8,8 @@ Eine vollständige Hochzeitsplanungs-Software mit Web-Interface, SSL-Unterstütz
 - 👥 **Gäste-Management** - Einladungen, RSVP, Gruppenverwaltung
 - 📅 **Zeitplan** - Hochzeitstag-Planung mit öffentlichem Gäste-Zugang
 - 💰 **Kosten-Konfiguration** - Flexible Preisgestaltung pro Person/Kategorie
-- 🔐 **Multi-User Support** - Admin/User/Gast-Rollen mit sicherer Authentifizierung
+- �️ **Google Maps Integration** - Kartenvorschauen mit API Key Unterstützung
+- �🔐 **Multi-User Support** - Admin/User/Gast-Rollen mit sicherer Authentifizierung
 - 🔒 **SSL-Unterstützung** - HTTPS mit echten Zertifikaten
 - 🖥️ **Windows .exe** - Standalone-Anwendung ohne Installation
 
@@ -55,7 +56,15 @@ Eine vollständige Hochzeitsplanungs-Software mit Web-Interface, SSL-Unterstütz
 - **Login:** Gäste-Code oder Email
 - **Features:** RSVP, Zeitplan-Ansicht
 
-### 3. SSL-Zertifikate (Optional)
+### 3. Google Maps Integration
+Für verbesserte Kartenanzeigen:
+```bash
+# Konfiguriere deinen Google Maps API Key
+# Siehe GOOGLE_MAPS_ANLEITUNG.md für Details
+google_maps_config.json
+```
+
+### 4. SSL-Zertifikate (Optional)
 ```
 ssl_certificate.crt  ← SSL-Zertifikat
 ssl_private_key.key  ← Privater Schlüssel

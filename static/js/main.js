@@ -3,6 +3,14 @@
 // Globale Variablen
 let currentData = null;
 
+// Google Maps Integration initialisieren
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.GoogleMapsIntegration && !window.googleMaps) {
+        window.googleMaps = new GoogleMapsIntegration();
+        console.log('Google Maps Integration initialized');
+    }
+});
+
 // Utility Funktionen
 function showLoading() {
     document.getElementById('loadingOverlay').classList.remove('d-none');

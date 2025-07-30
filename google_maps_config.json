@@ -1,0 +1,8 @@
+{
+  "google_maps": {
+    "api_key": "YOUR_GOOGLE_MAPS_API_KEY",
+    "enabled": true,
+    "default_zoom": 15,
+    "map_type": "roadmap"
+  }
+}
