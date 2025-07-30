@@ -15,6 +15,15 @@ import webbrowser
 import threading
 from pathlib import Path
 
+# DynDNS Manager Import (optional)
+try:
+    from dyndns_manager import init_dyndns, start_dyndns, stop_dyndns, get_dyndns_status
+    DYNDNS_AVAILABLE = True
+    print("✅ DynDNS Manager verfügbar")
+except ImportError:
+    DYNDNS_AVAILABLE = False
+    print("⚠️ DynDNS Manager nicht verfügbar")
+
 class UniversalConfig:
     """Universelle Konfiguration für alle Szenarien"""
     
@@ -297,6 +306,33 @@ def start_dual_servers(data_path, http_port, https_port, host, cert_path, key_pa
     from app import app
     
     print(f"\n📝 Starte Dual-Mode Server...")
+    
+    # DynDNS Manager initialisieren (falls verfügbar)
+    if DYNDNS_AVAILABLE:
+        try:
+            # DynDNS-Konfiguration laden
+            if os.path.exists('dyndns_config.json'):
+                with open('dyndns_config.json', 'r', encoding='utf-8') as f:
+                    dyndns_config = json.load(f)['dyndns']
+                
+                if dyndns_config.get('enabled', False):
+                    manager = init_dyndns(
+                        dyndns_config['update_url'],
+                        dyndns_config['domain'],
+                        dyndns_config.get('interval_minutes', 30)
+                    )
+                    if manager:
+                        start_dyndns()
+                        print(f"✅ DynDNS Manager gestartet: {dyndns_config['domain']} (alle {dyndns_config.get('interval_minutes', 30)} min)")
+                    else:
+                        print("⚠️ DynDNS Manager konnte nicht initialisiert werden")
+                else:
+                    print("ℹ️ DynDNS ist deaktiviert")
+            else:
+                print("⚠️ DynDNS-Konfiguration nicht gefunden")
+        except Exception as e:
+            print(f"❌ DynDNS Manager Fehler: {e}")
+    
     print("🛑 Zum Beenden: Strg+C")
     print("="*70)
     

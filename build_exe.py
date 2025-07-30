@@ -190,9 +190,10 @@ block_cipher = None
 
 # Alle Python-Dateien sammeln
 python_files = [
-    'launcher.py',
+    'universal_launcher.py',
     'app.py',
-    'datenmanager.py'
+    'datenmanager.py',
+    'dyndns_manager.py'
 ]
 
 # Daten-Ordner und -Dateien
@@ -201,6 +202,7 @@ data_files = [
     ('static', 'static'),
     ('templates', 'templates'),
     ('auth_config.json', '.'),
+    ('dyndns_config.json', '.'),
     ('requirements.txt', '.'),
     ('ssl_private_key.key', '.'),
     ('ssl_certificate.crt', '.'),
@@ -233,6 +235,8 @@ hidden_imports = [
     'shutil',
     'threading',
     'socket',
+    'requests',
+    'dyndns_manager',
 ]
 
 a = Analysis(
@@ -305,12 +309,12 @@ VSVersionInfo(
         u'040904B0',
         [StringStruct(u'CompanyName', u'Pascal\'s Hochzeitsplaner'),
          StringStruct(u'FileDescription', u'Hochzeitsplaner Web-Anwendung mit DynDNS'),
-         StringStruct(u'FileVersion', u'2.1.0.0'),
+         StringStruct(u'FileVersion', u'2.1.1.0'),
          StringStruct(u'InternalName', u'hochzeitsplaner'),
          StringStruct(u'LegalCopyright', u'© 2025 Pascal'),
          StringStruct(u'OriginalFilename', u'Hochzeitsplaner.exe'),
          StringStruct(u'ProductName', u'Hochzeitsplaner'),
-         StringStruct(u'ProductVersion', u'2.1.0.0')])
+         StringStruct(u'ProductVersion', u'2.1.1.0')])
       ]), 
     VarFileInfo([VarStruct(u'Translation', [1033, 1200])])
   ]
@@ -478,7 +482,7 @@ Bei Problemen prüfen Sie:
 - Firewall-Einstellungen (Port 8080-8082)
 - Schreibrechte im Datenverzeichnis
 
-Version: 2.1.0 (DynDNS-Version)
+Version: 2.1.1 (DynDNS-Version - Universal Launcher Fix)
 Erstellt: 2025'''
 '''
     
