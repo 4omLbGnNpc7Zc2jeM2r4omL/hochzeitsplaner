@@ -1,167 +1,128 @@
-# Hochzeitsplaner Web-Anwendung
+# 🎉 Hochzeitsplaner Web-Anwendung
 
-Eine moderne, webbasierte Anwendung zur Planung und Verwaltung von Hochzeiten.
+Eine vollständige Hochzeitsplanungs-Software mit Web-Interface, SSL-Unterstützung und Windows .exe Build.
 
-## 🎉 Features
+## ✨ Features
 
-- **Dashboard**: Übersicht über Gäste und Budget
-- **Gästeverwaltung**: Vollständige Verwaltung der Gästeliste
-- **Budgetplanung**: Automatische Budgeterstellung und -verfolgung
-- **Excel Export**: Export aller Daten nach Excel
-- **Responsive Design**: Funktioniert auf Desktop und Mobile
-- **Moderne UI**: Bootstrap 5 mit ansprechendem Design
+- 📊 **Budget-Verwaltung** - Automatische Kostenberechnung basierend auf Gästezahlen
+- 👥 **Gäste-Management** - Einladungen, RSVP, Gruppenverwaltung
+- 📅 **Zeitplan** - Hochzeitstag-Planung mit öffentlichem Gäste-Zugang
+- 💰 **Kosten-Konfiguration** - Flexible Preisgestaltung pro Person/Kategorie
+- 🔐 **Multi-User Support** - Admin/User/Gast-Rollen mit sicherer Authentifizierung
+- 🔒 **SSL-Unterstützung** - HTTPS mit echten Zertifikaten
+- 🖥️ **Windows .exe** - Standalone-Anwendung ohne Installation
 
-## 🚀 Schnellstart
+## 🚀 Automatischer Windows Build
 
-### 1. Einfacher Start (Empfohlen)
+[![Build Windows .exe](https://github.com/DEIN_USERNAME/DEIN_REPO/actions/workflows/build-exe.yml/badge.svg)](https://github.com/DEIN_USERNAME/DEIN_REPO/actions/workflows/build-exe.yml)
 
-```bash
-python3 start_web.py
+### Download der fertigen .exe:
+1. Gehe zu [Actions](../../actions)
+2. Wähle den neuesten erfolgreichen Build
+3. Lade `hochzeitsplaner-windows` herunter
+4. Entpacke und starte `Hochzeitsplaner.exe`
+
+## 🔧 Technische Details
+
+### Systemanforderungen
+- **Windows:** 10/11 (64-bit)
+- **Speicher:** ~50MB für .exe + Daten
+- **Netzwerk:** Optional für Gäste-Zugang
+
+### Architektur
+- **Backend:** Flask 3.0 (Python)
+- **Frontend:** HTML5 + JavaScript (Vanilla)
+- **Datenbank:** CSV/JSON (portable)
+- **Build:** PyInstaller für Windows .exe
+
+### Unterstützte Browser
+- Chrome/Edge (empfohlen)
+- Firefox
+- Safari
+
+## 📱 Verwendung
+
+### 1. Erste Schritte
+```
+1. Hochzeitsplaner.exe starten
+2. Datenverzeichnis auswählen (beim ersten Start)
+3. Browser öffnet sich automatisch
+4. Standard-Login: admin / hochzeit2025
 ```
 
-Das Script:
-- Prüft Python-Version
-- Installiert automatisch alle Abhängigkeiten
-- Erstellt notwendige Verzeichnisse
-- Startet die Web-Anwendung
-- Öffnet automatisch den Browser
+### 2. Gäste-Zugang
+- **URL:** `https://DEINE-IP:8443` oder `http://DEINE-IP:8080`
+- **Login:** Gäste-Code oder Email
+- **Features:** RSVP, Zeitplan-Ansicht
 
-### 2. Manueller Start
+### 3. SSL-Zertifikate (Optional)
+```
+ssl_certificate.crt  ← SSL-Zertifikat
+ssl_private_key.key  ← Privater Schlüssel
+```
+Platziere beide Dateien neben der .exe für automatische HTTPS-Aktivierung.
 
+## 🛠️ Entwicklung
+
+### Lokaler Build
 ```bash
-# Abhängigkeiten installieren
 pip install -r requirements.txt
-
-# Anwendung starten
-python3 app.py
+python working_launcher_ssl.py
 ```
 
-Dann Browser öffnen: http://localhost:5000
+### GitHub Actions Build
+Automatisch bei Push auf `main` Branch.
 
-## 📋 Voraussetzungen
+## 📋 Standardkonfiguration
 
-- Python 3.8 oder höher
-- Internetverbindung (für Bootstrap/Chart.js CDN)
+### Login-Daten
+- **Admin:** `admin` / `hochzeit2025`
+- **Gäste:** Email oder generierter Code
 
-## 📂 Projektstruktur
+### Ports
+- **HTTPS:** 8443 (bevorzugt)
+- **HTTP:** 8080 (Fallback)
 
+### Datenstruktur
 ```
-Hochzeitsbot WebVersion/
-├── app.py                 # Flask Hauptanwendung
-├── datenmanager.py        # Datenmanagement
-├── hochzeitsplaner.py     # Original Desktop-Version
-├── start_web.py           # Automatisches Setup & Start
-├── requirements.txt       # Python-Abhängigkeiten
-├── README.md              # Diese Datei
-├── data/                  # Datenverzeichnis
-├── templates/             # HTML-Templates
-│   ├── base.html
-│   ├── index.html
-│   ├── gaesteliste.html
-│   ├── budget.html
-│   └── einstellungen.html
-└── static/                # CSS & JavaScript
-    ├── css/
-    │   └── style.css
-    └── js/
-        ├── main.js
-        ├── dashboard.js
-        └── gaesteliste.js
+data/
+├── gaesteliste.json    ← Gäste und RSVP
+├── budget.json         ← Budget-Einträge  
+├── zeitplan.json       ← Hochzeitstag-Ablauf
+├── kosten_config.json  ← Preiskonfiguration
+└── settings.json       ← App-Einstellungen
 ```
 
-## 🔧 Verwendung
+## 🎯 Lokale Netzwerk-Integration
 
-### Dashboard
-- Zeigt Übersicht über Gäste und Budget
-- Interaktive Charts
-- Schnellzugriff auf alle Funktionen
-
-### Gästeverwaltung
-- Gäste hinzufügen, bearbeiten, löschen
-- Filter nach Status
-- Suchfunktion
-- Teilnahme-Tracking für verschiedene Events
-
-### Budget
-- Automatische Budgeterstellung basierend auf Gästeanzahl
-- Kategorien-basierte Verwaltung
-- Ausgaben-Tracking
-- Übersicht über verbleibendes Budget
-
-### Einstellungen
-- Namen von Braut/Bräutigam konfigurierbar
-- Budget-Parameter anpassbar
-- Excel-Export
-- System-Informationen
-
-## 📊 Excel Export
-
-Der Excel-Export erstellt eine umfassende Übersicht mit:
-- Gästeliste mit allen Details
-- Budget-Übersicht
-- Zusammenfassungen und Statistiken
-
-## 🛠 Technische Details
-
-### Backend
-- **Flask**: Web-Framework
-- **Pandas**: Datenmanagement
-- **OpenPyXL**: Excel-Export
-
-### Frontend
-- **Bootstrap 5**: UI-Framework
-- **Chart.js**: Diagramme
-- **Vanilla JavaScript**: Interaktivität
-
-### Datenbank
-- CSV-basierte Datenspeicherung
-- Keine externe Datenbank erforderlich
-
-## 🔒 Sicherheit
-
-- Läuft lokal (localhost:5000)
-- Keine Daten werden ins Internet übertragen
-- CORS aktiviert für lokale Entwicklung
-
-## 🆘 Problembehandlung
-
-### Port bereits in Verwendung
+### Domain-Setup (hochzeitsplaner.de)
 ```bash
-# Prozess finden und beenden
-lsof -ti:5000 | xargs kill -9
+# Windows: C:\Windows\System32\drivers\etc\hosts
+# macOS/Linux: /etc/hosts
+192.168.1.100  hochzeitsplaner.de
 ```
 
-### Abhängigkeiten-Probleme
-```bash
-# Pip upgraden
-python3 -m pip install --upgrade pip
+### Router-Konfiguration
+1. **Port-Weiterleitung:** 80 → 8080, 443 → 8443
+2. **DNS:** hochzeitsplaner.de → lokale IP
+3. **Firewall:** Ports 8080/8443 freigeben
 
-# Requirements neu installieren
-pip install -r requirements.txt --force-reinstall
-```
+## 🔐 Sicherheit
 
-### Browser öffnet nicht automatisch
-Manuell öffnen: http://localhost:5000
+- ✅ Session-basierte Authentifizierung
+- ✅ CSRF-Schutz
+- ✅ Rollen-basierte Zugriffskontrolle
+- ✅ SSL/TLS-Verschlüsselung
+- ✅ Sichere Passwort-Speicherung
 
-## 📝 Changelog
+## 📞 Support
 
-### Version 2.0.0
-- Komplette Web-Version
-- Responsive Design
-- Automatisches Setup
-- Moderne UI mit Bootstrap 5
+Bei Problemen:
+1. Programm neu starten
+2. Port-Konflikte prüfen (automatische Auswahl)
+3. SSL-Zertifikate validieren
+4. Firewall-Einstellungen überprüfen
 
-### Version 1.x
-- Desktop-Version mit tkinter
-- Grundlegende Funktionalität
+---
 
-## 👥 Support
-
-Bei Problemen oder Fragen:
-1. README.md durchlesen
-2. Problembehandlung versuchen
-3. Log-Ausgaben prüfen
-
-## 📄 Lizenz
-
-Dieses Projekt ist für den privaten Gebrauch bestimmt.
+**Entwickelt für die perfekte Hochzeitsplanung! 💒✨**

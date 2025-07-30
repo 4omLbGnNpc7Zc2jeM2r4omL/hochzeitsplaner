@@ -30,9 +30,25 @@ jobs:
       run: |
         copy working_launcher_ssl.py launcher.py
     
+    - name: Check SSL certificates
+      shell: cmd
+      run: |
+        if exist "ssl_certificate.crt" (
+          echo SSL-Zertifikat gefunden: ssl_certificate.crt
+        ) else (
+          echo SSL-Zertifikat nicht gefunden, erstelle Dummy-Datei
+          echo # Dummy SSL Certificate > ssl_certificate.crt
+        )
+        if exist "ssl_private_key.key" (
+          echo SSL-Schlüssel gefunden: ssl_private_key.key
+        ) else (
+          echo SSL-Schlüssel nicht gefunden, erstelle Dummy-Datei
+          echo # Dummy SSL Key > ssl_private_key.key
+        )
+    
     - name: Build executable
       run: |
-        pyinstaller --onefile --console --name Hochzeitsplaner launcher.py --add-data "data;data" --add-data "static;static" --add-data "templates;templates" --add-data "auth_config.json;." --add-data "requirements.txt;." --hidden-import flask --hidden-import flask_cors --hidden-import pandas --hidden-import openpyxl --hidden-import datenmanager
+        pyinstaller --onefile --console --name Hochzeitsplaner launcher.py --add-data "data;data" --add-data "static;static" --add-data "templates;templates" --add-data "auth_config.json;." --add-data "requirements.txt;." --add-data "ssl_certificate.crt;." --add-data "ssl_private_key.key;." --hidden-import flask --hidden-import flask_cors --hidden-import pandas --hidden-import openpyxl --hidden-import datenmanager
     
     - name: Create distribution
       shell: cmd

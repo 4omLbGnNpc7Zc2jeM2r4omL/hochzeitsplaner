@@ -3,6 +3,7 @@
 """
 SSL-Launcher für Hochzeitsplaner Web-Anwendung
 Mit echten SSL-Zertifikaten von Ionos
+Dual-Domain Support: hochzeitsplaner.de (lokal) + pascalundkäthe-heiraten.de (Internet)
 """
 import json
 import os
@@ -27,7 +28,7 @@ class SimpleConfig:
         default_config = {
             "data_directory": "",
             "port": 8080,
-            "host": "127.0.0.1",
+            "host": "0.0.0.0",  # Erlaube Zugriff von allen Netzwerk-Interfaces
             "ssl_enabled": True,  # SSL standardmäßig aktiviert
             "auto_open_browser": True,
             "first_run": True
@@ -57,9 +58,13 @@ class SimpleConfig:
     
     def setup_data_directory(self):
         """Richtet Datenverzeichnis ein"""
-        # Aktueller Pfad
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        application_path = script_dir
+        # Aktueller Pfad - korrekte Erkennung für PyInstaller auf Windows
+        if getattr(sys, 'frozen', False):
+            # Wenn als .exe ausgeführt (PyInstaller)
+            application_path = os.path.dirname(sys.executable)
+        else:
+            # Normal als Python-Script
+            application_path = os.path.dirname(os.path.abspath(__file__))
         
         # Bei ersten Start: Datenverzeichnis konfigurieren
         if self.config.get('first_run', True) or not self.config.get('data_directory'):
@@ -123,9 +128,15 @@ class SimpleConfig:
 
 def check_ssl_certificates():
     """Prüft SSL-Zertifikate und gibt Status zurück"""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # Bestimme Verzeichnis korrekt für PyInstaller und normale Ausführung
+    if getattr(sys, 'frozen', False):
+        # Wenn als .exe ausgeführt (PyInstaller)
+        script_dir = os.path.dirname(sys.executable)
+    else:
+        # Normal als Python-Script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
     
-    # SSL-Dateipfade
+    # SSL-Dateipfade - os.path.join funktioniert auf allen Plattformen
     ssl_cert_path = os.path.join(script_dir, 'ssl_certificate.crt')
     ssl_key_path = os.path.join(script_dir, 'ssl_private_key.key')
     
@@ -150,7 +161,9 @@ def print_banner():
     """Zeigt Banner"""
     print("🎉" + "="*60 + "🎉")
     print("           HOCHZEITSPLANER WEB-ANWENDUNG")
-    print("              SSL-Version mit Ionos-Zertifikat")
+    print("          SSL-Version mit Dual-Domain-Support")
+    print("     🌐 Lokal: hochzeitsplaner.de")
+    print("     🌍 Internet: pascalundkäthe-heiraten.de")
     print("🎉" + "="*60 + "🎉")
     print()
 
@@ -167,6 +180,17 @@ def find_available_port(start_port=8080):
             continue
     
     return start_port
+
+def get_local_ip():
+    """Ermittelt die lokale IP-Adresse"""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+        return local_ip
+    except Exception:
+        return "192.168.1.xxx"
 
 def open_browser_delayed(url, delay=3):
     """Öffnet Browser nach Verzögerung"""
@@ -214,21 +238,38 @@ def main():
         print(f"⚠️  Port {preferred_port} belegt, verwende Port {port}")
     
     # Protocol und URL bestimmen
-    host = config.get('host', '127.0.0.1')
+    host = config.get('host', '0.0.0.0')
     use_ssl = ssl_available and config.get('ssl_enabled', True)
     protocol = "https" if use_ssl else "http"
-    url = f"{protocol}://{host}:{port}"
+    url = f"{protocol}://localhost:{port}"  # Für Browser-Öffnung localhost verwenden
+    
+    # Lokale IP für Ausgabe
+    local_ip = get_local_ip()
     
     print(f"\n🚀 Starte Server...")
     print(f"📂 Datenverzeichnis: {data_path}")
-    print(f"🌐 Server-URL: {url}")
+    print(f"🖥️  Server läuft auf allen Netzwerk-Interfaces")
+    print()
     
     if use_ssl:
         print("🔒 SSL aktiviert - Sicherer HTTPS-Modus")
-        print("   🏠 Intern erreichbar: https://localhost:{}".format(port))
-        print("   🌍 Domain-Zugriff: https://pascalundkäthe-heiraten.de:{}".format(port))
+        print("📍 ZUGRIFF-URLS:")
+        print(f"   🏠 Intern erreichbar: https://localhost:{port}")
+        print(f"   🌐 Lokal im Netzwerk: https://hochzeitsplaner.de:{port}")
+        print(f"   🌍 Internet-Domain: https://pascalundkäthe-heiraten.de:{port}")
+        print(f"   📱 Direkte IP: https://{local_ip}:{port}")
     else:
         print("⚠️  HTTP-Modus (unverschlüsselt)")
+        print("📍 ZUGRIFF-URLS:")
+        print(f"   🏠 Intern erreichbar: http://localhost:{port}")
+        print(f"   🌐 Lokal im Netzwerk: http://hochzeitsplaner.de:{port}")
+        print(f"   🌍 Internet-Domain: http://pascalundkäthe-heiraten.de:{port}")
+        print(f"   📱 Direkte IP: http://{local_ip}:{port}")
+    
+    print()
+    print("💡 DOMAIN-KONFIGURATION:")
+    print("   🏠 Für lokale Domain: python configure_network.py ausführen")
+    print("   🌍 Für Internet-Domain: Router + DNS konfigurieren")
     
     # Browser-Thread starten
     if config.get('auto_open_browser', True):

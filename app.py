@@ -32,7 +32,14 @@ def get_data_directory():
         return data_path
     
     # Fallback: data-Verzeichnis neben der app.py
-    app_dir = os.path.dirname(os.path.abspath(__file__))
+    # Korrekte Pfad-Erkennung für PyInstaller auf Windows
+    if getattr(sys, 'frozen', False):
+        # Wenn als .exe ausgeführt (PyInstaller)
+        app_dir = os.path.dirname(sys.executable)
+    else:
+        # Normal als Python-Script
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+    
     return os.path.join(app_dir, 'data')
 
 # Datenverzeichnis setzen
@@ -42,7 +49,15 @@ DATA_DIR = get_data_directory()
 def load_auth_config():
     """Lädt die Authentication-Konfiguration"""
     try:
-        config_file = os.path.join(os.path.dirname(__file__), 'auth_config.json')
+        # Korrekte Pfad-Erkennung für PyInstaller auf Windows
+        if getattr(sys, 'frozen', False):
+            # Wenn als .exe ausgeführt (PyInstaller)
+            config_dir = os.path.dirname(sys.executable)
+        else:
+            # Normal als Python-Script
+            config_dir = os.path.dirname(__file__)
+        
+        config_file = os.path.join(config_dir, 'auth_config.json')
         if os.path.exists(config_file):
             with open(config_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
@@ -235,8 +250,14 @@ def require_role(allowed_roles):
         return decorated_function
     return decorator
 
-# Aktueller Pfad für Import
-current_dir = os.path.dirname(os.path.abspath(__file__))
+# Aktueller Pfad für Import - korrekte Erkennung für PyInstaller auf Windows
+if getattr(sys, 'frozen', False):
+    # Wenn als .exe ausgeführt (PyInstaller)
+    current_dir = os.path.dirname(sys.executable)
+else:
+    # Normal als Python-Script
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+
 sys.path.append(current_dir)
 
 try:

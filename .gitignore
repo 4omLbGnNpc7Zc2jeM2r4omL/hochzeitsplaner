@@ -1,23 +1,99 @@
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.env
+# =============================================================================
+# Hochzeitsplaner .gitignore - Nur Build-relevante Dateien committen
+# =============================================================================
 
-# PyInstaller
+# Python Cache und Build-Artefakte
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
 build/
 dist/
+*.egg-info/
+.pytest_cache/
+
+# PyInstaller Build-Ausgaben
 *.spec
+Distribution/
+
+# Lokale Konfigurationsdateien
+launcher_config.json
+hochzeitsplaner_config.json
+cookies.txt
+app_debug.log
+
+# Backup-Dateien
+*.backup
+app_backup.py
+app.py.backup
+
+# SSL-Zertifikate (Sicherheit!)
+*.crt
+*.key
+*.pem
+*.p12
+*.cer
+
+# Lokale Build-Scripts (nicht für GitHub)
+BUILD.bat
+BUILD.ps1
+BUILD_WINDOWS.bat
+build.sh
+build_exe.py
+build_local.py
+cross_platform_build.py
+fix_build.py
+simple_build.py
+github_hilfe.sh
+setup_github.sh
+
+# Lokale Launcher-Varianten
 launcher.py
 simple_launcher.py
+ssl_launcher.py
 windows_launcher.py
+working_launcher.py
+
+# Test und Debug-Dateien
+test_*.py
+debug_*.py
+
+# Dokumentation (lokal)
+BUILD_README.md
+WINDOWS_BUILD_ANLEITUNG.md
+WINDOWS_PATH_COMPATIBILITY.md
+SSL_INTEGRATION_SUMMARY.md
+JETZT_STARTEN.md
+version_info.txt
+
+# Migration und Update-Scripts
+migrate_*.py
+update_*.py
+remove_*.py
+create_*.py
+
+# macOS
+.DS_Store
+
+# Ionos-spezifische Dateien
+Ionos
 
 # IDE
 .vscode/
+
+# =============================================================================
+# Für GitHub Build benötigt (NICHT ignoriert):
+# - working_launcher_ssl.py (wird zu launcher.py kopiert)
+# - app.py
+# - datenmanager.py  
+# - requirements.txt
+# - data/
+# - static/
+# - templates/
+# - auth_config.json
+# - .github/
+# - README.md
+# =============================================================================
 .idea/
 *.swp
 *.swo
