@@ -270,8 +270,9 @@ def main():
                 print(f"      → https://[{addr}]:{https_port}")
             print(f"      → https://pascalundkäthe-heiraten.de:{https_port} (nach DNS-Update)")
         else:
-            print("      💡 Fritz!Box: Portweiterleitung Port 443→8443 konfigurieren")
-            print(f"      → https://pascalundkäthe-heiraten.de")
+            print("      💡 Fritz!Box: IPv6 Portweiterleitung Port 8443 konfigurieren")
+            print(f"      → https://pascalundkäthe-heiraten.de:{https_port}")
+            print("      ⚡ Nur HTTPS extern verfügbar (IPv4 Portweiterleitung nicht möglich)")
         
         # Browser öffnen für lokalen Zugriff
         if config.get('auto_open_browser', True):
