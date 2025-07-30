@@ -3,6 +3,8 @@ name: Build Windows .exe
 on:
   push:
     branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -19,36 +21,37 @@ jobs:
       with:
         python-version: '3.11'
     
-    - name: Install core dependencies
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install Flask==3.0.0 Flask-CORS==4.0.0 pandas==2.1.4 openpyxl==3.1.2 pyinstaller
+        pip install Flask==3.0.0 Flask-CORS==4.0.0 pandas==2.1.4 openpyxl==3.1.2 pyinstaller==6.14.2
         
-    - name: Copy SSL certificate files and prepare launcher
+    - name: Prepare launcher file
       run: |
-        # Kopiere SSL-Dateien (falls vorhanden - andernfalls wird ohne SSL gebaut)
-        if (Test-Path "ssl_private_key.key") { Copy-Item "ssl_private_key.key" "." }
-        if (Test-Path "ssl_certificate.crt") { Copy-Item "ssl_certificate.crt" "." }
-        
-        # Verwende den SSL-fähigen Launcher
-        Copy-Item "working_launcher_ssl.py" "launcher.py"
+        copy working_launcher_ssl.py launcher.py
     
     - name: Build executable
       run: |
-        pyinstaller --onefile --console --name Hochzeitsplaner launcher.py --add-data "data;data" --add-data "static;static" --add-data "templates;templates" --add-data "ssl_private_key.key;." --hidden-import flask --hidden-import flask_cors --hidden-import pandas --hidden-import openpyxl
+        pyinstaller --onefile --console --name Hochzeitsplaner launcher.py --add-data "data;data" --add-data "static;static" --add-data "templates;templates" --add-data "auth_config.json;." --add-data "requirements.txt;." --hidden-import flask --hidden-import flask_cors --hidden-import pandas --hidden-import openpyxl --hidden-import datenmanager
     
     - name: Create distribution
       shell: cmd
       run: |
         if not exist Distribution mkdir Distribution
         copy "dist\Hochzeitsplaner.exe" "Distribution\"
-        echo # Hochzeitsplaner > "Distribution\README.txt"
-        echo Doppelklick auf Hochzeitsplaner.exe >> "Distribution\README.txt"
-        echo Login: admin / hochzeit2025 >> "Distribution\README.txt"
+        echo # Hochzeitsplaner Windows .exe > "Distribution\README.txt"
+        echo. >> "Distribution\README.txt"
+        echo Doppelklick auf Hochzeitsplaner.exe zum Starten >> "Distribution\README.txt"
+        echo. >> "Distribution\README.txt"
+        echo Standard-Login: >> "Distribution\README.txt"
+        echo Benutzername: admin >> "Distribution\README.txt"
+        echo Passwort: hochzeit2025 >> "Distribution\README.txt"
+        echo. >> "Distribution\README.txt"
+        echo SSL-Zertifikate werden automatisch erkannt falls vorhanden >> "Distribution\README.txt"
     
     - name: Upload Windows executable
       uses: actions/upload-artifact@v4
       with:
-        name: Hochzeitsplaner-Windows
+        name: hochzeitsplaner-windows
         path: Distribution/
-        retention-days: 30
+        retention-days: 90
