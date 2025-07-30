@@ -10,9 +10,11 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 15
     
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
     
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -22,30 +24,51 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt requests
-        pip install pyinstaller
+        pip install Flask==3.0.0 Flask-CORS==4.0.0 pandas==2.1.4 openpyxl==3.1.2 pyinstaller==6.14.2 requests
+        
+    - name: Prepare launcher file
+      run: |
+        copy universal_launcher.py launcher.py
     
-    - name: Build EXE with PyInstaller
+    - name: Check SSL certificates
       shell: cmd
       run: |
-        echo Building Hochzeitsplaner.exe using build_exe.py...
-        python build_exe.py
-    
-    - name: Verify distribution
-      shell: cmd
-      run: |
-        echo Prüfe erstellte Distribution...
-        dir Distribution
-        if exist "Distribution\Hochzeitsplaner.exe" (
-          echo ✅ Hochzeitsplaner.exe erfolgreich erstellt
+        if exist "ssl_certificate.crt" (
+          echo SSL-Zertifikat gefunden: ssl_certificate.crt
         ) else (
-          echo ❌ Hochzeitsplaner.exe nicht gefunden
-          exit 1
+          echo SSL-Zertifikat nicht gefunden, erstelle Dummy-Datei
+          echo # Dummy SSL Certificate > ssl_certificate.crt
         )
-
-    - name: Upload distribution artifact
+        if exist "ssl_private_key.key" (
+          echo SSL-Schlüssel gefunden: ssl_private_key.key
+        ) else (
+          echo SSL-Schlüssel nicht gefunden, erstelle Dummy-Datei
+          echo # Dummy SSL Key > ssl_private_key.key
+        )
+    
+    - name: Build executable
+      run: |
+        pyinstaller --onefile --console --name Hochzeitsplaner launcher.py --add-data "data;data" --add-data "static;static" --add-data "templates;templates" --add-data "auth_config.json;." --add-data "dyndns_config.json;." --add-data "dyndns_manager.py;." --add-data "ionos_dyndns_update.py;." --add-data "requirements.txt;." --add-data "ssl_certificate.crt;." --add-data "ssl_private_key.key;." --hidden-import flask --hidden-import flask_cors --hidden-import pandas --hidden-import openpyxl --hidden-import requests --hidden-import datenmanager --hidden-import dyndns_manager
+    
+    - name: Create distribution
+      shell: cmd
+      run: |
+        if not exist Distribution mkdir Distribution
+        copy "dist\Hochzeitsplaner.exe" "Distribution\"
+        echo # Hochzeitsplaner Windows .exe > "Distribution\README.txt"
+        echo. >> "Distribution\README.txt"
+        echo Doppelklick auf Hochzeitsplaner.exe zum Starten >> "Distribution\README.txt"
+        echo. >> "Distribution\README.txt"
+        echo Standard-Login: >> "Distribution\README.txt"
+        echo Benutzername: admin >> "Distribution\README.txt"
+        echo Passwort: hochzeit2025 >> "Distribution\README.txt"
+        echo. >> "Distribution\README.txt"
+        echo SSL-Zertifikate werden automatisch erkannt falls vorhanden >> "Distribution\README.txt"
+        echo DynDNS Manager fuer automatische Domain-Updates integriert >> "Distribution\README.txt"
+    
+    - name: Upload Windows executable
       uses: actions/upload-artifact@v4
       with:
-        name: hochzeitsplaner-windows-exe
+        name: hochzeitsplaner-windows
         path: Distribution/
-        retention-days: 7
+        retention-days: 90
