@@ -28,7 +28,7 @@ class SimpleConfig:
         """Lädt Konfiguration aus JSON-Datei"""
         default_config = {
             "data_directory": "",
-            "port": 8080,
+            "port": 8443,  # Standard-Port für SSL + Fritz!Box Portweiterleitung
             "host": "0.0.0.0",  # Erlaube Zugriff von allen Netzwerk-Interfaces
             "ssl_enabled": True,  # SSL standardmäßig aktiviert
             "auto_open_browser": True,
@@ -213,9 +213,9 @@ def print_banner():
     print("🎉" + "="*60 + "🎉")
     print()
 
-def find_available_port(start_port=8080):
-    """Findet einen verfügbaren Port"""
-    ports_to_try = [start_port, 8443, 8081, 8082, 5001, 5002, 3000, 3001]
+def find_available_port(start_port=8443):
+    """Findet einen verfügbaren Port - bevorzugt 8443 für Fritz!Box"""
+    ports_to_try = [8443, start_port, 8080, 8081, 8082, 5001, 5002, 3000, 3001]
     
     for port in ports_to_try:
         try:
@@ -225,7 +225,7 @@ def find_available_port(start_port=8080):
         except OSError:
             continue
     
-    return start_port
+    return 8443  # Fallback auf 8443
 
 def get_local_ip():
     """Ermittelt die lokale IP-Adresse"""
@@ -267,6 +267,8 @@ def configure_domains_automatically():
         except Exception:
             local_ip = "192.168.1.100"
         
+        print(f"🏠 Lokale IP-Adresse: {local_ip}")
+        
         # Hosts-Datei-Pfad je nach Betriebssystem
         if platform.system() == "Windows":
             hosts_file = r"C:\Windows\System32\drivers\etc\hosts"
@@ -285,20 +287,28 @@ def configure_domains_automatically():
             admin_rights = os.geteuid() == 0
         
         if not admin_rights:
-            print("⚠️  Keine Administrator-Rechte für automatische Konfiguration")
-            print("📋 Manuelle Domain-Konfiguration erforderlich:")
-            print(f"   1. Öffne als Administrator: {hosts_file}")
-            print(f"   2. Füge hinzu: {local_ip}  hochzeitsplaner.de")
-            print(f"   3. Füge hinzu: {local_ip}  www.hochzeitsplaner.de")
-            print(f"   4. Füge hinzu: {local_ip}  pascalundkäthe-heiraten.de")
-            print(f"   5. Füge hinzu: {local_ip}  www.pascalundkäthe-heiraten.de")
-            print("   6. Speichern und neu starten")
-            print("\n🎯 Fritz!Box-Konfiguration (Optional):")
+            print("⚠️  Keine Administrator-Rechte für automatische Domain-Konfiguration")
+            print("\n📋 MANUELLE DOMAIN-KONFIGURATION:")
+            print(f"   1. Öffne Terminal/Eingabeaufforderung als Administrator")
+            if platform.system() == "Windows":
+                print(f"   2. Führe aus: echo {local_ip}  hochzeitsplaner.de >> {hosts_file}")
+                print(f"   3. Führe aus: echo {local_ip}  www.hochzeitsplaner.de >> {hosts_file}")
+                print(f"   4. Führe aus: echo {local_ip}  pascalundkäthe-heiraten.de >> {hosts_file}")
+                print(f"   5. Führe aus: echo {local_ip}  www.pascalundkäthe-heiraten.de >> {hosts_file}")
+            else:
+                print(f"   2. Führe aus: sudo sh -c 'echo \"{local_ip}  hochzeitsplaner.de\" >> {hosts_file}'")
+                print(f"   3. Führe aus: sudo sh -c 'echo \"{local_ip}  www.hochzeitsplaner.de\" >> {hosts_file}'")
+                print(f"   4. Führe aus: sudo sh -c 'echo \"{local_ip}  pascalundkäthe-heiraten.de\" >> {hosts_file}'")
+                print(f"   5. Führe aus: sudo sh -c 'echo \"{local_ip}  www.pascalundkäthe-heiraten.de\" >> {hosts_file}'")
+            print("   6. Hochzeitsplaner neu starten")
+            
+            print("\n🎯 ALTERNATIVE: Fritz!Box-DNS-Konfiguration:")
             print("   → Fritz!Box Web-Interface: fritz.box")
-            print("   → Heimnetz → Netzwerk → Netzwerkeinstellungen")
-            print("   → DNS-Server → 'Andere DNS-Server verwenden' deaktivieren")
-            print("   → Lokale DNS-Abfragen → 'DNS-Rebind-Protection' für")
-            print("     'hochzeitsplaner.de' und 'pascalundkäthe-heiraten.de' deaktivieren")
+            print("   → Heimnetz → Netzwerk → Netzwerkeinstellungen") 
+            print("   → 'Lokale DNS-Abfragen' → 'DNS-Rebind-Protection deaktivieren' für:")
+            print("     - hochzeitsplaner.de")
+            print("     - pascalundkäthe-heiraten.de")
+            print("   → ODER: Unter 'Lokale DNS-Einträge' beide Domains hinzufügen")
             return False
         
         # Hosts-Datei lesen
@@ -314,21 +324,30 @@ def configure_domains_automatically():
                 return False
         
         # Prüfe ob Einträge bereits existieren
-        if "hochzeitsplaner.de" in content and "pascalundkäthe-heiraten.de" in content:
-            print("✅ Domains bereits konfiguriert")
+        if f"{local_ip}  hochzeitsplaner.de" in content and f"{local_ip}  pascalundkäthe-heiraten.de" in content:
+            print("✅ Domains bereits korrekt konfiguriert")
             return True
         
-        # Neue Einträge hinzufügen
-        new_entries = f"""
-# Hochzeitsplaner Dual-Domain-Konfiguration
-{local_ip}  hochzeitsplaner.de
-{local_ip}  www.hochzeitsplaner.de
-{local_ip}  pascalundkäthe-heiraten.de
-{local_ip}  www.pascalundkäthe-heiraten.de
-"""
+        # Alte Einträge entfernen falls vorhanden
+        lines = content.splitlines()
+        new_lines = []
+        for line in lines:
+            if not any(domain in line for domain in ['hochzeitsplaner.de', 'pascalundkäthe-heiraten.de']):
+                new_lines.append(line)
         
-        with open(hosts_file, 'a', encoding='utf-8') as f:
-            f.write(new_entries)
+        # Neue Einträge hinzufügen
+        new_lines.extend([
+            "",
+            "# Hochzeitsplaner Dual-Domain-Konfiguration",
+            f"{local_ip}  hochzeitsplaner.de",
+            f"{local_ip}  www.hochzeitsplaner.de", 
+            f"{local_ip}  pascalundkäthe-heiraten.de",
+            f"{local_ip}  www.pascalundkäthe-heiraten.de"
+        ])
+        
+        # Zurückschreiben
+        with open(hosts_file, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(new_lines))
         
         print("✅ Domain-Konfiguration erfolgreich!")
         print(f"🌐 hochzeitsplaner.de → {local_ip}")
@@ -338,6 +357,29 @@ def configure_domains_automatically():
     except Exception as e:
         print(f"❌ Fehler bei Domain-Konfiguration: {e}")
         return False
+
+def test_domain_connectivity(local_ip, port):
+    """Testet ob die Domain-Konfiguration funktioniert"""
+    print("\n🔍 Teste Domain-Konnektivität...")
+    
+    # Teste Domain-Auflösung
+    import subprocess
+    try:
+        # Teste hochzeitsplaner.de
+        result = subprocess.run(['ping', '-c', '1', 'hochzeitsplaner.de'], 
+                              capture_output=True, text=True, timeout=5)
+        if local_ip in result.stdout:
+            print("✅ hochzeitsplaner.de zeigt auf lokale IP")
+            domain_works = True
+        else:
+            print("❌ hochzeitsplaner.de zeigt NICHT auf lokale IP")
+            print("   → Domain zeigt auf Internet-Server, nicht lokal")
+            domain_works = False
+    except Exception:
+        print("❌ Domain-Test fehlgeschlagen")
+        domain_works = False
+    
+    return domain_works
 
 def main():
     print_banner()
@@ -355,22 +397,27 @@ def main():
     ssl_available, cert_path, key_path = check_ssl_certificates()
     
     # Domain-Konfiguration automatisch durchführen
-    configure_domains_automatically()
+    domain_configured = configure_domains_automatically()
     
     # Umgebung vorbereiten
     os.environ['DATA_PATH'] = str(data_path)
     os.environ['FLASK_ENV'] = 'production'
     
-    # Port finden
-    if ssl_available:
-        # Für HTTPS bevorzugt Port 8443 oder 8080
-        preferred_port = 8443 if config.get('port', 8080) == 8080 else config.get('port', 8080)
-    else:
-        preferred_port = config.get('port', 8080)
+    # Port finden - FEST auf 8443 für Fritz!Box Portweiterleitung
+    port = 8443  # Fester Port für Fritz!Box Konfiguration
     
-    port = find_available_port(preferred_port)
-    if port != preferred_port:
-        print(f"⚠️  Port {preferred_port} belegt, verwende Port {port}")
+    # Prüfe ob Port verfügbar ist
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('localhost', port))
+        print(f"✅ Port {port} ist verfügbar")
+    except OSError:
+        print(f"⚠️  WARNUNG: Port {port} ist bereits belegt!")
+        print("🔧 Mögliche Lösungen:")
+        print("   • Beenden Sie andere Anwendungen auf Port 8443")
+        print("   • Oder ändern Sie die Fritz!Box Portweiterleitung")
+        print(f"   • Der Server wird trotzdem versuchen auf Port {port} zu starten")
+        print()
     
     # Protocol und URL bestimmen
     host = config.get('host', '0.0.0.0')
@@ -381,6 +428,12 @@ def main():
     # Lokale IP für Ausgabe
     local_ip = get_local_ip()
     
+    # Domain-Konnektivität testen (nur wenn SSL verfügbar)
+    if use_ssl and domain_configured:
+        domain_works = test_domain_connectivity(local_ip, port)
+    else:
+        domain_works = False
+    
     print(f"\n🚀 Starte Server...")
     print(f"📂 Datenverzeichnis: {data_path}")
     print(f"🖥️  Server läuft auf allen Netzwerk-Interfaces")
@@ -388,23 +441,39 @@ def main():
     
     if use_ssl:
         print("🔒 SSL aktiviert - Sicherer HTTPS-Modus")
-        print("📍 ZUGRIFF-URLS:")
-        print(f"   🏠 Intern erreichbar: https://localhost:{port}")
-        print(f"   🌐 Lokal im Netzwerk: https://hochzeitsplaner.de:{port}")
-        print(f"   🌍 Internet-Domain: https://pascalundkäthe-heiraten.de:{port}")
+        print("📍 ZUGRIFF-URLS (in Prioritätsreihenfolge):")
+        print(f"   🏠 Lokal (immer funktioniert): https://localhost:{port}")
         print(f"   📱 Direkte IP: https://{local_ip}:{port}")
+        
+        if domain_works:
+            print(f"   🌐 Lokale Domain: https://hochzeitsplaner.de:{port}")
+            print(f"   🌍 Internet Domain: https://pascalundkäthe-heiraten.de:{port}")
+            print("   🚀 Fritz!Box Portweiterleitung:")
+            print("     → Von Internet: https://pascalundkäthe-heiraten.de")
+            print("     → Lokal: https://hochzeitsplaner.de")
+        else:
+            print(f"   ⚠️  Domain nicht verfügbar: https://hochzeitsplaner.de:{port}")
+            print(f"   ⚠️  Domain nicht verfügbar: https://pascalundkäthe-heiraten.de:{port}")
+            print("   💡 Siehe Domain-Konfiguration oben für Lösung")
     else:
         print("⚠️  HTTP-Modus (unverschlüsselt)")
         print("📍 ZUGRIFF-URLS:")
-        print(f"   🏠 Intern erreichbar: http://localhost:{port}")
-        print(f"   🌐 Lokal im Netzwerk: http://hochzeitsplaner.de:{port}")
-        print(f"   🌍 Internet-Domain: http://pascalundkäthe-heiraten.de:{port}")
+        print(f"   🏠 Lokal: http://localhost:{port}")
         print(f"   📱 Direkte IP: http://{local_ip}:{port}")
+        if domain_works:
+            print(f"   🌐 Lokale Domain: http://hochzeitsplaner.de:{port}")
+            print(f"   🌍 Internet Domain: http://pascalundkäthe-heiraten.de:{port}")
     
     print()
-    print("💡 DOMAIN-KONFIGURATION:")
-    print("   🏠 Für lokale Domain: python configure_network.py ausführen")
-    print("   🌍 Für Internet-Domain: Router + DNS konfigurieren")
+    if not domain_works:
+        print("💡 DOMAIN-KONFIGURATION:")
+        print("   ⚠️  Domains zeigen auf Internet-Server (nicht lokal)")
+        print("   🔧 Lösung: Hosts-Datei konfigurieren oder Fritz!Box DNS anpassen")
+        print("   📖 Siehe detaillierte Anweisungen oben")
+        if platform.system() == "Darwin":  # macOS
+            print("   🚀 Schnell-Setup: ./setup_domains_macos.sh ausführen")
+    else:
+        print("✅ DOMAIN-KONFIGURATION: Erfolgreich eingerichtet")
     
     # Browser-Thread starten
     if config.get('auto_open_browser', True):
