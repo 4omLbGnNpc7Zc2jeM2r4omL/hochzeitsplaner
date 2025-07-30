@@ -1,0 +1,40 @@
+name: Simple Windows Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install pyinstaller
+        pip install Flask==3.0.0
+        pip install Flask-CORS==4.0.0  
+        pip install pandas==2.1.4
+        pip install openpyxl==3.1.2
+    
+    - name: Build exe
+      run: |
+        pyinstaller --onefile simple_launcher.py --name Hochzeitsplaner --add-data "data;data" --add-data "static;static" --add-data "templates;templates"
+    
+    - name: Package
+      run: |
+        mkdir Distribution
+        copy dist\Hochzeitsplaner.exe Distribution\
+        echo Doppelklick auf Hochzeitsplaner.exe > Distribution\START.txt
+    
+    - name: Upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: Hochzeitsplaner-Simple
+        path: Distribution/
