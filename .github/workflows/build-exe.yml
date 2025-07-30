@@ -10,9 +10,11 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 20
     
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
     
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -22,24 +24,52 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install Flask==3.0.0
+        pip install Flask-CORS==4.0.0
+        pip install pandas==2.1.4
+        pip install openpyxl==3.1.2
         pip install pyinstaller
     
-    - name: Build .exe
+    - name: Create simple launcher
       run: |
-        python build_exe.py
+        echo 'import sys, os, webbrowser, time, threading, socket' > launcher.py
+        echo 'if getattr(sys, "frozen", False): os.chdir(os.path.dirname(sys.executable))' >> launcher.py
+        echo 'def find_port():' >> launcher.py
+        echo '    for port in [8080, 8081, 8082]: ' >> launcher.py
+        echo '        try:' >> launcher.py
+        echo '            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:' >> launcher.py
+        echo '                s.bind(("localhost", port))' >> launcher.py
+        echo '                return port' >> launcher.py
+        echo '        except OSError: continue' >> launcher.py
+        echo '    return 8080' >> launcher.py
+        echo 'def main():' >> launcher.py
+        echo '    print("Hochzeitsplaner startet...")' >> launcher.py
+        echo '    port = find_port()' >> launcher.py
+        echo '    threading.Thread(target=lambda: (time.sleep(3), webbrowser.open(f"http://localhost:{port}")), daemon=True).start()' >> launcher.py
+        echo '    try:' >> launcher.py
+        echo '        from app import app' >> launcher.py
+        echo '        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)' >> launcher.py
+        echo '    except Exception as e:' >> launcher.py
+        echo '        print(f"Fehler: {e}")' >> launcher.py
+        echo '        input("Enter zum Beenden...")' >> launcher.py
+        echo 'if __name__ == "__main__": main()' >> launcher.py
     
-    - name: Upload .exe artifact
+    - name: Build exe
+      run: |
+        pyinstaller --onefile --name Hochzeitsplaner --add-data "data;data" --add-data "static;static" --add-data "templates;templates" --add-data "auth_config.json;." launcher.py
+    
+    - name: Prepare distribution
+      run: |
+        mkdir Distribution
+        copy "dist\Hochzeitsplaner.exe" "Distribution\"
+        echo # Hochzeitsplaner Windows > "Distribution\README.txt"
+        echo. >> "Distribution\README.txt"
+        echo Doppelklick auf Hochzeitsplaner.exe zum Starten >> "Distribution\README.txt"
+        echo Login: admin / hochzeit2025 >> "Distribution\README.txt"
+    
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: Hochzeitsplaner-Windows
         path: Distribution/
         retention-days: 30
-    
-    - name: Create Release (if tag)
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: Distribution/Hochzeitsplaner.exe
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
