@@ -17,20 +17,29 @@ from pathlib import Path
 
 # DynDNS Manager Import (optional)
 try:
-    # Prüfe zuerst ob die Datei existiert
-    dyndns_manager_path = Path(__file__).parent / "dyndns_manager.py"
-    if dyndns_manager_path.exists():
+    # Prüfe zuerst ob die Datei existiert (verschiedene Ansätze für verschiedene Kontexte)
+    dyndns_manager_exists = False
+    
+    # Methode 1: Relative zum aktuellen Arbeitsverzeichnis
+    if Path("dyndns_manager.py").exists():
+        dyndns_manager_exists = True
+        print(f"✅ dyndns_manager.py gefunden: {Path('dyndns_manager.py').absolute()}")
+    
+    # Methode 2: Relative zum Script (falls __file__ verfügbar)
+    elif '__file__' in globals():
+        dyndns_manager_path = Path(__file__).parent / "dyndns_manager.py"
+        if dyndns_manager_path.exists():
+            dyndns_manager_exists = True
+            print(f"✅ dyndns_manager.py gefunden: {dyndns_manager_path}")
+    
+    if dyndns_manager_exists:
         from dyndns_manager import init_dyndns, start_dyndns, stop_dyndns, get_dyndns_status
         DYNDNS_AVAILABLE = True
-        print("✅ DynDNS Manager verfügbar")
+        print("✅ DynDNS Manager erfolgreich importiert")
     else:
         print("⚠️ dyndns_manager.py Datei nicht gefunden")
-        DYNDNS_AVAILABLE = False
-        # Fallback-Funktionen definieren
-        def init_dyndns(): pass
-        def start_dyndns(): pass
-        def stop_dyndns(): pass
-        def get_dyndns_status(): return {"status": "not_available"}
+        raise ImportError("dyndns_manager.py nicht gefunden")
+        
 except ImportError as e:
     print(f"⚠️ DynDNS Manager Import fehlgeschlagen: {e}")
     DYNDNS_AVAILABLE = False
