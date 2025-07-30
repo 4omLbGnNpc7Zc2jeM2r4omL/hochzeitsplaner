@@ -2351,6 +2351,10 @@ class HochzeitsDatenManager:
         except Exception as e:
             print(f"Fehler beim Speichern der Einstellungen: {e}")
     
+    def get_settings(self) -> dict:
+        """Gibt alle Einstellungen zurück"""
+        return self.settings.copy()
+    
     def set_wedding_date(self, date_str: str, time_str: str = "15:00") -> bool:
         """Setzt das Hochzeitsdatum"""
         try:

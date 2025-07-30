@@ -1080,7 +1080,17 @@ def budget():
 @require_auth
 @require_role(['admin', 'user'])
 def einstellungen():
-    return render_template('einstellungen.html')
+    try:
+        # Lade aktuelle Einstellungen
+        settings = data_manager.get_settings()
+        
+        # Hole brautpaar_namen für den Titel
+        brautpaar_namen = settings.get('brautpaar_namen', 'Käthe & Pascal')
+        
+        return render_template('einstellungen.html', brautpaar_namen=brautpaar_namen, settings=settings)
+    except Exception as e:
+        app.logger.error(f"Fehler in einstellungen(): {e}")
+        return render_template('error.html', error_message=f"Fehler beim Laden der Einstellungen: {str(e)}")
 
 @app.route('/api/dyndns/status')
 @require_auth
