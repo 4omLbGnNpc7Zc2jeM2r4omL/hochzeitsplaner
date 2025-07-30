@@ -1,0 +1,51 @@
+name: Build Windows .exe
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt requests
+        pip install pyinstaller
+    
+    - name: Build EXE with PyInstaller
+      shell: cmd
+      run: |
+        echo Building Hochzeitsplaner.exe using build_exe.py...
+        python build_exe.py
+    
+    - name: Verify distribution
+      shell: cmd
+      run: |
+        echo Prüfe erstellte Distribution...
+        dir Distribution
+        if exist "Distribution\Hochzeitsplaner.exe" (
+          echo ✅ Hochzeitsplaner.exe erfolgreich erstellt
+        ) else (
+          echo ❌ Hochzeitsplaner.exe nicht gefunden
+          exit 1
+        )
+
+    - name: Upload distribution artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: hochzeitsplaner-windows-exe
+        path: Distribution/
+        retention-days: 7
