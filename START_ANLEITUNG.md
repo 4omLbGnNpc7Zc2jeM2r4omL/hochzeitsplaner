@@ -12,6 +12,16 @@ start_lokal.bat
 - ✅ **Port 8080** - Standard HTTP
 - 🌐 Zugriff: `http://localhost:8080`
 
+### 🌐 Für Vodafone DS-Lite (Dual Stack Lite)
+```bash
+# Doppelklick auf:
+start_dslite.bat
+```
+- ✅ **IPv6-optimiert** - Direkte externe Verbindungen
+- ✅ **HTTP lokal + HTTPS extern**
+- ✅ **Keine Fritz!Box Portweiterleitung nötig**
+- 🌐 Extern: `https://[IPv6]:8443`
+
 ## 📋 Alle verfügbaren Launcher
 
 ### 1. Lokaler HTTP-Launcher (Täglich empfohlen)
@@ -21,22 +31,33 @@ start_lokal.bat
 - 🚫 **Keine Verbindungsprobleme**
 - 📱 URLs: `http://localhost:8080`, `http://192.168.178.96:8080`
 
-### 2. Smart Dual-Mode Launcher (Fritz!Box Setup)
+### 2. DS-Lite IPv6-Launcher (Vodafone DS-Lite)
+**Datei**: `launcher_ipv6_dslite.py` oder `start_dslite.bat`
+- 🌐 **IPv6-optimiert für DS-Lite**
+- 🏠 **HTTP für lokal** (Port 8080)
+- 🌍 **HTTPS für extern** (Port 8443, direkt über IPv6)
+- 🚫 **Keine Fritz!Box Portweiterleitung nötig**
+- 📱 URLs: 
+  - Lokal: `http://192.168.178.96:8080`
+  - Extern: `https://[IPv6-Adresse]:8443`
+
+### 3. Smart Dual-Mode Launcher (Fritz!Box Setup mit IPv4)
 **Datei**: `smart_launcher_dual.py` oder `start_dual.bat`
 - 🏠 **HTTP für lokal** (Port 8080)
 - 🌍 **HTTPS für extern** (Port 8443)
 - 🔒 **SSL-Zertifikate für externen Zugriff**
+- ⚠️ **Benötigt IPv4 Portweiterleitung** (funktioniert NICHT mit DS-Lite)
 - 📱 URLs: 
   - Lokal: `http://192.168.178.96:8080`
   - Extern: `https://pascalundkäthe-heiraten.de`
 
-### 3. Reiner HTTPS-Launcher (Legacy)
+### 4. Reiner HTTPS-Launcher (Legacy)
 **Datei**: `working_launcher_ssl.py`
 - 🔒 **Nur HTTPS** (Port 8443)
 - ⚠️ **Kann SSL-Probleme im lokalen Netzwerk verursachen**
 - 🌍 **Für externen Zugriff optimiert**
 
-### 4. Sicherer SSL-Launcher (Windows .exe)
+### 5. Sicherer SSL-Launcher (Windows .exe)
 **Datei**: `safe_launcher_ssl.py`
 - 🔒 **HTTPS ohne Threading** (Bluescreen-Fix)
 - 🖥️ **Für Windows .exe Builds**
@@ -61,14 +82,16 @@ Für externen Zugriff siehe: **`FRITZ_BOX_ANLEITUNG.md`**
 
 ## 📁 Dateiübersicht
 
-| Datei | Zweck | SSL | Empfehlung |
-|-------|-------|-----|------------|
-| `local_launcher_http.py` | Lokaler HTTP-Server | ❌ | ⭐ Täglich |
-| `smart_launcher_dual.py` | HTTP + HTTPS parallel | ✅ | 🌍 Fritz!Box |
-| `working_launcher_ssl.py` | Nur HTTPS | ✅ | ⚠️ Legacy |
-| `safe_launcher_ssl.py` | Bluescreen-sicher | ✅ | 🖥️ Windows .exe |
-| `start_lokal.bat` | HTTP-Start-Script | ❌ | ⭐ Windows |
-| `start_dual.bat` | Dual-Mode-Start | ✅ | 🌍 Fritz!Box |
+| Datei | Zweck | SSL | Empfehlung | DS-Lite |
+|-------|-------|-----|------------|---------|
+| `local_launcher_http.py` | Lokaler HTTP-Server | ❌ | ⭐ Täglich | ✅ |
+| `launcher_ipv6_dslite.py` | IPv6-optimiert für DS-Lite | ✅ | 🌐 DS-Lite | ✅ |
+| `smart_launcher_dual.py` | HTTP + HTTPS parallel | ✅ | 🌍 IPv4 Fritz!Box | ❌ |
+| `working_launcher_ssl.py` | Nur HTTPS | ✅ | ⚠️ Legacy | ❌ |
+| `safe_launcher_ssl.py` | Bluescreen-sicher | ✅ | 🖥️ Windows .exe | ❌ |
+| `start_lokal.bat` | HTTP-Start-Script | ❌ | ⭐ Windows | ✅ |
+| `start_dslite.bat` | DS-Lite IPv6-Start | ✅ | 🌐 DS-Lite | ✅ |
+| `start_dual.bat` | Dual-Mode-Start | ✅ | 🌍 IPv4 Fritz!Box | ❌ |
 
 ## 🎯 Empfohlene Nutzung
 
@@ -80,13 +103,23 @@ start_lokal.bat
 - Schnelle Verbindung
 - Einfache Konfiguration
 
-### Für Fritz!Box + externen Zugriff:
+### 🌐 Für Vodafone DS-Lite (Dual Stack Lite):
+```bash
+start_dslite.bat
+```
+- IPv6-optimiert für DS-Lite
+- HTTP für lokale Nutzung
+- HTTPS für externen IPv6-Zugriff
+- Keine Fritz!Box Portweiterleitung nötig
+
+### Für Fritz!Box + externen Zugriff (nur mit echter IPv4):
 ```bash
 start_dual.bat
 ```
 - HTTP für lokale Nutzung
 - HTTPS für externen Zugriff
 - Optimale Netzwerk-Integration
+- ⚠️ **Funktioniert NICHT mit DS-Lite**
 
 ## 🔐 Login-Daten
 
