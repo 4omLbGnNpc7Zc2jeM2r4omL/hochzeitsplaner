@@ -49,6 +49,9 @@ def create_launcher():
         return False
     
     return True
+        f.write(launcher_content)
+    
+    print("✅ Launcher-Script erstellt")
 
 def create_spec_file():
     """Erstellt PyInstaller .spec Datei"""
@@ -71,9 +74,9 @@ data_files = [
     ('templates', 'templates'),
     ('auth_config.json', '.'),
     ('dyndns_config.json', '.'),
-    ('ionos_dyndns_update.py', '.'),
     ('requirements.txt', '.'),
     ('ssl_private_key.key', '.'),
+    ('ssl_certificate.crt', '.'),
 ]
 
 # Versteckte Imports
@@ -161,8 +164,8 @@ def create_version_info():
 #
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(2, 1, 1, 0),
-    prodvers=(2, 1, 1, 0),
+    filevers=(1, 0, 0, 0),
+    prodvers=(1, 0, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -175,7 +178,7 @@ VSVersionInfo(
       [
       StringTable(
         u'040904B0',
-        [StringStruct(u'CompanyName', u'Pascal\\'s Hochzeitsplaner'),
+        [StringStruct(u'CompanyName', u'Pascal\'s Hochzeitsplaner'),
          StringStruct(u'FileDescription', u'Hochzeitsplaner Web-Anwendung mit DynDNS'),
          StringStruct(u'FileVersion', u'2.1.1.0'),
          StringStruct(u'InternalName', u'hochzeitsplaner'),
@@ -337,10 +340,10 @@ Auf Windows: Übertragen Sie die .exe-Version von GitHub Actions.'''
 
 ## 📁 Daten
 Standardmäßig werden Daten im Installationsverzeichnis gespeichert:
-- data/ - Alle Hochzeitsdaten (konfigurierbar)
-- auth_config.json - Anmelde-Einstellungen
-- hochzeitsplaner_config.json - App-Konfiguration
-- ssl_private_key.key - SSL Private Key
+- `data/` - Alle Hochzeitsdaten (konfigurierbar)
+- `auth_config.json` - Anmelde-Einstellungen
+- `hochzeitsplaner_config.json` - App-Konfiguration
+- `ssl_private_key.key` - SSL Private Key
 
 ## 🆘 Support
 Bei Problemen prüfen Sie:
@@ -349,8 +352,7 @@ Bei Problemen prüfen Sie:
 - Schreibrechte im Datenverzeichnis
 
 Version: 2.1.1 (DynDNS-Version - Universal Launcher Fix)
-Erstellt: 2025
-'''
+Erstellt: 2025'''
     
     with open(dist_dir / "README.txt", 'w', encoding='utf-8') as f:
         f.write(readme_content)
