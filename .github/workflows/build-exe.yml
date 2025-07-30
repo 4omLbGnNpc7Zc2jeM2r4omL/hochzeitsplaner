@@ -28,7 +28,7 @@ jobs:
         
     - name: Prepare launcher file
       run: |
-        copy local_launcher_http.py launcher.py
+        copy universal_launcher.py launcher.py
     
     - name: Check SSL certificates
       shell: cmd

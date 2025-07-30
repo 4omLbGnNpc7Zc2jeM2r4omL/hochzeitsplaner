@@ -1,2 +1,45 @@
-Ionos Präfix: c5b9b64c340245dc8c32916bb3070999
-Ionos Verschlüsselung: -96rr6ASto_gT7ErUQLgOzkYKk-AphxTgr-qojr-TC4Ef53ZCgVGFibrnlEJbUUBw9gFAcRVVkygu5mrTbTXZA
+import requests
+from datetime import datetime
+
+# === KONFIGURATION ===
+api_key = "c5b9b64c340245dc8c32916bb3070999.-96rr6ASto_gT7ErUQLgOzkYKk-AphxTgr-qojr-TC4Ef53ZCgVGFibrnlEJbUUBw9gFAcRVVkygu5mrTbTXZA"  # <- trage deinen API-Key hier ein
+domain = "xn--pascalundkthe-heiraten-94b.de"
+description = "DynDNS für Hochzeit"
+
+# === IONOS API-Endpunkt ===
+url = "https://api.hosting.ionos.com/dns/v1/dyndns"
+
+# === HTTP-Header vorbereiten ===
+headers = {
+    "accept": "application/json",
+    "Content-Type": "application/json",
+    "X-API-Key": api_key
+}
+
+# === JSON-Daten vorbereiten ===
+payload = {
+    "domains": [domain],
+    "description": description
+}
+
+# === Logfile (optional)
+logfile = "dyndns-ionos-api.log"
+
+def log(msg):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"{timestamp} - {msg}")
+    with open(logfile, "a", encoding="utf-8") as f:
+        f.write(f"{timestamp} - {msg}\n")
+
+# === DynDNS-API-Anfrage senden ===
+try:
+    response = requests.post(url, headers=headers, json=payload, timeout=10)
+
+    if response.status_code == 200:
+        log(f"SUCCESS: DynDNS created or already exists → {response.json()}")
+    elif response.status_code == 201:
+        log(f"SUCCESS: New DynDNS created → {response.json()}")
+    else:
+        log(f"ERROR: Status {response.status_code} → {response.text}")
+except Exception as e:
+    log(f"EXCEPTION: {e}")
