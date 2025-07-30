@@ -209,7 +209,7 @@ def print_banner():
     print("           HOCHZEITSPLANER WEB-ANWENDUNG")
     print("          SSL-Version mit Dual-Domain-Support")
     print("     🌐 Lokal: hochzeitsplaner.de")
-    print("     🌍 Internet: pascalundkäthe-heiraten.de")
+    print("     🌍 Internet: xn--pascalundkthe-heiraten-94b.de (pascalundkäthe-heiraten.de)")
     print("🎉" + "="*60 + "🎉")
     print()
 
@@ -293,13 +293,13 @@ def configure_domains_automatically():
             if platform.system() == "Windows":
                 print(f"   2. Führe aus: echo {local_ip}  hochzeitsplaner.de >> {hosts_file}")
                 print(f"   3. Führe aus: echo {local_ip}  www.hochzeitsplaner.de >> {hosts_file}")
-                print(f"   4. Führe aus: echo {local_ip}  pascalundkäthe-heiraten.de >> {hosts_file}")
-                print(f"   5. Führe aus: echo {local_ip}  www.pascalundkäthe-heiraten.de >> {hosts_file}")
+                print(f"   4. Führe aus: echo {local_ip}  xn--pascalundkthe-heiraten-94b.de >> {hosts_file}")
+                print(f"   5. Führe aus: echo {local_ip}  www.xn--pascalundkthe-heiraten-94b.de >> {hosts_file}")
             else:
                 print(f"   2. Führe aus: sudo sh -c 'echo \"{local_ip}  hochzeitsplaner.de\" >> {hosts_file}'")
                 print(f"   3. Führe aus: sudo sh -c 'echo \"{local_ip}  www.hochzeitsplaner.de\" >> {hosts_file}'")
-                print(f"   4. Führe aus: sudo sh -c 'echo \"{local_ip}  pascalundkäthe-heiraten.de\" >> {hosts_file}'")
-                print(f"   5. Führe aus: sudo sh -c 'echo \"{local_ip}  www.pascalundkäthe-heiraten.de\" >> {hosts_file}'")
+                print(f"   4. Führe aus: sudo sh -c 'echo \"{local_ip}  xn--pascalundkthe-heiraten-94b.de\" >> {hosts_file}'")
+                print(f"   5. Führe aus: sudo sh -c 'echo \"{local_ip}  www.xn--pascalundkthe-heiraten-94b.de\" >> {hosts_file}'")
             print("   6. Hochzeitsplaner neu starten")
             
             print("\n🎯 ALTERNATIVE: Fritz!Box-DNS-Konfiguration:")
@@ -307,7 +307,7 @@ def configure_domains_automatically():
             print("   → Heimnetz → Netzwerk → Netzwerkeinstellungen") 
             print("   → 'Lokale DNS-Abfragen' → 'DNS-Rebind-Protection deaktivieren' für:")
             print("     - hochzeitsplaner.de")
-            print("     - pascalundkäthe-heiraten.de")
+            print("     - xn--pascalundkthe-heiraten-94b.de (pascalundkäthe-heiraten.de)")
             print("   → ODER: Unter 'Lokale DNS-Einträge' beide Domains hinzufügen")
             return False
         
@@ -324,7 +324,7 @@ def configure_domains_automatically():
                 return False
         
         # Prüfe ob Einträge bereits existieren
-        if f"{local_ip}  hochzeitsplaner.de" in content and f"{local_ip}  pascalundkäthe-heiraten.de" in content:
+        if f"{local_ip}  hochzeitsplaner.de" in content and f"{local_ip}  xn--pascalundkthe-heiraten-94b.de" in content:
             print("✅ Domains bereits korrekt konfiguriert")
             return True
         
@@ -332,7 +332,7 @@ def configure_domains_automatically():
         lines = content.splitlines()
         new_lines = []
         for line in lines:
-            if not any(domain in line for domain in ['hochzeitsplaner.de', 'pascalundkäthe-heiraten.de']):
+            if not any(domain in line for domain in ['hochzeitsplaner.de', 'xn--pascalundkthe-heiraten-94b.de', 'pascalundkäthe-heiraten.de']):
                 new_lines.append(line)
         
         # Neue Einträge hinzufügen
@@ -341,6 +341,8 @@ def configure_domains_automatically():
             "# Hochzeitsplaner Dual-Domain-Konfiguration",
             f"{local_ip}  hochzeitsplaner.de",
             f"{local_ip}  www.hochzeitsplaner.de", 
+            f"{local_ip}  xn--pascalundkthe-heiraten-94b.de",
+            f"{local_ip}  www.xn--pascalundkthe-heiraten-94b.de",
             f"{local_ip}  pascalundkäthe-heiraten.de",
             f"{local_ip}  www.pascalundkäthe-heiraten.de"
         ])
@@ -351,7 +353,7 @@ def configure_domains_automatically():
         
         print("✅ Domain-Konfiguration erfolgreich!")
         print(f"🌐 hochzeitsplaner.de → {local_ip}")
-        print(f"🌍 pascalundkäthe-heiraten.de → {local_ip}")
+        print(f"🌍 xn--pascalundkthe-heiraten-94b.de (pascalundkäthe-heiraten.de) → {local_ip}")
         return True
         
     except Exception as e:
@@ -447,13 +449,13 @@ def main():
         
         if domain_works:
             print(f"   🌐 Lokale Domain: https://hochzeitsplaner.de:{port}")
-            print(f"   🌍 Internet Domain: https://pascalundkäthe-heiraten.de:{port}")
+            print(f"   🌍 Internet Domain: https://xn--pascalundkthe-heiraten-94b.de:{port}")
             print("   🚀 Fritz!Box Portweiterleitung:")
-            print("     → Von Internet: https://pascalundkäthe-heiraten.de")
+            print("     → Von Internet: https://xn--pascalundkthe-heiraten-94b.de")
             print("     → Lokal: https://hochzeitsplaner.de")
         else:
             print(f"   ⚠️  Domain nicht verfügbar: https://hochzeitsplaner.de:{port}")
-            print(f"   ⚠️  Domain nicht verfügbar: https://pascalundkäthe-heiraten.de:{port}")
+            print(f"   ⚠️  Domain nicht verfügbar: https://xn--pascalundkthe-heiraten-94b.de:{port}")
             print("   💡 Siehe Domain-Konfiguration oben für Lösung")
     else:
         print("⚠️  HTTP-Modus (unverschlüsselt)")
@@ -462,7 +464,7 @@ def main():
         print(f"   📱 Direkte IP: http://{local_ip}:{port}")
         if domain_works:
             print(f"   🌐 Lokale Domain: http://hochzeitsplaner.de:{port}")
-            print(f"   🌍 Internet Domain: http://pascalundkäthe-heiraten.de:{port}")
+            print(f"   🌍 Internet Domain: http://xn--pascalundkthe-heiraten-94b.de:{port}")
     
     print()
     if not domain_works:

@@ -13,7 +13,7 @@ echo "🏠 Lokale IP-Adresse: $LOCAL_IP"
 if grep -q "hochzeitsplaner.de" /etc/hosts; then
     echo "✅ Domains bereits in hosts-Datei vorhanden"
     echo "📋 Aktuelle Einträge:"
-    grep -E "(hochzeitsplaner|pascalundkäthe)" /etc/hosts
+    grep -E "(hochzeitsplaner|pascalundkäthe|xn--pascalundkthe)" /etc/hosts
     echo ""
     echo "🔄 Möchten Sie die Einträge aktualisieren? (j/n)"
     read -r update_choice
@@ -26,6 +26,7 @@ if grep -q "hochzeitsplaner.de" /etc/hosts; then
     echo "🧹 Entferne alte Domain-Einträge..."
     sudo sed -i '' '/hochzeitsplaner.de/d' /etc/hosts
     sudo sed -i '' '/pascalundkäthe-heiraten.de/d' /etc/hosts
+    sudo sed -i '' '/xn--pascalundkthe-heiraten-94b.de/d' /etc/hosts
 fi
 
 echo "📝 Füge neue Domain-Einträge hinzu..."
@@ -36,6 +37,8 @@ echo "📝 Füge neue Domain-Einträge hinzu..."
     echo "# Hochzeitsplaner Dual-Domain-Konfiguration"
     echo "$LOCAL_IP  hochzeitsplaner.de"
     echo "$LOCAL_IP  www.hochzeitsplaner.de"
+    echo "$LOCAL_IP  xn--pascalundkthe-heiraten-94b.de"
+    echo "$LOCAL_IP  www.xn--pascalundkthe-heiraten-94b.de"
     echo "$LOCAL_IP  pascalundkäthe-heiraten.de"
     echo "$LOCAL_IP  www.pascalundkäthe-heiraten.de"
 } | sudo tee -a /etc/hosts > /dev/null
@@ -43,7 +46,7 @@ echo "📝 Füge neue Domain-Einträge hinzu..."
 if [ $? -eq 0 ]; then
     echo "✅ Domain-Konfiguration erfolgreich!"
     echo "🌐 hochzeitsplaner.de → $LOCAL_IP"
-    echo "🌍 pascalundkäthe-heiraten.de → $LOCAL_IP"
+    echo "🌍 xn--pascalundkthe-heiraten-94b.de (pascalundkäthe-heiraten.de) → $LOCAL_IP"
     echo ""
     echo "🔍 Teste Domain-Auflösung..."
     
