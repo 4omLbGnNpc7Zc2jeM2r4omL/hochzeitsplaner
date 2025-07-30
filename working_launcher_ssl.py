@@ -14,6 +14,7 @@ import webbrowser
 import threading
 import time
 import shutil
+import platform
 from pathlib import Path
 
 class SimpleConfig:
@@ -127,34 +128,79 @@ class SimpleConfig:
         return data_path
 
 def check_ssl_certificates():
-    """Prüft SSL-Zertifikate und gibt Status zurück"""
-    # Bestimme Verzeichnis korrekt für PyInstaller und normale Ausführung
+    """Prüft SSL-Zertifikate und gibt Status zurück - verbesserter Multi-Path-Check"""
+    ssl_cert_path = None
+    ssl_key_path = None
+    
+    # Liste aller möglichen Verzeichnisse
+    search_dirs = []
+    
     if getattr(sys, 'frozen', False):
-        # Wenn als .exe ausgeführt (PyInstaller)
-        script_dir = os.path.dirname(sys.executable)
+        # PyInstaller .exe Modus
+        exe_dir = os.path.dirname(sys.executable)
+        search_dirs.extend([
+            exe_dir,  # Hauptverzeichnis der .exe
+            os.path.join(exe_dir, '_internal'),  # PyInstaller _internal
+        ])
+        
+        # MEIPASS (temporäres Verzeichnis bei --onefile)
+        if hasattr(sys, '_MEIPASS'):
+            search_dirs.append(sys._MEIPASS)
     else:
-        # Normal als Python-Script
+        # Normaler Python-Modus
         script_dir = os.path.dirname(os.path.abspath(__file__))
+        search_dirs.append(script_dir)
     
-    # SSL-Dateipfade - os.path.join funktioniert auf allen Plattformen
-    ssl_cert_path = os.path.join(script_dir, 'ssl_certificate.crt')
-    ssl_key_path = os.path.join(script_dir, 'ssl_private_key.key')
+    # Aktuelles Arbeitsverzeichnis auch prüfen
+    search_dirs.append(os.getcwd())
     
-    cert_exists = os.path.exists(ssl_cert_path)
-    key_exists = os.path.exists(ssl_key_path)
+    # Debug-Ausgabe
+    print("🔍 Suche SSL-Zertifikate in folgenden Verzeichnissen:")
+    for i, dir_path in enumerate(search_dirs, 1):
+        exists = "✅" if os.path.exists(dir_path) else "❌"
+        print(f"   {i}. {exists} {dir_path}")
     
-    if cert_exists and key_exists:
-        print("🔒 SSL-Zertifikat und Privatschlüssel gefunden")
-        print(f"   Zertifikat: {ssl_cert_path}")
-        print(f"   Schlüssel: {ssl_key_path}")
+    # Durch alle Verzeichnisse suchen
+    for search_dir in search_dirs:
+        if not os.path.exists(search_dir):
+            continue
+            
+        cert_candidate = os.path.join(search_dir, 'ssl_certificate.crt')
+        key_candidate = os.path.join(search_dir, 'ssl_private_key.key')
+        
+        print(f"\n🔎 Prüfe: {search_dir}")
+        print(f"   Zertifikat: {'✅' if os.path.exists(cert_candidate) else '❌'} {cert_candidate}")
+        print(f"   Schlüssel:  {'✅' if os.path.exists(key_candidate) else '❌'} {key_candidate}")
+        
+        if os.path.exists(cert_candidate) and os.path.exists(key_candidate):
+            ssl_cert_path = cert_candidate
+            ssl_key_path = key_candidate
+            print(f"🎯 SSL-Dateien gefunden in: {search_dir}")
+            break
+    
+    if ssl_cert_path and ssl_key_path:
+        print("\n🔒 SSL-Zertifikat und Privatschlüssel gefunden")
+        print(f"   📜 Zertifikat: {ssl_cert_path}")
+        print(f"   🔑 Schlüssel: {ssl_key_path}")
         return True, ssl_cert_path, ssl_key_path
     else:
-        print("⚠️  SSL-Zertifikatsdateien nicht vollständig vorhanden:")
-        if not cert_exists:
-            print(f"   ❌ Fehlend: {ssl_cert_path}")
-        if not key_exists:
-            print(f"   ❌ Fehlend: {ssl_key_path}")
-        print("   👉 Stelle sicher, dass beide Dateien im Programmverzeichnis sind")
+        print("\n⚠️  SSL-Zertifikatsdateien nicht gefunden!")
+        print("🔍 Erwartete Dateien:")
+        print("   📄 ssl_certificate.crt")
+        print("   📄 ssl_private_key.key")
+        print("\n📂 Alle Dateien im Arbeitsverzeichnis:")
+        try:
+            current_files = os.listdir(os.getcwd())
+            ssl_related = [f for f in current_files if 'ssl' in f.lower() or f.endswith('.crt') or f.endswith('.key')]
+            if ssl_related:
+                for f in ssl_related:
+                    print(f"   📁 {f}")
+            else:
+                print("   ❌ Keine SSL-bezogenen Dateien gefunden")
+        except Exception as e:
+            print(f"   ❌ Fehler beim Auflisten: {e}")
+        
+        print("\n👉 Bitte SSL-Zertifikate ins Programmverzeichnis kopieren")
         return False, None, None
 
 def print_banner():
@@ -207,6 +253,92 @@ def open_browser_delayed(url, delay=3):
     thread.daemon = True
     thread.start()
 
+def configure_domains_automatically():
+    """Automatische Domain-Konfiguration für lokales Netzwerk"""
+    try:
+        print("\n🌐 Konfiguriere lokale Domains automatisch...")
+        
+        # IP-Adresse ermitteln
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+        except Exception:
+            local_ip = "192.168.1.100"
+        
+        # Hosts-Datei-Pfad je nach Betriebssystem
+        if platform.system() == "Windows":
+            hosts_file = r"C:\Windows\System32\drivers\etc\hosts"
+        else:
+            hosts_file = "/etc/hosts"
+        
+        # Admin-Rechte prüfen
+        admin_rights = False
+        if platform.system() == "Windows":
+            try:
+                import ctypes
+                admin_rights = ctypes.windll.shell32.IsUserAnAdmin()
+            except:
+                admin_rights = False
+        else:
+            admin_rights = os.geteuid() == 0
+        
+        if not admin_rights:
+            print("⚠️  Keine Administrator-Rechte für automatische Konfiguration")
+            print("📋 Manuelle Domain-Konfiguration erforderlich:")
+            print(f"   1. Öffne als Administrator: {hosts_file}")
+            print(f"   2. Füge hinzu: {local_ip}  hochzeitsplaner.de")
+            print(f"   3. Füge hinzu: {local_ip}  www.hochzeitsplaner.de")
+            print(f"   4. Füge hinzu: {local_ip}  pascalundkäthe-heiraten.de")
+            print(f"   5. Füge hinzu: {local_ip}  www.pascalundkäthe-heiraten.de")
+            print("   6. Speichern und neu starten")
+            print("\n🎯 Fritz!Box-Konfiguration (Optional):")
+            print("   → Fritz!Box Web-Interface: fritz.box")
+            print("   → Heimnetz → Netzwerk → Netzwerkeinstellungen")
+            print("   → DNS-Server → 'Andere DNS-Server verwenden' deaktivieren")
+            print("   → Lokale DNS-Abfragen → 'DNS-Rebind-Protection' für")
+            print("     'hochzeitsplaner.de' und 'pascalundkäthe-heiraten.de' deaktivieren")
+            return False
+        
+        # Hosts-Datei lesen
+        try:
+            with open(hosts_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except:
+            try:
+                with open(hosts_file, 'r', encoding='latin-1') as f:
+                    content = f.read()
+            except Exception as e:
+                print(f"❌ Fehler beim Lesen der hosts-Datei: {e}")
+                return False
+        
+        # Prüfe ob Einträge bereits existieren
+        if "hochzeitsplaner.de" in content and "pascalundkäthe-heiraten.de" in content:
+            print("✅ Domains bereits konfiguriert")
+            return True
+        
+        # Neue Einträge hinzufügen
+        new_entries = f"""
+# Hochzeitsplaner Dual-Domain-Konfiguration
+{local_ip}  hochzeitsplaner.de
+{local_ip}  www.hochzeitsplaner.de
+{local_ip}  pascalundkäthe-heiraten.de
+{local_ip}  www.pascalundkäthe-heiraten.de
+"""
+        
+        with open(hosts_file, 'a', encoding='utf-8') as f:
+            f.write(new_entries)
+        
+        print("✅ Domain-Konfiguration erfolgreich!")
+        print(f"🌐 hochzeitsplaner.de → {local_ip}")
+        print(f"🌍 pascalundkäthe-heiraten.de → {local_ip}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Fehler bei Domain-Konfiguration: {e}")
+        return False
+
 def main():
     print_banner()
     
@@ -221,6 +353,9 @@ def main():
     # SSL-Zertifikate prüfen
     print("\n🔒 Prüfe SSL-Zertifikate...")
     ssl_available, cert_path, key_path = check_ssl_certificates()
+    
+    # Domain-Konfiguration automatisch durchführen
+    configure_domains_automatically()
     
     # Umgebung vorbereiten
     os.environ['DATA_PATH'] = str(data_path)

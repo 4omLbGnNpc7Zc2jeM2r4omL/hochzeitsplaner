@@ -272,6 +272,52 @@ app.config['SECRET_KEY'] = auth_config['app']['secret_key']
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=auth_config['auth']['session_timeout_hours'])
 CORS(app)
 
+# DataManager initialisieren (WICHTIG: Immer initialisieren, nicht nur bei direktem Start)
+def init_data_manager():
+    """Initialisiert den DataManager"""
+    global data_manager
+    try:
+        # Verwende das konfigurierbare Datenverzeichnis
+        data_manager = HochzeitsDatenManager(DATA_DIR)
+        print(f"✅ DataManager initialisiert: {DATA_DIR}")
+        
+        # Stelle sicher, dass das Verzeichnis existiert
+        os.makedirs(DATA_DIR, exist_ok=True)
+        
+        return True
+    except Exception as e:
+        print(f"❌ Fehler beim Initialisieren des DataManagers: {e}")
+        return False
+
+# Globaler DataManager - initialisiere sofort
+data_manager = None
+if not init_data_manager():
+    print("❌ KRITISCHER FEHLER: DataManager konnte nicht initialisiert werden!")
+    print(f"   Datenverzeichnis: {DATA_DIR}")
+    print("   Prüfen Sie die Dateiberechtigungen und Verzeichnisstruktur.")
+else:
+    print(f"✅ DataManager erfolgreich initialisiert: {DATA_DIR}")
+
+def initialize_guest_credentials():
+    """Initialisiert Gast-Credentials beim ersten Start falls noch nicht vorhanden"""
+    try:
+        if data_manager and not data_manager.gaesteliste_df.empty:
+            # Prüfen ob bereits Credentials vorhanden sind
+            if 'guest_code' not in data_manager.gaesteliste_df.columns or \
+               data_manager.gaesteliste_df['guest_code'].isna().all():
+                logger.info("Generiere initial Gast-Credentials...")
+                success = data_manager.generate_all_guest_credentials()
+                if success:
+                    logger.info("✅ Initiale Gast-Credentials erfolgreich generiert")
+                else:
+                    logger.warning("⚠️ Fehler bei initialer Credential-Generierung")
+    except Exception as e:
+        logger.error(f"Fehler bei initialer Credential-Generierung: {e}")
+
+# Credentials initialisieren (wird automatisch beim Import ausgeführt)
+if data_manager:
+    initialize_guest_credentials()
+
 # Globaler Template-Context-Processor für Brautpaar-Namen
 @app.context_processor
 def inject_global_vars():
@@ -875,9 +921,6 @@ def api_kosten_save():
         logger.error(f"Unerwarteter Fehler beim Speichern der Kostenkonfiguration: {str(e)}")
         return jsonify({'error': f'Unerwarteter Fehler: {str(e)}'}), 500
 
-# Globaler DataManager
-data_manager = None
-
 def find_free_port(start_port=8081):
     """Findet einen freien Port ab start_port"""
     port = start_port
@@ -903,21 +946,6 @@ def clean_json_data(data):
     else:
         return str(data)
 
-def init_data_manager():
-    """Initialisiert den DataManager"""
-    global data_manager
-    try:
-        # Verwende das konfigurierbare Datenverzeichnis
-        data_manager = HochzeitsDatenManager(DATA_DIR)
-        print(f"✅ DataManager initialisiert: {DATA_DIR}")
-        
-        # Stelle sicher, dass das Verzeichnis existiert
-        os.makedirs(DATA_DIR, exist_ok=True)
-        
-        return True
-    except Exception as e:
-        print(f"❌ Fehler beim Initialisieren: {e}")
-        return False
 # =============================================================================
 # Authentication Routen
 # =============================================================================
@@ -2065,17 +2093,17 @@ def api_gaeste_mass_update():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
-    # DataManager initialisieren
-    if not init_data_manager():
-        print("❌ Fehler beim Initialisieren des DataManagers")
+    # Direkter Start der app.py (nicht über Launcher)
+    # DataManager ist bereits initialisiert
+    if not data_manager:
+        print("❌ KRITISCHER FEHLER: DataManager nicht verfügbar")
         sys.exit(1)
     
     port = find_free_port(8081)  # Verwende 8081 als Standard
     
-    print("🎉 Hochzeitsplaner Web-Anwendung")
+    print("🎉 Hochzeitsplaner Web-Anwendung (Direkter Start)")
     print("=" * 50)
-    print(f"✅ DataManager initialisiert: {data_manager.data_dir}")
-    print("✅ DataManager initialisiert")
+    print(f"✅ DataManager bereits initialisiert: {data_manager.data_dir}")
     print(f"🌐 URL: http://localhost:{port}")
     
     # Debug: Zeige alle registrierten Routen
@@ -2092,24 +2120,4 @@ if __name__ == '__main__':
         debug=False,
         threaded=True
     )
-
-def initialize_guest_credentials():
-    """Initialisiert Gast-Credentials beim ersten Start falls noch nicht vorhanden"""
-    try:
-        if data_manager and not data_manager.gaesteliste_df.empty:
-            # Prüfen ob bereits Credentials vorhanden sind
-            if 'guest_code' not in data_manager.gaesteliste_df.columns or \
-               data_manager.gaesteliste_df['guest_code'].isna().all():
-                logger.info("Generiere initial Gast-Credentials...")
-                success = data_manager.generate_all_guest_credentials()
-                if success:
-                    logger.info("✅ Initiale Gast-Credentials erfolgreich generiert")
-                else:
-                    logger.warning("⚠️ Fehler bei initialer Credential-Generierung")
-    except Exception as e:
-        logger.error(f"Fehler bei initialer Credential-Generierung: {e}")
-
-# Credentials beim Start initialisieren
-if data_manager:
-    initialize_guest_credentials()
 
