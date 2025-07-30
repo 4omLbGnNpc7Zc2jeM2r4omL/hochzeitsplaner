@@ -128,7 +128,7 @@ def print_safe_banner():
     """Sicherer Banner"""
     print("🎉" + "="*50 + "🎉")
     print("     HOCHZEITSPLANER WEB-ANWENDUNG")
-    print("     SAFE MODE - Bluescreen-Fix Version")
+    print("     SAFE MODE - Bluescreen-Fix Version v1.1")
     print("🎉" + "="*50 + "🎉")
     print()
 
