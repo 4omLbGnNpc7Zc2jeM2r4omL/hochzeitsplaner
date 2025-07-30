@@ -1,0 +1,7 @@
+2025-07-30 14:47:25 - === Ionos DynDNS IPv6-Only Update gestartet ===
+2025-07-30 14:47:25 - IPv6-Adresse ermittelt: 2a02:908:1022:1f80:fc72:dc82:31ae:b1db
+2025-07-30 14:47:26 - Zone-ID gefunden: a01e0da8-6ce5-11f0-97cb-0a58644413cf
+2025-07-30 14:47:26 - Neue AAAA-Records erstellt für @ und www -> 2a02:908:1022:1f80:fc72:dc82:31ae:b1db
+2025-07-30 14:47:27 - ERROR: Status 400 bei DNS-Update -> [{"code":"INVALID_RECORD","message":"Record is invalid.","parameters":{"errorRecord":{"rootName":"xn--pascalundkthe-heiraten-94b.de","ttl":3600,"disabled":false},"requiredFields":["name","type","content"]}}]
+2025-07-30 14:47:27 - FEHLER: DNS-Update fehlgeschlagen
+2025-07-30 14:47:27 - === Ionos DynDNS IPv6-Only Update beendet ===

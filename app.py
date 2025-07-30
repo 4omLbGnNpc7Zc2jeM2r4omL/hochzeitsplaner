@@ -20,6 +20,14 @@ from datetime import datetime, timedelta
 import pandas as pd
 from functools import wraps
 
+# DynDNS Manager importieren
+try:
+    from dyndns_manager import init_dyndns, start_dyndns, stop_dyndns, get_dyndns_status
+    DYNDNS_AVAILABLE = True
+except ImportError:
+    DYNDNS_AVAILABLE = False
+    print("DynDNS Manager nicht verfügbar")
+
 # Logger einrichten
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -297,6 +305,48 @@ if not init_data_manager():
     print("   Prüfen Sie die Dateiberechtigungen und Verzeichnisstruktur.")
 else:
     print(f"✅ DataManager erfolgreich initialisiert: {DATA_DIR}")
+
+# DynDNS Manager initialisieren
+def init_dyndns_manager():
+    """Initialisiert den DynDNS Manager"""
+    if not DYNDNS_AVAILABLE:
+        print("⚠️ DynDNS Manager nicht verfügbar")
+        return False
+    
+    try:
+        # DynDNS-Konfiguration laden
+        dyndns_config_path = os.path.join(os.path.dirname(__file__), 'dyndns_config.json')
+        if os.path.exists(dyndns_config_path):
+            with open(dyndns_config_path, 'r') as f:
+                config = json.load(f)
+            
+            dyndns_cfg = config.get('dyndns', {})
+            if dyndns_cfg.get('enabled', False):
+                # DynDNS Manager initialisieren
+                manager = init_dyndns(
+                    update_url=dyndns_cfg.get('update_url'),
+                    domain=dyndns_cfg.get('domain'),
+                    interval_minutes=dyndns_cfg.get('interval_minutes', 30)
+                )
+                
+                if manager:
+                    # DynDNS Manager starten
+                    start_dyndns()
+                    print(f"✅ DynDNS Manager gestartet: {dyndns_cfg.get('domain')} (alle {dyndns_cfg.get('interval_minutes', 30)} min)")
+                    return True
+                else:
+                    print("❌ DynDNS Manager konnte nicht initialisiert werden")
+            else:
+                print("ℹ️ DynDNS ist deaktiviert")
+        else:
+            print("ℹ️ Keine DynDNS-Konfiguration gefunden")
+    except Exception as e:
+        print(f"❌ Fehler beim Initialisieren des DynDNS Managers: {e}")
+    
+    return False
+
+# DynDNS Manager starten
+init_dyndns_manager()
 
 def initialize_guest_credentials():
     """Initialisiert Gast-Credentials beim ersten Start falls noch nicht vorhanden"""
@@ -1031,6 +1081,20 @@ def budget():
 @require_role(['admin', 'user'])
 def einstellungen():
     return render_template('einstellungen.html')
+
+@app.route('/api/dyndns/status')
+@require_auth
+@require_role(['admin'])
+def dyndns_status():
+    """DynDNS-Status abrufen"""
+    try:
+        if DYNDNS_AVAILABLE:
+            status = get_dyndns_status()
+            return jsonify(status)
+        else:
+            return jsonify({"running": False, "error": "DynDNS nicht verfügbar"})
+    except Exception as e:
+        return jsonify({"running": False, "error": str(e)})
 
 @app.route('/kosten')
 @require_auth
