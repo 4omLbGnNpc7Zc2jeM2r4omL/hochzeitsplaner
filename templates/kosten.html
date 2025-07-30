@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Kostenkonfiguration - {{ brautpaar_namen or "Brautpaar" }} Heiraten 💕{% endblock %}
+
+{% block content %}
+<div class="kosten-page">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 text-primary">
+            <i class="fas fa-calculator me-2"></i>Kostenkonfiguration
+        </h1>
+        <div class="btn-group">
+            <button class="btn btn-success" onclick="saveKostenConfig()">
+                <i class="fas fa-save me-2"></i>Speichern
+            </button>
+            <button class="btn btn-outline-warning" onclick="resetKostenConfig()">
+                <i class="fas fa-undo me-2"></i>Zurücksetzen
+            </button>
+        </div>
+    </div>
+
+    <!-- Kostenkonfiguration -->
+    <div class="row">
+        <!-- Standesamt Kosten -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-rings-wedding me-2"></i>Standesamt
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="standesamtGetraenke" class="form-label">Getränke pro Person</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="number" class="form-control" id="standesamtGetraenke" 
+                                   step="0.50" min="0" value="4.00">
+                        </div>
+                        <div class="form-text">Kosten für Getränke beim Standesamt</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="standesamtSnacks" class="form-label">Snacks pro Person</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="number" class="form-control" id="standesamtSnacks" 
+                                   step="0.50" min="0" value="0.00">
+                        </div>
+                        <div class="form-text">Kosten für kleine Snacks</div>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <strong>Gesamtkosten pro Person:</strong>
+                        <strong id="standesamtTotal" class="text-primary">€ 4.00</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Essen Kosten -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-utensils me-2"></i>Essen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="essenHauptgang" class="form-label">Hauptgang pro Person</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="number" class="form-control" id="essenHauptgang" 
+                                   step="0.50" min="0" value="55.00">
+                        </div>
+                        <div class="form-text">Kosten für das Hauptmenü</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="essenGetraenke" class="form-label">Getränke pro Person</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="number" class="form-control" id="essenGetraenke" 
+                                   step="0.50" min="0" value="35.00">
+                        </div>
+                        <div class="form-text">Getränkepaket beim Essen</div>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <strong>Gesamtkosten pro Person:</strong>
+                        <strong id="essenTotal" class="text-primary">€ 90.00</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Party Kosten -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-music me-2"></i>Party
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="partyGetraenke" class="form-label">Getränke pro Person</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="number" class="form-control" id="partyGetraenke" 
+                                   step="0.50" min="0" value="25.00">
+                        </div>
+                        <div class="form-text">Getränke für Party-Gäste</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="partyMitternachtssnack" class="form-label">Mitternachtssnack pro Person</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="number" class="form-control" id="partyMitternachtssnack" 
+                                   step="0.50" min="0" value="0.00">
+                        </div>
+                        <div class="form-text">Späte Snacks für die Party</div>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <strong>Gesamtkosten pro Person:</strong>
+                        <strong id="partyTotal" class="text-primary">€ 25.00</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fixkosten -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-building me-2"></i>Fixkosten (unabhängig von Gästezahl)
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row" id="fixkostenContainer">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            <hr>
+            <button class="btn btn-outline-primary" onclick="addFixkosten()">
+                <i class="fas fa-plus me-2"></i>Fixkosten hinzufügen
+            </button>
+        </div>
+    </div>
+
+    <!-- Kostenübersicht -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-chart-bar me-2"></i>Kostenübersicht
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Pro Person Kosten:</h6>
+                    <ul class="list-unstyled">
+                        <li>Standesamt: <span id="overviewStandesamt" class="text-primary fw-bold">€ 4.00</span></li>
+                        <li>Essen: <span id="overviewEssen" class="text-primary fw-bold">€ 90.00</span></li>
+                        <li>Party: <span id="overviewParty" class="text-primary fw-bold">€ 25.00</span></li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>Beispielberechnung (50 Gäste):</h6>
+                    <ul class="list-unstyled">
+                        <li>Standesamt: <span id="beispielStandesamt" class="text-muted">€ 200.00</span></li>
+                        <li>Essen: <span id="beispielEssen" class="text-muted">€ 4,500.00</span></li>
+                        <li>Party (25 zusätzlich): <span id="beispielParty" class="text-muted">€ 625.00</span></li>
+                        <li><strong>Summe pro Person: <span id="beispielGesamt" class="text-success fw-bold">€ 5,325.00</span></strong></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Fixkosten hinzufügen -->
+<div class="modal fade" id="addFixkostenModal" tabindex="-1" aria-labelledby="addFixkostenModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addFixkostenModalLabel">
+                    <i class="fas fa-plus me-2"></i>Fixkosten hinzufügen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <form id="addFixkostenForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="fixkostenName" class="form-label">Bezeichnung *</label>
+                        <input type="text" class="form-control" id="fixkostenName" name="name" required 
+                               placeholder="z.B. DJ, Fotograf, Location-Miete">
+                    </div>
+                    <div class="mb-3">
+                        <label for="fixkostenBetrag" class="form-label">Betrag *</label>
+                        <div class="input-group">
+                            <span class="input-group-text">€</span>
+                            <input type="number" class="form-control" id="fixkostenBetrag" name="betrag" 
+                                   step="0.01" min="0" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-2"></i>Hinzufügen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/kosten.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,551 @@
+{% extends "base.html" %}
+
+{% block title %}Gästeliste - {{ brautpaar_namen or "Brautpaar" }} Heiraten 💕{% endblock %}
+
+{% block extra_head %}
+<style>
+.table-dark th {
+    background-color: #212529 !important;
+    color: #fff !important;
+    border-color: #32383e !important;
+}
+.table-dark td {
+    border-color: #32383e !important;
+}
+.bg-pink {
+    background-color: #e91e63 !important;
+}
+.bg-blue {
+    background-color: #2196f3 !important;
+}
+.bg-purple {
+    background-color: #9c27b0 !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="bi bi-people"></i> Gästeliste</h1>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGuestModal">
+                    <i class="bi bi-person-plus"></i> Gast hinzufügen
+                </button>
+            </div>
+            
+            <!-- Statistiken -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="totalGuests">0</h4>
+                                    <p class="card-text">Gesamt</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-people fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="weisserSaalGuests">0</h4>
+                                    <p class="card-text">Weißer Saal</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-heart fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="essenGuests">0</h4>
+                                    <p class="card-text">Essen</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-cup-straw fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="partyGuests">0</h4>
+                                    <p class="card-text">Party</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-music-note fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filter und Suche -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-end">
+                        <div class="col-md-3">
+                            <label for="guestSearch" class="form-label">Suche</label>
+                            <input type="text" class="form-control" id="guestSearch" 
+                                   placeholder="Name oder Adresse suchen...">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="filterWeisserSaal" class="form-label">Weißer Saal</label>
+                            <select class="form-select" id="filterWeisserSaal">
+                                <option value="">Alle</option>
+                                <option value="Ja">Ja</option>
+                                <option value="Nein">Nein</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="filterEssen" class="form-label">Essen</label>
+                            <select class="form-select" id="filterEssen">
+                                <option value="">Alle</option>
+                                <option value="Ja">Ja</option>
+                                <option value="Nein">Nein</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="filterParty" class="form-label">Party</label>
+                            <select class="form-select" id="filterParty">
+                                <option value="">Alle</option>
+                                <option value="Ja">Ja</option>
+                                <option value="Nein">Nein</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-primary" id="selectAllGuests">
+                                    Alle auswählen
+                                </button>
+                                <button type="button" class="btn btn-outline-success" id="syncTeilnahmeBtn">
+                                    <i class="bi bi-arrow-repeat"></i> Sync
+                                </button>
+                                <button type="button" class="btn btn-warning" id="massEditBtn" disabled>
+                                    <i class="bi bi-pencil-square"></i> Ausgewählte bearbeiten (0)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Gästetabelle -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>
+                                        <input type="checkbox" class="form-check-input" id="selectAllCheckbox">
+                                    </th>
+                                    <th>Vorname</th>
+                                    <th>Nachname</th>
+                                    <th>Kategorie</th>
+                                    <th>Seite</th>
+                                    <th>Gesamt</th>
+                                    <th>Weißer Saal</th>
+                                    <th>Essen</th>
+                                    <th>Party</th>
+                                    <th>Kinder</th>
+                                    <th>Status</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="guestsTableBody">
+                                <tr>
+                                    <td colspan="12" class="text-center">
+                                        <div class="spinner-border" role="status">
+                                            <span class="visually-hidden">Lädt...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Gast hinzufügen -->
+<div class="modal fade" id="addGuestModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Neuen Gast hinzufügen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addGuestForm">
+                    <!-- Grunddaten -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="guestVorname" class="form-label">Vorname *</label>
+                            <input type="text" class="form-control" id="guestVorname" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="guestNachname" class="form-label">Nachname *</label>
+                            <input type="text" class="form-control" id="guestNachname" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="guestKategorie" class="form-label">Kategorie *</label>
+                            <select class="form-select" id="guestKategorie" required>
+                                <option value="">Bitte wählen...</option>
+                                <option value="Familie">Familie</option>
+                                <option value="Freunde">Freunde</option>
+                                <option value="Arbeit">Arbeit</option>
+                                <option value="Sonstige">Sonstige</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="guestStatus" class="form-label">Status *</label>
+                            <select class="form-select" id="guestStatus" required>
+                                <option value="">Bitte wählen...</option>
+                                <option value="Zugesagt">Zugesagt</option>
+                                <option value="Abgesagt">Abgesagt</option>
+                                <option value="Offen">Offen</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="guestSeite" class="form-label">Seite</label>
+                            <select class="form-select" id="guestSeite">
+                                <option value="">Bitte wählen...</option>
+                                <option value="Braut">Braut</option>
+                                <option value="Bräutigam">Bräutigam</option>
+                                <option value="Beide">Beide</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="guestBegleitung" class="form-label">Begleitung</label>
+                            <input type="text" class="form-control" id="guestBegleitung" placeholder="Name der Begleitung">
+                        </div>
+                    </div>
+
+                    <!-- Kontaktdaten -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="guestEmail" class="form-label">E-Mail</label>
+                            <input type="email" class="form-control" id="guestEmail">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="guestKontakt" class="form-label">Telefon</label>
+                            <input type="text" class="form-control" id="guestKontakt">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="guestAdresse" class="form-label">Adresse</label>
+                        <textarea class="form-control" id="guestAdresse" rows="2"></textarea>
+                    </div>
+
+                    <!-- Anzahl Personen -->
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="guestAnzahlPersonen" class="form-label">Anzahl Personen gesamt</label>
+                            <input type="number" class="form-control" id="guestAnzahlPersonen" min="0" value="1">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="guestKind" class="form-label">Anzahl Kinder</label>
+                            <input type="number" class="form-control" id="guestKind" min="0" value="0">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="guestOptional" class="form-label">Optional</label>
+                            <select class="form-select" id="guestOptional">
+                                <option value="0">Nein</option>
+                                <option value="1">Ja</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Teilnahme Anzahlen -->
+                    <h6 class="mb-3 mt-4">Teilnahme (Anzahl Personen)</h6>
+                    <div class="alert alert-info">
+                        <small><i class="bi bi-info-circle"></i> <strong>Automatische Logik:</strong> 
+                        Gäste beim Weißen Saal sind automatisch auch beim Essen. 
+                        Gäste beim Essen sind automatisch auch bei der Party.</small>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="guestWeisserSaal" class="form-label">Weißer Saal</label>
+                            <input type="number" class="form-control" id="guestWeisserSaal" min="0" value="0">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="guestAnzahlEssen" class="form-label">Essen <small class="text-muted">(inkl. Weißer Saal)</small></label>
+                            <input type="number" class="form-control" id="guestAnzahlEssen" min="0" value="0">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="guestAnzahlParty" class="form-label">Party <small class="text-muted">(inkl. Essen)</small></label>
+                            <input type="number" class="form-control" id="guestAnzahlParty" min="0" value="0">
+                        </div>
+                    </div>
+
+                    <!-- Teilnahme Ja/Nein (wird automatisch basierend auf Anzahlen gesetzt) -->
+                    <h6 class="mb-3 mt-4">Teilnahme (Ja/Nein) - wird automatisch gesetzt</h6>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="guestZumWeisserSaal" class="form-label">Zum Weißen Saal</label>
+                            <select class="form-select" id="guestZumWeisserSaal" disabled>
+                                <option value="Nein">Nein</option>
+                                <option value="Ja">Ja</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="guestZumEssen" class="form-label">Zum Essen</label>
+                            <select class="form-select" id="guestZumEssen" disabled>
+                                <option value="Nein">Nein</option>
+                                <option value="Ja">Ja</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="guestZurParty" class="form-label">Zur Party</label>
+                            <select class="form-select" id="guestZurParty" disabled>
+                                <option value="Nein">Nein</option>
+                                <option value="Ja">Ja</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="guestBemerkungen" class="form-label">Bemerkungen</label>
+                        <textarea class="form-control" id="guestBemerkungen" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="saveGuestBtn">
+                    <i class="bi bi-check-lg"></i> Speichern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Gast bearbeiten -->
+<div class="modal fade" id="editGuestModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Gast bearbeiten</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editGuestForm">
+                    <input type="hidden" id="editGuestIndex">
+                    
+                    <!-- Grunddaten -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editGuestVorname" class="form-label">Vorname *</label>
+                            <input type="text" class="form-control" id="editGuestVorname" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editGuestNachname" class="form-label">Nachname *</label>
+                            <input type="text" class="form-control" id="editGuestNachname" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="editGuestKategorie" class="form-label">Kategorie</label>
+                            <select class="form-select" id="editGuestKategorie">
+                                <option value="Familie">Familie</option>
+                                <option value="Freunde">Freunde</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="editGuestSeite" class="form-label">Seite</label>
+                            <select class="form-select" id="editGuestSeite">
+                                <option value="Käthe">Käthe</option>
+                                <option value="Pascal">Pascal</option>
+                                <option value="Gemeinsam">Gemeinsam</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="editGuestStatus" class="form-label">Status</label>
+                            <select class="form-select" id="editGuestStatus">
+                                <option value="Offen">Offen</option>
+                                <option value="Zugesagt">Zugesagt</option>
+                                <option value="Abgesagt">Abgesagt</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Anzahl Personen -->
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label for="editAnzahlPersonen" class="form-label">Gesamt Personen</label>
+                            <input type="number" class="form-control" id="editAnzahlPersonen" min="0" value="1">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="editAnzahlKinder" class="form-label">Kinder</label>
+                            <input type="number" class="form-control" id="editAnzahlKinder" min="0" value="0">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="editBegleitung" class="form-label">Begleitung</label>
+                            <input type="number" class="form-control" id="editBegleitung" min="0" value="0">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="editWeisserSaal" class="form-label">Weißer Saal</label>
+                            <input type="number" class="form-control" id="editWeisserSaal" min="0" value="0">
+                        </div>
+                    </div>
+
+                    <!-- Event-Teilnahme -->
+                    <h6 class="mb-3">Event-Teilnahme</h6>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="editTeilnahmeWeisserSaal" class="form-label">Zum Weißen Saal</label>
+                            <select class="form-select" id="editTeilnahmeWeisserSaal">
+                                <option value="Nein">Nein</option>
+                                <option value="Ja">Ja</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="editTeilnahmeEssen" class="form-label">Zum Essen</label>
+                            <select class="form-select" id="editTeilnahmeEssen">
+                                <option value="Nein">Nein</option>
+                                <option value="Ja">Ja</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="editTeilnahmeParty" class="form-label">Zur Party</label>
+                            <select class="form-select" id="editTeilnahmeParty">
+                                <option value="Nein">Nein</option>
+                                <option value="Ja">Ja</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Anzahl pro Event -->
+                    <h6 class="mb-3">Anzahl pro Event</h6>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="editAnzahlWeisserSaal" class="form-label">Anzahl Weißer Saal</label>
+                            <input type="number" class="form-control" id="editAnzahlWeisserSaal" min="0" value="0">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="editAnzahlEssen" class="form-label">Anzahl Essen</label>
+                            <input type="number" class="form-control" id="editAnzahlEssen" min="0" value="0">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="editAnzahlParty" class="form-label">Anzahl Party</label>
+                            <input type="number" class="form-control" id="editAnzahlParty" min="0" value="0">
+                        </div>
+                    </div>
+
+                    <!-- Zusätzliche Informationen -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editGuestEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="editGuestEmail">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editGuestKontakt" class="form-label">Kontakt</label>
+                            <input type="text" class="form-control" id="editGuestKontakt">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editGuestAdresse" class="form-label">Adresse</label>
+                        <textarea class="form-control" id="editGuestAdresse" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editGuestBemerkungen" class="form-label">Bemerkungen</label>
+                        <textarea class="form-control" id="editGuestBemerkungen" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="updateGuestBtn">
+                    <i class="bi bi-check-lg"></i> Aktualisieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Masseneditierung -->
+<div class="modal fade" id="massEditModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ausgewählte Gäste bearbeiten</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="massEditForm">
+                    <p class="text-muted">Wählen Sie die Eigenschaften aus, die Sie für alle ausgewählten Gäste ändern möchten:</p>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="massWeisserSaal" class="form-label">Weißer Saal</label>
+                            <select class="form-select" id="massWeisserSaal">
+                                <option value="">Nicht ändern</option>
+                                <option value="Ja">Ja</option>
+                                <option value="Nein">Nein</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="massEssen" class="form-label">Essen</label>
+                            <select class="form-select" id="massEssen">
+                                <option value="">Nicht ändern</option>
+                                <option value="Ja">Ja</option>
+                                <option value="Nein">Nein</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="massParty" class="form-label">Party</label>
+                            <select class="form-select" id="massParty">
+                                <option value="">Nicht ändern</option>
+                                <option value="Ja">Ja</option>
+                                <option value="Nein">Nein</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="saveMassEditBtn">
+                    <i class="bi bi-check-lg"></i> Änderungen speichern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/gaesteliste.js') }}"></script>
+{% endblock %}

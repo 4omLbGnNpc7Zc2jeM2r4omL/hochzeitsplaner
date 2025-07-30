@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Budget - {{ brautpaar_namen or "Brautpaar" }} Heiraten 💕{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Budget</h1>
+            <div>
+                <button class="btn btn-primary me-2" id="addBudgetBtn">
+                    <i class="bi bi-plus-circle me-2"></i>Position hinzufügen
+                </button>
+                <button class="btn btn-success" id="generateBudgetBtn">
+                    <i class="bi bi-calculator me-2"></i>Budget automatisch erstellen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Budget Übersicht -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Geplant</h6>
+                        <h4 id="budgetPlanned">0,00 €</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-clipboard-check fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Ausgegeben</h6>
+                        <h4 id="budgetSpent">0,00 €</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-cash-stack fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Verbleibend</h6>
+                        <h4 id="budgetRemaining">0,00 €</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-piggy-bank fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Budget Tabelle -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Budget Positionen</h5>
+                <span id="budgetSummary" class="badge bg-primary fs-6">0 Positionen - 0,00 €</span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped" id="budgetTable">
+                        <thead>
+                            <tr>
+                                <th>Kategorie</th>
+                                <th>Beschreibung</th>
+                                <th>Details</th>
+                                <th>Menge</th>
+                                <th>Einzelpreis</th>
+                                <th>Geplant</th>
+                                <th>Ausgegeben</th>
+                                <th>Status</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="budgetTableBody">
+                            <!-- Wird per JavaScript gefüllt -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Budget Item Modal -->
+<div class="modal fade" id="budgetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="budgetModalTitle">Budget Position hinzufügen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="budgetForm">
+                    <div class="mb-3">
+                        <label for="budgetKategorie" class="form-label">Kategorie</label>
+                        <select class="form-select" id="budgetKategorie" required>
+                            <option value="">Bitte wählen...</option>
+                            <option value="Weißer Saal">Weißer Saal</option>
+                            <option value="Essen">Essen</option>
+                            <option value="Party">Party</option>
+                            <option value="Fixkosten">Fixkosten</option>
+                            <option value="Dekoration">Dekoration</option>
+                            <option value="Fotografie">Fotografie</option>
+                            <option value="Musik">Musik</option>
+                            <option value="Blumen">Blumen</option>
+                            <option value="Sonstiges">Sonstiges</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="budgetBeschreibung" class="form-label">Beschreibung</label>
+                        <input type="text" class="form-control" id="budgetBeschreibung" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="budgetDetails" class="form-label">Details</label>
+                        <input type="text" class="form-control" id="budgetDetails" placeholder="Zusätzliche Informationen">
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="budgetMenge" class="form-label">Menge</label>
+                                <input type="number" class="form-control" id="budgetMenge" step="1" min="0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="budgetEinzelpreis" class="form-label">Einzelpreis</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="budgetEinzelpreis" step="0.01" min="0" required>
+                                    <span class="input-group-text">€</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Geplant (Gesamtpreis)</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="budgetGesamtpreis" readonly>
+                                    <span class="input-group-text">€</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="budgetAusgegeben" class="form-label">Ausgegeben</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="budgetAusgegeben" step="0.01" min="0" placeholder="0.00">
+                                    <span class="input-group-text">€</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="saveBudgetBtn">Speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteBudgetModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Position löschen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Möchten Sie diese Budget-Position wirklich löschen?</p>
+                <p><strong id="deleteItemName"></strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Löschen</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/budget.js') }}"></script>
+{% endblock %}

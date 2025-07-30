@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - {{ brautpaar_namen or "Brautpaar" }} Heiraten 💕{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Dashboard</h1>
+    </div>
+</div>
+
+<!-- Statistik Karten -->
+<div class="row mb-4" id="statisticCards">
+    <div class="col-md-2 col-6 mb-3">
+        <div class="card text-white bg-success dashboard-card">
+            <div class="card-body">
+                <div class="card-content">
+                    <h6 class="card-title">Zugesagt</h6>
+                    <h3 id="gaesteZugesagt">-</h3>
+                    <small>Personen</small>
+                </div>
+                <div class="align-self-center">
+                    <i class="bi bi-check-circle fs-1"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-2 col-6 mb-3">
+        <div class="card text-white bg-warning dashboard-card">
+            <div class="card-body">
+                <div class="card-content">
+                    <h6 class="card-title">Offen</h6>
+                    <h3 id="gaesteOffen">-</h3>
+                    <small>Personen</small>
+                </div>
+                <div class="align-self-center">
+                    <i class="bi bi-hourglass-split fs-1"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-2 col-6 mb-3">
+        <div class="card text-white bg-primary dashboard-card">
+            <div class="card-body">
+                <div class="card-content">
+                    <h6 class="card-title">Budget Geplant</h6>
+                    <h3 id="budgetGeplant">-</h3>
+                    <small>Gesamtbudget</small>
+                </div>
+                <div class="align-self-center">
+                    <i class="bi bi-piggy-bank fs-1"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-2 col-6 mb-3">
+        <div class="card text-white bg-info dashboard-card">
+            <div class="card-body">
+                <div class="card-content">
+                    <h6 class="card-title">Ausgegeben</h6>
+                    <h3 id="budgetAusgegeben">-</h3>
+                    <small>Bereits bezahlt</small>
+                </div>
+                <div class="align-self-center">
+                    <i class="bi bi-cash-stack fs-1"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 col-12 mb-3">
+        <div class="card budget-status-card" id="budgetStatusCard">
+            <div class="card-body">
+                <div class="row h-100">
+                    <div class="col-8">
+                        <h6 class="card-title">Budget Status</h6>
+                        <h3 id="budgetVerbleibt">-</h3>
+                        <small id="budgetStatus">verbleibt</small>
+                        <div class="mt-2">
+                            <div class="progress" style="height: 20px; position: relative;">
+                                <div class="progress-bar" id="budgetProgress" role="progressbar" style="width: 0%"></div>
+                                <small class="progress-text" id="budgetProgressText">0% ausgegeben</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-4 d-flex align-items-center justify-content-center">
+                        <i class="bi bi-graph-up-arrow" id="budgetIcon" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Event-spezifische Statistiken -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-primary event-card">
+            <div class="card-body text-center">
+                <h6 class="card-title text-primary">Weißer Saal</h6>
+                <h4 class="text-primary" id="weisserSaalCount">-</h4>
+                <small class="text-muted">Personen</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-success event-card">
+            <div class="card-body text-center">
+                <h6 class="card-title text-success">Essen</h6>
+                <h4 class="text-success" id="essenCount">-</h4>
+                <small class="text-muted">Personen</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-warning event-card">
+            <div class="card-body text-center">
+                <h6 class="card-title text-warning">Party</h6>
+                <h4 class="text-warning" id="partyCount">-</h4>
+                <small class="text-muted">Personen</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-info event-card">
+            <div class="card-body text-center">
+                <h6 class="card-title text-info">Kinder</h6>
+                <h4 class="text-info" id="kinderCount">-</h4>
+                <small class="text-muted">Anzahl</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Gäste Übersicht</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="gaesteChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Budget Übersicht</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="budgetChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Schnellzugriff</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <a href="{{ url_for('gaesteliste') }}" class="btn btn-outline-primary btn-lg w-100 mb-2">
+                            <i class="bi bi-people me-2"></i>Gäste verwalten
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{{ url_for('budget') }}" class="btn btn-outline-success btn-lg w-100 mb-2">
+                            <i class="bi bi-calculator me-2"></i>Budget verwalten
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

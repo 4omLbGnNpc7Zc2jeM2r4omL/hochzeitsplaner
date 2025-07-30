@@ -1,0 +1,923 @@
+/* Hochzeitsplaner Web - Custom Styles */
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+/* Navbar Enhancements */
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+.nav-link.active {
+    font-weight: bold;
+    background-color: rgba(13, 110, 253, 0.1);
+    border-radius: 0.375rem;
+}
+
+/* Navbar Toggler Improvements */
+.navbar-toggler {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 0.25rem 0.5rem;
+}
+
+.navbar-toggler:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    border-color: #86b7fe;
+}
+
+.navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%2833, 37, 41, 0.75%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* Card Enhancements */
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* Button Enhancements */
+.btn {
+    border-radius: 0.375rem;
+    transition: all 0.15s ease-in-out;
+}
+
+/* Table Enhancements */
+.table:not(.table-dark) th {
+    border-top: none;
+    font-weight: 600;
+    background-color: #f8f9fa;
+}
+
+.table-dark th {
+    background-color: #212529 !important;
+    color: #fff !important;
+    border-color: #32383e !important;
+}
+
+.table-responsive {
+    border-radius: 0.375rem;
+}
+
+/* Modal Enhancements */
+.modal-content {
+    border: none;
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+}
+
+.modal-header {
+    border-bottom: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+}
+
+/* Form Enhancements */
+.form-control:focus,
+.form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Dashboard Enhancements */
+.dashboard-card {
+    height: 130px;
+    display: flex;
+    align-items: center;
+}
+
+.dashboard-card .card-body {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+}
+
+.dashboard-card .card-title {
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.dashboard-card h3 {
+    margin-bottom: 0.25rem;
+    font-size: 1.5rem;
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+.dashboard-card small {
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
+.dashboard-card .fs-1 {
+    font-size: 2rem !important;
+    margin-left: 0.5rem;
+    flex-shrink: 0;
+}
+
+.dashboard-card .card-content {
+    flex: 1;
+    min-width: 0; /* Ermöglicht Text-Wrapping */
+}
+
+/* Budget Status Card - erweitert mit Fortschritt */
+.budget-status-card {
+    height: 130px;
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    transition: background 0.3s ease;
+}
+
+/* Budget Status Card - Überzogen (Rot) */
+.budget-status-card.budget-exceeded {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+}
+
+.budget-status-card .card-body {
+    padding: 1rem;
+}
+
+.budget-status-card .card-title {
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: white;
+}
+
+.budget-status-card h3 {
+    margin-bottom: 0.25rem;
+    font-size: 1.5rem;
+    font-weight: bold;
+    line-height: 1.2;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.budget-status-card small {
+    font-size: 0.75rem;
+    opacity: 0.9;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.budget-status-card .progress {
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.3);
+    height: 20px;
+    position: relative;
+    overflow: visible;
+}
+
+.budget-status-card .progress-bar {
+    border-radius: 10px;
+    background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+    transition: width 0.6s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.budget-status-card .progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-weight: bold;
+    font-size: 0.75rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+    z-index: 10;
+}
+
+.budget-status-card .bi-graph-up-arrow {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* Event Cards - gleiche Höhe wie Dashboard Cards */
+.event-card {
+    height: 130px;
+    display: flex;
+    align-items: center;
+}
+
+/* Responsive für kleinere Bildschirme */
+@media (max-width: 768px) {
+    .dashboard-card {
+        height: 110px;
+    }
+    
+    .dashboard-card h3 {
+        font-size: 1.25rem;
+    }
+    
+    .dashboard-card .fs-1 {
+        font-size: 1.5rem !important;
+    }
+    
+    .budget-status-card {
+        height: 120px;
+    }
+    
+    .budget-status-card h3 {
+        font-size: 1.25rem;
+    }
+    
+    .budget-status-card .progress {
+        height: 16px;
+    }
+    
+    .budget-status-card .progress-text {
+        font-size: 0.65rem;
+    }
+    
+    .budget-status-card .bi-graph-up-arrow {
+        font-size: 1.5rem !important;
+    }
+    
+    .event-card {
+        height: 110px;
+    }
+}
+
+/* Chart Container */
+.chart-container {
+    position: relative;
+    height: 300px;
+}
+
+/* Status Badges */
+.status-badge {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+}
+
+.status-ja {
+    background-color: #d1e7dd;
+    color: #0f5132;
+}
+
+.status-nein {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+.status-vielleicht {
+    background-color: #fff3cd;
+    color: #664d03;
+}
+
+/* Responsive Enhancements */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-lg {
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+    }
+}
+
+/* Animation Classes */
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Success/Error Messages */
+.alert {
+    border: none;
+    border-radius: 0.5rem;
+}
+
+.alert-success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+/* Loading States */
+.btn.loading {
+    position: relative;
+    color: transparent;
+}
+
+.btn.loading::after {
+    content: "";
+    position: absolute;
+    width: 1rem;
+    height: 1rem;
+    top: 50%;
+    left: 50%;
+    margin-left: -0.5rem;
+    margin-top: -0.5rem;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Excel Export Button Styling */
+.navbar .btn-outline-success {
+    border-color: #28a745;
+    color: #28a745;
+    transition: all 0.15s ease-in-out;
+}
+
+.navbar .btn-outline-success:hover {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+.navbar .btn-outline-success i {
+    font-size: 1.1rem;
+}
+
+/* Responsive Excel Button */
+@media (max-width: 768px) {
+    .navbar .btn-outline-success {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.875rem;
+    }
+}
+
+/* Gantt Chart Styling */
+.gantt-container {
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-height: 500px;
+    background: linear-gradient(90deg, #f8f9fa 0%, #ffffff 100%);
+    position: relative;
+}
+
+.gantt-timeline {
+    display: flex;
+    flex-direction: column;
+    min-width: 100%;
+    position: relative;
+}
+
+.gantt-header {
+    display: flex;
+    background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+    color: white;
+    font-weight: 600;
+    font-size: 0.875rem;
+    border-bottom: 2px solid #dee2e6;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.gantt-header-cell {
+    flex: 1;
+    padding: 12px 8px;
+    text-align: center;
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    min-width: 60px;
+    white-space: nowrap;
+}
+
+.gantt-header-cell:last-child {
+    border-right: none;
+}
+
+.gantt-body {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.gantt-row {
+    display: flex;
+    min-height: 60px;
+    border-bottom: 1px solid #e9ecef;
+    position: relative;
+    align-items: center;
+    transition: background-color 0.2s ease;
+}
+
+.gantt-row:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+.gantt-row:nth-child(even) {
+    background-color: rgba(248, 249, 250, 0.5);
+}
+
+.gantt-cell {
+    flex: 1;
+    padding: 8px;
+    border-right: 1px solid #e9ecef;
+    min-width: 60px;
+    position: relative;
+}
+
+.gantt-cell:last-child {
+    border-right: none;
+}
+
+.gantt-bar {
+    position: absolute;
+    height: 32px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    color: white;
+    font-weight: 600;
+    font-size: 0.75rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gantt-bar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.gantt-bar.status-geplant {
+    background: linear-gradient(135deg, #ffc107 0%, #ffca2c 100%);
+    border-left: 4px solid #e6a400;
+}
+
+.gantt-bar.status-gebucht {
+    background: linear-gradient(135deg, #28a745 0%, #34ce57 100%);
+    border-left: 4px solid #1e7e34;
+}
+
+.gantt-bar.status-bestaetigt {
+    background: linear-gradient(135deg, #28a745 0%, #34ce57 100%);
+    border-left: 4px solid #1e7e34;
+}
+
+.gantt-bar.status-abgeschlossen {
+    background: linear-gradient(135deg, #17a2b8 0%, #20c997 100%);
+    border-left: 4px solid #138496;
+}
+
+.gantt-bar-content {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.gantt-bar-icon {
+    margin-right: 6px;
+    font-size: 0.875rem;
+}
+
+.gantt-bar-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gantt-time-axis {
+    display: flex;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+.gantt-time-cell {
+    flex: 1;
+    padding: 6px 4px;
+    text-align: center;
+    border-right: 1px solid #dee2e6;
+    min-width: 60px;
+}
+
+.gantt-time-cell:last-child {
+    border-right: none;
+}
+
+.gantt-grid-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(222, 226, 230, 0.5);
+    z-index: 1;
+}
+
+.gantt-current-time {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, #dc3545 0%, #c82333 100%);
+    z-index: 8;
+    box-shadow: 0 0 6px rgba(220, 53, 69, 0.5);
+}
+
+.gantt-current-time::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: -4px;
+    width: 10px;
+    height: 10px;
+    background: #dc3545;
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(220, 53, 69, 0.5);
+}
+
+/* Erweiterte Gantt-Chart Styles */
+.gantt-time-label {
+    min-width: 80px;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gantt-timeline-area {
+    flex: 1;
+    min-height: 40px;
+    position: relative;
+    background: linear-gradient(90deg, transparent 0%, transparent calc(100% / 18 - 1px), #dee2e6 calc(100% / 18), transparent calc(100% / 18 + 1px));
+    background-size: calc(100% / 18) 100%;
+}
+
+.gantt-bar.selected {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 4px 20px rgba(0, 123, 255, 0.4);
+    border: 2px solid #007bff;
+    z-index: 10;
+}
+
+.gantt-bar.public-event {
+    border-bottom: 3px solid #28a745;
+}
+
+.gantt-bar.private-event {
+    border-bottom: 3px solid #dc3545;
+    opacity: 0.8;
+}
+
+.gantt-visibility-icon {
+    margin-left: 4px;
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+.gantt-row {
+    display: flex;
+    border-bottom: 1px solid #e9ecef;
+    background: #fff;
+    transition: background-color 0.2s ease;
+}
+
+.gantt-row:hover {
+    background: #f8f9fa;
+}
+
+.gantt-header {
+    display: flex;
+    background: #e9ecef;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+/* Zeitplan Listen-Ansicht */
+.zeitplan-list-item {
+    border: none !important;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.zeitplan-list-item:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+    transform: translateX(2px);
+}
+
+.zeitplan-list-item.active {
+    background-color: rgba(13, 110, 253, 0.1);
+    border-left: 4px solid #0d6efd !important;
+}
+
+.zeitplan-time-badge {
+    font-weight: 600;
+    font-size: 0.875rem;
+    min-width: 60px;
+    display: inline-block;
+}
+
+.zeitplan-title {
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 0.25rem;
+}
+
+.zeitplan-meta {
+    font-size: 0.75rem;
+    color: #6c757d;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.zeitplan-meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.zeitplan-status-badge {
+    font-size: 0.625rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.zeitplan-status-geplant {
+    background-color: rgba(255, 193, 7, 0.2);
+    color: #996404;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.zeitplan-status-gebucht {
+    background-color: rgba(40, 167, 69, 0.2);
+    color: #155724;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.zeitplan-status-bestaetigt {
+    background-color: rgba(40, 167, 69, 0.2);
+    color: #155724;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.zeitplan-status-abgeschlossen {
+    background-color: rgba(23, 162, 184, 0.2);
+    color: #0c5460;
+    border: 1px solid rgba(23, 162, 184, 0.3);
+}
+
+.event-details-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border: none;
+    border-radius: 12px;
+}
+
+.event-details-header {
+    background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%);
+    color: white;
+    border-radius: 12px 12px 0 0;
+    padding: 1.5rem;
+}
+
+.event-details-body {
+    padding: 1.5rem;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.detail-item:last-child {
+    border-bottom: none;
+}
+
+.detail-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    color: #0d6efd;
+    font-size: 1.1rem;
+}
+
+.detail-content {
+    flex: 1;
+}
+
+.detail-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+}
+
+.detail-value {
+    font-weight: 600;
+    color: #212529;
+    font-size: 1rem;
+}
+
+/* View Toggle Animation */
+.view-transition {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Responsive Listen-Ansicht */
+@media (max-width: 768px) {
+    .zeitplan-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .detail-item {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+    }
+    
+    .detail-icon {
+        margin-right: 0;
+        margin-bottom: 0.5rem;
+    }
+    
+    .event-details-header {
+        padding: 1rem;
+    }
+    
+    .event-details-body {
+        padding: 1rem;
+    }
+}
+
+/* Gantt Tooltip */
+.gantt-tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    z-index: 1000;
+    pointer-events: none;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.gantt-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.9);
+}
+
+/* Responsive Gantt Chart */
+@media (max-width: 768px) {
+    .gantt-container {
+        min-height: 400px;
+    }
+    
+    .gantt-header-cell,
+    .gantt-cell,
+    .gantt-time-cell {
+        min-width: 50px;
+        padding: 8px 4px;
+    }
+    
+    .gantt-bar {
+        height: 28px;
+        border-radius: 14px;
+        padding: 0 8px;
+        font-size: 0.6875rem;
+    }
+    
+    .gantt-bar-icon {
+        font-size: 0.75rem;
+        margin-right: 4px;
+    }
+    
+    .gantt-row {
+        min-height: 50px;
+    }
+}
+
+/* Quick Edit Buttons */
+.event-quick-actions {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.zeitplan-list-item:hover .event-quick-actions {
+    opacity: 1;
+}
+
+.btn-quick-edit {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    margin-left: 0.25rem;
+}
+
+/* Zeitberechnung */
+.time-calculation {
+    background-color: #f8f9fa;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    margin-top: 1rem;
+    border-left: 4px solid #0d6efd;
+}
+
+.time-calculation .calculated-duration {
+    font-weight: 600;
+    color: #0d6efd;
+    font-size: 1.1rem;
+}

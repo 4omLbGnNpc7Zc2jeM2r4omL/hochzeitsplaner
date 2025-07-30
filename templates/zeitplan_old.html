@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Zeitplan - Hochzeitsplaner{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">
+                    <i class="bi bi-clock text-primary me-2"></i>
+                    Zeitplan
+                </h1>
+                <div>
+                    <div class="btn-group me-2" role="group">
+                        <button type="button" class="btn btn-outline-primary" id="cardViewBtn" onclick="showCardView()">
+                            <i class="bi bi-grid-3x3-gap me-1"></i>
+                            Karten
+                        </button>
+                        <button type="button" class="btn btn-primary" id="ganttViewBtn" onclick="showGanttView()">
+                            <i class="bi bi-bar-chart me-1"></i>
+                            Gantt Chart
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addEventModal">
+                        <i class="bi bi-plus-circle me-1"></i>
+                        Neuer Programmpunkt
+                    </button>
+                </div>
+            </div>
+
+            <!-- Zeitplan Views -->
+            
+            <!-- Card View -->
+            <div id="cardView" class="d-none">
+                <div id="zeitplanContainer" class="row">
+                    <!-- Zeitplan wird hier dynamisch geladen -->
+                </div>
+            </div>
+
+            <!-- Gantt Chart View -->
+            <div id="ganttView">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-bar-chart me-2"></i>
+                            Tagesablauf Timeline
+                        </h5>
+                        <div class="gantt-controls">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="zoomGantt('in')">
+                                <i class="bi bi-zoom-in"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="zoomGantt('out')">
+                                <i class="bi bi-zoom-out"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="ganttChart" class="gantt-container">
+                            <!-- Gantt Chart wird hier dynamisch erstellt -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fallback wenn keine Daten -->
+            <div id="noDataMessage" class="text-center py-5 d-none">
+                <i class="bi bi-calendar-x display-4 text-muted mb-3"></i>
+                <h4 class="text-muted">Noch keine Programmpunkte vorhanden</h4>
+                <p class="text-muted">Fügen Sie Ihren ersten Programmpunkt hinzu, um zu beginnen.</p>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEventModal">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Ersten Programmpunkt hinzufügen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Neuer Programmpunkt -->
+<div class="modal fade" id="addEventModal" tabindex="-1" aria-labelledby="addEventModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addEventModalLabel">
+                    <i class="bi bi-plus-circle me-2"></i>
+                    Neuer Programmpunkt
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addEventForm">
+                    <div class="mb-3">
+                        <label for="eventTime" class="form-label">Uhrzeit</label>
+                        <input type="time" class="form-control" id="eventTime" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="eventTitle" class="form-label">Programmpunkt</label>
+                        <input type="text" class="form-control" id="eventTitle" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="eventDuration" class="form-label">Dauer</label>
+                        <input type="text" class="form-control" id="eventDuration" placeholder="z.B. 01:30">
+                    </div>
+                    <div class="mb-3">
+                        <label for="eventResponsible" class="form-label">Verantwortlich</label>
+                        <input type="text" class="form-control" id="eventResponsible">
+                    </div>
+                    <div class="mb-3">
+                        <label for="eventStatus" class="form-label">Status</label>
+                        <select class="form-select" id="eventStatus">
+                            <option value="Geplant">Geplant</option>
+                            <option value="Bestätigt">Bestätigt</option>
+                            <option value="Abgeschlossen">Abgeschlossen</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-success" onclick="addEvent()">
+                    <i class="bi bi-check-circle me-1"></i>
+                    Hinzufügen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/zeitplan.js') }}"></script>
+{% endblock %}

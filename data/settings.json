@@ -1,0 +1,24 @@
+{
+  "hochzeitsdatum": "2025-09-01",
+  "hochzeitszeit": "15:00",
+  "brautpaar_namen": "Käthe & Pascal",
+  "hochzeitsort": {
+    "name": "Beispiel Hochzeitslocation",
+    "adresse": "Musterstraße 123, 12345 Musterstadt",
+    "beschreibung": "Wunderschöne Location für unsere Traumhochzeit"
+  },
+  "gaeste_informationen": {
+    "kontakt": {
+      "einzelperson": "Bei Fragen kannst du dich gerne an uns wenden.",
+      "mehrere": "Bei Fragen könnt ihr euch gerne an uns wenden."
+    },
+    "geschenke": {
+      "einzelperson": "Über dein Kommen freuen wir uns am meisten!",
+      "mehrere": "Über euer Kommen freuen wir uns am meisten!"
+    },
+    "dresscode": {
+      "einzelperson": "Festliche Kleidung erwünscht.",
+      "mehrere": "Festliche Kleidung erwünscht."
+    }
+  }
+}

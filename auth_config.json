@@ -1,0 +1,22 @@
+{
+  "auth": {
+    "users": [
+      {
+        "username": "katharina",
+        "password": "Bokito123!",
+        "role": "admin",
+        "display_name": "Käthe"
+      },
+      {
+        "username": "pascal",
+        "password": "!Schumi060592!",
+        "role": "admin",   
+        "display_name": "Pascal"
+      }
+    ],
+    "session_timeout_hours": 3
+  },
+  "app": {
+    "secret_key": "your-secret-key-change-this-in-production"
+  }
+}

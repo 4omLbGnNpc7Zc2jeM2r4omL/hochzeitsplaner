@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}{{ brautpaar_namen or "Brautpaar" }} Heiraten 💕 - Gäste-Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="bi bi-person-heart me-2"></i>
+            Willkommen, {{ session.display_name }}!
+        </h1>
+        <p class="lead text-muted">
+            Hier kannst du deine Teilnahme für {{ brautpaar_namen or "die Hochzeit" }} verwalten und den Hochzeitsablauf einsehen.
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- RSVP Card -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-calendar-check me-2"></i>
+                    Deine Teilnahme
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="rsvpForm">
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" id="guestStatus">
+                            <option value="Offen">Noch nicht entschieden</option>
+                            <option value="Zugesagt">Ich komme gerne!</option>
+                            <option value="Abgesagt">Kann leider nicht kommen</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3" id="personenDiv">
+                        <label for="personenAnzahl" class="form-label">Anzahl Personen</label>
+                        <input type="number" class="form-control" id="personenAnzahl" min="1" max="1" value="1">
+                        <div class="form-text">
+                            Maximum: <span id="maxPersonen">1</span> Person(en)
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="guestNotiz" class="form-label">Nachricht (optional)</label>
+                        <textarea class="form-control" id="guestNotiz" rows="3" placeholder="Allergien, Wünsche, Grüße..."></textarea>
+                    </div>
+                    
+                    <button type="button" class="btn btn-success w-100" id="saveRsvp">
+                        <i class="bi bi-check-circle me-2"></i>
+                        Teilnahme speichern
+                    </button>
+                </div>
+                
+                <div id="rsvpSuccess" class="text-center d-none">
+                    <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3">Vielen Dank!</h5>
+                    <p class="text-muted">Deine Teilnahme wurde gespeichert.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Zeitplan Card -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-clock me-2"></i>
+                    Hochzeitsablauf
+                </h5>
+            </div>
+            <div class="card-body">
+                <p>Hier kannst du den öffentlichen Ablauf der Hochzeit einsehen.</p>
+                
+                <div class="d-grid">
+                    <a href="{{ url_for('guest_zeitplan') }}" class="btn btn-info">
+                        <i class="bi bi-calendar-event me-2"></i>
+                        Zeitplan ansehen
+                    </a>
+                </div>
+                
+                <hr>
+                
+                <h6>Kurzer Überblick:</h6>
+                <div id="zeitplanPreview">
+                    <!-- Wird via JavaScript geladen -->
+                    <div class="text-center">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Lädt...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <!-- Location Card -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-geo-alt me-2"></i>
+                    Locations
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="locationInfo">
+                    <!-- Wird via JavaScript geladen -->
+                    <div class="text-center">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Lädt Location...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Kartenvorschauen für Guest Dashboard -->
+                <div id="guestMapPreviewsSection" style="display: none;" class="mt-4">
+                    <h6 class="text-primary mb-3">
+                        <i class="bi bi-map me-2"></i>
+                        Kartenvorschauen
+                    </h6>
+                    
+                    <!-- Standesamt Kartenvorschau -->
+                    <div id="guestStandesamtMapPreview" style="display: none;" class="mb-3">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-building me-2"></i>Standesamt
+                                </h6>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="ratio ratio-16x9">
+                                    <iframe 
+                                        id="guestStandesamtMapFrame"
+                                        style="border:0;" 
+                                        allowfullscreen="" 
+                                        loading="lazy" 
+                                        referrerpolicy="no-referrer-when-downgrade">
+                                    </iframe>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Hochzeitslocation Kartenvorschau -->
+                    <div id="guestHochzeitslocationMapPreview" style="display: none;" class="mb-3">
+                        <div class="card border-success">
+                            <div class="card-header bg-success text-white">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-heart-fill me-2"></i>Hochzeitslocation
+                                </h6>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="ratio ratio-16x9">
+                                    <iframe 
+                                        id="guestHochzeitslocationMapFrame"
+                                        style="border:0;" 
+                                        allowfullscreen="" 
+                                        loading="lazy" 
+                                        referrerpolicy="no-referrer-when-downgrade">
+                                    </iframe>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Informationen Card -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Informationen
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <h6>Kontakt</h6>
+                        <p class="text-muted" id="kontaktText">
+                            Bei Fragen könnt ihr euch gerne an uns wenden.
+                        </p>
+                    </div>
+                    <div class="col-12 mb-3">
+                        <h6>Geschenke</h6>
+                        <p class="text-muted" id="geschenkeText">
+                            Über euer Kommen freuen wir uns am meisten!
+                        </p>
+                    </div>
+                    <div class="col-12">
+                        <h6>Dresscode</h6>
+                        <p class="text-muted" id="dresscodeText">
+                            Festliche Kleidung erwünscht.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/guest_dashboard.js') }}"></script>
+{% endblock %}

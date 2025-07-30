@@ -1,0 +1,24 @@
+{
+  "detailed_costs": {
+    "standesamt": {
+      "Getränke": 4,
+      "Snacks": 0
+    },
+    "essen": {
+      "Hauptgang": 55,
+      "Getränke": 35
+    },
+    "party": {
+      "Getränke": 25,
+      "Mitternachtssnack": 0
+    }
+  },
+  "fixed_costs": {
+    "Anzug": 900,
+    "DJ": 600,
+    "Fotograf": 1800,
+    "Kleid": 2000,
+    "Location Miete": 2900,
+    "Ringe": 1500
+  }
+}

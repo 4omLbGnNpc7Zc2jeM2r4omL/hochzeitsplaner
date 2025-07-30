@@ -1,0 +1,32 @@
+{
+  "locations": {
+    "standesamt": {
+      "name": "Weißer Saal",
+      "adresse": "Rathaus, Markt 39, 52062 Aachen",
+      "beschreibung": "Hier findet die standesamtliche Trauung statt"
+    },
+    "hochzeitslocation": {
+      "name": "Hotel Kastanienhof",
+      "adresse": "Kruppstraße 28, 52072 Aachen",
+      "beschreibung": "Hier feiern wir unsere Hochzeit"
+    }
+  },
+  "cost_settings": {
+    "standesamt": 35,
+    "essen": 55,
+    "party": 25
+  },
+  "settings": {
+    "auto_budget_update": true,
+    "braut_name": "Käthe",
+    "braeutigam_name": "Pascal",
+    "hochzeitsdatum": "2026-07-25",
+    "hochzeitsort": "Rathaus, Aachen",
+    "gesamtbudget": 0,
+    "essen_pro_person": 0,
+    "getraenke_pro_person": 0,
+    "bride_name": "Käthe",
+    "groom_name": "Pascal"
+  },
+  "hochzeitsort": "Rathaus, Aachen"
+}

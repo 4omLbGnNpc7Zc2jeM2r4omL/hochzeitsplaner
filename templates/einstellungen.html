@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}Einstellungen - {{ brautpaar_namen or "Brautpaar" }} Heiraten 💕{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Einstellungen</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>Allgemeine Einstellungen</h5>
+            </div>
+            <div class="card-body">
+                <form id="settingsForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="brautName" class="form-label">Name der Braut</label>
+                                <input type="text" class="form-control" id="brautName" placeholder="Käthe">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="braeutigamName" class="form-label">Name des Bräutigams</label>
+                                <input type="text" class="form-control" id="braeutigamName" placeholder="Pascal">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="hochzeitsdatum" class="form-label">Hochzeitsdatum</label>
+                                <input type="date" class="form-control" id="hochzeitsdatum">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Locations Section -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="bi bi-geo-alt me-2"></i>
+                                Locations
+                            </h6>
+                        </div>
+                    </div>
+                    
+                    <!-- Standesamt -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-building me-2"></i>
+                                        Standesamt
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="standesamtName" class="form-label">Name</label>
+                                                <input type="text" class="form-control" id="standesamtName" placeholder="Standesamt Aachen">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="standesamtAdresse" class="form-label">Adresse</label>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control" id="standesamtAdresse" placeholder="Rathaus, Markt 39, 52062 Aachen">
+                                                    <button class="btn btn-outline-primary" type="button" onclick="openGoogleMaps('standesamtAdresse')" title="In Google Maps öffnen">
+                                                        <i class="bi bi-geo-alt-fill"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="standesamtBeschreibung" class="form-label">Beschreibung</label>
+                                        <textarea class="form-control" id="standesamtBeschreibung" rows="2" placeholder="Hier findet die standesamtliche Trauung statt"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Hochzeitslocation -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-heart-fill me-2"></i>
+                                        Hochzeitslocation
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="hochzeitslocationName" class="form-label">Name</label>
+                                                <input type="text" class="form-control" id="hochzeitslocationName" placeholder="Hotel Kastanienhof">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="hochzeitslocationAdresse" class="form-label">Adresse</label>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control" id="hochzeitslocationAdresse" placeholder="Kastanienallee 15, 52074 Aachen">
+                                                    <button class="btn btn-outline-primary" type="button" onclick="openGoogleMaps('hochzeitslocationAdresse')" title="In Google Maps öffnen">
+                                                        <i class="bi bi-geo-alt-fill"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="hochzeitslocationBeschreibung" class="form-label">Beschreibung</label>
+                                        <textarea class="form-control" id="hochzeitslocationBeschreibung" rows="2" placeholder="Hier feiern wir unsere Hochzeit"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Kartenvorschauen nebeneinander -->
+                    <div class="row" id="mapPreviewsSection" style="display: none;">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="bi bi-geo-alt me-2"></i>
+                                Kartenvorschauen
+                            </h6>
+                        </div>
+                        
+                        <!-- Standesamt Kartenvorschau -->
+                        <div class="col-lg-6 col-md-12 mb-3">
+                            <div class="card" id="standesamtMapPreview" style="display: none;">
+                                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-building me-2"></i>Standesamt
+                                    </h6>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="hideMapPreview('standesamt')" title="Vorschau schließen">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="ratio ratio-16x9">
+                                        <iframe 
+                                            id="standesamtMapFrame"
+                                            style="border:0;" 
+                                            allowfullscreen="" 
+                                            loading="lazy" 
+                                            referrerpolicy="no-referrer-when-downgrade">
+                                        </iframe>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Hochzeitslocation Kartenvorschau -->
+                        <div class="col-lg-6 col-md-12 mb-3">
+                            <div class="card" id="hochzeitslocationMapPreview" style="display: none;">
+                                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-heart-fill me-2"></i>Hochzeitslocation
+                                    </h6>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="hideMapPreview('hochzeitslocation')" title="Vorschau schließen">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="ratio ratio-16x9">
+                                        <iframe 
+                                            id="hochzeitslocationMapFrame"
+                                            style="border:0;" 
+                                            allowfullscreen="" 
+                                            loading="lazy" 
+                                            referrerpolicy="no-referrer-when-downgrade">
+                                        </iframe>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Legacy Hochzeitsort (wird ausgeblendet, aber für Kompatibilität beibehalten) -->
+                    <div class="row d-none">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="hochzeitsort" class="form-label">Hochzeitsort (Legacy)</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="hochzeitsort" placeholder="Location eingeben...">
+                                    <button class="btn btn-outline-primary" type="button" id="openMapsBtn" title="In Google Maps öffnen">
+                                        <i class="bi bi-geo-alt-fill"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-end">
+                        <button type="button" class="btn btn-secondary me-2" id="resetSettings">Zurücksetzen</button>
+                        <button type="submit" class="btn btn-primary">Speichern</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Aktionen</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="/api/export/excel" class="btn btn-success">
+                        <i class="bi bi-file-earmark-excel me-2"></i>Excel Export
+                    </a>
+                    
+                    <button class="btn btn-warning" id="backupData">
+                        <i class="bi bi-shield-check me-2"></i>Backup erstellen
+                    </button>
+                    
+                    <button class="btn btn-info" id="importData">
+                        <i class="bi bi-upload me-2"></i>Daten importieren
+                    </button>
+                    
+                    <hr>
+                    
+                    <button class="btn btn-danger" id="resetAllData">
+                        <i class="bi bi-exclamation-triangle me-2"></i>Alle Daten löschen
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5>System Info</h5>
+            </div>
+            <div class="card-body">
+                <small class="text-muted">
+                    <strong>Version:</strong> 2.0.0 Web<br>
+                    <strong>Letztes Update:</strong> <span id="lastUpdate">-</span><br>
+                    <strong>Gäste:</strong> <span id="totalGuests">-</span><br>
+                    <strong>Budget Positionen:</strong> <span id="totalBudgetItems">-</span>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/einstellungen.js') }}"></script>
+{% endblock %}
