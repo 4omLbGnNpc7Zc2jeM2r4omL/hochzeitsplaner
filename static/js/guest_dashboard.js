@@ -88,83 +88,123 @@ function initializeGoogleMapFallback() {
 function updateGuestLocationMapPreview(locationType, address) {
     console.log(`Updating map preview for ${locationType}:`, address);
     
-    const mapPreviewDiv = document.getElementById(`${locationType}MapPreview`);
-    if (!mapPreviewDiv) {
-        console.log(`Map preview div not found for ${locationType}`);
+    const mapPreviewDiv = document.getElementById(`guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}MapPreview`);
+    const mapFrameElement = document.getElementById(`guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}MapFrame`);
+    
+    if (!mapPreviewDiv || !mapFrameElement) {
+        console.log(`Map preview elements not found for ${locationType}`);
+        console.log(`Looking for: guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}MapPreview`);
         return;
     }
 
-    // Query für Google Maps erstellen
+    // Query für Maps erstellen
     const query = encodeURIComponent(address);
     
-    // Google Maps Embed URL (mit altem API Key als Fallback)
+    // Zuerst versuchen, neue Google Maps Integration zu verwenden
+    if (window.googleMaps) {
+        try {
+            const embedUrl = window.googleMaps.createEmbedUrl(query);
+            if (embedUrl) {
+                mapFrameElement.src = embedUrl;
+                mapPreviewDiv.style.display = 'block';
+                console.log(`Google Maps embed loaded for ${locationType}`);
+                return;
+            }
+        } catch (error) {
+            console.log(`Google Maps integration failed for ${locationType}:`, error);
+        }
+    }
+    
+    // Fallback: Versuche Google Maps mit altem API Key
     const gmapsUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dw901SwHHzFbOg&q=${query}`;
     
-    // OpenStreetMap Fallback URL (über Nominatim)
-    const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`;
-    
-    // Versuche zuerst Google Maps
-    const iframe = document.createElement('iframe');
-    iframe.src = gmapsUrl;
-    iframe.width = '100%';
-    iframe.height = '200';
-    iframe.style.border = '0';
-    iframe.allowfullscreen = '';
-    iframe.loading = 'lazy';
-    iframe.referrerpolicy = 'no-referrer-when-downgrade';
-    
-    // Fallback auf OpenStreetMap bei Google Maps Fehlern
-    iframe.onerror = function() {
-        console.log(`Google Maps failed for ${locationType}, trying OpenStreetMap fallback`);
-        
-        fetch(osmUrl)
-            .then(response => response.json())
-            .then(data => {
-                if (data && data.length > 0) {
-                    const lat = data[0].lat;
-                    const lon = data[0].lon;
-                    
-                    // OpenStreetMap Karte erstellen
-                    const osmMapHtml = `
-                        <div style="width: 100%; height: 200px; border: 1px solid #ccc; border-radius: 8px; position: relative; overflow: hidden;">
-                            <iframe src="https://www.openstreetmap.org/export/embed.html?bbox=${lon-0.01},${lat-0.01},${lon+0.01},${lat+0.01}&layer=mapnik&marker=${lat},${lon}" 
-                                    style="width: 100%; height: 100%; border: none;" 
-                                    allowfullscreen></iframe>
-                            <div style="position: absolute; bottom: 5px; right: 5px; background: rgba(255,255,255,0.8); padding: 2px 5px; font-size: 10px; border-radius: 3px;">
-                                © OpenStreetMap
-                            </div>
-                        </div>
-                    `;
-                    mapPreviewDiv.innerHTML = osmMapHtml;
-                } else {
-                    // Fallback auf einfachen Link
-                    mapPreviewDiv.innerHTML = `
-                        <div style="text-align: center; padding: 20px; border: 1px solid #ccc; border-radius: 8px; background-color: #f9f9f9;">
-                            <p>Karte konnte nicht geladen werden</p>
-                            <a href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" class="btn btn-outline-primary btn-sm">
-                                <i class="fas fa-map-marker-alt"></i> In Google Maps öffnen
-                            </a>
-                        </div>
-                    `;
-                }
-            })
-            .catch(error => {
-                console.error(`Error loading OSM fallback for ${locationType}:`, error);
-                // Letzter Fallback auf einfachen Link
-                mapPreviewDiv.innerHTML = `
-                    <div style="text-align: center; padding: 20px; border: 1px solid #ccc; border-radius: 8px; background-color: #f9f9f9;">
-                        <p>Karte konnte nicht geladen werden</p>
-                        <a href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-map-marker-alt"></i> In Google Maps öffnen
-                        </a>
-                    </div>
-                `;
-            });
+    // Test ob Google Maps funktioniert
+    const testImg = new Image();
+    testImg.onload = function() {
+        // Google Maps funktioniert
+        mapFrameElement.src = gmapsUrl;
+        mapPreviewDiv.style.display = 'block';
+        console.log(`Google Maps fallback loaded for ${locationType}`);
     };
     
-    // Karte einfügen
-    mapPreviewDiv.innerHTML = '';
-    mapPreviewDiv.appendChild(iframe);
+    testImg.onerror = function() {
+        // Google Maps funktioniert nicht, verwende OpenStreetMap
+        console.log(`Google Maps failed for ${locationType}, using OpenStreetMap`);
+        useOpenStreetMapFallback(locationType, address, mapFrameElement, mapPreviewDiv);
+    };
+    
+    // Teste mit einem kleinen Google Maps Bild
+    testImg.src = `https://maps.googleapis.com/maps/api/staticmap?center=${query}&zoom=15&size=100x100&key=AIzaSyBFw0Qbyq9zTFTd-tUY6dw901SwHHzFbOg`;
+    
+    // Timeout für den Test
+    setTimeout(() => {
+        if (!mapFrameElement.src) {
+            console.log(`Google Maps test timed out for ${locationType}, using OpenStreetMap`);
+            useOpenStreetMapFallback(locationType, address, mapFrameElement, mapPreviewDiv);
+        }
+    }, 3000);
+}
+
+function useOpenStreetMapFallback(locationType, address, mapFrameElement, mapPreviewDiv) {
+    const query = encodeURIComponent(address);
+    const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`;
+    
+    fetch(osmUrl)
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.length > 0) {
+                const lat = parseFloat(data[0].lat);
+                const lon = parseFloat(data[0].lon);
+                
+                // OpenStreetMap Embed URL (funktioniert besser als die Export-Variante)
+                const osmEmbedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lon-0.01},${lat-0.01},${lon+0.01},${lat+0.01}&layer=mapnik&marker=${lat},${lon}`;
+                
+                mapFrameElement.src = osmEmbedUrl;
+                mapPreviewDiv.style.display = 'block';
+                console.log(`OpenStreetMap loaded for ${locationType} at ${lat}, ${lon}`);
+            } else {
+                // Letzter Fallback: Einfacher Link zu Google Maps
+                createMapLinkFallback(address, mapFrameElement, mapPreviewDiv);
+            }
+        })
+        .catch(error => {
+            console.error(`OpenStreetMap geocoding failed for ${locationType}:`, error);
+            createMapLinkFallback(address, mapFrameElement, mapPreviewDiv);
+        });
+}
+
+function createMapLinkFallback(address, mapFrameElement, mapPreviewDiv) {
+    const query = encodeURIComponent(address);
+    const mapLinkHtml = `
+        <div style="display: flex; align-items: center; justify-content: center; height: 200px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;">
+            <div class="text-center">
+                <i class="bi bi-geo-alt-fill text-primary" style="font-size: 2rem;"></i>
+                <p class="mt-2 mb-2"><strong>${address}</strong></p>
+                <a href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" class="btn btn-primary btn-sm">
+                    <i class="bi bi-map me-1"></i>Karte öffnen
+                </a>
+            </div>
+        </div>
+    `;
+    
+    // Erstelle ein Data-URL für das HTML
+    const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css" rel="stylesheet">
+        </head>
+        <body style="margin: 0; padding: 10px; font-family: system-ui;">
+            ${mapLinkHtml}
+        </body>
+        </html>
+    `);
+    
+    mapFrameElement.src = dataUrl;
+    mapPreviewDiv.style.display = 'block';
+    console.log('Map link fallback created');
 }
 
 function displayLocationInfo() {

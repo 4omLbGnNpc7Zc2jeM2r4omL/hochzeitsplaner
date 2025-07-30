@@ -17,12 +17,36 @@ from pathlib import Path
 
 # DynDNS Manager Import (optional)
 try:
-    from dyndns_manager import init_dyndns, start_dyndns, stop_dyndns, get_dyndns_status
-    DYNDNS_AVAILABLE = True
-    print("✅ DynDNS Manager verfügbar")
-except ImportError:
+    # Prüfe zuerst ob die Datei existiert
+    dyndns_manager_path = Path(__file__).parent / "dyndns_manager.py"
+    if dyndns_manager_path.exists():
+        from dyndns_manager import init_dyndns, start_dyndns, stop_dyndns, get_dyndns_status
+        DYNDNS_AVAILABLE = True
+        print("✅ DynDNS Manager verfügbar")
+    else:
+        print("⚠️ dyndns_manager.py Datei nicht gefunden")
+        DYNDNS_AVAILABLE = False
+        # Fallback-Funktionen definieren
+        def init_dyndns(): pass
+        def start_dyndns(): pass
+        def stop_dyndns(): pass
+        def get_dyndns_status(): return {"status": "not_available"}
+except ImportError as e:
+    print(f"⚠️ DynDNS Manager Import fehlgeschlagen: {e}")
     DYNDNS_AVAILABLE = False
-    print("⚠️ DynDNS Manager nicht verfügbar")
+    # Fallback-Funktionen definieren
+    def init_dyndns(): pass
+    def start_dyndns(): pass
+    def stop_dyndns(): pass
+    def get_dyndns_status(): return {"status": "not_available"}
+except Exception as e:
+    print(f"⚠️ Unerwarteter Fehler beim DynDNS Manager Import: {e}")
+    DYNDNS_AVAILABLE = False
+    # Fallback-Funktionen definieren
+    def init_dyndns(): pass
+    def start_dyndns(): pass
+    def stop_dyndns(): pass
+    def get_dyndns_status(): return {"status": "not_available"}
 
 class UniversalConfig:
     """Universelle Konfiguration für alle Szenarien"""
