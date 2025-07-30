@@ -24,7 +24,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install Flask==3.0.0 Flask-CORS==4.0.0 pandas==2.1.4 openpyxl==3.1.2 pyinstaller==6.14.2
+        pip install Flask==3.0.0 Flask-CORS==4.0.0 pandas==2.1.4 openpyxl==3.1.2 pyinstaller==6.14.2 requests
         
     - name: Prepare launcher file
       run: |
@@ -48,26 +48,23 @@ jobs:
     
     - name: Build executable
       run: |
-        pyinstaller --onefile --console --name Hochzeitsplaner launcher.py --add-data "data;data" --add-data "static;static" --add-data "templates;templates" --add-data "auth_config.json;." --add-data "requirements.txt;." --add-data "ssl_certificate.crt;." --add-data "ssl_private_key.key;." --hidden-import flask --hidden-import flask_cors --hidden-import pandas --hidden-import openpyxl --hidden-import datenmanager
+        python build_exe.py
     
-    - name: Create distribution
+    - name: Verify distribution
       shell: cmd
       run: |
-        if not exist Distribution mkdir Distribution
-        copy "dist\Hochzeitsplaner.exe" "Distribution\"
-        echo # Hochzeitsplaner Windows .exe > "Distribution\README.txt"
-        echo. >> "Distribution\README.txt"
-        echo Doppelklick auf Hochzeitsplaner.exe zum Starten >> "Distribution\README.txt"
-        echo. >> "Distribution\README.txt"
-        echo Standard-Login: >> "Distribution\README.txt"
-        echo Benutzername: admin >> "Distribution\README.txt"
-        echo Passwort: hochzeit2025 >> "Distribution\README.txt"
-        echo. >> "Distribution\README.txt"
-        echo SSL-Zertifikate werden automatisch erkannt falls vorhanden >> "Distribution\README.txt"
+        echo Prüfe erstellte Distribution...
+        dir dist
+        if exist "dist\Hochzeitsplaner.exe" (
+          echo ✅ Hochzeitsplaner.exe erfolgreich erstellt
+        ) else (
+          echo ❌ Hochzeitsplaner.exe nicht gefunden
+          exit 1
+        )
     
-    - name: Upload Windows executable
+    - name: Upload distribution artifact
       uses: actions/upload-artifact@v4
       with:
-        name: hochzeitsplaner-windows
-        path: Distribution/
-        retention-days: 90
+        name: hochzeitsplaner-windows-exe
+        path: dist/Hochzeitsplaner.exe
+        retention-days: 7
