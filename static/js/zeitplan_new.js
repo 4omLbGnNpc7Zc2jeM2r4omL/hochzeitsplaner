@@ -167,6 +167,7 @@ function displayZeitplanList(zeitplan) {
                             <span class="badge bg-primary zeitplan-time-badge me-2">${event.Uhrzeit}</span>
                             ${event.EndZeit ? `<span class="badge bg-secondary zeitplan-time-badge me-2">bis ${event.EndZeit}</span>` : ''}
                             <span class="badge ${statusClass} zeitplan-status-badge">${event.Status}</span>
+                            ${event.public ? `<span class="badge bg-success zeitplan-status-badge ms-1" title="Für Gäste sichtbar"><i class="bi bi-eye"></i></span>` : ''}
                         </div>
                         <div class="zeitplan-title">${event.Programmpunkt}</div>
                         <div class="zeitplan-meta">
@@ -273,6 +274,17 @@ function showEventDetails(index) {
                         <div class="detail-value">${event.Verantwortlich}</div>
                     </div>
                 </div>` : ''}
+                <div class="detail-item">
+                    <div class="detail-icon">
+                        <i class="bi bi-eye"></i>
+                    </div>
+                    <div class="detail-content">
+                        <div class="detail-label">Sichtbarkeit</div>
+                        <div class="detail-value">
+                            ${event.public ? '<span class="badge bg-success"><i class="bi bi-eye me-1"></i>Für Gäste sichtbar</span>' : '<span class="badge bg-secondary"><i class="bi bi-eye-slash me-1"></i>Nur intern</span>'}
+                        </div>
+                    </div>
+                </div>
                 <div class="mt-3">
                     <button type="button" class="btn btn-outline-primary btn-sm me-2" onclick="editEvent(${index})">
                         <i class="bi bi-pencil me-1"></i>
@@ -383,7 +395,8 @@ function addEvent() {
             Dauer: calculatedDuration !== '00:00' ? calculatedDuration : '',
             EndZeit: endTime,
             Verantwortlich: document.getElementById('eventResponsible').value,
-            Status: document.getElementById('eventStatus').value
+            Status: document.getElementById('eventStatus').value,
+            public: document.getElementById('eventPublic').checked
         };
         
         console.log('Event-Daten:', eventData);
@@ -513,6 +526,13 @@ function editEvent(index) {
         document.getElementById('editEventTitle').value = event.Programmpunkt;
         document.getElementById('editEventResponsible').value = event.Verantwortlich || '';
         document.getElementById('editEventStatus').value = event.Status;
+        
+        // Public-Checkbox setzen
+        const publicCheckbox = document.getElementById('editEventPublic');
+        if (publicCheckbox) {
+            publicCheckbox.checked = event.public === true || event.public === 'true';
+        }
+        
         console.log('Modal-Felder gefüllt');
         
         // Dauer berechnen wenn vorhanden
@@ -583,7 +603,8 @@ function saveEditEvent() {
             Dauer: calculatedDuration !== '00:00' ? calculatedDuration : '',
             EndZeit: endTime,
             Verantwortlich: document.getElementById('editEventResponsible').value,
-            Status: document.getElementById('editEventStatus').value
+            Status: document.getElementById('editEventStatus').value,
+            public: document.getElementById('editEventPublic').checked
         };
         
         console.log('Update-Daten:', {index, eventData});

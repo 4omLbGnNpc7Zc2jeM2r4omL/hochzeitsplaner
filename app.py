@@ -1890,7 +1890,8 @@ def api_zeitplan_add():
             'Dauer': event_data.get('Dauer', ''),
             'EndZeit': event_data.get('EndZeit', ''),
             'Verantwortlich': event_data.get('Verantwortlich', ''),
-            'Status': event_data.get('Status', 'Geplant')
+            'Status': event_data.get('Status', 'Geplant'),
+            'public': event_data.get('public', False)
         }
         
         # Zu DataFrame hinzufügen
@@ -1940,6 +1941,7 @@ def api_zeitplan_update():
         data_manager.zeitplan_df.loc[index, 'EndZeit'] = event_data.get('EndZeit', '')
         data_manager.zeitplan_df.loc[index, 'Verantwortlich'] = event_data.get('Verantwortlich', '')
         data_manager.zeitplan_df.loc[index, 'Status'] = event_data.get('Status', 'Geplant')
+        data_manager.zeitplan_df.loc[index, 'public'] = event_data.get('public', False)
         
         # Speichern
         data_manager.save_zeitplan()
