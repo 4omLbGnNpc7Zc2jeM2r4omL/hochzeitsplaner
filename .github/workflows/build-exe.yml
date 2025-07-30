@@ -46,9 +46,11 @@ jobs:
           echo # Dummy SSL Key > ssl_private_key.key
         )
     
-    - name: Build executable
+    - name: Build EXE with PyInstaller
+      shell: cmd
       run: |
-        python build_exe.py
+        echo Building Hochzeitsplaner.exe...
+        pyinstaller --onefile --windowed --name "Hochzeitsplaner" --add-data "templates;templates" --add-data "static;static" --add-data "data;data" --add-data "dyndns_manager.py;." --add-data "dyndns_config.json;." --add-data "ionos_dyndns_update.py;." --hidden-import=dyndns_manager --hidden-import=requests --hidden-import=flask --hidden-import=werkzeug --hidden-import=jinja2 --distpath dist universal_launcher.py
     
     - name: Verify distribution
       shell: cmd

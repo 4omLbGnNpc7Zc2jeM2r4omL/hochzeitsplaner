@@ -35,7 +35,7 @@ def install_pyinstaller():
 def create_launcher():
     """Erstellt ein funktionsfähiges Launcher-Script"""
     # Kopiere den funktionierenden Launcher
-    launcher_source = Path("working_launcher.py")
+    launcher_source = Path("universal_launcher.py")
     if launcher_source.exists():
         with open(launcher_source, 'r', encoding='utf-8') as f:
             launcher_content = f.read()
@@ -45,7 +45,7 @@ def create_launcher():
         
         print("✅ Funktionsfähiger Launcher kopiert")
     else:
-        print("❌ working_launcher.py nicht gefunden")
+        print("❌ universal_launcher.py nicht gefunden")
         return False
     
     return True
@@ -442,8 +442,6 @@ Auf Windows: Übertragen Sie die .exe-Version von GitHub Actions.'''
     
     readme_content += '''
 
-    readme_content += '''
-
 ## 📱 Nutzung
 - Die Anwendung startet automatisch einen lokalen Webserver
 - Beim ersten Start können Sie ein benutzerdefiniertes Datenverzeichnis wählen
@@ -484,7 +482,6 @@ Bei Problemen prüfen Sie:
 
 Version: 2.1.1 (DynDNS-Version - Universal Launcher Fix)
 Erstellt: 2025'''
-'''
     
     with open(dist_dir / "README.txt", 'w', encoding='utf-8') as f:
         f.write(readme_content)
