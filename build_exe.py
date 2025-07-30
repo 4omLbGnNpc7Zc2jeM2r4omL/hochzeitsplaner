@@ -33,124 +33,22 @@ def install_pyinstaller():
             return False
 
 def create_launcher():
-    """Erstellt ein Launcher-Script"""
-    launcher_content = '''#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Hochzeitsplaner Launcher mit SSL und konfigurierbarem Datenverzeichnis
-Startet die Webanwendung automatisch und öffnet Browser
-"""
-
-import sys
-import os
-import webbrowser
-import time
-import threading
-import socket
-import ssl
-import tkinter as tk
-from tkinter import filedialog, messagebox
-from pathlib import Path
-import shutil
-import json
-
-# Stelle sicher, dass wir im richtigen Verzeichnis sind
-if getattr(sys, 'frozen', False):
-    # Wenn als .exe ausgeführt
-    application_path = os.path.dirname(sys.executable)
-else:
-    # Wenn als Script ausgeführt
-    application_path = os.path.dirname(os.path.abspath(__file__))
-
-os.chdir(application_path)
-
-class HochzeitsplanerConfig:
-    """Konfiguration für Hochzeitsplaner"""
+    """Erstellt ein funktionsfähiges Launcher-Script"""
+    # Kopiere den funktionierenden Launcher
+    launcher_source = Path("working_launcher.py")
+    if launcher_source.exists():
+        with open(launcher_source, 'r', encoding='utf-8') as f:
+            launcher_content = f.read()
+        
+        with open('launcher.py', 'w', encoding='utf-8') as f:
+            f.write(launcher_content)
+        
+        print("✅ Funktionsfähiger Launcher kopiert")
+    else:
+        print("❌ working_launcher.py nicht gefunden")
+        return False
     
-    def __init__(self):
-        self.config_file = Path("hochzeitsplaner_config.json")
-        self.default_config = {
-            "data_directory": str(Path(application_path) / "data"),
-            "ssl_enabled": False,
-            "ssl_cert_path": "",
-            "ssl_key_path": "ssl_private_key.key",
-            "host": "127.0.0.1",
-            "port": 8080,
-            "auto_open_browser": True,
-            "domain": "pascalundkäthe-heiraten.de"
-        }
-        self.config = self.load_config()
-    
-    def load_config(self):
-        """Lädt Konfiguration aus Datei"""
-        if self.config_file.exists():
-            try:
-                with open(self.config_file, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                # Merge mit default config für neue Optionen
-                merged = self.default_config.copy()
-                merged.update(config)
-                return merged
-            except Exception as e:
-                print(f"⚠️  Fehler beim Laden der Konfiguration: {e}")
-        
-        return self.default_config.copy()
-    
-    def save_config(self):
-        """Speichert Konfiguration in Datei"""
-        try:
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(self.config, f, indent=2, ensure_ascii=False)
-            return True
-        except Exception as e:
-            print(f"❌ Fehler beim Speichern der Konfiguration: {e}")
-            return False
-    
-    def setup_data_directory(self):
-        """Richtet Datenverzeichnis ein"""
-        data_path = Path(self.config["data_directory"])
-        
-        # Erstelle Verzeichnis falls nicht vorhanden
-        data_path.mkdir(parents=True, exist_ok=True)
-        
-        # Kopiere Standard-Daten falls Verzeichnis leer ist
-        default_data_path = Path(application_path) / "data"
-        if default_data_path.exists() and not any(data_path.iterdir()):
-            try:
-                shutil.copytree(default_data_path, data_path, dirs_exist_ok=True)
-                print(f"✅ Standard-Daten nach {data_path} kopiert")
-            except Exception as e:
-                print(f"⚠️  Fehler beim Kopieren der Standard-Daten: {e}")
-        
-        return data_path
-
-def setup_first_run():
-    """Setup für ersten Start - einfache Verzeichnisauswahl"""
-    try:
-        # Verstecke Hauptfenster
-        root = tk.Tk()
-        root.withdraw()
-        
-        # Frage nach Datenverzeichnis
-        result = messagebox.askyesno(
-            "Hochzeitsplaner - Erster Start",
-            "Möchten Sie ein benutzerdefiniertes Verzeichnis für Ihre Hochzeitsdaten wählen?\\n\\n"
-            "Ja: Verzeichnis auswählen\\n"
-            "Nein: Standard-Verzeichnis verwenden"
-        )
-        
-        data_dir = None
-        if result:
-            data_dir = filedialog.askdirectory(
-                title="Verzeichnis für Hochzeitsdaten auswählen",
-                initialdir=os.path.expanduser("~/Documents")
-            )
-        
-        root.destroy()
-        return data_dir
-    except Exception:
-        # Falls GUI nicht verfügbar (z.B. Headless), verwende Standard
-        return None
+    return True
 
 def print_banner():
     print("🎉" + "="*60 + "🎉")
@@ -305,6 +203,7 @@ data_files = [
     ('auth_config.json', '.'),
     ('requirements.txt', '.'),
     ('ssl_private_key.key', '.'),
+    ('ssl_certificate.crt', '.'),
 ]
 
 # Versteckte Imports
@@ -621,7 +520,8 @@ def main():
             return
         
         print_step(2, "Launcher-Script erstellen")
-        create_launcher()
+        if not create_launcher():
+            return
         
         print_step(3, "Build-Konfiguration erstellen")
         create_spec_file()

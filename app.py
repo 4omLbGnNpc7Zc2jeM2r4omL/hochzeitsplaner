@@ -22,6 +22,20 @@ from functools import wraps
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Datenverzeichnis konfigurieren
+def get_data_directory():
+    """Ermittelt das Datenverzeichnis aus Umgebungsvariablen oder Standard"""
+    data_path = os.environ.get('DATA_PATH')
+    if data_path and os.path.exists(data_path):
+        return data_path
+    
+    # Fallback: data-Verzeichnis neben der app.py
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(app_dir, 'data')
+
+# Datenverzeichnis setzen
+DATA_DIR = get_data_directory()
+
 # Authentication Configuration
 def load_auth_config():
     """Lädt die Authentication-Konfiguration"""
@@ -870,9 +884,13 @@ def init_data_manager():
     """Initialisiert den DataManager"""
     global data_manager
     try:
-        data_dir = os.path.join(current_dir, "data")
-        data_manager = HochzeitsDatenManager(data_dir)
-        print(f"✅ DataManager initialisiert: {data_dir}")
+        # Verwende das konfigurierbare Datenverzeichnis
+        data_manager = HochzeitsDatenManager(DATA_DIR)
+        print(f"✅ DataManager initialisiert: {DATA_DIR}")
+        
+        # Stelle sicher, dass das Verzeichnis existiert
+        os.makedirs(DATA_DIR, exist_ok=True)
+        
         return True
     except Exception as e:
         print(f"❌ Fehler beim Initialisieren: {e}")
