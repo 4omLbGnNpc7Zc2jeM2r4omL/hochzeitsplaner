@@ -4,8 +4,16 @@ document.addEventListener('DOMContentLoaded', function() {
     loadLocationData();
     loadGuestInformationen();
     
-    document.getElementById('saveRsvp').addEventListener('click', saveRsvp);
-    document.getElementById('guestStatus').addEventListener('change', handleStatusChange);
+    // Event Listeners nur hinzufügen wenn Elemente existieren
+    const saveRsvpBtn = document.getElementById('saveRsvp');
+    if (saveRsvpBtn) {
+        saveRsvpBtn.addEventListener('click', saveRsvp);
+    }
+    
+    const guestStatusSelect = document.getElementById('guestStatus');
+    if (guestStatusSelect) {
+        guestStatusSelect.addEventListener('change', handleStatusChange);
+    }
 });
 
 // Globale Variable für Location-Daten
@@ -14,180 +22,250 @@ let locationsData = null;
 let guestInformationen = null;
 
 function loadLocationData() {
-    console.log('Loading location data...');
+    console.log('🔄 Loading location data...');
+    
+    const locationInfoDiv = document.getElementById('locationInfo');
+    
     fetch('/api/guest/location')
         .then(response => {
-            console.log('Location API response status:', response.status);
+            console.log('📡 Location API response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             return response.json();
         })
         .then(data => {
-            console.log('Location data received:', data);
+            console.log('📍 Location data received:', data);
             locationsData = data;
             
             // Locations anzeigen
             displayLocationInfo();
             
-            // Google Maps initialisieren
-            initializeGoogleMap();
+            // OpenStreetMap initialisieren
+            initializeOpenStreetMap();
         })
         .catch(error => {
-            console.error('Error loading location data:', error);
+            console.error('❌ Error loading location data:', error);
+            
+            // Fehler in der UI anzeigen
+            if (locationInfoDiv) {
+                locationInfoDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Location-Daten konnten nicht geladen werden.
+                        <br><small>Fehler: ${error.message}</small>
+                    </div>
+                `;
+            }
         });
 }
 
-function initializeGoogleMap() {
-    // Verwende die neue Google Maps Integration
-    console.log('initializeGoogleMap called - using new Google Maps integration');
+async function initializeOpenStreetMap() {
+    console.log('🗺️ initializeOpenStreetMap called');
     
-    if (!locationsData) {
-        console.log('No locations data available for maps');
+    if (!locationsData || !locationsData.success) {
+        console.log('⚠️ No locations data available for maps');
         return;
     }
 
-    // Warte kurz bis Google Maps Klasse initialisiert ist
-    if (window.googleMaps) {
-        const hasAnyMaps = window.googleMaps.updateLocationMaps(locationsData);
-        console.log('Google Maps integration result:', hasAnyMaps);
-    } else {
-        console.log('Google Maps integration not available, using fallback');
-        initializeGoogleMapFallback();
+    const locations = locationsData.locations || {};
+
+    try {
+        // Warte bis OpenStreetMap vollständig geladen ist
+        if (typeof window.openStreetMap !== 'undefined') {
+            console.log('📚 OpenStreetMap Objekt gefunden, warte auf vollständige Initialisierung...');
+            
+            // Warte auf Leaflet
+            let maxWait = 10; // Maximal 10 Sekunden warten
+            while ((!window.openStreetMap.initialized || typeof L === 'undefined') && maxWait > 0) {
+                console.log(`⏳ Warte auf Leaflet... (${maxWait}s verbleibend)`);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                maxWait--;
+            }
+            
+            if (maxWait === 0) {
+                console.warn('⚠️ Timeout beim Warten auf Leaflet, verwende Fallback');
+                initializeFallbackMaps();
+                return;
+            }
+            
+            console.log('✅ Leaflet erfolgreich geladen');
+            
+            let hasAnyMaps = false;
+            
+            // Standesamt Kartenvorschau
+            if (locations.standesamt && locations.standesamt.adresse) {
+                console.log('🗺️ Creating OpenStreetMap for Standesamt');
+                const success = await createGuestLocationMap('standesamt', locations.standesamt);
+                if (success) hasAnyMaps = true;
+            }
+            
+            // Hochzeitslocation Kartenvorschau  
+            if (locations.hochzeitslocation && locations.hochzeitslocation.adresse) {
+                console.log('🗺️ Creating OpenStreetMap for Hochzeitslocation');
+                const success = await createGuestLocationMap('hochzeitslocation', locations.hochzeitslocation);
+                if (success) hasAnyMaps = true;
+            }
+            
+            // Zeige Kartenbereich wenn Karten erstellt wurden
+            if (hasAnyMaps) {
+                const mapSection = document.getElementById('guestMapPreviewsSection');
+                if (mapSection) {
+                    mapSection.style.display = 'block';
+                }
+            }
+            
+            console.log('✅ OpenStreetMap initialization completed, maps created:', hasAnyMaps);
+        } else {
+            console.log('❌ OpenStreetMap integration not available, using fallback');
+            initializeFallbackMaps();
+        }
+    } catch (error) {
+        console.error('❌ Error initializing OpenStreetMap:', error);
+        initializeFallbackMaps();
     }
 }
 
-function initializeGoogleMapFallback() {
-    // Fallback-Implementierung für Kartenvorschauen
-    console.log('initializeGoogleMapFallback called - creating fallback map previews');
+async function createGuestLocationMap(locationType, locationData) {
+    const mapContainerId = `guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}Map`;
+    const mapPreviewId = `guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}MapPreview`;
     
-    if (!locationsData) {
+    try {
+        console.log(`🗺️ Erstelle Gast-Karte für ${locationType}:`, locationData);
+        
+        const mapPreview = document.getElementById(mapPreviewId);
+        if (mapPreview) {
+            mapPreview.style.display = 'block';
+        }
+        
+        // Warte kurz damit Container sichtbar ist
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Prüfe ob createLocationMapFromBackend verfügbar ist
+        if (typeof window.createLocationMapFromBackend === 'function') {
+            console.log(`✅ Verwende Backend-basierte Karten für ${locationType}`);
+            // Verwende die neue Backend-basierte Kartenfunktion
+            const map = await window.createLocationMapFromBackend(
+                mapContainerId, 
+                locationType  // z.B. 'standesamt' oder 'hochzeitslocation'
+            );
+            
+            if (map) {
+                console.log(`✅ Backend-Karte für ${locationType} erfolgreich erstellt`);
+                return true;
+            }
+        }
+        
+        // Fallback: Verwende die alte Methode mit Adressen
+        console.log(`⚠️ Fallback auf Adress-basierte Karten für ${locationType}`);
+        if (window.openStreetMap && locationData.adresse) {
+            const map = await window.openStreetMap.createSimpleLocationMap(
+                mapContainerId, 
+                locationData.adresse, 
+                locationData.name
+            );
+            
+            if (map) {
+                console.log(`✅ Fallback-Karte für ${locationType} erfolgreich erstellt`);
+                return true;
+            }
+        }
+        
+        // Letzter Fallback: Zeige statische Karteninfo
+        console.warn(`⚠️ Keine Karte möglich für ${locationType}, zeige Fallback`);
+        showFallbackLocationMap(locationType, locationData);
+        return false;
+        
+    } catch (error) {
+        console.error(`❌ Fehler beim Erstellen der Karte für ${locationType}:`, error);
+        // Zeige Fallback
+        showFallbackLocationMap(locationType, locationData);
+        return false;
+    }
+}
+
+function initializeFallbackMaps() {
+    // Fallback-Implementierung für Kartenvorschauen
+    console.log('initializeFallbackMaps called - creating fallback map previews');
+    
+    if (!locationsData || !locationsData.success) {
         console.log('No locations data available for fallback maps');
         return;
     }
     
+    const locations = locationsData.locations || {};
     let hasAnyMaps = false;
     
     // Standesamt Kartenvorschau
-    if (locationsData.standesamt && locationsData.standesamt.adresse) {
+    if (locations.standesamt && locations.standesamt.adresse) {
         console.log('Creating fallback map preview for Standesamt');
-        updateGuestLocationMapPreview('standesamt', locationsData.standesamt.adresse);
+        showFallbackLocationMap('standesamt', locations.standesamt);
         hasAnyMaps = true;
     }
     
     // Hochzeitslocation Kartenvorschau  
-    if (locationsData.hochzeitslocation && locationsData.hochzeitslocation.adresse) {
+    if (locations.hochzeitslocation && locations.hochzeitslocation.adresse) {
         console.log('Creating fallback map preview for Hochzeitslocation');
-        updateGuestLocationMapPreview('hochzeitslocation', locationsData.hochzeitslocation.adresse);
+        showFallbackLocationMap('hochzeitslocation', locations.hochzeitslocation);
         hasAnyMaps = true;
     }
     
     // Map Preview Section anzeigen falls Karten vorhanden
     if (hasAnyMaps) {
-        document.getElementById('guestMapPreviewsSection').style.display = 'block';
+        const mapSection = document.getElementById('guestMapPreviewsSection');
+        if (mapSection) {
+            mapSection.style.display = 'block';
+        }
     }
 }
 
-function updateGuestLocationMapPreview(locationType, address) {
-    console.log(`Updating map preview for ${locationType}:`, address);
+function showFallbackLocationMap(locationType, locationData) {
+    console.log(`Creating fallback map for ${locationType}:`, locationData);
     
-    const mapPreviewDiv = document.getElementById(`guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}MapPreview`);
-    const mapFrameElement = document.getElementById(`guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}MapFrame`);
+    const mapContainerId = `guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}Map`;
+    const mapPreviewId = `guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}MapPreview`;
     
-    if (!mapPreviewDiv || !mapFrameElement) {
-        console.log(`Map preview elements not found for ${locationType}`);
-        console.log(`Looking for: guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}MapPreview`);
+    const mapContainer = document.getElementById(mapContainerId);
+    const mapPreview = document.getElementById(mapPreviewId);
+    
+    if (!mapContainer || !mapPreview) {
+        console.log(`Map elements not found for ${locationType}`);
         return;
     }
 
-    // Query für Maps erstellen
-    const query = encodeURIComponent(address);
+    const address = locationData.adresse;
+    const name = locationData.name || 'Location';
     
-    // Zuerst versuchen, neue Google Maps Integration zu verwenden
-    if (window.googleMaps) {
-        try {
-            const embedUrl = window.googleMaps.createEmbedUrl(query);
-            if (embedUrl) {
-                mapFrameElement.src = embedUrl;
-                mapPreviewDiv.style.display = 'block';
-                console.log(`Google Maps embed loaded for ${locationType}`);
-                return;
-            }
-        } catch (error) {
-            console.log(`Google Maps integration failed for ${locationType}:`, error);
-        }
-    }
-    
-    // Fallback: Versuche Google Maps mit altem API Key
-    const gmapsUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dw901SwHHzFbOg&q=${query}`;
-    
-    // Test ob Google Maps funktioniert
-    const testImg = new Image();
-    testImg.onload = function() {
-        // Google Maps funktioniert
-        mapFrameElement.src = gmapsUrl;
-        mapPreviewDiv.style.display = 'block';
-        console.log(`Google Maps fallback loaded for ${locationType}`);
-    };
-    
-    testImg.onerror = function() {
-        // Google Maps funktioniert nicht, verwende OpenStreetMap
-        console.log(`Google Maps failed for ${locationType}, using OpenStreetMap`);
-        useOpenStreetMapFallback(locationType, address, mapFrameElement, mapPreviewDiv);
-    };
-    
-    // Teste mit einem kleinen Google Maps Bild
-    testImg.src = `https://maps.googleapis.com/maps/api/staticmap?center=${query}&zoom=15&size=100x100&key=AIzaSyBFw0Qbyq9zTFTd-tUY6dw901SwHHzFbOg`;
-    
-    // Timeout für den Test
-    setTimeout(() => {
-        if (!mapFrameElement.src) {
-            console.log(`Google Maps test timed out for ${locationType}, using OpenStreetMap`);
-            useOpenStreetMapFallback(locationType, address, mapFrameElement, mapPreviewDiv);
-        }
-    }, 3000);
-}
-
-function useOpenStreetMapFallback(locationType, address, mapFrameElement, mapPreviewDiv) {
-    const query = encodeURIComponent(address);
-    const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`;
-    
-    fetch(osmUrl)
-        .then(response => response.json())
-        .then(data => {
-            if (data && data.length > 0) {
-                const lat = parseFloat(data[0].lat);
-                const lon = parseFloat(data[0].lon);
-                
-                // OpenStreetMap Embed URL (funktioniert besser als die Export-Variante)
-                const osmEmbedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lon-0.01},${lat-0.01},${lon+0.01},${lat+0.01}&layer=mapnik&marker=${lat},${lon}`;
-                
-                mapFrameElement.src = osmEmbedUrl;
-                mapPreviewDiv.style.display = 'block';
-                console.log(`OpenStreetMap loaded for ${locationType} at ${lat}, ${lon}`);
-            } else {
-                // Letzter Fallback: Einfacher Link zu Google Maps
-                createMapLinkFallback(address, mapFrameElement, mapPreviewDiv);
-            }
-        })
-        .catch(error => {
-            console.error(`OpenStreetMap geocoding failed for ${locationType}:`, error);
-            createMapLinkFallback(address, mapFrameElement, mapPreviewDiv);
-        });
-}
-
-function createMapLinkFallback(address, mapFrameElement, mapPreviewDiv) {
-    const query = encodeURIComponent(address);
-    const mapLinkHtml = `
-        <div style="display: flex; align-items: center; justify-content: center; height: 200px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;">
+    // Fallback HTML mit Links zu verschiedenen Kartendiensten
+    const fallbackHtml = `
+        <div class="d-flex align-items-center justify-content-center bg-light h-100 p-4" style="min-height: 200px;">
             <div class="text-center">
-                <i class="bi bi-geo-alt-fill text-primary" style="font-size: 2rem;"></i>
-                <p class="mt-2 mb-2"><strong>${address}</strong></p>
-                <a href="https://www.google.com/maps/search/?api=1&query=${query}" target="_blank" class="btn btn-primary btn-sm">
-                    <i class="bi bi-map me-1"></i>Karte öffnen
-                </a>
+                <i class="bi bi-geo-alt text-primary mb-3" style="font-size: 2.5rem;"></i>
+                <h6 class="mb-2">${name}</h6>
+                <p class="text-muted mb-3 small">${address}</p>
+                <div class="d-grid gap-2 d-md-block">
+                    <a href="https://www.openstreetmap.org/search?query=${encodeURIComponent(address)}" 
+                       target="_blank" 
+                       class="btn btn-primary btn-sm">
+                        <i class="bi bi-map me-1"></i>
+                        OpenStreetMap
+                    </a>
+                </div>
             </div>
         </div>
     `;
     
-    // Erstelle ein Data-URL für das HTML
+    mapContainer.innerHTML = fallbackHtml;
+    mapPreview.style.display = 'block';
+    
+    // Map Preview Section anzeigen
+    const mapSection = document.getElementById('guestMapPreviewsSection');
+    if (mapSection) {
+        mapSection.style.display = 'block';
+    }
+}
+// Funktion zur Anzeige von Location-Informationen
+function displayLocationInformation(locations) {
     const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(`
         <!DOCTYPE html>
         <html>
@@ -208,38 +286,60 @@ function createMapLinkFallback(address, mapFrameElement, mapPreviewDiv) {
 }
 
 function displayLocationInfo() {
-    if (!locationsData) {
-        console.log('No location data to display');
+    const locationInfoDiv = document.getElementById('locationInfo');
+    
+    if (!locationInfoDiv) {
+        console.error('❌ locationInfo container not found');
         return;
     }
     
+    if (!locationsData || !locationsData.success) {
+        locationInfoDiv.innerHTML = `
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                Location-Informationen werden noch vorbereitet
+            </div>
+        `;
+        return;
+    }
+    
+    const locations = locationsData.locations || {};
+    let html = '';
+    
     // Standesamt Information
-    if (locationsData.standesamt) {
-        const standesamtInfo = document.getElementById('standesamtInfo');
-        if (standesamtInfo) {
-            const time = locationsData.standesamt.uhrzeit || 'Uhrzeit wird noch bekannt gegeben';
-            standesamtInfo.innerHTML = `
-                <h6><i class="fas fa-gavel"></i> Standesamt</h6>
-                <p><strong>Adresse:</strong> ${locationsData.standesamt.adresse || 'Wird noch bekannt gegeben'}</p>
-                <p><strong>Uhrzeit:</strong> ${time}</p>
-                ${locationsData.standesamt.hinweise ? `<p><strong>Hinweise:</strong> ${locationsData.standesamt.hinweise}</p>` : ''}
-            `;
-        }
+    if (locations.standesamt && locations.standesamt.adresse) {
+        html += `
+            <div class="mb-3">
+                <h6><i class="bi bi-building me-2"></i>Standesamt</h6>
+                <p class="mb-1"><strong>Name:</strong> ${locations.standesamt.name || 'Standesamt'}</p>
+                <p class="mb-1"><strong>Adresse:</strong> ${locations.standesamt.adresse}</p>
+                ${locations.standesamt.beschreibung ? `<p class="text-muted small">${locations.standesamt.beschreibung}</p>` : ''}
+            </div>
+        `;
     }
     
     // Hochzeitslocation Information
-    if (locationsData.hochzeitslocation) {
-        const locationInfo = document.getElementById('hochzeitslocationInfo');
-        if (locationInfo) {
-            const time = locationsData.hochzeitslocation.uhrzeit || 'Uhrzeit wird noch bekannt gegeben';
-            locationInfo.innerHTML = `
-                <h6><i class="fas fa-heart"></i> Hochzeitslocation</h6>
-                <p><strong>Adresse:</strong> ${locationsData.hochzeitslocation.adresse || 'Wird noch bekannt gegeben'}</p>
-                <p><strong>Uhrzeit:</strong> ${time}</p>
-                ${locationsData.hochzeitslocation.hinweise ? `<p><strong>Hinweise:</strong> ${locationsData.hochzeitslocation.hinweise}</p>` : ''}
-            `;
-        }
+    if (locations.hochzeitslocation && locations.hochzeitslocation.adresse) {
+        html += `
+            <div class="mb-3">
+                <h6><i class="bi bi-heart-fill me-2"></i>Hochzeitslocation</h6>
+                <p class="mb-1"><strong>Name:</strong> ${locations.hochzeitslocation.name || 'Hochzeitslocation'}</p>
+                <p class="mb-1"><strong>Adresse:</strong> ${locations.hochzeitslocation.adresse}</p>
+                ${locations.hochzeitslocation.beschreibung ? `<p class="text-muted small">${locations.hochzeitslocation.beschreibung}</p>` : ''}
+            </div>
+        `;
     }
+    
+    if (html === '') {
+        html = `
+            <div class="alert alert-info">
+                <i class="bi bi-geo-alt me-2"></i>
+                Location-Details werden noch hinzugefügt
+            </div>
+        `;
+    }
+    
+    locationInfoDiv.innerHTML = html;
 }
 
 function loadGuestInformationen() {
@@ -251,8 +351,10 @@ function loadGuestInformationen() {
         })
         .then(data => {
             console.log('Guest informationen data received:', data);
-            guestInformationen = data;
-            displayGuestInformationen();
+            if (data.success && data.informationen) {
+                guestInformationen = data.informationen;
+                displayGuestInformationen();
+            }
         })
         .catch(error => {
             console.error('Error loading guest informationen:', error);
@@ -273,55 +375,64 @@ function displayGuestInformationen() {
     
     let html = '';
     
-    // Allgemeine Informationen
-    if (guestInformationen.allgemein && guestInformationen.allgemein.length > 0) {
-        html += '<h6><i class="fas fa-info-circle"></i> Allgemeine Informationen</h6>';
-        guestInformationen.allgemein.forEach(info => {
-            html += `<div class="alert alert-info"><strong>${info.titel}:</strong> ${info.text}</div>`;
-        });
+    // Kontakt Information
+    if (guestInformationen.kontakt) {
+        html += '<h6><i class="bi bi-envelope me-2"></i>Kontakt</h6>';
+        html += `<div class="alert alert-info">${guestInformationen.kontakt.einzelperson || guestInformationen.kontakt.mehrere || 'Bei Fragen könnt ihr euch gerne an uns wenden.'}</div>`;
     }
     
-    // Anfahrt Informationen
-    if (guestInformationen.anfahrt && guestInformationen.anfahrt.length > 0) {
-        html += '<h6><i class="fas fa-route"></i> Anfahrt</h6>';
-        guestInformationen.anfahrt.forEach(info => {
-            html += `<div class="alert alert-warning"><strong>${info.titel}:</strong> ${info.text}</div>`;
-        });
+    // Geschenke Information
+    if (guestInformationen.geschenke) {
+        html += '<h6><i class="bi bi-gift me-2"></i>Geschenke</h6>';
+        html += `<div class="alert alert-success">${guestInformationen.geschenke.einzelperson || guestInformationen.geschenke.mehrere || 'Über euer Kommen freuen wir uns am meisten!'}</div>`;
     }
     
-    // Übernachtung Informationen
-    if (guestInformationen.uebernachtung && guestInformationen.uebernachtung.length > 0) {
-        html += '<h6><i class="fas fa-bed"></i> Übernachtung</h6>';
-        guestInformationen.uebernachtung.forEach(info => {
-            html += `<div class="alert alert-success"><strong>${info.titel}:</strong> ${info.text}</div>`;
-        });
+    // Dresscode Information
+    if (guestInformationen.dresscode) {
+        html += '<h6><i class="bi bi-person-check me-2"></i>Dresscode</h6>';
+        html += `<div class="alert alert-warning">${guestInformationen.dresscode.einzelperson || guestInformationen.dresscode.mehrere || 'Festliche Kleidung erwünscht.'}</div>`;
+    }
+    
+    if (html === '') {
+        html = `
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                Informationen werden noch vorbereitet
+            </div>
+        `;
     }
     
     informationenContainer.innerHTML = html;
 }
 
 function loadGuestData() {
-    console.log('Loading guest data...');
+    console.log('🔄 Loading guest data...');
     const guestId = new URLSearchParams(window.location.search).get('id');
     
     if (!guestId) {
-        console.error('No guest ID provided');
-        document.getElementById('guestInfo').innerHTML = '<div class="alert alert-danger">Kein Gast-ID gefunden</div>';
+        console.log('ℹ️ No guest ID provided in URL - using session data');
+        // Für eingeloggte Gäste verwenden wir Session-Daten statt URL-Parameter
         return;
     }
     
     fetch(`/api/guest/data?id=${guestId}`)
         .then(response => {
-            console.log('Guest data API response status:', response.status);
+            console.log('📊 Guest data API response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             return response.json();
         })
         .then(data => {
-            console.log('Guest data received:', data);
+            console.log('📊 Guest data received:', data);
             displayGuestData(data);
         })
         .catch(error => {
             console.error('Error loading guest data:', error);
-            document.getElementById('guestInfo').innerHTML = '<div class="alert alert-danger">Fehler beim Laden der Gästedaten</div>';
+            const guestInfoElement = document.getElementById('guestInfo');
+            if (guestInfoElement) {
+                guestInfoElement.innerHTML = '<div class="alert alert-danger">Fehler beim Laden der Gästedaten</div>';
+            }
         });
 }
 
@@ -330,7 +441,9 @@ function displayGuestData(data) {
     const rsvpForm = document.getElementById('rsvpForm');
     
     if (data.error) {
-        guestInfo.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        if (guestInfo) {
+            guestInfo.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        }
         return;
     }
     
@@ -341,10 +454,15 @@ function displayGuestData(data) {
         guestHtml += '<p><strong>Begleitung:</strong> ' + data.begleitung.join(', ') + '</p>';
     }
     
-    guestInfo.innerHTML = guestHtml;
+    if (guestInfo) {
+        guestInfo.innerHTML = guestHtml;
+    }
     
     // RSVP-Status setzen
-    document.getElementById('guestStatus').value = data.status || 'offen';
+    const guestStatusElement = document.getElementById('guestStatus');
+    if (guestStatusElement) {
+        guestStatusElement.value = data.status || 'offen';
+    }
     
     // Menü-Auswahl anzeigen falls vorhanden
     if (data.menu_optionen && data.menu_optionen.length > 0) {
@@ -352,12 +470,15 @@ function displayGuestData(data) {
     }
     
     // Kommentar setzen
-    if (data.kommentar) {
-        document.getElementById('guestComment').value = data.kommentar;
+    const guestCommentElement = document.getElementById('guestComment');
+    if (guestCommentElement && data.kommentar) {
+        guestCommentElement.value = data.kommentar;
     }
     
     // RSVP-Formular anzeigen
-    rsvpForm.style.display = 'block';
+    if (rsvpForm) {
+        rsvpForm.style.display = 'block';
+    }
     
     // Status-Change Handler
     handleStatusChange();
@@ -365,6 +486,11 @@ function displayGuestData(data) {
 
 function displayMenuOptions(menuOptionen, ausgewaehlt) {
     const menuContainer = document.getElementById('menuOptions');
+    
+    if (!menuContainer) {
+        console.log('Menu container not found');
+        return;
+    }
     
     if (!menuOptionen || menuOptionen.length === 0) {
         menuContainer.style.display = 'none';
@@ -390,8 +516,15 @@ function displayMenuOptions(menuOptionen, ausgewaehlt) {
 }
 
 function handleStatusChange() {
-    const status = document.getElementById('guestStatus').value;
+    const statusElement = document.getElementById('guestStatus');
     const additionalFields = document.getElementById('additionalFields');
+    
+    if (!statusElement || !additionalFields) {
+        console.log('Status change elements not found');
+        return;
+    }
+    
+    const status = statusElement.value;
     
     if (status === 'zugesagt') {
         additionalFields.style.display = 'block';
@@ -402,8 +535,16 @@ function handleStatusChange() {
 
 function saveRsvp() {
     const guestId = new URLSearchParams(window.location.search).get('id');
-    const status = document.getElementById('guestStatus').value;
-    const kommentar = document.getElementById('guestComment').value;
+    const statusElement = document.getElementById('guestStatus');
+    const commentElement = document.getElementById('guestComment');
+    
+    if (!statusElement) {
+        console.error('Guest status element not found');
+        return;
+    }
+    
+    const status = statusElement.value;
+    const kommentar = commentElement ? commentElement.value : '';
     
     // Menü-Auswahl sammeln
     const menuCheckboxes = document.querySelectorAll('#menuOptions input[type="checkbox"]:checked');
@@ -441,49 +582,82 @@ function saveRsvp() {
 }
 
 function loadZeitplanPreview() {
-    console.log('Loading zeitplan preview...');
-    fetch('/api/guest/zeitplan')
+    console.log('🔄 Loading zeitplan preview...');
+    
+    const zeitplanPreviewDiv = document.getElementById('zeitplanPreview');
+    
+    fetch('/api/guest/zeitplan_preview')
         .then(response => {
-            console.log('Zeitplan API response status:', response.status);
+            console.log('📅 Zeitplan API response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             return response.json();
         })
         .then(data => {
-            console.log('Zeitplan data received:', data);
+            console.log('📅 Zeitplan data received:', data);
             displayZeitplanPreview(data);
         })
         .catch(error => {
-            console.error('Error loading zeitplan preview:', error);
-            document.getElementById('zeitplanContainer').innerHTML = '<div class="alert alert-warning">Zeitplan wird noch erstellt</div>';
+            console.error('❌ Error loading zeitplan preview:', error);
+            
+            // Fehler in der UI anzeigen
+            if (zeitplanPreviewDiv) {
+                zeitplanPreviewDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Zeitplan konnte nicht geladen werden.
+                        <br><small>Fehler: ${error.message}</small>
+                    </div>
+                `;
+            }
         });
 }
 
-function displayZeitplanPreview(zeitplan) {
-    const container = document.getElementById('zeitplanContainer');
+function displayZeitplanPreview(response) {
+    const container = document.getElementById('zeitplanPreview');
     
-    if (!zeitplan || zeitplan.length === 0) {
-        container.innerHTML = '<div class="alert alert-info">Zeitplan wird noch erstellt</div>';
+    if (!container) {
+        console.error('❌ zeitplanPreview container not found');
         return;
     }
     
-    let html = '<h6><i class="fas fa-clock"></i> Zeitplan</h6>';
-    html += '<div class="timeline">';
+    // Prüfe Response-Struktur
+    if (!response || !response.success) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                Zeitplan wird noch erstellt
+            </div>
+        `;
+        return;
+    }
     
-    zeitplan.slice(0, 5).forEach(event => { // Nur erste 5 Events zeigen
+    const events = response.events || [];
+    
+    if (events.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="bi bi-calendar me-2"></i>
+                Noch keine Programmpunkte verfügbar
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    
+    events.slice(0, 3).forEach(event => { // Nur erste 3 Events zeigen
         html += `
-            <div class="timeline-item">
-                <div class="timeline-time">${event.uhrzeit}</div>
-                <div class="timeline-content">
-                    <strong>${event.titel}</strong>
-                    ${event.beschreibung ? `<br><small class="text-muted">${event.beschreibung}</small>` : ''}
-                </div>
+            <div class="d-flex align-items-center mb-2">
+                <span class="badge bg-primary me-2">${event.Uhrzeit || '00:00'}</span>
+                <small class="text-muted">${event.Programmpunkt || 'Programmpunkt'}</small>
             </div>
         `;
     });
     
-    html += '</div>';
-    
-    if (zeitplan.length > 5) {
-        html += `<p class="text-muted"><small>... und ${zeitplan.length - 5} weitere Programmpunkte</small></p>`;
+    if (events.length > 3) {
+        html += `<small class="text-muted">... und ${events.length - 3} weitere Punkte</small>`;
     }
     
     container.innerHTML = html;

@@ -1,8 +1,0 @@
-2025-07-30 14:50:29 - === Ionos DynDNS IPv6-Only Update gestartet ===
-2025-07-30 14:50:29 - Domain: xn--pascalundkthe-heiraten-94b.de
-2025-07-30 14:50:29 - IPv6-Adresse ermittelt von https://ipv6.icanhazip.com: 2a02:908:1022:1f80:fc72:dc82:31ae:b1db
-2025-07-30 14:50:29 - Sende DynDNS-Update für xn--pascalundkthe-heiraten-94b.de -> IPv6: 2a02:908:1022:1f80:fc72:dc82:31ae:b1db (TTL: 6h)
-2025-07-30 14:50:30 - SUCCESS: DynDNS-Response: 
-2025-07-30 14:50:30 - WARNING: Unerwartete Antwort: 
-2025-07-30 14:50:30 - FEHLER: DynDNS-Update fehlgeschlagen
-2025-07-30 14:50:30 - === Ionos DynDNS IPv6-Only Update beendet ===

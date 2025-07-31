@@ -120,16 +120,16 @@
                 </div>
                 
                 <!-- Kartenvorschauen für Guest Dashboard -->
-                <div id="guestMapPreviewsSection" style="display: none;" class="mt-4">
+                <div id="guestMapPreviewsSection" class="mt-4">
                     <h6 class="text-primary mb-3">
                         <i class="bi bi-map me-2"></i>
-                        Kartenvorschauen
+                        Kartenvorschauen (OpenStreetMap)
                     </h6>
                     
                     <div class="row">
                         <!-- Standesamt Kartenvorschau -->
-                        <div class="col-md-6">
-                            <div id="guestStandesamtMapPreview" style="display: none;" class="mb-3">
+                        <div class="col-12 mb-3">
+                            <div id="guestStandesamtMapPreview">
                                 <div class="card border-primary">
                                     <div class="card-header bg-primary text-white">
                                         <h6 class="mb-0">
@@ -137,14 +137,8 @@
                                         </h6>
                                     </div>
                                     <div class="card-body p-0">
-                                        <div class="ratio ratio-16x9">
-                                            <iframe 
-                                                id="guestStandesamtMapFrame"
-                                                style="border:0;" 
-                                                allowfullscreen="" 
-                                                loading="lazy" 
-                                                referrerpolicy="no-referrer-when-downgrade">
-                                            </iframe>
+                                        <div style="height: 250px; width: 100%; position: relative; overflow: hidden;">
+                                            <div id="guestStandesamtMap" style="height: 100%; width: 100%; position: absolute; top: 0; left: 0;"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -152,8 +146,8 @@
                         </div>
                         
                         <!-- Hochzeitslocation Kartenvorschau -->
-                        <div class="col-md-6">
-                            <div id="guestHochzeitslocationMapPreview" style="display: none;" class="mb-3">
+                        <div class="col-12 mb-3">
+                            <div id="guestHochzeitslocationMapPreview">
                                 <div class="card border-success">
                                     <div class="card-header bg-success text-white">
                                         <h6 class="mb-0">
@@ -161,14 +155,8 @@
                                         </h6>
                                     </div>
                                     <div class="card-body p-0">
-                                        <div class="ratio ratio-16x9">
-                                            <iframe 
-                                                id="guestHochzeitslocationMapFrame"
-                                                style="border:0;" 
-                                                allowfullscreen="" 
-                                                loading="lazy" 
-                                                referrerpolicy="no-referrer-when-downgrade">
-                                            </iframe>
+                                        <div style="height: 250px; width: 100%; position: relative; overflow: hidden;">
+                                            <div id="guestHochzeitslocationMap" style="height: 100%; width: 100%; position: absolute; top: 0; left: 0;"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -217,5 +205,6 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/openstreetmap.js') }}"></script>
 <script src="{{ url_for('static', filename='js/guest_dashboard.js') }}"></script>
 {% endblock %}

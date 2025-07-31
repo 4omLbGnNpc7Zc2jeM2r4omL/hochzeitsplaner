@@ -1,5 +1,8 @@
 // Einstellungen JavaScript
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Einstellungen.js geladen');
+    console.log('🔍 OpenStreetMap verfügbar:', typeof window.openStreetMap !== 'undefined');
+    
     const settingsForm = document.getElementById('settingsForm');
     const resetButton = document.getElementById('resetSettings');
     const openMapsBtn = document.getElementById('openMapsBtn');
@@ -7,6 +10,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const mapsPreviewRow = document.getElementById('mapsPreviewRow');
     const closeMapsPreview = document.getElementById('closeMapsPreview');
     const backupButton = document.getElementById('backupData');
+    
+    console.log('📋 Element-Status:', {
+        settingsForm: !!settingsForm,
+        resetButton: !!resetButton,
+        openMapsBtn: !!openMapsBtn,
+        hochzeitsortField: !!hochzeitsortField,
+        mapsPreviewRow: !!mapsPreviewRow,
+        closeMapsPreview: !!closeMapsPreview,
+        backupButton: !!backupButton
+    });
     
     // Einstellungen laden
     loadSettings();
@@ -228,35 +241,53 @@ function showAlert(message, type) {
     }, 5000);
 }
 
-// Neue Google Maps Funktion für Location-Inputs
-function openGoogleMaps(inputId) {
+// OpenStreetMap Integration für Locations
+function showLocationOnMap(locationType, inputId) {
+    console.log(`🔍 Zeige Location auf Karte: ${locationType}, Input: ${inputId}`);
+    
     const addressInput = document.getElementById(inputId);
-    if (!addressInput || !addressInput.value.trim()) {
-        showAlert('Bitte gib zuerst eine Adresse ein', 'warning');
+    if (!addressInput) {
+        console.error(`❌ Input-Element nicht gefunden: ${inputId}`);
+        showAlert('Input-Element nicht gefunden', 'danger');
         return;
     }
     
-    const address = encodeURIComponent(addressInput.value.trim());
-    const mapsUrl = `https://maps.google.com/maps?q=${address}`;
-    window.open(mapsUrl, '_blank');
+    if (!addressInput.value.trim()) {
+        showAlert('Bitte gib zuerst eine Adresse ein', 'warning');
+        addressInput.focus();
+        return;
+    }
+    
+    console.log(`📍 Adresse gefunden: "${addressInput.value.trim()}"`);
+    updateLocationMapPreview(locationType);
 }
 
-// Neue Kartenvorschau für Locations
-function updateLocationMapPreview(locationType) {
+// Neue Kartenvorschau für Locations mit OpenStreetMap
+async function updateLocationMapPreview(locationType) {
+    console.log(`🗺️ Aktualisiere Kartenvorschau für: ${locationType}`);
+    
     const addressInputId = locationType === 'standesamt' ? 'standesamtAdresse' : 'hochzeitslocationAdresse';
+    const nameInputId = locationType === 'standesamt' ? 'standesamtName' : 'hochzeitslocationName';
     const mapPreviewId = locationType + 'MapPreview';
-    const mapFrameId = locationType + 'MapFrame';
+    const mapContainerId = locationType + 'Map';
     
     const addressInput = document.getElementById(addressInputId);
+    const nameInput = document.getElementById(nameInputId);
     const mapPreview = document.getElementById(mapPreviewId);
-    const mapFrame = document.getElementById(mapFrameId);
     const mapPreviewsSection = document.getElementById('mapPreviewsSection');
     
-    if (!addressInput || !mapPreview || !mapFrame) {
+    if (!addressInput || !mapPreview) {
+        console.error(`❌ Elemente nicht gefunden für ${locationType}:`, {
+            addressInput: !!addressInput,
+            mapPreview: !!mapPreview
+        });
         return;
     }
     
     const address = addressInput.value.trim();
+    const locationName = nameInput ? nameInput.value.trim() : '';
+    
+    console.log(`📍 Adresse: "${address}", Name: "${locationName}"`);
     
     if (!address) {
         mapPreview.style.display = 'none';
@@ -264,32 +295,64 @@ function updateLocationMapPreview(locationType) {
         checkMapPreviewsVisibility();
         return;
     }
-    
-    // Fallback-Lösung ohne Google Maps API-Key
+
+    try {
+        // Entferne alte Karte falls vorhanden
+        if (window.openStreetMap && window.openStreetMap.maps && window.openStreetMap.maps.has(mapContainerId)) {
+            console.log(`🧹 Entferne alte Karte: ${mapContainerId}`);
+            window.openStreetMap.removeMap(mapContainerId);
+        }
+
+        // Zeige Karten-Container
+        mapPreview.style.display = 'block';
+        if (mapPreviewsSection) {
+            mapPreviewsSection.style.display = 'block';
+        }
+        console.log(`👁️ Karten-Container sichtbar gemacht`);
+
+        // Warte kurz damit Container sichtbar ist
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // Prüfe ob OpenStreetMap verfügbar ist
+        if (typeof window.openStreetMap === 'undefined') {
+            console.error('❌ OpenStreetMap Integration nicht geladen');
+            showFallbackMap(mapContainerId, address, locationName);
+            return;
+        }
+
+        // Erstelle neue Karte
+        console.log(`🗺️ Erstelle OpenStreetMap für Container: ${mapContainerId}`);
+        await window.openStreetMap.createSimpleLocationMap(mapContainerId, address, locationName);
+        console.log(`✅ Karte für ${locationType} erfolgreich erstellt`);
+
+    } catch (error) {
+        console.error(`❌ Fehler beim Erstellen der Karte für ${locationType}:`, error);
+        showFallbackMap(mapContainerId, address, locationName);
+    }
+}
+
+// Fallback-Karte wenn OpenStreetMap nicht verfügbar
+function showFallbackMap(containerId, address, locationName) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
     const fallbackHtml = `
         <div class="d-flex align-items-center justify-content-center bg-light h-100 p-4" style="min-height: 250px;">
             <div class="text-center">
                 <i class="bi bi-geo-alt text-primary mb-3" style="font-size: 3rem;"></i>
-                <h6 class="mb-3">${address}</h6>
-                <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}" 
+                <h6 class="mb-2">${locationName || 'Location'}</h6>
+                <p class="text-muted mb-3">${address}</p>
+                <a href="https://www.openstreetmap.org/search?query=${encodeURIComponent(address)}" 
                    target="_blank" 
                    class="btn btn-primary">
                     <i class="bi bi-map me-2"></i>
-                    In Google Maps öffnen
+                    OpenStreetMap
                 </a>
             </div>
         </div>
     `;
     
-    // Iframe durch Fallback-HTML ersetzen
-    const parentDiv = mapFrame.parentElement;
-    parentDiv.innerHTML = fallbackHtml;
-    mapPreview.style.display = 'block';
-    
-    // Zeige die gesamte Kartenvorschau-Sektion
-    if (mapPreviewsSection) {
-        mapPreviewsSection.style.display = 'block';
-    }
+    container.innerHTML = fallbackHtml;
 }
 
 // Prüfe ob Kartenvorschau-Sektion angezeigt werden soll
@@ -306,20 +369,55 @@ function checkMapPreviewsVisibility() {
     // Zeige Sektion nur wenn mindestens eine Karte sichtbar ist
     if (standesamtVisible || hochzeitslocationVisible) {
         mapPreviewsSection.style.display = 'block';
+        
+        // Stelle sicher, dass das Flexbox-Layout korrekt angewendet wird
+        const rowElement = mapPreviewsSection.querySelector('.row');
+        if (rowElement) {
+            rowElement.style.display = 'flex';
+            rowElement.style.flexWrap = 'wrap';
+            
+            // Setze explizite Flexbox-Eigenschaften für col-sm-6 Elemente
+            const cols = rowElement.querySelectorAll('.col-sm-6');
+            cols.forEach(col => {
+                col.style.flex = '0 0 50%';
+                col.style.maxWidth = '50%';
+            });
+        }
+        
+        // Debug-Log für Layout
+        console.log('🗺️ Karten-Layout:', {
+            standesamtVisible,
+            hochzeitslocationVisible,
+            sectionVisible: true
+        });
     } else {
         mapPreviewsSection.style.display = 'none';
+        console.log('🗺️ Alle Karten versteckt');
     }
 }
 
 // Kartenvorschau ausblenden
 function hideMapPreview(locationType) {
+    console.log(`❌ Verstecke Kartenvorschau: ${locationType}`);
+    
     const mapPreviewId = locationType + 'MapPreview';
+    const mapContainerId = locationType + 'Map';
     const mapPreview = document.getElementById(mapPreviewId);
     
     if (mapPreview) {
         mapPreview.style.display = 'none';
-        // Prüfe ob noch andere Karten angezeigt werden
+        console.log(`👁️ Karten-Container versteckt: ${mapPreviewId}`);
+        
+        // Entferne Karte aus OpenStreetMap
+        if (window.openStreetMap && window.openStreetMap.maps && window.openStreetMap.maps.has(mapContainerId)) {
+            console.log(`🧹 Entferne Karte: ${mapContainerId}`);
+            window.openStreetMap.removeMap(mapContainerId);
+        }
+        
+        // Prüfe ob andere Karten noch sichtbar sind
         checkMapPreviewsVisibility();
+    } else {
+        console.error(`❌ Karten-Preview Element nicht gefunden: ${mapPreviewId}`);
     }
 }
 
@@ -340,17 +438,29 @@ function openInGoogleMaps() {
 }
 
 function updateMapPreview() {
-    const hochzeitsort = document.getElementById('hochzeitsort').value.trim();
+    console.log('⚠️ updateMapPreview (Legacy Google Maps) - deaktiviert');
+    // Diese Funktion ist deaktiviert - OpenStreetMap wird jetzt verwendet
+    return;
+    
+    const hochzeitsort = document.getElementById('hochzeitsort');
     const mapsPreviewRow = document.getElementById('mapsPreviewRow');
     const mapFrame = document.getElementById('mapFrame');
     
-    if (!hochzeitsort) {
+    // Prüfe ob Elemente existieren
+    if (!hochzeitsort || !mapsPreviewRow || !mapFrame) {
+        console.log('⚠️ Legacy Google Maps Elemente nicht gefunden - wird übersprungen');
+        return;
+    }
+    
+    const ortValue = hochzeitsort.value.trim();
+    
+    if (!ortValue) {
         hideMapsPreview();
         return;
     }
     
     // Google Maps Embed URL erstellen
-    const encodedAddress = encodeURIComponent(hochzeitsort);
+    const encodedAddress = encodeURIComponent(ortValue);
     const embedUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dw901SwHHzFbOg&q=${encodedAddress}&zoom=15&maptype=roadmap`;
     
     // Fallback ohne API Key (weniger Features aber funktional)

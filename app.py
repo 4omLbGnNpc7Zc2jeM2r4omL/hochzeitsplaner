@@ -297,8 +297,44 @@ def init_data_manager():
         print(f"❌ Fehler beim Initialisieren des DataManagers: {e}")
         return False
 
+def init_config_files():
+    """Erstellt Config-Dateien im Root-Verzeichnis wenn sie nicht existieren"""
+    try:
+        # Root-Verzeichnis ermitteln
+        if getattr(sys, 'frozen', False):
+            # Wenn als .exe ausgeführt (PyInstaller)
+            root_dir = os.path.dirname(sys.executable)
+        else:
+            # Normal als Python-Script
+            root_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # DynDNS Config erstellen (falls nicht vorhanden)
+        dyndns_config_path = os.path.join(root_dir, 'dyndns_config.json')
+        if not os.path.exists(dyndns_config_path):
+            dyndns_config = {
+                "dyndns": {
+                    "enabled": False,
+                    "provider": "ionos",
+                    "domain": "",
+                    "api_key": "",
+                    "update_interval": 300
+                }
+            }
+            with open(dyndns_config_path, 'w', encoding='utf-8') as f:
+                json.dump(dyndns_config, f, indent=2, ensure_ascii=False)
+            print(f"✅ DynDNS Config erstellt: {dyndns_config_path}")
+        
+        return True
+    except Exception as e:
+        print(f"❌ Fehler beim Erstellen der Config-Dateien: {e}")
+        return False
+
 # Globaler DataManager - initialisiere sofort
 data_manager = None
+
+# Config-Dateien initialisieren
+init_config_files()
+
 if not init_data_manager():
     print("❌ KRITISCHER FEHLER: DataManager konnte nicht initialisiert werden!")
     print(f"   Datenverzeichnis: {DATA_DIR}")
@@ -1113,6 +1149,192 @@ def kosten_page():
     """Kostenkonfiguration Seite"""
     return render_template('kosten.html')
 
+@app.route('/test-maps')
+def test_maps():
+    """Test-Seite für OpenStreetMap Integration"""
+    return '''
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenStreetMap Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        .map-container { height: 300px; width: 100%; margin: 10px 0; }
+        .console-output { 
+            background: #f8f9fa; 
+            padding: 1rem; 
+            height: 200px; 
+            overflow-y: auto; 
+            font-family: monospace; 
+            font-size: 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>🗺️ OpenStreetMap Integration Test</h1>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <h3>Test-Input</h3>
+                <div class="mb-3">
+                    <label for="testAddress" class="form-label">Test-Adresse</label>
+                    <input type="text" class="form-control" id="testAddress" value="Markt 39, 52062 Aachen">
+                </div>
+                <button class="btn btn-primary" onclick="createTestMap()">🗺️ Karte erstellen</button>
+                <button class="btn btn-secondary" onclick="clearTestMap()">🧹 Karte löschen</button>
+                <button class="btn btn-info" onclick="testGeocoding()">📍 Geocoding Test</button>
+            </div>
+            <div class="col-md-6">
+                <h3>Console Logs</h3>
+                <div id="consoleOutput" class="console-output"></div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5>🏛️ Standesamt Test</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="map-container">
+                            <div id="standesamtMap" style="height: 100%; width: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5>💒 Hochzeitslocation Test</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="map-container">
+                            <div id="hochzeitslocationMap" style="height: 100%; width: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/static/js/openstreetmap.js"></script>
+    
+    <script>
+        const consoleOutput = document.getElementById('consoleOutput');
+        
+        function addToConsole(type, message) {
+            const now = new Date().toLocaleTimeString();
+            const color = type === 'ERROR' ? 'text-danger' : type === 'SUCCESS' ? 'text-success' : 'text-primary';
+            consoleOutput.innerHTML += `<div class="${color}"><strong>[${now}] ${type}:</strong> ${message}</div>`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        async function createTestMap() {
+            const address = document.getElementById('testAddress').value.trim();
+            if (!address) {
+                addToConsole('ERROR', 'Keine Adresse eingegeben');
+                return;
+            }
+            
+            addToConsole('LOG', '🗺️ Erstelle Test-Karte für: ' + address);
+            
+            if (typeof window.openStreetMap === 'undefined') {
+                addToConsole('ERROR', '❌ OpenStreetMap Integration nicht verfügbar');
+                return;
+            }
+            
+            try {
+                await window.openStreetMap.createSimpleLocationMap('standesamtMap', address, 'Standesamt Test');
+                addToConsole('SUCCESS', '✅ Standesamt-Karte erstellt');
+                
+                await window.openStreetMap.createSimpleLocationMap('hochzeitslocationMap', address, 'Hochzeitslocation Test');
+                addToConsole('SUCCESS', '✅ Hochzeitslocation-Karte erstellt');
+                
+            } catch (error) {
+                addToConsole('ERROR', '❌ Fehler beim Erstellen der Test-Karten: ' + error.message);
+            }
+        }
+        
+        function clearTestMap() {
+            try {
+                if (window.openStreetMap) {
+                    window.openStreetMap.removeMap('standesamtMap');
+                    window.openStreetMap.removeMap('hochzeitslocationMap');
+                    addToConsole('SUCCESS', '🧹 Test-Karten entfernt');
+                }
+            } catch (error) {
+                addToConsole('ERROR', '❌ Fehler beim Entfernen der Karten: ' + error.message);
+            }
+        }
+        
+        async function testGeocoding() {
+            const address = document.getElementById('testAddress').value.trim();
+            if (!address) {
+                addToConsole('ERROR', 'Keine Adresse eingegeben');
+                return;
+            }
+            
+            addToConsole('LOG', '📍 Teste Geocoding für: ' + address);
+            
+            if (typeof window.openStreetMap === 'undefined') {
+                addToConsole('ERROR', '❌ OpenStreetMap Integration nicht verfügbar');
+                return;
+            }
+            
+            try {
+                const result = await window.openStreetMap.geocodeAddress(address);
+                if (result) {
+                    addToConsole('SUCCESS', `✅ Geocoding erfolgreich: ${result.lat}, ${result.lon} (${result.display_name})`);
+                } else {
+                    addToConsole('ERROR', '❌ Geocoding fehlgeschlagen: Keine Ergebnisse');
+                }
+            } catch (error) {
+                addToConsole('ERROR', '❌ Geocoding Fehler: ' + error.message);
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            addToConsole('LOG', '🚀 Test-Seite geladen');
+            addToConsole('LOG', '🔍 OpenStreetMap verfügbar: ' + (typeof window.openStreetMap !== 'undefined'));
+            addToConsole('LOG', '🔍 Leaflet verfügbar: ' + (typeof L !== 'undefined'));
+            
+            if (typeof window.openStreetMap !== 'undefined') {
+                addToConsole('LOG', '📊 OpenStreetMap Objekt geladen');
+            }
+        });
+    </script>
+</body>
+</html>
+    '''
+
+@app.route('/simple-test')
+def simple_test():
+    """Einfacher JavaScript Test"""
+    return render_template('simple_test.html')
+
+@app.route('/syntax-test')
+def syntax_test():
+    """JavaScript Syntax Test-Seite"""
+    return render_template('syntax_test.html')
+
+@app.route('/js-test')
+def js_test():
+    """JavaScript Test-Seite"""
+    return render_template('js_test.html')
+
+@app.route('/debug-maps')
+def debug_maps():
+    """Debug-Seite für Karten"""
+    return render_template('debug_maps.html')
+
 @app.route('/guest-credentials')
 @require_auth
 @require_role(['admin'])
@@ -1482,6 +1704,10 @@ def get_guest_informationen():
         settings = data_manager.load_settings()
         logger.info(f"Geladene Settings für Informationen: {settings}")
         
+        # Fallback-Werte falls settings None ist
+        if settings is None:
+            settings = {}
+        
         gaeste_info = settings.get('gaeste_informationen', {})
         
         # Fallback-Werte falls nicht konfiguriert
@@ -1516,6 +1742,96 @@ def get_guest_informationen():
         
     except Exception as e:
         logger.error(f"Fehler beim Laden der Gäste-Informationen: {e}")
+        return jsonify({'success': False, 'message': 'Serverfehler'})
+
+@app.route('/api/guest/location-coordinates')
+@require_auth
+@require_role(['guest'])
+def get_guest_location_coordinates():
+    """API-Endpunkt für Geocodierung der Location-Adressen für Gäste"""
+    try:
+        if not data_manager:
+            return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
+        
+        import requests
+        import time
+        
+        # Location-Daten aus Config laden
+        config = data_manager.load_config()
+        
+        if not config or 'locations' not in config:
+            return jsonify({'success': False, 'message': 'Keine Location-Daten verfügbar'})
+        
+        coordinates = {}
+        
+        # Bekannte Aachen-Adressen für bessere Performance
+        aachen_special_cases = {
+            'rathaus, markt 39, 52062 aachen': {'lat': 50.7753, 'lng': 6.0839},
+            'markt 39, 52062 aachen': {'lat': 50.7753, 'lng': 6.0839},
+            'rathaus aachen': {'lat': 50.7753, 'lng': 6.0839},
+            'kruppstraße 28, 52072 aachen': {'lat': 50.7698, 'lng': 6.0892},
+            'kruppstrasse 28, 52072 aachen': {'lat': 50.7698, 'lng': 6.0892},
+            'hotel kastanienhof aachen': {'lat': 50.7698, 'lng': 6.0892}
+        }
+        
+        for location_type, location_info in config['locations'].items():
+            if isinstance(location_info, dict) and 'adresse' in location_info:
+                address = location_info['adresse'].lower().strip()
+                
+                # Erst in bekannten Adressen suchen
+                if address in aachen_special_cases:
+                    coordinates[location_type] = aachen_special_cases[address]
+                    logger.info(f"Verwendung bekannter Koordinaten für {address}: {coordinates[location_type]}")
+                    continue
+                
+                # Geocoding mit Nominatim versuchen
+                try:
+                    params = {
+                        'q': location_info['adresse'],
+                        'format': 'json',
+                        'addressdetails': 1,
+                        'limit': 1,
+                        'countrycodes': 'de',
+                        'bounded': 1,
+                        'viewbox': '5.8,50.6,6.3,50.9'  # Bounding box für NRW/Aachen
+                    }
+                    
+                    response = requests.get('https://nominatim.openstreetmap.org/search', 
+                                          params=params, 
+                                          headers={'User-Agent': 'Hochzeitsplaner/1.0'},
+                                          timeout=5)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data:
+                            coordinates[location_type] = {
+                                'lat': float(data[0]['lat']),
+                                'lng': float(data[0]['lon'])
+                            }
+                            logger.info(f"Geocoding erfolgreich für {location_info['adresse']}: {coordinates[location_type]}")
+                        else:
+                            logger.warning(f"Keine Geocoding-Ergebnisse für {location_info['adresse']}")
+                            # Fallback auf Aachen Zentrum
+                            coordinates[location_type] = {'lat': 50.7753, 'lng': 6.0839}
+                    else:
+                        logger.warning(f"Geocoding-Request fehlgeschlagen für {location_info['adresse']}: {response.status_code}")
+                        coordinates[location_type] = {'lat': 50.7753, 'lng': 6.0839}
+                    
+                    # Rate limiting
+                    time.sleep(1)
+                    
+                except Exception as geo_error:
+                    logger.error(f"Geocoding-Fehler für {location_info['adresse']}: {geo_error}")
+                    # Fallback auf Aachen Zentrum
+                    coordinates[location_type] = {'lat': 50.7753, 'lng': 6.0839}
+        
+        return jsonify({
+            'success': True,
+            'coordinates': coordinates
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Geocoding der Location-Koordinaten: {e}")
         return jsonify({'success': False, 'message': 'Serverfehler'})
 
 # ADMIN-ONLY: Gast-Credentials verwalten

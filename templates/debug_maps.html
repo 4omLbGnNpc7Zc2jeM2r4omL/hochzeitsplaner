@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🗺️ Karten Debug Test</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-container { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .map-container { 
+            height: 300px; 
+            width: 100%; 
+            border: 2px solid #007bff; 
+            margin: 10px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .log { 
+            background: #f8f9fa; 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+    </style>
+</head>
+<body>
+    <h1>🗺️ Karten Debug Test</h1>
+    <div id="log" class="log">Lade JavaScript-Bibliotheken...</div>
+    
+    <div class="test-container">
+        <h2>Test 1: Standesamt Karte mit Backend-API</h2>
+        <div id="testMap1" class="map-container"></div>
+        <button onclick="testBackendMap('testMap1', 'standesamt')">🗺️ Standesamt Karte laden</button>
+    </div>
+    
+    <div class="test-container">
+        <h2>Test 2: Hochzeitslocation Karte mit Backend-API</h2>
+        <div id="testMap2" class="map-container"></div>
+        <button onclick="testBackendMap('testMap2', 'hochzeitslocation')">🗺️ Hochzeitslocation Karte laden</button>
+    </div>
+    
+    <div class="test-container">
+        <h2>Test 3: Direkte API-Abfrage</h2>
+        <button onclick="testAPIDirectly()">🌐 Backend API testen</button>
+        <div id="apiResult" class="log"></div>
+    </div>
+
+    <!-- JavaScript laden -->
+    <script src="{{ url_for('static', filename='js/openstreetmap.js') }}"></script>
+    
+    <script>
+        const logDiv = document.getElementById('log');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : '';
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.className = `log ${className}`;
+            console.log(message);
+        }
+        
+        // Überprüfe verfügbare Funktionen
+        function checkLibraries() {
+            log('=== JavaScript Status ===');
+            log('Leaflet (L): ' + (typeof L !== 'undefined' ? '✅ Verfügbar' : '❌ Nicht verfügbar'));
+            log('window.openStreetMap: ' + (typeof window.openStreetMap !== 'undefined' ? '✅ Verfügbar' : '❌ Nicht verfügbar'));
+            log('window.createLocationMapFromBackend: ' + (typeof window.createLocationMapFromBackend !== 'undefined' ? '✅ Verfügbar' : '❌ Nicht verfügbar'));
+            
+            if (typeof window.openStreetMap !== 'undefined') {
+                log('openStreetMap Methoden: ' + Object.getOwnPropertyNames(window.openStreetMap.constructor.prototype).join(', '));
+                
+                // Prüfe ob Leaflet fertig geladen ist
+                if (window.openStreetMap.initialized) {
+                    log('✅ OpenStreetMap vollständig initialisiert');
+                } else {
+                    log('⚠️ OpenStreetMap noch nicht vollständig initialisiert - warte auf Leaflet...');
+                    setTimeout(checkLibraries, 1000); // Erneut prüfen nach 1 Sekunde
+                }
+            }
+        }
+        
+        setTimeout(checkLibraries, 500);
+        setTimeout(checkLibraries, 2000); // Zweite Prüfung nach 2 Sekunden
+        
+        async function testBackendMap(containerId, locationType) {
+            log(`=== Test Backend-Karte: ${locationType} ===`);
+            
+            try {
+                if (typeof window.createLocationMapFromBackend !== 'function') {
+                    log('❌ createLocationMapFromBackend Funktion nicht verfügbar', 'error');
+                    return;
+                }
+                
+                log(`🗺️ Erstelle Karte für ${locationType} in Container ${containerId}...`);
+                const map = await window.createLocationMapFromBackend(containerId, locationType);
+                
+                if (map) {
+                    log(`✅ Karte für ${locationType} erfolgreich erstellt!`, 'success');
+                } else {
+                    log(`❌ Karte für ${locationType} konnte nicht erstellt werden`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Fehler beim Erstellen der Karte: ${error.message}`, 'error');
+                console.error('Detaillierter Fehler:', error);
+            }
+        }
+        
+        async function testAPIDirectly() {
+            log('=== API Test ===');
+            
+            try {
+                const response = await fetch('/api/guest/location-coordinates');
+                log(`API Response Status: ${response.status} ${response.statusText}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('apiResult').innerHTML = JSON.stringify(data, null, 2);
+                    log('✅ API erfolgreich abgerufen', 'success');
+                } else {
+                    log(`❌ API Fehler: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ API Request Fehler: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
