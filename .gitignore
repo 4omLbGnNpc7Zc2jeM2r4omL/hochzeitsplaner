@@ -47,8 +47,8 @@ simple_build.py
 github_hilfe.sh
 setup_github.sh
 
-# Lokale Launcher-Varianten
-launcher.py
+# Lokale Launcher-Varianten (legacy)
+# launcher.py <- JETZT PRODUKTIV, NICHT MEHR IGNORIERT!
 simple_launcher.py
 ssl_launcher.py
 windows_launcher.py
