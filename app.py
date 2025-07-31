@@ -2751,7 +2751,7 @@ if __name__ == '__main__':
     
     # IPv6 + IPv4 Support für DS-Lite/externe Erreichbarkeit
     app.run(
-        host='::',  # IPv6 + IPv4 (Dual Stack)
+        host='0.0.0.0',  # Explizit alle IPv4-Interfaces + IPv6 dual-stack
         port=port,
         debug=False,
         threaded=True

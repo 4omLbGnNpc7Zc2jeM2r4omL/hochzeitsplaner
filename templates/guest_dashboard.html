@@ -9,9 +9,18 @@
             <i class="bi bi-person-heart me-2"></i>
             Willkommen, {{ session.display_name }}!
         </h1>
-        <p class="lead text-muted">
-            Hier kannst du deine Teilnahme für {{ brautpaar_namen or "die Hochzeit" }} verwalten und den Hochzeitsablauf einsehen.
-        </p>
+        
+        <!-- Personalisierte Begrüßungsnachricht -->
+        <div class="alert alert-info border-0 shadow-sm mb-4" id="welcomeMessage">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-heart-fill text-primary me-3" style="font-size: 1.5rem;"></i>
+                <div id="personalizedWelcome">
+                    <p class="mb-0">
+                        Hier kannst du deine Teilnahme für {{ brautpaar_namen or "die Hochzeit" }} verwalten und den Hochzeitsablauf einsehen.
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -22,7 +31,7 @@
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0">
                     <i class="bi bi-calendar-check me-2"></i>
-                    Deine Teilnahme
+                    <span id="teilnahmeTitle">Deine Teilnahme</span>
                 </h5>
             </div>
             <div class="card-body">
@@ -30,9 +39,9 @@
                     <div class="mb-3">
                         <label class="form-label">Status</label>
                         <select class="form-select" id="guestStatus">
-                            <option value="Offen">Noch nicht entschieden</option>
-                            <option value="Zugesagt">Ich komme gerne!</option>
-                            <option value="Abgesagt">Kann leider nicht kommen</option>
+                            <option value="Offen" id="statusOpen">Noch nicht entschieden</option>
+                            <option value="Zugesagt" id="statusConfirmed">Ich komme gerne!</option>
+                            <option value="Abgesagt" id="statusDeclined">Kann leider nicht kommen</option>
                         </select>
                     </div>
                     
@@ -51,14 +60,14 @@
                     
                     <button type="button" class="btn btn-success w-100" id="saveRsvp">
                         <i class="bi bi-check-circle me-2"></i>
-                        Teilnahme speichern
+                        <span id="saveRsvpText">Teilnahme speichern</span>
                     </button>
                 </div>
                 
                 <div id="rsvpSuccess" class="text-center d-none">
                     <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
                     <h5 class="mt-3">Vielen Dank!</h5>
-                    <p class="text-muted">Deine Teilnahme wurde gespeichert.</p>
+                    <p class="text-muted" id="rsvpSuccessText">Deine Teilnahme wurde gespeichert.</p>
                 </div>
             </div>
         </div>

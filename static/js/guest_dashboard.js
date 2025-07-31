@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadZeitplanPreview();
     loadLocationData();
     loadGuestInformationen();
+    updatePersonalizedWelcome(); // Neue Funktion für personalisierte Begrüßung
     
     // Event Listeners nur hinzufügen wenn Elemente existieren
     const saveRsvpBtn = document.getElementById('saveRsvp');
@@ -13,6 +14,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const guestStatusSelect = document.getElementById('guestStatus');
     if (guestStatusSelect) {
         guestStatusSelect.addEventListener('change', handleStatusChange);
+    }
+    
+    // Event Listener für Personenanzahl-Änderungen
+    const personenAnzahlInput = document.getElementById('personenAnzahl');
+    if (personenAnzahlInput) {
+        personenAnzahlInput.addEventListener('input', function() {
+            const currentValue = parseInt(this.value) || 1;
+            updatePluralTexts(currentValue);
+        });
     }
 });
 
@@ -141,24 +151,10 @@ async function createGuestLocationMap(locationType, locationData) {
         // Warte kurz damit Container sichtbar ist
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Prüfe ob createLocationMapFromBackend verfügbar ist
-        if (typeof window.createLocationMapFromBackend === 'function') {
-            console.log(`✅ Verwende Backend-basierte Karten für ${locationType}`);
-            // Verwende die neue Backend-basierte Kartenfunktion
-            const map = await window.createLocationMapFromBackend(
-                mapContainerId, 
-                locationType  // z.B. 'standesamt' oder 'hochzeitslocation'
-            );
-            
-            if (map) {
-                console.log(`✅ Backend-Karte für ${locationType} erfolgreich erstellt`);
-                return true;
-            }
-        }
-        
-        // Fallback: Verwende die alte Methode mit Adressen
-        console.log(`⚠️ Fallback auf Adress-basierte Karten für ${locationType}`);
+        // Verwende die gleiche Logik wie in Einstellungen: direkte Adress-basierte Karten
         if (window.openStreetMap && locationData.adresse) {
+            console.log(`✅ Verwende Adress-basierte Karten für ${locationType}: ${locationData.adresse}`);
+            // Verwende die bewährte Adress-basierte Kartenfunktion aus Einstellungen
             const map = await window.openStreetMap.createSimpleLocationMap(
                 mapContainerId, 
                 locationData.adresse, 
@@ -166,11 +162,11 @@ async function createGuestLocationMap(locationType, locationData) {
             );
             
             if (map) {
-                console.log(`✅ Fallback-Karte für ${locationType} erfolgreich erstellt`);
+                console.log(`✅ Adress-Karte für ${locationType} erfolgreich erstellt`);
                 return true;
             }
         }
-        
+
         // Letzter Fallback: Zeige statische Karteninfo
         console.warn(`⚠️ Keine Karte möglich für ${locationType}, zeige Fallback`);
         showFallbackLocationMap(locationType, locationData);
@@ -182,9 +178,7 @@ async function createGuestLocationMap(locationType, locationData) {
         showFallbackLocationMap(locationType, locationData);
         return false;
     }
-}
-
-function initializeFallbackMaps() {
+}function initializeFallbackMaps() {
     // Fallback-Implementierung für Kartenvorschauen
     console.log('initializeFallbackMaps called - creating fallback map previews');
     
@@ -354,6 +348,13 @@ function loadGuestInformationen() {
             if (data.success && data.informationen) {
                 guestInformationen = data.informationen;
                 displayGuestInformationen();
+                
+                // Aktualisiere die Plural-Texte nach dem Laden der Informationen
+                const personenAnzahlInput = document.getElementById('personenAnzahl');
+                if (personenAnzahlInput) {
+                    const currentPersonen = parseInt(personenAnzahlInput.max) || parseInt(personenAnzahlInput.value) || 1;
+                    updateInformationenTexts(currentPersonen > 1);
+                }
             }
         })
         .catch(error => {
@@ -410,8 +411,9 @@ function loadGuestData() {
     const guestId = new URLSearchParams(window.location.search).get('id');
     
     if (!guestId) {
-        console.log('ℹ️ No guest ID provided in URL - using session data');
-        // Für eingeloggte Gäste verwenden wir Session-Daten statt URL-Parameter
+        console.log('ℹ️ No guest ID provided in URL - loading session-based guest data');
+        // Für eingeloggte Gäste laden wir Session-Daten
+        loadSessionGuestData();
         return;
     }
     
@@ -434,6 +436,145 @@ function loadGuestData() {
                 guestInfoElement.innerHTML = '<div class="alert alert-danger">Fehler beim Laden der Gästedaten</div>';
             }
         });
+}
+
+// Neue Funktion für Session-basierte Gäste
+function loadSessionGuestData() {
+    console.log('🔄 Loading session-based guest data...');
+    
+    fetch('/api/guest/data')
+        .then(response => {
+            console.log('📊 Session guest data API response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('📊 Session guest data received:', data);
+            if (data.success && data.guest) {
+                updateGuestFormLimits(data.guest);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading session guest data:', error);
+        });
+}
+
+// Neue Funktion um Formular-Limits zu setzen
+function updateGuestFormLimits(guestData) {
+    console.log('🔧 Updating form limits for guest:', guestData);
+    
+    const personenAnzahlInput = document.getElementById('personenAnzahl');
+    const maxPersonenSpan = document.getElementById('maxPersonen');
+    
+    if (personenAnzahlInput && maxPersonenSpan) {
+        const maxPersonen = guestData.max_personen || guestData.personen || 1;
+        
+        // Setze das Maximum und den aktuellen Wert
+        personenAnzahlInput.max = maxPersonen;
+        personenAnzahlInput.value = Math.min(personenAnzahlInput.value || 1, maxPersonen);
+        
+        // Update den Hinweistext
+        maxPersonenSpan.textContent = maxPersonen;
+        
+        // Neue Funktion: Update der Plural-/Singular-Texte
+        updatePluralTexts(maxPersonen);
+        
+        console.log(`✅ Person limits updated: max=${maxPersonen}, current=${personenAnzahlInput.value}`);
+    }
+}
+
+// Neue Funktion für dynamische Plural-/Singular-Texte
+function updatePluralTexts(personenanzahl) {
+    const isPlural = personenanzahl > 1;
+    
+    // Titel der Teilnahme-Karte
+    const teilnahmeTitle = document.getElementById('teilnahmeTitle');
+    if (teilnahmeTitle) {
+        teilnahmeTitle.textContent = isPlural ? 'Eure Teilnahme' : 'Deine Teilnahme';
+    }
+    
+    // Status-Optionen
+    const statusOpen = document.getElementById('statusOpen');
+    const statusConfirmed = document.getElementById('statusConfirmed');
+    const statusDeclined = document.getElementById('statusDeclined');
+    
+    if (statusOpen) {
+        statusOpen.textContent = isPlural ? 'Noch nicht entschieden' : 'Noch nicht entschieden';
+    }
+    
+    if (statusConfirmed) {
+        statusConfirmed.textContent = isPlural ? 'Wir kommen gerne!' : 'Ich komme gerne!';
+    }
+    
+    if (statusDeclined) {
+        statusDeclined.textContent = isPlural ? 'Können leider nicht kommen' : 'Kann leider nicht kommen';
+    }
+    
+    // Button-Text
+    const saveRsvpText = document.getElementById('saveRsvpText');
+    if (saveRsvpText) {
+        saveRsvpText.textContent = isPlural ? 'Teilnahme speichern' : 'Teilnahme speichern';
+    }
+    
+    // Erfolgs-Nachricht
+    const rsvpSuccessText = document.getElementById('rsvpSuccessText');
+    if (rsvpSuccessText) {
+        rsvpSuccessText.textContent = isPlural ? 'Eure Teilnahme wurde gespeichert.' : 'Deine Teilnahme wurde gespeichert.';
+    }
+    
+    // Informationsbereiche aktualisieren (falls guestInformationen geladen wurden)
+    updateInformationenTexts(isPlural);
+    
+    console.log(`✅ Plural texts updated for ${personenanzahl} person(s), isPlural: ${isPlural}`);
+}
+
+// Hilfsfunktion für die Aktualisierung der Informationen-Texte
+function updateInformationenTexts(isPlural) {
+    // Fallback-Texte falls keine benutzerdefinierten Informationen geladen wurden
+    const kontaktText = document.getElementById('kontaktText');
+    if (kontaktText && !guestInformationen) {
+        kontaktText.textContent = isPlural 
+            ? 'Bei Fragen könnt ihr euch gerne an uns wenden.'
+            : 'Bei Fragen kannst du dich gerne an uns wenden.';
+    }
+    
+    const geschenkeText = document.getElementById('geschenkeText');
+    if (geschenkeText && !guestInformationen) {
+        geschenkeText.textContent = isPlural 
+            ? 'Über euer Kommen freuen wir uns am meisten!'
+            : 'Über dein Kommen freuen wir uns am meisten!';
+    }
+    
+    const dresscodeText = document.getElementById('dresscodeText');
+    if (dresscodeText && !guestInformationen) {
+        dresscodeText.textContent = 'Festliche Kleidung erwünscht.';
+    }
+    
+    // Falls guestInformationen geladen wurden, verwende die entsprechenden Texte
+    if (guestInformationen) {
+        if (kontaktText && guestInformationen.kontakt) {
+            const kontaktInfo = isPlural ? guestInformationen.kontakt.mehrere : guestInformationen.kontakt.einzelperson;
+            if (kontaktInfo) {
+                kontaktText.textContent = kontaktInfo;
+            }
+        }
+        
+        if (geschenkeText && guestInformationen.geschenke) {
+            const geschenkeInfo = isPlural ? guestInformationen.geschenke.mehrere : guestInformationen.geschenke.einzelperson;
+            if (geschenkeInfo) {
+                geschenkeText.textContent = geschenkeInfo;
+            }
+        }
+        
+        if (dresscodeText && guestInformationen.dresscode) {
+            const dresscodeInfo = isPlural ? guestInformationen.dresscode.mehrere : guestInformationen.dresscode.einzelperson;
+            if (dresscodeInfo) {
+                dresscodeText.textContent = dresscodeInfo;
+            }
+        }
+    }
 }
 
 function displayGuestData(data) {
@@ -661,6 +802,77 @@ function displayZeitplanPreview(response) {
     }
     
     container.innerHTML = html;
+}
+
+// Neue Funktion für personalisierte Begrüßungsnachricht
+function updatePersonalizedWelcome() {
+    console.log('🔄 Updating personalized welcome message...');
+    
+    fetch('/api/guest/data')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('📊 Guest data for welcome message:', data);
+            if (data.success && data.guest) {
+                displayPersonalizedWelcome(data.guest);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error loading guest data for welcome:', error);
+        });
+}
+
+function displayPersonalizedWelcome(guestData) {
+    const welcomeContainer = document.getElementById('personalizedWelcome');
+    
+    if (!welcomeContainer) {
+        console.error('❌ personalized welcome container not found');
+        return;
+    }
+    
+    // Bestimme Event-Teile basierend auf Anzahl > 0
+    const eventParts = [];
+    const isPlural = guestData.Anzahl_Personen > 1;
+    const personPronoun = isPlural ? 'euch' : 'dich';
+    
+    if (guestData.Weisser_Saal > 0) {
+        eventParts.push('Trauung im Weißen Saal');
+    }
+    if (guestData.Anzahl_Essen > 0) {
+        eventParts.push('Hochzeitsessen');
+    }
+    if (guestData.Anzahl_Party > 0) {
+        eventParts.push('Hochzeitsfeier');
+    }
+    
+    // Generiere personalisierte Nachricht
+    let message = '';
+    
+    if (eventParts.length === 0) {
+        message = `Hier kannst du deine Teilnahme für unsere Hochzeit verwalten und den Hochzeitsablauf einsehen.`;
+    } else if (eventParts.length === 1) {
+        // Nur ein Event-Teil
+        const eventPart = eventParts[0];
+        if (eventPart === 'Trauung im Weißen Saal') {
+            message = `Wir würden uns sehr freuen ${personPronoun} zu unserer ${eventPart} begrüßen zu dürfen! 💕`;
+        } else if (eventPart === 'Hochzeitsessen') {
+            message = `Wir freuen uns riesig darauf ${personPronoun} zu unserem Hochzeitsessen einzuladen und gemeinsam zu genießen! 🍽️`;
+        } else if (eventPart === 'Hochzeitsfeier') {
+            message = `Lasst uns zusammen feiern! Wir können es kaum erwarten ${personPronoun} zu unserer Hochzeitsparty zu begrüßen! 🎉`;
+        }
+    } else if (eventParts.length === 2) {
+        // Zwei Event-Teile
+        message = `Wir würden uns sehr freuen ${personPronoun} zu ${eventParts[0]} und ${eventParts[1]} begrüßen zu dürfen! 💕`;
+    } else {
+        // Alle drei Event-Teile
+        message = `Wir würden uns riesig freuen ${personPronoun} den ganzen Tag über bei uns zu haben - von der ${eventParts[0]} über das ${eventParts[1]} bis hin zur ${eventParts[2]}! 💕🎉`;
+    }
+    
+    welcomeContainer.innerHTML = `<p class="mb-0">${message}</p>`;
 }
 
 function showSuccessMessage(message) {

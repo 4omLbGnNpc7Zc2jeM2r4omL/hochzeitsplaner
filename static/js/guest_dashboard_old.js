@@ -454,32 +454,39 @@ function getStatusColor(status) {
 }
 
 function showAlert(message, type) {
-    // Alert-Container erstellen falls nicht vorhanden
-    let alertContainer = document.getElementById('alertContainer');
+    // Verwende den globalen festen Alert-Container
+    let alertContainer = document.getElementById('globalAlertContainer');
+    
     if (!alertContainer) {
+        // Fallback: Erstelle globalen festen Alert-Container falls nicht vorhanden
         alertContainer = document.createElement('div');
-        alertContainer.id = 'alertContainer';
-        alertContainer.className = 'position-fixed top-0 start-50 translate-middle-x mt-3';
-        alertContainer.style.zIndex = '9999';
+        alertContainer.id = 'globalAlertContainer';
+        alertContainer.className = 'alert-container-fixed';
         document.body.appendChild(alertContainer);
     }
     
-    const alertId = 'alert-' + Date.now();
-    const alertHtml = `
-        <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert">
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+    // Erstelle Alert-Element
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
     
-    alertContainer.insertAdjacentHTML('beforeend', alertHtml);
+    // Füge Alert zum Container hinzu
+    alertContainer.appendChild(alertDiv);
     
-    // Alert nach 5 Sekunden automatisch entfernen
+    // Automatisch nach 5 Sekunden ausblenden mit Fadeout-Effekt
     setTimeout(() => {
-        const alertElement = document.getElementById(alertId);
-        if (alertElement) {
-            const bsAlert = new bootstrap.Alert(alertElement);
-            bsAlert.close();
+        if (alertDiv.parentNode) {
+            alertDiv.classList.remove('show');
+            alertDiv.classList.add('fade');
+            // Nach der Fade-Animation entfernen
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 150);
         }
     }, 5000);
 }

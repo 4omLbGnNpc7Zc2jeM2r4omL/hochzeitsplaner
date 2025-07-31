@@ -1,6 +1,6 @@
 [
   {
-    "Vorname":"Julia + Raffi",
+    "Vorname":"Julia & Raffi",
     "Nachname":"Hautumm",
     "Begleitung":0,
     "Kind":1,
@@ -23,15 +23,15 @@
     "guest_password":"hautumm6688"
   },
   {
-    "Vorname":"Anna + Daniel",
+    "Vorname":"Anna & Daniel",
     "Nachname":"Hautumm Kassmann",
-    "Begleitung":"",
-    "Kind":2.0,
+    "Begleitung":0,
+    "Kind":2,
     "Kategorie":"Familie",
     "Anzahl_Personen":4,
     "Status":"Offen",
-    "Optional":0.0,
-    "Weisser_Saal":4.0,
+    "Optional":0,
+    "Weisser_Saal":4,
     "Zum_Essen":"Ja",
     "Seite":"K\u00e4the",
     "Kontakt":"",
@@ -46,7 +46,7 @@
     "guest_password":"hautummk7228"
   },
   {
-    "Vorname":"Jutta + Berni",
+    "Vorname":"Jutta & Berni",
     "Nachname":"Hautumm Schaffrath",
     "Begleitung":"",
     "Kind":"",
@@ -69,7 +69,7 @@
     "guest_password":"hautumms8620"
   },
   {
-    "Vorname":"Klaus + Iris",
+    "Vorname":"Klaus & Iris",
     "Nachname":"Voigtmeier",
     "Begleitung":"",
     "Kind":"",
@@ -92,7 +92,7 @@
     "guest_password":"voigtmei9943"
   },
   {
-    "Vorname":"Lino + Enio",
+    "Vorname":"Lino & Enio",
     "Nachname":"Voigtmeier",
     "Begleitung":1.0,
     "Kind":"",
@@ -115,7 +115,7 @@
     "guest_password":"voigtmei9028"
   },
   {
-    "Vorname":"Anne + Louisa",
+    "Vorname":"Anne & Louisa",
     "Nachname":"Schaffrath",
     "Begleitung":"",
     "Kind":"",
@@ -161,7 +161,7 @@
     "guest_password":"schaffra5975"
   },
   {
-    "Vorname":"Jan + Sabine",
+    "Vorname":"Jan & Sabine",
     "Nachname":"Schaffrath",
     "Begleitung":0,
     "Kind":0,
@@ -207,7 +207,7 @@
     "guest_password":"schaffra1575"
   },
   {
-    "Vorname":"Lena + Florian",
+    "Vorname":"Lena & Florian",
     "Nachname":"Schaffrath",
     "Begleitung":0,
     "Kind":0,
@@ -253,7 +253,7 @@
     "guest_password":"schaffra3590"
   },
   {
-    "Vorname":"Nicole + Andreas",
+    "Vorname":"Nicole & Andreas",
     "Nachname":"Schaffrath",
     "Begleitung":0,
     "Kind":0,
@@ -276,7 +276,7 @@
     "guest_password":"schaffra9946"
   },
   {
-    "Vorname":"Laura + Dennis",
+    "Vorname":"Laura & Dennis",
     "Nachname":0,
     "Begleitung":"",
     "Kind":"",
@@ -368,7 +368,7 @@
     "guest_password":"gillesse2930"
   },
   {
-    "Vorname":"Marcel + Christina",
+    "Vorname":"Marcel & Christina",
     "Nachname":"Lothmann \/ Hartung",
     "Begleitung":"",
     "Kind":"",
@@ -391,7 +391,7 @@
     "guest_password":"lothmann2256"
   },
   {
-    "Vorname":"Basti + Jessi",
+    "Vorname":"Basti & Jessi",
     "Nachname":"Nonn \/ -",
     "Begleitung":"",
     "Kind":"",
@@ -414,7 +414,7 @@
     "guest_password":"nonn2782"
   },
   {
-    "Vorname":"Nadine + Andreas",
+    "Vorname":"Nadine & Andreas",
     "Nachname":"Franke \/ Remy",
     "Begleitung":"",
     "Kind":"",
@@ -437,7 +437,7 @@
     "guest_password":"frankere1134"
   },
   {
-    "Vorname":"Simone + Luki",
+    "Vorname":"Simone & Luki",
     "Nachname":"Schwerger \/ Gibbels",
     "Begleitung":"",
     "Kind":"",
@@ -460,7 +460,7 @@
     "guest_password":"schwerge4210"
   },
   {
-    "Vorname":"Christina + Stefan",
+    "Vorname":"Christina & Stefan",
     "Nachname":"Weisser \/ Reisse",
     "Begleitung":"",
     "Kind":"",
@@ -483,7 +483,7 @@
     "guest_password":"weisserr1833"
   },
   {
-    "Vorname":"Julian + Stefan",
+    "Vorname":"Julian & Stefan",
     "Nachname":"Bartmann",
     "Begleitung":0,
     "Kind":0,
@@ -506,7 +506,7 @@
     "guest_password":"bartmann8396"
   },
   {
-    "Vorname":"Julia + Sebastian",
+    "Vorname":"Julia & Sebastian",
     "Nachname":"Drucks",
     "Begleitung":"",
     "Kind":"",
@@ -529,7 +529,7 @@
     "guest_password":"drucks7495"
   },
   {
-    "Vorname":"Nina + Shervin",
+    "Vorname":"Nina & Shervin",
     "Nachname":"Fadi",
     "Begleitung":0,
     "Kind":0,
@@ -575,7 +575,7 @@
     "guest_password":"hamann5968"
   },
   {
-    "Vorname":"Philipp + Kim",
+    "Vorname":"Philipp & Kim",
     "Nachname":"H\u00f6velmann",
     "Begleitung":0,
     "Kind":0,
@@ -598,7 +598,7 @@
     "guest_password":"hoevelma5116"
   },
   {
-    "Vorname":"Nina + Dimi",
+    "Vorname":"Nina & Dimi",
     "Nachname":"Ioakidis",
     "Begleitung":0,
     "Kind":0,
@@ -621,7 +621,7 @@
     "guest_password":"ioakidis7494"
   },
   {
-    "Vorname":"Werner + Beate",
+    "Vorname":"Werner & Beate",
     "Nachname":"Kassmann",
     "Begleitung":0,
     "Kind":0,
@@ -644,7 +644,7 @@
     "guest_password":"kassmann9266"
   },
   {
-    "Vorname":"Lotto + Fabi",
+    "Vorname":"Lotto & Fabi",
     "Nachname":"Kleindieck",
     "Begleitung":"",
     "Kind":"",
@@ -667,7 +667,7 @@
     "guest_password":"kleindie8061"
   },
   {
-    "Vorname":"Laura + Sarah",
+    "Vorname":"Laura & Sarah",
     "Nachname":"Krings \/ Schmitter",
     "Begleitung":"",
     "Kind":"",
@@ -713,7 +713,7 @@
     "guest_password":"lux6622"
   },
   {
-    "Vorname":"Nora + Simon",
+    "Vorname":"Nora & Simon",
     "Nachname":"Menzler",
     "Begleitung":"",
     "Kind":"",
@@ -736,7 +736,7 @@
     "guest_password":"menzler3631"
   },
   {
-    "Vorname":"Nina + Andy",
+    "Vorname":"Nina & Andy",
     "Nachname":"Mohr \/ M\u00fcller",
     "Begleitung":"",
     "Kind":"",
@@ -782,7 +782,7 @@
     "guest_password":"mueller2699"
   },
   {
-    "Vorname":"Manu + Steffi",
+    "Vorname":"Manu & Steffi",
     "Nachname":"Nadenau",
     "Begleitung":"",
     "Kind":"",
@@ -805,7 +805,7 @@
     "guest_password":"nadenau6180"
   },
   {
-    "Vorname":"Nicole + Dominik",
+    "Vorname":"Nicole & Dominik",
     "Nachname":"Niemchik",
     "Begleitung":"",
     "Kind":"",
@@ -828,7 +828,7 @@
     "guest_password":"niemchik9196"
   },
   {
-    "Vorname":"Tine + Patty",
+    "Vorname":"Tine & Patty",
     "Nachname":"Quaden",
     "Begleitung":"",
     "Kind":"",
@@ -874,7 +874,7 @@
     "guest_password":"read3425"
   },
   {
-    "Vorname":"Pascal + Celina",
+    "Vorname":"Pascal & Celina",
     "Nachname":"Reisse",
     "Begleitung":0,
     "Kind":0,
@@ -920,7 +920,7 @@
     "guest_password":"roosen7814"
   },
   {
-    "Vorname":"Hanna + Philipp",
+    "Vorname":"Hanna & Philipp",
     "Nachname":"Schmitz",
     "Begleitung":"",
     "Kind":"",
@@ -943,7 +943,7 @@
     "guest_password":"schmitz1527"
   },
   {
-    "Vorname":"Nils + Marion",
+    "Vorname":"Nils & Marion",
     "Nachname":"Schumacher",
     "Begleitung":"",
     "Kind":"",
@@ -966,7 +966,7 @@
     "guest_password":"schumach4734"
   },
   {
-    "Vorname":"G\u00fcnther + Charlotte",
+    "Vorname":"G\u00fcnther & Charlotte",
     "Nachname":"Sch\u00fcrmann",
     "Begleitung":"",
     "Kind":"",
@@ -989,7 +989,7 @@
     "guest_password":"schuerma3064"
   },
   {
-    "Vorname":"Sophie + Samy",
+    "Vorname":"Sophie & Samy",
     "Nachname":"Sch\u00fcrmann \/ Abdelhak",
     "Begleitung":"",
     "Kind":"",
@@ -1012,7 +1012,7 @@
     "guest_password":"schuerma9927"
   },
   {
-    "Vorname":"Nora + Lukas",
+    "Vorname":"Nora & Lukas",
     "Nachname":"Schwarz",
     "Begleitung":0,
     "Kind":0,
@@ -1035,7 +1035,7 @@
     "guest_password":"schwarz1460"
   },
   {
-    "Vorname":"Semra + Thomas",
+    "Vorname":"Semra & Thomas",
     "Nachname":"Stehle",
     "Begleitung":0,
     "Kind":0,
@@ -1104,7 +1104,7 @@
     "guest_password":"voigtmei9411"
   },
   {
-    "Vorname":"Peter + Mechthild",
+    "Vorname":"Peter & Mechthild",
     "Nachname":"Wei\u00dfkopf",
     "Begleitung":"",
     "Kind":"",
@@ -1127,7 +1127,7 @@
     "guest_password":"weisskop4441"
   },
   {
-    "Vorname":"Tim + Marisa",
+    "Vorname":"Tim & Marisa",
     "Nachname":"Wei\u00dfkopf",
     "Begleitung":"",
     "Kind":"",
@@ -1150,7 +1150,7 @@
     "guest_password":"weisskop8677"
   },
   {
-    "Vorname":"Anna + Laurent",
+    "Vorname":"Anna & Laurent",
     "Nachname":"Brockmann",
     "Begleitung":"",
     "Kind":"",
@@ -1196,7 +1196,7 @@
     "guest_password":"schumach9124"
   },
   {
-    "Vorname":"Petra + Helmut",
+    "Vorname":"Petra & Helmut",
     "Nachname":"Hillemacher",
     "Begleitung":"",
     "Kind":"",
@@ -1219,7 +1219,7 @@
     "guest_password":"hillemac1308"
   },
   {
-    "Vorname":"Patrick + Alina",
+    "Vorname":"Patrick & Alina",
     "Nachname":"Schumacher",
     "Begleitung":"",
     "Kind":"",
@@ -1242,7 +1242,7 @@
     "guest_password":"schumach6204"
   },
   {
-    "Vorname":"Rolf + Elke",
+    "Vorname":"Rolf & Elke",
     "Nachname":"Schumacher",
     "Begleitung":"",
     "Kind":"",
@@ -1265,7 +1265,7 @@
     "guest_password":"schumach4943"
   },
   {
-    "Vorname":"Dirk + Ute",
+    "Vorname":"Dirk & Ute",
     "Nachname":"Hagenk\u00f6tter",
     "Begleitung":"",
     "Kind":3.0,
@@ -1334,7 +1334,7 @@
     "guest_password":"kreutzer4772"
   },
   {
-    "Vorname":"Autschi + Mara",
+    "Vorname":"Autschi & Mara",
     "Nachname":"Autschbach",
     "Begleitung":0,
     "Kind":0,
@@ -1357,7 +1357,7 @@
     "guest_password":"autschba8422"
   },
   {
-    "Vorname":"Andreas + Elena",
+    "Vorname":"Andreas & Elena",
     "Nachname":"Berretz",
     "Begleitung":"",
     "Kind":"",
@@ -1449,7 +1449,7 @@
     "guest_password":"beckers2953"
   },
   {
-    "Vorname":"Andreas + Carina",
+    "Vorname":"Andreas & Carina",
     "Nachname":"Harperscheidt",
     "Begleitung":"",
     "Kind":"",
@@ -1472,7 +1472,7 @@
     "guest_password":"harpersc3155"
   },
   {
-    "Vorname":"Jan + Janina",
+    "Vorname":"Jan & Janina",
     "Nachname":"Hilgier ",
     "Begleitung":"",
     "Kind":"",
@@ -1495,7 +1495,7 @@
     "guest_password":"hilgier2280"
   },
   {
-    "Vorname":"Karsten + Laura",
+    "Vorname":"Karsten & Laura",
     "Nachname":"Kilburg",
     "Begleitung":"",
     "Kind":"",
@@ -1541,7 +1541,7 @@
     "guest_password":"krohm3844"
   },
   {
-    "Vorname":"Tom + Annette",
+    "Vorname":"Tom & Annette",
     "Nachname":"K\u00fcchen",
     "Begleitung":"",
     "Kind":"",
@@ -1564,7 +1564,7 @@
     "guest_password":"kuechen1829"
   },
   {
-    "Vorname":"Laura + Stephan",
+    "Vorname":"Laura & Stephan",
     "Nachname":"Kuchenbuch",
     "Begleitung":"",
     "Kind":"",
@@ -1610,7 +1610,7 @@
     "guest_password":"lobs7966"
   },
   {
-    "Vorname":"Dennis + Jana",
+    "Vorname":"Dennis & Jana",
     "Nachname":"L\u00f6hrer",
     "Begleitung":"",
     "Kind":"",
@@ -1633,7 +1633,7 @@
     "guest_password":"loehrer1752"
   },
   {
-    "Vorname":"Thommy + Vera",
+    "Vorname":"Thommy & Vera",
     "Nachname":"Prinz",
     "Begleitung":"",
     "Kind":"",
@@ -1656,7 +1656,7 @@
     "guest_password":"prinz5699"
   },
   {
-    "Vorname":"Pico + Jenny",
+    "Vorname":"Pico & Jenny",
     "Nachname":"Sanchez Alemann",
     "Begleitung":0,
     "Kind":0,
@@ -1679,7 +1679,7 @@
     "guest_password":"sancheza1367"
   },
   {
-    "Vorname":"Daniel + Merle",
+    "Vorname":"Daniel & Merle",
     "Nachname":"Seeliger \/ Sanft",
     "Begleitung":0,
     "Kind":0,
@@ -1727,13 +1727,13 @@
   {
     "Vorname":"Mikko",
     "Nachname":"v. Dongen",
-    "Begleitung":"",
-    "Kind":"",
+    "Begleitung":0,
+    "Kind":0,
     "Kategorie":"Freunde",
     "Anzahl_Personen":1,
     "Status":"Offen",
-    "Optional":0.0,
-    "Weisser_Saal":1.0,
+    "Optional":0,
+    "Weisser_Saal":0,
     "Zum_Essen":"Ja",
     "Seite":"Pascal",
     "Kontakt":"",
@@ -1845,7 +1845,7 @@
     "Begleitung":0,
     "Kind":0,
     "Kategorie":"Freunde",
-    "Anzahl_Personen":1,
+    "Anzahl_Personen":2,
     "Status":"Offen",
     "Optional":0,
     "Weisser_Saal":0,
@@ -1854,7 +1854,7 @@
     "Kontakt":"",
     "Zur_Party":"Ja",
     "Anzahl_Essen":0,
-    "Anzahl_Party":1,
+    "Anzahl_Party":2,
     "Email":"",
     "Adresse":"",
     "Bemerkungen":"",

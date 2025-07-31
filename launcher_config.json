@@ -1,10 +1,12 @@
 {
   "data_directory": "/Users/pascal/Documents/Privat/Hochzeit/Hochzeitsbot WebVersion/data",
+  "ssl_enabled": false,
+  "hosts": ["0.0.0.0", "::"],
   "port": 8080,
-  "host": "::",
-  "ssl_enabled": true,
   "auto_open_browser": true,
-  "first_run": false,
-  "ipv6_enabled": true,
-  "dual_stack": true
+  "domain": "pascalundkäthe-heiraten.de",
+  "production_server": true,
+  "workers": 4,
+  "timeout": 120,
+  "first_run": false
 }
