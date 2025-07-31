@@ -385,8 +385,8 @@ def init_dyndns_manager():
     
     return False
 
-# DynDNS Manager starten
-init_dyndns_manager()
+# DynDNS Manager starten - DEAKTIVIERT
+# init_dyndns_manager()
 
 def initialize_guest_credentials():
     """Initialisiert Gast-Credentials beim ersten Start falls noch nicht vorhanden"""
