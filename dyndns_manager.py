@@ -12,7 +12,7 @@ from datetime import datetime
 import logging
 
 class DynDNSManager:
-    def __init__(self, update_url, domain, interval_minutes=30):
+    def __init__(self, update_url, domain, interval_minutes=30, static_ipv6=None):
         """
         DynDNS Manager initialisieren
         
@@ -20,10 +20,12 @@ class DynDNSManager:
             update_url: Ionos DynDNS Update-URL
             domain: Domain-Name
             interval_minutes: Update-Intervall in Minuten (default: 30 = 2x pro Stunde)
+            static_ipv6: Statische IPv6-Adresse (optional, überschreibt automatische Erkennung)
         """
         self.update_url = update_url
         self.domain = domain
         self.interval_minutes = interval_minutes
+        self.static_ipv6 = static_ipv6
         self.running = False
         self.thread = None
         self.last_ipv6 = None
@@ -37,7 +39,17 @@ class DynDNSManager:
         self.logger = logging.getLogger('DynDNS')
     
     def get_public_ipv6(self):
-        """Ermittelt die aktuelle öffentliche IPv6-Adresse"""
+        """Ermittelt die aktuelle öffentliche IPv6-Adresse oder verwendet die statische"""
+        # Wenn statische IPv6 konfiguriert ist, verwende diese
+        if self.static_ipv6:
+            try:
+                # IPv6-Adresse validieren
+                socket.inet_pton(socket.AF_INET6, self.static_ipv6)
+                return self.static_ipv6
+            except Exception as e:
+                self.logger.error(f"Statische IPv6-Adresse ungültig: {self.static_ipv6} - {e}")
+                
+        # Andernfalls versuche automatische Erkennung
         ipv6_services = [
             "https://ipv6.icanhazip.com",
             "https://v6.ident.me", 
@@ -155,12 +167,12 @@ class DynDNSManager:
 # Globale Instanz für den Hochzeitsplaner
 dyndns_manager = None
 
-def init_dyndns(update_url, domain, interval_minutes=30):
+def init_dyndns(update_url, domain, interval_minutes=30, static_ipv6=None):
     """DynDNS-Manager initialisieren"""
     global dyndns_manager
     
     if update_url and domain:
-        dyndns_manager = DynDNSManager(update_url, domain, interval_minutes)
+        dyndns_manager = DynDNSManager(update_url, domain, interval_minutes, static_ipv6)
         return dyndns_manager
     else:
         logging.getLogger('DynDNS').warning("DynDNS nicht konfiguriert (URL oder Domain fehlt)")

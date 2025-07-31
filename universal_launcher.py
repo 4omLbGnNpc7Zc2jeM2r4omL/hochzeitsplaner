@@ -70,7 +70,7 @@ class UniversalConfig:
             "data_directory": "",
             "http_port": 8080,      # HTTP für lokales Netzwerk
             "https_port": 8443,     # HTTPS für externen Zugriff
-            "host": "0.0.0.0",      # Alle IPv4-Interfaces
+            "host": "::",           # IPv6 + IPv4 Dual Stack für DS-Lite
             "auto_open_browser": True,
             "first_run": True
         }
@@ -353,11 +353,13 @@ def start_dual_servers(data_path, http_port, https_port, host, cert_path, key_pa
                     manager = init_dyndns(
                         dyndns_config['update_url'],
                         dyndns_config['domain'],
-                        dyndns_config.get('interval_minutes', 30)
+                        dyndns_config.get('interval_minutes', 30),
+                        dyndns_config.get('static_ipv6', None)  # Statische IPv6-Adresse übergeben
                     )
                     if manager:
                         start_dyndns()
-                        print(f"✅ DynDNS Manager gestartet: {dyndns_config['domain']} (alle {dyndns_config.get('interval_minutes', 30)} min)")
+                        static_info = f" (statische IPv6: {dyndns_config.get('static_ipv6', 'auto')})" if dyndns_config.get('static_ipv6') else " (automatische IPv6-Erkennung)"
+                        print(f"✅ DynDNS Manager gestartet: {dyndns_config['domain']} (alle {dyndns_config.get('interval_minutes', 30)} min){static_info}")
                     else:
                         print("⚠️ DynDNS Manager konnte nicht initialisiert werden")
                 else:
@@ -372,22 +374,17 @@ def start_dual_servers(data_path, http_port, https_port, host, cert_path, key_pa
     
     def run_http():
         try:
-            # HTTP auf allen IPv4-Interfaces für lokale Zugriffe
-            app.run(host='0.0.0.0', port=http_port, debug=False, use_reloader=False, threaded=True)
+            # HTTP auf IPv6 + IPv4 Dual Stack für lokale und externe Zugriffe
+            app.run(host='::', port=http_port, debug=False, use_reloader=False, threaded=True)
         except Exception as e:
             print(f"❌ HTTP Server Fehler: {e}")
     
     def run_https():
         try:
             ssl_context = (cert_path, key_path)
-            if network_type == "ds-lite":
-                # DS-Lite: HTTPS auf IPv6 für direkte externe Zugriffe
-                app.run(host='::', port=https_port, debug=False, use_reloader=False, 
-                       threaded=True, ssl_context=ssl_context)
-            else:
-                # Standard: HTTPS auf allen Interfaces für Fritz!Box Portweiterleitung
-                app.run(host='0.0.0.0', port=https_port, debug=False, use_reloader=False, 
-                       threaded=True, ssl_context=ssl_context)
+            # HTTPS immer auf IPv6 + IPv4 Dual Stack für maximale Kompatibilität
+            app.run(host='::', port=https_port, debug=False, use_reloader=False, 
+                   threaded=True, ssl_context=ssl_context)
         except Exception as e:
             print(f"❌ HTTPS Server Fehler: {e}")
     
@@ -413,7 +410,8 @@ def start_http_server(data_path, port, host):
         print("🛑 Zum Beenden: Strg+C")
         print("="*50)
         
-        app.run(host=host, port=port, debug=False, use_reloader=False, threaded=True)
+        # Verwende immer IPv6 + IPv4 Dual Stack für maximale Kompatibilität
+        app.run(host='::', port=port, debug=False, use_reloader=False, threaded=True)
         
     except KeyboardInterrupt:
         print("\n🛑 Server beendet")

@@ -3,8 +3,9 @@
     "enabled": true,
     "update_url": "https://ipv4.api.hosting.ionos.com/dns/v1/dyndns?q=NDFjZmM3YmVjYjQzNDRhMTkxMzliZDAwYzA2OGU3NzEuU2FvNlhuR2U4UmtxNGdiQzlMN19TLWpZanM4LWZBdGsxX2Ixa2FFUmRFWUp4Z1pmR3NWOVFpUjZYZGQ5TTZ5QjBIZkxSRFAyN2lzeHhCRWNuNVpSU0E",
     "domain": "xn--pascalundkthe-heiraten-94b.de",
+    "static_ipv6": "2a02:908:1022:1f80:7845:dca9:a1de:dbd7",
     "interval_minutes": 30,
     "external_port": 8443,
-    "description": "Ionos DynDNS für IPv6-only Zugriff über Fritz!Box Port 8443"
+    "description": "Ionos DynDNS für IPv6-only Zugriff über Fritz!Box Port 8443 mit statischer IPv6-Adresse"
   }
 }

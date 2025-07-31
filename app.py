@@ -314,10 +314,12 @@ def init_config_files():
             dyndns_config = {
                 "dyndns": {
                     "enabled": False,
-                    "provider": "ionos",
+                    "update_url": "",
                     "domain": "",
-                    "api_key": "",
-                    "update_interval": 300
+                    "static_ipv6": "",
+                    "interval_minutes": 30,
+                    "external_port": 8443,
+                    "description": "Ionos DynDNS für IPv6-only Zugriff"
                 }
             }
             with open(dyndns_config_path, 'w', encoding='utf-8') as f:
@@ -362,13 +364,15 @@ def init_dyndns_manager():
                 manager = init_dyndns(
                     update_url=dyndns_cfg.get('update_url'),
                     domain=dyndns_cfg.get('domain'),
-                    interval_minutes=dyndns_cfg.get('interval_minutes', 30)
+                    interval_minutes=dyndns_cfg.get('interval_minutes', 30),
+                    static_ipv6=dyndns_cfg.get('static_ipv6', None)  # Statische IPv6-Adresse übergeben
                 )
                 
                 if manager:
                     # DynDNS Manager starten
                     start_dyndns()
-                    print(f"✅ DynDNS Manager gestartet: {dyndns_cfg.get('domain')} (alle {dyndns_cfg.get('interval_minutes', 30)} min)")
+                    static_info = f" (statische IPv6: {dyndns_cfg.get('static_ipv6', 'auto')})" if dyndns_cfg.get('static_ipv6') else " (automatische IPv6-Erkennung)"
+                    print(f"✅ DynDNS Manager gestartet: {dyndns_cfg.get('domain')} (alle {dyndns_cfg.get('interval_minutes', 30)} min){static_info}")
                     return True
                 else:
                     print("❌ DynDNS Manager konnte nicht initialisiert werden")
@@ -2745,8 +2749,9 @@ if __name__ == '__main__':
     print("⚠️  Zum Beenden: Strg+C")
     print("==================================================")
     
+    # IPv6 + IPv4 Support für DS-Lite/externe Erreichbarkeit
     app.run(
-        host='0.0.0.0',
+        host='::',  # IPv6 + IPv4 (Dual Stack)
         port=port,
         debug=False,
         threaded=True
