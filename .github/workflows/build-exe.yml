@@ -26,13 +26,23 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pyinstaller==6.14.2
+
+    - name: List files for debugging
+      run: |
+        Write-Host "=== Arbeitsverzeichnis ==="
+        Get-Location
+        Write-Host "=== Alle Python-Dateien ==="
+        Get-ChildItem -Name "*.py"
+        Write-Host "=== Alle Dateien ==="
+        Get-ChildItem -Name
         
     - name: Verify launcher file
       run: |
-        if (Test-Path "launcher.py") {
+        if (Test-Path launcher.py) {
           Write-Host "✅ launcher.py gefunden"
         } else {
           Write-Host "❌ launcher.py nicht gefunden"
+          Get-ChildItem -Name "*.py" | Write-Host
           exit 1
         }
     
