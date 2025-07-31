@@ -16,6 +16,34 @@ import subprocess
 from pathlib import Path
 import shutil
 
+# SSL-Zertifikat-Checking importieren
+def check_ssl_certificates():
+    """Prüft SSL-Zertifikate in verschiedenen Verzeichnissen"""
+    search_dirs = []
+    
+    if getattr(sys, 'frozen', False):
+        exe_dir = os.path.dirname(sys.executable)
+        search_dirs.extend([exe_dir, os.path.join(exe_dir, '_internal')])
+        if hasattr(sys, '_MEIPASS'):
+            search_dirs.append(sys._MEIPASS)
+    else:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        search_dirs.append(script_dir)
+    
+    search_dirs.append(os.getcwd())
+    
+    for search_dir in search_dirs:
+        if not os.path.exists(search_dir):
+            continue
+            
+        cert_candidate = os.path.join(search_dir, 'ssl_certificate.crt')
+        key_candidate = os.path.join(search_dir, 'ssl_private_key.key')
+        
+        if os.path.exists(cert_candidate) and os.path.exists(key_candidate):
+            return True, cert_candidate, key_candidate
+    
+    return False, None, None
+
 # Stelle sicher, dass wir im richtigen Verzeichnis sind
 if getattr(sys, 'frozen', False):
     # Wenn als .exe ausgeführt
@@ -30,7 +58,38 @@ class SimpleConfig:
     """Einfache Konfigurationsverwaltung ohne GUI-Dependencies"""
     
     def __init__(self):
-        self.config_file = Path("launcher_config.json")
+        # Für PyInstaller: Suche launcher_config.json im Executable-Verzeichnis und im aktuellen Arbeitsverzeichnis
+        possible_config_paths = []
+        
+        # 1. Aktuelles Arbeitsverzeichnis (wo die .exe liegt)
+        possible_config_paths.append(Path.cwd() / "launcher_config.json")
+        
+        # 2. Verzeichnis der ausführenden Datei
+        if getattr(sys, 'frozen', False):
+            # PyInstaller executable
+            exe_dir = Path(sys.executable).parent
+            possible_config_paths.append(exe_dir / "launcher_config.json")
+        else:
+            # Development environment
+            script_dir = Path(__file__).parent
+            possible_config_paths.append(script_dir / "launcher_config.json")
+        
+        # 3. Fallback: application_path
+        possible_config_paths.append(Path(application_path) / "launcher_config.json")
+        
+        # Finde die erste existierende Konfigurationsdatei
+        self.config_file = None
+        for config_path in possible_config_paths:
+            if config_path.exists():
+                self.config_file = config_path
+                print(f"📁 Konfiguration gefunden: {config_path}")
+                break
+        
+        # Fallback: Verwende erste Möglichkeit
+        if self.config_file is None:
+            self.config_file = possible_config_paths[0]
+            print(f"📁 Konfiguration wird erstellt: {self.config_file}")
+        
         self.default_config = {
             "data_directory": str(Path(application_path) / "data"),
             "ssl_enabled": False,
@@ -44,6 +103,29 @@ class SimpleConfig:
             "first_run": True
         }
         self.config = self.load_config()
+        self.setup_ssl()  # SSL-Setup nach dem Laden der Konfiguration
+    
+    def setup_ssl(self):
+        """Prüft und konfiguriert SSL automatisch"""
+        ssl_available, cert_path, key_path = check_ssl_certificates()
+        
+        if ssl_available:
+            print(f"🔒 SSL-Zertifikate gefunden:")
+            print(f"   📜 Zertifikat: {cert_path}")
+            print(f"   🔑 Schlüssel: {key_path}")
+            
+            # SSL automatisch aktivieren
+            self.config['ssl_enabled'] = True
+            self.config['ssl_cert_path'] = cert_path
+            self.config['ssl_key_path'] = key_path
+            
+            # Port für HTTPS anpassen falls nötig
+            if self.config.get('port', 8080) == 8080:
+                self.config['port'] = 8443  # Standard HTTPS Port für lokale Entwicklung
+                
+        else:
+            print("⚠️  Keine SSL-Zertifikate gefunden - verwende HTTP")
+            self.config['ssl_enabled'] = False
     
     def load_config(self):
         """Lädt Konfiguration aus Datei"""
@@ -165,6 +247,17 @@ def run_flask_dual_stack(config, port):
     """Startet Flask mit IPv4+IPv6 Dual-Stack Support"""
     from app import app
     
+    # SSL-Konfiguration vorbereiten
+    ssl_context = None
+    if config.get('ssl_enabled', False):
+        cert_path = config.get('ssl_cert_path')
+        key_path = config.get('ssl_key_path')
+        if cert_path and key_path and os.path.exists(cert_path) and os.path.exists(key_path):
+            ssl_context = (cert_path, key_path)
+            print(f"🔒 Flask SSL aktiviert")
+        else:
+            print(f"⚠️  SSL-Dateien nicht gefunden, verwende HTTP")
+    
     # Flask Dual-Stack Workaround für Windows
     # Flask kann nur IPv4 ODER IPv6, nicht beides gleichzeitig
     
@@ -177,7 +270,8 @@ def run_flask_dual_stack(config, port):
                 port=port,
                 debug=False,
                 use_reloader=False,
-                threaded=True
+                threaded=True,
+                ssl_context=ssl_context
             )
         except Exception as e:
             print(f"❌ {name} Server Fehler: {e}")
@@ -199,9 +293,10 @@ def run_flask_dual_stack(config, port):
         thread.start()
     
     print(f"🚀 Dual-Stack Server gestartet!")
-    print(f"📱 IPv4: http://0.0.0.0:{port}")
-    print(f"📱 IPv6: http://[::]:{port}")
-    print(f"🌐 Lokal: http://localhost:{port}")
+    protocol = "https" if ssl_context else "http"
+    print(f"📱 IPv4: {protocol}://0.0.0.0:{port}")
+    print(f"📱 IPv6: {protocol}://[::]:{port}")
+    print(f"🌐 Lokal: {protocol}://localhost:{port}")
     
     # Warten auf Threads
     try:
@@ -293,6 +388,15 @@ def main():
                     '--access-logfile', '-',
                     '--error-logfile', '-'
                 ]
+                
+                # SSL-Konfiguration für Gunicorn
+                if config.get('ssl_enabled', False):
+                    cert_path = config.get('ssl_cert_path')
+                    key_path = config.get('ssl_key_path')
+                    if cert_path and key_path:
+                        cmd.extend(['--certfile', cert_path])
+                        cmd.extend(['--keyfile', key_path])
+                        print(f"🔒 SSL aktiviert mit Gunicorn")
                 
                 # Mehrere Bind-Adressen für Dual-Stack
                 for bind in binds:

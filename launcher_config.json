@@ -1,5 +1,5 @@
 {
-  "data_directory": "/Users/pascal/Documents/Privat/Hochzeit/Hochzeitsbot WebVersion/data",
+  "data_directory": "./data",
   "ssl_enabled": true,
   "hosts": ["0.0.0.0", "::"],
   "port": 8443,
@@ -10,7 +10,6 @@
     "localhost",
     "127.0.0.1",
     "::1",
-    "192.168.178.96",
     "pascalundkäthe-heiraten.de",
     "xn--pascalundkthe-heiraten-94b.de"
   ],
@@ -18,6 +17,17 @@
   "dns_rebinding_protection": {
     "enabled": false,
     "description": "Domain funktioniert im LAN - kein DNS-Rebinding-Schutz aktiv"
+  },
+  "platform_specific": {
+    "windows": {
+      "data_directory": "%USERPROFILE%\\Documents\\Hochzeitsplaner\\data"
+    },
+    "macos": {
+      "data_directory": "~/Documents/Hochzeitsplaner/data"  
+    },
+    "linux": {
+      "data_directory": "~/hochzeitsplaner/data"
+    }
   },
   "production_server": true,
   "workers": 4,
