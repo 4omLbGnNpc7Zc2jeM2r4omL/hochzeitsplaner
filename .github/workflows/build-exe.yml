@@ -46,9 +46,23 @@ jobs:
           echo # Dummy SSL Key > ssl_private_key.key
         )
     
+    - name: Check optional files
+      shell: cmd
+      run: |
+        if exist "dyndns_config.json" (
+          echo DynDNS Config gefunden
+        ) else (
+          echo {} > dyndns_config.json
+        )
+        if exist "auth_config.json" (
+          echo Auth Config gefunden
+        ) else (
+          echo {} > auth_config.json
+        )
+    
     - name: Build executable
       run: |
-        pyinstaller --onefile --console --name Hochzeitsplaner launcher.py --add-data "data;data" --add-data "static;static" --add-data "templates;templates" --add-data "auth_config.json;." --add-data "dyndns_config.json;." --add-data "dyndns_manager.py;." --add-data "ionos_dyndns_update.py;." --add-data "requirements.txt;." --add-data "ssl_certificate.crt;." --add-data "ssl_private_key.key;." --hidden-import flask --hidden-import flask_cors --hidden-import pandas --hidden-import openpyxl --hidden-import requests --hidden-import datenmanager --hidden-import dyndns_manager
+        pyinstaller --onefile --console --name Hochzeitsplaner launcher.py --add-data "data;data" --add-data "static;static" --add-data "templates;templates" --add-data "auth_config.json;." --add-data "dyndns_config.json;." --add-data "dyndns_manager.py;." --add-data "requirements.txt;." --add-data "ssl_certificate.crt;." --add-data "ssl_private_key.key;." --hidden-import flask --hidden-import flask_cors --hidden-import pandas --hidden-import openpyxl --hidden-import requests --hidden-import datenmanager --hidden-import dyndns_manager
     
     - name: Create distribution
       shell: cmd
