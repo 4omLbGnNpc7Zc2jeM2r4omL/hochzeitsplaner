@@ -10,13 +10,36 @@
       {
         "username": "pascal",
         "password": "!Schumi060592!",
-        "role": "admin",   
+        "role": "admin",
         "display_name": "Pascal"
+      },
+      {
+        "username": "admin",
+        "password": "hochzeit2025",
+        "role": "admin",
+        "display_name": "Administrator"
       }
     ],
-    "session_timeout_hours": 3
+    "session_timeout_hours": 1
   },
   "app": {
-    "secret_key": "your-secret-key-change-this-in-production"
+    "secret_key": "hochzeit-secret-key-change-in-production-2025"
+  },
+  "email": {
+    "enabled": true,
+    "smtp_server": "smtp.ionos.de",
+    "smtp_port": 587,
+    "use_tls": true,
+    "username": "*@consultingschumacher.de",
+    "password": "!Schumi060592!",
+    "from_email": "hochzeitsplaner@consultingschumacher.de",
+    "from_name": "Hochzeit Schumacher - Pascal & Katharina",
+    "reply_to": "hochzeitsplaner@consultingschumacher.de",
+    "default_subject_prefix": "[Hochzeit] ",
+    "imap": {
+      "imap_server": "imap.ionos.de",
+      "imap_port": 993,
+      "use_ssl": true
+    }
   }
 }

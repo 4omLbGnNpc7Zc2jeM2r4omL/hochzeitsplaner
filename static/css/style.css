@@ -1200,3 +1200,32 @@
         transform: translateY(0);
     }
 }
+
+/* E-Mail-Zuordnung Styles */
+.email-card {
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.email-card:hover {
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.email-card.border-primary {
+    border-color: #0d6efd !important;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.task-assignment-card {
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.task-assignment-card:hover {
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+    border-color: #0d6efd;
+}

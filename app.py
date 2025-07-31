@@ -20,6 +20,14 @@ from datetime import datetime, timedelta
 import pandas as pd
 from functools import wraps
 
+# E-Mail Manager importieren
+try:
+    from email_manager import EmailManager
+    EMAIL_AVAILABLE = True
+except ImportError:
+    EMAIL_AVAILABLE = False
+    print("E-Mail Manager nicht verfügbar")
+
 # DynDNS Manager importieren
 try:
     from dyndns_manager import init_dyndns, start_dyndns, stop_dyndns, get_dyndns_status
@@ -333,6 +341,7 @@ def init_config_files():
 
 # Globaler DataManager - initialisiere sofort
 data_manager = None
+email_manager = None
 
 # Config-Dateien initialisieren
 init_config_files()
@@ -343,6 +352,21 @@ if not init_data_manager():
     print("   Prüfen Sie die Dateiberechtigungen und Verzeichnisstruktur.")
 else:
     print(f"✅ DataManager erfolgreich initialisiert: {DATA_DIR}")
+
+# E-Mail Manager initialisieren (NACH DataManager)
+if EMAIL_AVAILABLE:
+    try:
+        email_manager = EmailManager()
+        if email_manager.is_enabled():
+            print("✅ E-Mail Manager aktiviert")
+            # DataManager-Referenz setzen und Auto-Check starten
+            email_manager.set_data_manager(data_manager)
+            email_manager.start_email_checking()
+        else:
+            print("⚠️ E-Mail Manager verfügbar, aber deaktiviert")
+    except Exception as e:
+        logger.error(f"Fehler beim Initialisieren des E-Mail Managers: {e}")
+        email_manager = None
 
 # DynDNS Manager initialisieren
 def init_dyndns_manager():
@@ -2507,7 +2531,7 @@ if __name__ == '__main__':
         print("❌ KRITISCHER FEHLER: DataManager nicht verfügbar")
         sys.exit(1)
     
-    port = find_free_port(8081)  # Verwende 8081 als Standard
+    port = 8080  # Fester Port 8080
     
     print("🎉 Hochzeitsplaner Web-Anwendung (Direkter Start)")
     print("=" * 50)
@@ -2726,6 +2750,639 @@ def api_aufgaben_statistics():
 # Hauptprogramm
 # =============================================================================
 
+# ===================================================================
+# E-MAIL ROUTES
+# ===================================================================
+
+@app.route('/api/email/status')
+@require_auth
+def email_status():
+    """Gibt den E-Mail-Status zurück"""
+    if not EMAIL_AVAILABLE or not email_manager:
+        return jsonify({
+            'enabled': False,
+            'available': False,
+            'message': 'E-Mail Manager nicht verfügbar'
+        })
+    
+    is_enabled = email_manager.is_enabled()
+    result = {'enabled': is_enabled, 'available': True}
+    
+    if is_enabled:
+        test_result = email_manager.test_connection()
+        result.update(test_result)
+    else:
+        result['message'] = 'E-Mail-Funktionalität ist deaktiviert'
+    
+    return jsonify(result)
+
+@app.route('/api/email/test')
+@require_auth
+def test_email():
+    """Testet die E-Mail-Konfiguration"""
+    if not EMAIL_AVAILABLE or not email_manager:
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail Manager nicht verfügbar'
+        }), 400
+    
+    if not email_manager.is_enabled():
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail-Funktionalität ist deaktiviert'
+        }), 400
+    
+    result = email_manager.test_connection()
+    status_code = 200 if result['success'] else 400
+    return jsonify(result), status_code
+
+@app.route('/api/email/send', methods=['POST'])
+@require_auth
+def send_email():
+    """Sendet eine E-Mail"""
+    if not EMAIL_AVAILABLE or not email_manager:
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail Manager nicht verfügbar'
+        }), 400
+    
+    if not email_manager.is_enabled():
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail-Funktionalität ist deaktiviert'
+        }), 400
+    
+    try:
+        data = request.get_json()
+        
+        # Pflichtfelder prüfen
+        required_fields = ['to_emails', 'subject', 'body']
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        
+        if missing_fields:
+            return jsonify({
+                'success': False,
+                'message': f'Fehlende Felder: {", ".join(missing_fields)}'
+            }), 400
+        
+        # E-Mail senden
+        result = email_manager.send_email(
+            to_emails=data['to_emails'],
+            subject=data['subject'],
+            body=data['body'],
+            html_body=data.get('html_body'),
+            cc_emails=data.get('cc_emails'),
+            bcc_emails=data.get('bcc_emails')
+        )
+        
+        status_code = 200 if result['success'] else 400
+        return jsonify(result), status_code
+        
+    except Exception as e:
+        logger.error(f"Fehler beim E-Mail-Versand: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim E-Mail-Versand: {str(e)}'
+        }), 500
+
+@app.route('/api/email/invitation', methods=['POST'])
+@require_auth
+def send_invitation():
+    """Sendet Hochzeitseinladungen per E-Mail"""
+    if not EMAIL_AVAILABLE or not email_manager:
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail Manager nicht verfügbar'
+        }), 400
+    
+    if not email_manager.is_enabled():
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail-Funktionalität ist deaktiviert'
+        }), 400
+    
+    try:
+        data = request.get_json()
+        
+        # Pflichtfelder prüfen
+        required_fields = ['guest_email', 'guest_name', 'event_date', 'event_location']
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        
+        if missing_fields:
+            return jsonify({
+                'success': False,
+                'message': f'Fehlende Felder: {", ".join(missing_fields)}'
+            }), 400
+        
+        # Einladung senden
+        result = email_manager.send_guest_invitation(
+            guest_email=data['guest_email'],
+            guest_name=data['guest_name'],
+            event_date=data['event_date'],
+            event_location=data['event_location'],
+            rsvp_link=data.get('rsvp_link')
+        )
+        
+        status_code = 200 if result['success'] else 400
+        return jsonify(result), status_code
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Einladungsversand: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Einladungsversand: {str(e)}'
+        }), 500
+
+@app.route('/api/email/reminder', methods=['POST'])
+@require_auth
+def send_reminder():
+    """Sendet Erinnerungs-E-Mails"""
+    if not EMAIL_AVAILABLE or not email_manager:
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail Manager nicht verfügbar'
+        }), 400
+    
+    if not email_manager.is_enabled():
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail-Funktionalität ist deaktiviert'
+        }), 400
+    
+    try:
+        data = request.get_json()
+        
+        # Pflichtfelder prüfen
+        required_fields = ['guest_email', 'guest_name', 'reminder_text']
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        
+        if missing_fields:
+            return jsonify({
+                'success': False,
+                'message': f'Fehlende Felder: {", ".join(missing_fields)}'
+            }), 400
+        
+        # Erinnerung senden
+        result = email_manager.send_reminder_email(
+            guest_email=data['guest_email'],
+            guest_name=data['guest_name'],
+            reminder_text=data['reminder_text']
+        )
+        
+        status_code = 200 if result['success'] else 400
+        return jsonify(result), status_code
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Erinnerungsversand: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Erinnerungsversand: {str(e)}'
+        }), 500
+
+# =============================================================================
+# AUFGABEN-E-MAIL INTEGRATION API ROUTEN
+# =============================================================================
+
+@app.route('/api/aufgaben/<int:aufgabe_id>/email/send', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_aufgaben_email_send(aufgabe_id):
+    """Sendet eine E-Mail zu einer bestimmten Aufgabe"""
+    if not EMAIL_AVAILABLE or not email_manager:
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail Manager nicht verfügbar'
+        }), 400
+    
+    if not email_manager.is_enabled():
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail-Funktionalität ist deaktiviert'
+        }), 400
+    
+    try:
+        # Aufgabe laden
+        aufgaben = data_manager.load_aufgaben()
+        aufgabe = next((a for a in aufgaben if a.get('id') == aufgabe_id), None)
+        
+        if not aufgabe:
+            return jsonify({
+                'success': False,
+                'message': 'Aufgabe nicht gefunden'
+            }), 404
+        
+        data = request.get_json()
+        
+        # Debug: Log der empfangenen Daten
+        logger.info(f"E-Mail-Daten empfangen für Aufgabe {aufgabe_id}: {data}")
+        
+        # Pflichtfelder prüfen
+        required_fields = ['to_emails', 'subject', 'body']
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        
+        if missing_fields:
+            logger.warning(f"Fehlende Felder beim E-Mail-Versand: {missing_fields}")
+            return jsonify({
+                'success': False,
+                'message': f'Fehlende Felder: {", ".join(missing_fields)}'
+            }), 400
+        
+        # Aufgaben-E-Mail senden
+        result = email_manager.send_task_email(
+            task_id=aufgabe_id,
+            task_title=aufgabe['titel'],
+            to_emails=data['to_emails'],
+            subject=data['subject'],
+            body=data['body'],
+            html_body=data.get('html_body'),
+            cc_emails=data.get('cc_emails')
+        )
+        
+        # Wenn erfolgreich gesendet, E-Mail-Info zur Aufgabe hinzufügen
+        if result['success']:
+            # E-Mail-Verlauf zur Aufgabe hinzufügen
+            if 'emails' not in aufgabe:
+                aufgabe['emails'] = []
+            
+            email_info = {
+                'sent_at': result['sent_at'],
+                'thread_id': result['thread_id'],
+                'message_id': result['message_id'],
+                'to': result['sent_to'],
+                'cc': result['cc_to'],
+                'subject': data['subject'],
+                'body': data['body'][:200] + '...' if len(data['body']) > 200 else data['body']  # Kurze Vorschau
+            }
+            
+            aufgabe['emails'].append(email_info)
+            
+            # Aufgabe speichern
+            data_manager.update_aufgabe(aufgabe_id, aufgabe)
+        
+        status_code = 200 if result['success'] else 400
+        return jsonify(result), status_code
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Aufgaben-E-Mail-Versand: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim E-Mail-Versand: {str(e)}'
+        }), 500
+
+@app.route('/api/aufgaben/<int:aufgabe_id>/emails')
+@require_auth
+@require_role(['admin', 'user'])
+def api_aufgaben_emails_get(aufgabe_id):
+    """Gibt alle E-Mails einer Aufgabe zurück"""
+    try:
+        # Aufgabe laden
+        aufgaben = data_manager.load_aufgaben()
+        aufgabe = next((a for a in aufgaben if a.get('id') == aufgabe_id), None)
+        
+        if not aufgabe:
+            return jsonify({
+                'success': False,
+                'message': 'Aufgabe nicht gefunden'
+            }), 404
+        
+        emails = aufgabe.get('emails', [])
+        
+        return jsonify({
+            'success': True,
+            'task_id': aufgabe_id,
+            'task_title': aufgabe['titel'],
+            'emails': clean_json_data(emails),
+            'email_count': len(emails)
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Aufgaben-E-Mails: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Laden: {str(e)}'
+        }), 500
+
+@app.route('/api/aufgaben/<int:aufgabe_id>/email/add-reply', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_aufgaben_email_reply(aufgabe_id):
+    """Fügt eine eingehende E-Mail-Antwort zu einer Aufgabe hinzu"""
+    try:
+        # Aufgabe laden
+        aufgaben = data_manager.load_aufgaben()
+        aufgabe = next((a for a in aufgaben if a.get('id') == aufgabe_id), None)
+        
+        if not aufgabe:
+            return jsonify({
+                'success': False,
+                'message': 'Aufgabe nicht gefunden'
+            }), 404
+        
+        data = request.get_json()
+        
+        # Pflichtfelder prüfen
+        required_fields = ['from_email', 'subject', 'body', 'received_at']
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        
+        if missing_fields:
+            return jsonify({
+                'success': False,
+                'message': f'Fehlende Felder: {", ".join(missing_fields)}'
+            }), 400
+        
+        # E-Mail-Antwort hinzufügen
+        if 'email_replies' not in aufgabe:
+            aufgabe['email_replies'] = []
+        
+        reply_info = {
+            'received_at': data['received_at'],
+            'from_email': data['from_email'],
+            'subject': data['subject'],
+            'body': data['body'],
+            'thread_id': data.get('thread_id', ''),
+            'message_id': data.get('message_id', '')
+        }
+        
+        aufgabe['email_replies'].append(reply_info)
+        
+        # Aufgabe speichern
+        success = data_manager.update_aufgabe(aufgabe_id, aufgabe)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'E-Mail-Antwort erfolgreich hinzugefügt',
+                'reply_count': len(aufgabe['email_replies'])
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Fehler beim Speichern der E-Mail-Antwort'
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Hinzufügen der E-Mail-Antwort: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Speichern: {str(e)}'
+        }), 500
+
+# =============================================================================
+# E-MAIL-ZUORDNUNG API ROUTEN
+# =============================================================================
+
+@app.route('/api/email/unassigned', methods=['GET'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_email_unassigned():
+    """Ruft alle noch nicht zugeordneten E-Mails ab"""
+    if not EMAIL_AVAILABLE or not email_manager:
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail Manager nicht verfügbar'
+        }), 400
+    
+    if not email_manager.is_enabled():
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail-Funktionalität ist deaktiviert'
+        }), 400
+    
+    try:
+        # Alle E-Mails abrufen (nicht nur ungelesene)
+        all_emails = email_manager.get_all_emails()
+        
+        # Bereits zugeordnete E-Mail-IDs sammeln
+        aufgaben = data_manager.load_aufgaben()
+        assigned_email_ids = set()
+        
+        for aufgabe in aufgaben:
+            # E-Mail-Antworten durchgehen
+            email_replies = aufgabe.get('email_replies', [])
+            for reply in email_replies:
+                email_id = reply.get('email_id')
+                if email_id:
+                    assigned_email_ids.add(email_id)
+        
+        # Nur nicht zugeordnete E-Mails zurückgeben
+        unassigned_emails = [
+            email for email in all_emails 
+            if email.get('email_id') not in assigned_email_ids  # HIER WAR DER FEHLER: 'id' → 'email_id'
+        ]
+        
+        logger.info(f"✅ {len(all_emails)} E-Mails abgerufen, {len(assigned_email_ids)} bereits zugeordnet, {len(unassigned_emails)} verfügbar")
+        
+        return jsonify({
+            'success': True,
+            'emails': clean_json_data(unassigned_emails),
+            'count': len(unassigned_emails),
+            'total_emails': len(all_emails),
+            'assigned_count': len(assigned_email_ids)
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Abrufen der E-Mails: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Abrufen: {str(e)}'
+        }), 500
+
+@app.route('/api/email/assign', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_email_assign():
+    """Ordnet eine E-Mail einer Aufgabe zu"""
+    if not EMAIL_AVAILABLE or not email_manager:
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail Manager nicht verfügbar'
+        }), 400
+    
+    try:
+        data = request.get_json()
+        
+        # Pflichtfelder prüfen
+        required_fields = ['email_id', 'task_id']
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        
+        if missing_fields:
+            return jsonify({
+                'success': False,
+                'message': f'Fehlende Felder: {", ".join(missing_fields)}'
+            }), 400
+        
+        email_id = data['email_id']
+        task_id = data['task_id']
+        
+        # Aufgabe laden
+        aufgaben = data_manager.load_aufgaben()
+        aufgabe = next((a for a in aufgaben if a.get('id') == task_id), None)
+        
+        if not aufgabe:
+            return jsonify({
+                'success': False,
+                'message': 'Aufgabe nicht gefunden'
+            }), 404
+        
+        # E-Mail-Details abrufen
+        email_details = email_manager.get_email_by_id(email_id)
+        
+        if not email_details:
+            return jsonify({
+                'success': False,
+                'message': 'E-Mail nicht gefunden'
+            }), 404
+        
+        # E-Mail zur Aufgabe hinzufügen
+        if 'email_replies' not in aufgabe:
+            aufgabe['email_replies'] = []
+        
+        # Prüfen ob bereits zugeordnet
+        existing_reply = next((r for r in aufgabe['email_replies'] if r.get('email_id') == email_id), None)
+        if existing_reply:
+            return jsonify({
+                'success': False,
+                'message': 'E-Mail bereits dieser Aufgabe zugeordnet'
+            }), 400
+        
+        reply_info = {
+            'email_id': email_id,
+            'received_at': email_details.get('received_at', datetime.now().isoformat()),
+            'from_email': email_details.get('from_email', ''),
+            'subject': email_details.get('subject', ''),
+            'body': email_details.get('body', ''),
+            'assigned_at': datetime.now().isoformat(),
+            'assigned_by': session.get('username', 'System')
+        }
+        
+        aufgabe['email_replies'].append(reply_info)
+        
+        # Aufgabe aktualisieren (nicht alle Aufgaben speichern)
+        success = data_manager.update_aufgabe(task_id, aufgabe)
+        
+        if success:
+            # E-Mail als gelesen markieren
+            try:
+                email_manager.mark_email_as_read(email_id)
+            except Exception as e:
+                logger.warning(f"Fehler beim Markieren der E-Mail als gelesen: {e}")
+            
+            logger.info(f"✅ E-Mail {email_id} erfolgreich Aufgabe {task_id} zugeordnet")
+            
+            return jsonify({
+                'success': True,
+                'message': f'E-Mail erfolgreich Aufgabe "{aufgabe["titel"]}" zugeordnet',
+                'task_id': task_id,
+                'task_title': aufgabe['titel']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Fehler beim Speichern der Aufgabe'
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Zuordnen der E-Mail: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Zuordnen: {str(e)}'
+        }), 500
+
+@app.route('/api/aufgaben/<int:aufgabe_id>/email/reply', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_aufgaben_email_reply_send(aufgabe_id):
+    """Sendet eine Antwort-E-Mail zu einer bestimmten Aufgabe"""
+    if not EMAIL_AVAILABLE or not email_manager:
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail Manager nicht verfügbar'
+        }), 400
+    
+    if not email_manager.is_enabled():
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail-Funktionalität ist deaktiviert'
+        }), 400
+    
+    try:
+        # Aufgabe laden
+        aufgaben = data_manager.load_aufgaben()
+        aufgabe = next((a for a in aufgaben if a.get('id') == aufgabe_id), None)
+        
+        if not aufgabe:
+            return jsonify({
+                'success': False,
+                'message': 'Aufgabe nicht gefunden'
+            }), 404
+        
+        data = request.get_json()
+        
+        # Debug: Log der empfangenen Daten
+        logger.info(f"E-Mail-Antwort-Daten empfangen für Aufgabe {aufgabe_id}: {data}")
+        
+        # Pflichtfelder prüfen
+        required_fields = ['to_emails', 'subject', 'body']
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        
+        if missing_fields:
+            logger.warning(f"Fehlende Felder beim E-Mail-Antwort-Versand: {missing_fields}")
+            return jsonify({
+                'success': False,
+                'message': f'Fehlende Felder: {", ".join(missing_fields)}'
+            }), 400
+        
+        # Antwort-E-Mail senden
+        result = email_manager.send_task_email(
+            task_id=aufgabe_id,
+            task_title=aufgabe['titel'],
+            to_emails=data['to_emails'],
+            subject=data['subject'],
+            body=data['body'],
+            html_body=data.get('html_body'),
+            cc_emails=data.get('cc_emails'),
+            in_reply_to=data.get('in_reply_to'),  # Für Threading
+            references=data.get('references')     # Für Threading
+        )
+        
+        # Wenn erfolgreich gesendet, E-Mail-Info zur Aufgabe hinzufügen
+        if result['success']:
+            # E-Mail-Verlauf zur Aufgabe hinzufügen
+            if 'emails' not in aufgabe:
+                aufgabe['emails'] = []
+            
+            email_info = {
+                'sent_at': result['sent_at'],
+                'thread_id': result['thread_id'],
+                'message_id': result['message_id'],
+                'to': result['sent_to'],
+                'cc': result['cc_to'],
+                'subject': data['subject'],
+                'body': data['body'][:200] + '...' if len(data['body']) > 200 else data['body'],
+                'is_reply': True,  # Markierung als Antwort
+                'reply_to': data.get('in_reply_to')
+            }
+            
+            aufgabe['emails'].append(email_info)
+            
+            # Aufgabe speichern
+            data_manager.update_aufgabe(aufgabe_id, aufgabe)
+        
+        status_code = 200 if result['success'] else 400
+        return jsonify(result), status_code
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Antwort-E-Mail-Versand: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim E-Mail-Versand: {str(e)}'
+        }), 500
+
+# ===================================================================
+# MAIN APPLICATION
+# ===================================================================
+# ===================================================================
+
 if __name__ == '__main__':
     print("🎉 Hochzeitsplaner Web-Anwendung (Direkter Start)")
     print("==================================================")
@@ -2736,8 +3393,8 @@ if __name__ == '__main__':
     else:
         print(f"✅ DataManager bereits initialisiert: {DATA_DIR}")
     
-    # Freien Port finden
-    port = find_free_port()
+    # Fester Port 8080 verwenden
+    port = 8080
     print(f"🌐 URL: http://localhost:{port}")
     
     # Debug: Zeige registrierte Routen
@@ -2749,11 +3406,20 @@ if __name__ == '__main__':
     print("⚠️  Zum Beenden: Strg+C")
     print("==================================================")
     
-    # IPv6 + IPv4 Support für DS-Lite/externe Erreichbarkeit
-    app.run(
-        host='0.0.0.0',  # Explizit alle IPv4-Interfaces + IPv6 dual-stack
-        port=port,
-        debug=False,
-        threaded=True
-    )
+    try:
+        # IPv6 + IPv4 Support für DS-Lite/externe Erreichbarkeit
+        app.run(
+            host='0.0.0.0',  # Explizit alle IPv4-Interfaces + IPv6 dual-stack
+            port=port,
+            debug=False,
+            threaded=True
+        )
+    except KeyboardInterrupt:
+        print("\n🛑 Server wird beendet...")
+    finally:
+        # E-Mail-Checking stoppen beim Beenden
+        if email_manager and EMAIL_AVAILABLE:
+            email_manager.stop_email_checking()
+            print("📧 E-Mail-Checking gestoppt")
+        print("👋 Auf Wiedersehen!")
 

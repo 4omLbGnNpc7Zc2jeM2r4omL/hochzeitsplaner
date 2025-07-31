@@ -10,7 +10,66 @@
     "notizen": "Termin mit Florist vereinbart für nächste Woche",
     "id": 1,
     "erstellt_am": "2025-07-31",
-    "abgeschlossen_am": null
+    "abgeschlossen_am": null,
+    "emails": [
+      {
+        "sent_at": "2025-07-31T20:38:07.066154",
+        "thread_id": "task-1-bf41d189",
+        "message_id": "<task-1-bf41d189@hochzeitsplaner.local>",
+        "to": [
+          "pascal-schumacher@hotmail.de"
+        ],
+        "cc": [],
+        "subject": "Bezüglich: Blumen bestellen",
+        "body": "Hallo,\n\nfür diese Aufgabe würde ich gerne einen Termin mit Ihnen vereinbaren, um die Details zu besprechen.\n\nWann würde es Ihnen passen? Ich bin flexibel und kann mich nach Ihrem Zeitplan richten.\n\nVi..."
+      },
+      {
+        "sent_at": "2025-07-31T21:26:37.516284",
+        "thread_id": "task-1-c3104bc7",
+        "message_id": "<task-1-c3104bc7@hochzeitsplaner.local>",
+        "to": [
+          "Pascal Schumacher <pascal-schumacher@hotmail.de>"
+        ],
+        "cc": [],
+        "subject": "Re: Bezüglich: Blumen bestellen",
+        "body": "Das passt uns super dann bis morgen!",
+        "is_reply": true,
+        "reply_to": ""
+      },
+      {
+        "sent_at": "2025-07-31T21:34:01.269700",
+        "thread_id": "task-1-9a21f064",
+        "message_id": "<task-1-9a21f064@hochzeitsplaner.local>",
+        "to": [
+          "Pascal Schumacher <pascal-schumacher@hotmail.de>"
+        ],
+        "cc": [],
+        "subject": "Re: Bezüglich: Blumen bestellen",
+        "body": "Bis morgen",
+        "is_reply": true,
+        "reply_to": ""
+      }
+    ],
+    "email_replies": [
+      {
+        "email_id": "140",
+        "received_at": "2025-07-31T21:04:13.166722",
+        "from_email": "Pascal Schumacher <pascal-schumacher@hotmail.de>",
+        "subject": "Re: Bezüglich: Blumen bestellen",
+        "body": "Hallo, gern morgen früh um 10\r\n\r\n> Am 31.07.2025 um 20:38 schrieb Hochzeitsplaner <hochzeitsplaner@consultingschumacher.de>:\r\n> \r\n> Hallo,\r\n> \r\n> für diese Aufgabe würde ich gerne einen Termin mit Ihnen vereinbaren, um die Details zu besprechen.\r\n> \r\n> Wann würde es Ihnen passen? Ich bin flexibel und kann mich nach Ihrem Zeitplan richten.\r\n> \r\n> Vielen Dank!\r\n> \r\n> ---\r\n> 📝 Aufgabe: Blumen bestellen\r\n> 🔗 ID: #1\r\n> 💌 Thread: task-1-bf41d189",
+        "assigned_at": "2025-07-31T21:04:13.222473",
+        "assigned_by": "pascal"
+      },
+      {
+        "email_id": "141",
+        "received_at": "2025-07-31T21:33:44.982625",
+        "from_email": "Pascal Schumacher <pascal-schumacher@hotmail.de>",
+        "subject": "Re: Bezüglich: Blumen bestellen",
+        "body": "Super, bis morgen!\r\n\r\n> Am 31.07.2025 um 21:26 schrieb Hochzeit Schumacher - Pascal & Katharina <hochzeitsplaner@consultingschumacher.de>:\r\n> \r\n> Das passt uns super dann bis morgen!\r\n> \r\n> ---\r\n> \r\n> Mit freundlichen Grüßen\r\n> Pascal Schumacher & Katharina Schaffrath\r\n> \r\n> \r\n> ❤️ Powered by Hochzeitsplaner\r\n> \r\n> <!-- TASK-INFO: #1 | Blumen bestellen | task-1-c3104bc7 -->",
+        "assigned_at": "2025-07-31T21:33:45.034383",
+        "assigned_by": "pascal"
+      }
+    ]
   },
   {
     "titel": "Menü finalisieren",
