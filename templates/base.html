@@ -19,6 +19,9 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
+    <!-- Global Alert Container (fixed position for all pages) -->
+    <div id="globalAlertContainer" class="alert-container-fixed"></div>
+    
     <!-- Navigation -->
     {% block navigation %}
     <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
@@ -84,6 +87,12 @@
                             <a class="nav-link {% if request.endpoint == 'zeitplan' %}active{% endif %}" 
                                href="{{ url_for('zeitplan') }}">
                                 <i class="bi bi-clock me-1"></i>Zeitplan
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'aufgabenplaner' %}active{% endif %}" 
+                               href="{{ url_for('aufgabenplaner') }}">
+                                <i class="bi bi-check2-square me-1"></i>Aufgabenplaner
                             </a>
                         </li>
                         <li class="nav-item">

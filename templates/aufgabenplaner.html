@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}Aufgabenplaner - {{ brautpaar_namen }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <!-- Fixed Alert Container -->
+    <div id="aufgabenAlertContainer" class="alert-container-fixed"></div>
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-check2-square me-2"></i>Aufgabenplaner</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#aufgabeModal">
+            <i class="bi bi-plus-circle me-2"></i>Neue Aufgabe
+        </button>
+    </div>
+
+    <!-- Statistik Karten -->
+    <div class="row mb-4">
+        <div class="col-md-2 col-6 mb-3">
+            <div class="card text-white bg-info dashboard-card">
+                <div class="card-body">
+                    <div class="card-content">
+                        <h6 class="card-title">Gesamt</h6>
+                        <h3 id="aufgabenGesamt">-</h3>
+                        <small>Aufgaben</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-list-task fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2 col-6 mb-3">
+            <div class="card text-white bg-warning dashboard-card">
+                <div class="card-body">
+                    <div class="card-content">
+                        <h6 class="card-title">Offen</h6>
+                        <h3 id="aufgabenOffen">-</h3>
+                        <small>Aufgaben</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-hourglass-split fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2 col-6 mb-3">
+            <div class="card text-white bg-primary dashboard-card">
+                <div class="card-body">
+                    <div class="card-content">
+                        <h6 class="card-title">In Bearbeitung</h6>
+                        <h3 id="aufgabenInBearbeitung">-</h3>
+                        <small>Aufgaben</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-gear fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2 col-6 mb-3">
+            <div class="card text-white bg-success dashboard-card">
+                <div class="card-body">
+                    <div class="card-content">
+                        <h6 class="card-title">Abgeschlossen</h6>
+                        <h3 id="aufgabenAbgeschlossen">-</h3>
+                        <small>Aufgaben</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-check-circle fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2 col-6 mb-3">
+            <div class="card text-white bg-danger dashboard-card">
+                <div class="card-body">
+                    <div class="card-content">
+                        <h6 class="card-title">Überfällig</h6>
+                        <h3 id="aufgabenUeberfaellig">-</h3>
+                        <small>Aufgaben</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-exclamation-triangle fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2 col-6 mb-3">
+            <div class="card bg-light dashboard-card">
+                <div class="card-body">
+                    <div class="card-content">
+                        <h6 class="card-title">Fortschritt</h6>
+                        <h3 id="aufgabenFortschritt">-</h3>
+                        <small>Prozent</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-graph-up fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter und Suche -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="filterStatus" class="form-label">Status</label>
+                            <select id="filterStatus" class="form-select">
+                                <option value="">Alle Status</option>
+                                <option value="Offen">Offen</option>
+                                <option value="In Bearbeitung">In Bearbeitung</option>
+                                <option value="Abgeschlossen">Abgeschlossen</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filterZustaendig" class="form-label">Zuständig</label>
+                            <select id="filterZustaendig" class="form-select">
+                                <option value="">Alle</option>
+                                <option value="Braut">{{ bride_name or 'Braut' }}</option>
+                                <option value="Bräutigam">{{ groom_name or 'Bräutigam' }}</option>
+                                <option value="Beide">Beide</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filterPrioritaet" class="form-label">Priorität</label>
+                            <select id="filterPrioritaet" class="form-select">
+                                <option value="">Alle Prioritäten</option>
+                                <option value="Hoch">Hoch</option>
+                                <option value="Mittel">Mittel</option>
+                                <option value="Niedrig">Niedrig</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="searchAufgaben" class="form-label">Suche</label>
+                            <input type="text" id="searchAufgaben" class="form-control" placeholder="Titel oder Beschreibung...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aufgabenliste -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Aufgaben</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="aufgabenTable">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Titel</th>
+                                    <th>Zuständig</th>
+                                    <th>Priorität</th>
+                                    <th>Fällig</th>
+                                    <th>Kategorie</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="aufgabenTableBody">
+                                <!-- Wird dynamisch gefüllt -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Aufgabe Modal -->
+<div class="modal fade" id="aufgabeModal" tabindex="-1" aria-labelledby="aufgabeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="aufgabeModalLabel">Neue Aufgabe</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="aufgabeForm">
+                    <input type="hidden" id="aufgabeId" value="">
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="aufgabeTitel" class="form-label">Titel <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="aufgabeTitel" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="aufgabePrioritaet" class="form-label">Priorität</label>
+                                <select class="form-select" id="aufgabePrioritaet">
+                                    <option value="Niedrig">Niedrig</option>
+                                    <option value="Mittel" selected>Mittel</option>
+                                    <option value="Hoch">Hoch</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="aufgabeBeschreibung" class="form-label">Beschreibung</label>
+                        <textarea class="form-control" id="aufgabeBeschreibung" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="aufgabeZustaendig" class="form-label">Zuständig</label>
+                                <select class="form-select" id="aufgabeZustaendig">
+                                    <option value="Braut">{{ bride_name or 'Braut' }}</option>
+                                    <option value="Bräutigam">{{ groom_name or 'Bräutigam' }}</option>
+                                    <option value="Beide">Beide</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="aufgabeStatus" class="form-label">Status</label>
+                                <select class="form-select" id="aufgabeStatus">
+                                    <option value="Offen" selected>Offen</option>
+                                    <option value="In Bearbeitung">In Bearbeitung</option>
+                                    <option value="Abgeschlossen">Abgeschlossen</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="aufgabeFaelligkeitsdatum" class="form-label">Fälligkeitsdatum</label>
+                                <input type="date" class="form-control" id="aufgabeFaelligkeitsdatum">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="aufgabeKategorie" class="form-label">Kategorie</label>
+                        <input type="text" class="form-control" id="aufgabeKategorie" 
+                               placeholder="z.B. Dekoration, Catering, Unterhaltung...">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="aufgabeNotizen" class="form-label">Notizen</label>
+                        <textarea class="form-control" id="aufgabeNotizen" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-danger" id="deleteAufgabeBtn" style="display: none;">Löschen</button>
+                <button type="button" class="btn btn-primary" id="saveAufgabeBtn">Speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bestätigung Modal -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmDeleteModalLabel">Aufgabe löschen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Sind Sie sicher, dass Sie diese Aufgabe löschen möchten?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Löschen</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/aufgabenplaner.js') }}"></script>
+{% endblock %}

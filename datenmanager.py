@@ -31,6 +31,7 @@ class HochzeitsDatenManager:
         self.budget_file = os.path.join(data_dir, "budget.json")
         self.zeitplan_file = os.path.join(data_dir, "zeitplan.json")
         self.settings_file = os.path.join(data_dir, "settings.json")
+        self.aufgaben_file = os.path.join(data_dir, "aufgaben.json")
         
         # GUI Update Callback für automatische Dashboard-Aktualisierung
         self.gui_update_callback = None
@@ -42,6 +43,7 @@ class HochzeitsDatenManager:
         self.gaesteliste_df = pd.DataFrame()
         self.budget_df = pd.DataFrame()
         self.zeitplan_df = pd.DataFrame()
+        self.aufgaben = []
         self.settings = {}
         
         # Daten laden
@@ -2040,8 +2042,17 @@ class HochzeitsDatenManager:
         
         # Gesamtpersonenzahl berechnen
         if 'Anzahl_Personen' in self.gaesteliste_df.columns:
-            anzahl_personen = pd.to_numeric(self.gaesteliste_df['Anzahl_Personen'], errors='coerce').fillna(1)
-            stats['personen_gesamt'] = int(anzahl_personen.sum())
+            # Erstelle eine Kopie der Anzahl_Personen für die Berechnung
+            anzahl_personen_calc = self.gaesteliste_df['Anzahl_Personen'].copy()
+            
+            # Bei Abgesagten Gästen die Personenanzahl für die Statistik auf 0 setzen
+            abgesagt_mask = self.gaesteliste_df['Status'] == 'Abgesagt'
+            anzahl_personen_calc.loc[abgesagt_mask] = 0
+            
+            # Konvertiere zu numerischen Werten
+            anzahl_personen_calc = pd.to_numeric(anzahl_personen_calc, errors='coerce').fillna(1)
+            
+            stats['personen_gesamt'] = int(anzahl_personen_calc.sum())
             
             # Personen mit Zusage
             zusagen_df = self.gaesteliste_df[self.gaesteliste_df['Status'] == 'Zugesagt']
@@ -2051,13 +2062,8 @@ class HochzeitsDatenManager:
             else:
                 stats['personen_zusagen'] = 0
             
-            # Personen mit Absage
-            absagen_df = self.gaesteliste_df[self.gaesteliste_df['Status'] == 'Abgesagt']
-            if not absagen_df.empty:
-                absagen_personen = pd.to_numeric(absagen_df['Anzahl_Personen'], errors='coerce').fillna(1)
-                stats['personen_absagen'] = int(absagen_personen.sum())
-            else:
-                stats['personen_absagen'] = 0
+            # Personen mit Absage (immer 0, da abgesagt)
+            stats['personen_absagen'] = 0
             
             # Personen mit offenem Status
             offen_df = self.gaesteliste_df[self.gaesteliste_df['Status'] == 'Offen']
@@ -2280,6 +2286,7 @@ class HochzeitsDatenManager:
         self.load_budget()
         self.load_zeitplan()
         self.load_settings()
+        self.load_aufgaben()
         
     def load_gaesteliste(self):
         """Lädt Gästeliste aus JSON"""
@@ -3174,5 +3181,160 @@ class HochzeitsDatenManager:
             
         except Exception as e:
             print(f"Fehler bei der Event-Kostenberechnung: {e}")
+            return {}
+
+    # =============================================================================
+    # Aufgabenplaner Methoden
+    # =============================================================================
+    
+    def load_aufgaben(self) -> List[Dict]:
+        """Lädt die Aufgabenliste"""
+        try:
+            if os.path.exists(self.aufgaben_file):
+                with open(self.aufgaben_file, 'r', encoding='utf-8') as f:
+                    self.aufgaben = json.load(f)
+            else:
+                self.aufgaben = []
+            return self.aufgaben
+        except Exception as e:
+            print(f"Fehler beim Laden der Aufgaben: {e}")
+            self.aufgaben = []
+            return self.aufgaben
+    
+    def save_aufgaben(self) -> bool:
+        """Speichert die Aufgabenliste"""
+        try:
+            with open(self.aufgaben_file, 'w', encoding='utf-8') as f:
+                json.dump(self.aufgaben, f, ensure_ascii=False, indent=2)
+            return True
+        except Exception as e:
+            print(f"Fehler beim Speichern der Aufgaben: {e}")
+            return False
+    
+    def add_aufgabe(self, aufgabe_data: Dict) -> int:
+        """Fügt eine neue Aufgabe hinzu"""
+        try:
+            # Lade aktuelle Aufgaben
+            self.load_aufgaben()
+            
+            # Generiere neue ID
+            max_id = max([a.get('id', 0) for a in self.aufgaben], default=0)
+            aufgabe_data['id'] = max_id + 1
+            aufgabe_data['erstellt_am'] = datetime.now().strftime('%Y-%m-%d')
+            aufgabe_data['abgeschlossen_am'] = None
+            
+            # Füge Aufgabe hinzu
+            self.aufgaben.append(aufgabe_data)
+            
+            # Speichere
+            self.save_aufgaben()
+            
+            return aufgabe_data['id']
+        except Exception as e:
+            print(f"Fehler beim Hinzufügen der Aufgabe: {e}")
+            return -1
+    
+    def update_aufgabe(self, aufgabe_id: int, aufgabe_data: Dict) -> bool:
+        """Aktualisiert eine bestehende Aufgabe"""
+        try:
+            # Lade aktuelle Aufgaben
+            self.load_aufgaben()
+            
+            # Finde Aufgabe
+            for i, aufgabe in enumerate(self.aufgaben):
+                if aufgabe.get('id') == aufgabe_id:
+                    # Update Daten (behalte ID und Erstellungsdatum)
+                    aufgabe_data['id'] = aufgabe_id
+                    aufgabe_data['erstellt_am'] = aufgabe.get('erstellt_am')
+                    
+                    # Setze Abschlussdatum wenn Status auf "Abgeschlossen" geändert wird
+                    if aufgabe_data.get('status') == 'Abgeschlossen' and aufgabe.get('status') != 'Abgeschlossen':
+                        aufgabe_data['abgeschlossen_am'] = datetime.now().strftime('%Y-%m-%d')
+                    elif aufgabe_data.get('status') != 'Abgeschlossen':
+                        aufgabe_data['abgeschlossen_am'] = None
+                    else:
+                        aufgabe_data['abgeschlossen_am'] = aufgabe.get('abgeschlossen_am')
+                    
+                    # Ersetze Aufgabe
+                    self.aufgaben[i] = aufgabe_data
+                    
+                    # Speichere
+                    self.save_aufgaben()
+                    return True
+            
+            return False
+        except Exception as e:
+            print(f"Fehler beim Aktualisieren der Aufgabe: {e}")
+            return False
+    
+    def delete_aufgabe(self, aufgabe_id: int) -> bool:
+        """Löscht eine Aufgabe"""
+        try:
+            # Lade aktuelle Aufgaben
+            self.load_aufgaben()
+            
+            # Finde und lösche Aufgabe
+            self.aufgaben = [a for a in self.aufgaben if a.get('id') != aufgabe_id]
+            
+            # Speichere
+            self.save_aufgaben()
+            return True
+        except Exception as e:
+            print(f"Fehler beim Löschen der Aufgabe: {e}")
+            return False
+    
+    def get_aufgaben_statistics(self) -> Dict:
+        """Berechnet Aufgaben-Statistiken"""
+        try:
+            self.load_aufgaben()
+            
+            total = len(self.aufgaben)
+            if total == 0:
+                return {
+                    'gesamt': 0,
+                    'offen': 0,
+                    'in_bearbeitung': 0,
+                    'abgeschlossen': 0,
+                    'ueberfaellig': 0,
+                    'braut_aufgaben': 0,
+                    'braeutigam_aufgaben': 0,
+                    'gemeinsame_aufgaben': 0,
+                    'fortschritt_prozent': 0
+                }
+            
+            offen = len([a for a in self.aufgaben if a.get('status') == 'Offen'])
+            in_bearbeitung = len([a for a in self.aufgaben if a.get('status') == 'In Bearbeitung'])
+            abgeschlossen = len([a for a in self.aufgaben if a.get('status') == 'Abgeschlossen'])
+            
+            # Überfällige Aufgaben (offen/in Bearbeitung mit Fälligkeitsdatum in der Vergangenheit)
+            heute = datetime.now().strftime('%Y-%m-%d')
+            ueberfaellig = len([
+                a for a in self.aufgaben 
+                if a.get('status') in ['Offen', 'In Bearbeitung'] 
+                and a.get('faelligkeitsdatum') 
+                and a.get('faelligkeitsdatum') < heute
+            ])
+            
+            # Zuständigkeiten
+            braut_aufgaben = len([a for a in self.aufgaben if a.get('zustaendig') == 'Braut'])
+            braeutigam_aufgaben = len([a for a in self.aufgaben if a.get('zustaendig') == 'Bräutigam'])
+            gemeinsame_aufgaben = len([a for a in self.aufgaben if a.get('zustaendig') == 'Beide'])
+            
+            # Fortschritt
+            fortschritt_prozent = round((abgeschlossen / total) * 100) if total > 0 else 0
+            
+            return {
+                'gesamt': total,
+                'offen': offen,
+                'in_bearbeitung': in_bearbeitung,
+                'abgeschlossen': abgeschlossen,
+                'ueberfaellig': ueberfaellig,
+                'braut_aufgaben': braut_aufgaben,
+                'braeutigam_aufgaben': braeutigam_aufgaben,
+                'gemeinsame_aufgaben': gemeinsame_aufgaben,
+                'fortschritt_prozent': fortschritt_prozent
+            }
+        except Exception as e:
+            print(f"Fehler bei der Aufgaben-Statistik: {e}")
             return {}
 

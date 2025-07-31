@@ -1,0 +1,41 @@
+[
+  {
+    "titel": "Blumen bestellen",
+    "beschreibung": "Brautstrauß und Dekoration für die Kirche auswählen und bestellen",
+    "zustaendig": "Braut",
+    "status": "Offen",
+    "prioritaet": "Hoch",
+    "faelligkeitsdatum": "2025-10-31",
+    "kategorie": "Dekoration",
+    "notizen": "Termin mit Florist vereinbart für nächste Woche",
+    "id": 1,
+    "erstellt_am": "2025-07-31",
+    "abgeschlossen_am": null
+  },
+  {
+    "titel": "Menü finalisieren",
+    "beschreibung": "Finale Abstimmung des Hochzeitsmenüs mit Tom Küchen",
+    "zustaendig": "Beide",
+    "status": "Offen",
+    "prioritaet": "Hoch",
+    "faelligkeitsdatum": "2025-12-31",
+    "kategorie": "Catering",
+    "notizen": "Wir müssen zunächst abstimmen was wir haben möchten und dann einen Termin zum Probeessen vereinbaren.",
+    "id": 2,
+    "erstellt_am": "2025-07-30",
+    "abgeschlossen_am": null
+  },
+  {
+    "titel": "Location Final buchen",
+    "beschreibung": "Wir müssen uns nochmal mit Romina treffen um die Buchung der Location zu finalisieren",
+    "zustaendig": "Beide",
+    "status": "Offen",
+    "prioritaet": "Hoch",
+    "faelligkeitsdatum": "2025-10-31",
+    "kategorie": "Location",
+    "notizen": "",
+    "id": 4,
+    "erstellt_am": "2025-07-31",
+    "abgeschlossen_am": null
+  }
+]

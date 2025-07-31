@@ -1439,7 +1439,12 @@ def get_guest_data():
                         'max_personen': guest.get('Anzahl_Personen', 1),  # Nutze Gesamt als Maximum
                         'notiz': guest.get('Bemerkungen', ''),
                         'email': guest.get('Email', ''),
-                        'guest_code': guest.get('guest_code', '')
+                        'guest_code': guest.get('guest_code', ''),
+                        # Event-spezifische Felder für personalisierte Begrüßung
+                        'Anzahl_Personen': guest.get('Anzahl_Personen', 1),
+                        'Weisser_Saal': guest.get('Weisser_Saal', 0),
+                        'Anzahl_Essen': guest.get('Anzahl_Essen', 0),
+                        'Anzahl_Party': guest.get('Anzahl_Party', 0)
                     }
                 })
             except IndexError:
@@ -1483,7 +1488,12 @@ def get_guest_data():
                     'max_personen': guest.get('Anzahl_Personen', 1),  # Nutze Gesamt als Maximum
                     'notiz': guest.get('Bemerkungen', ''),
                     'email': guest.get('Email', ''),
-                    'guest_code': guest.get('guest_code', '')
+                    'guest_code': guest.get('guest_code', ''),
+                    # Event-spezifische Felder für personalisierte Begrüßung
+                    'Anzahl_Personen': guest.get('Anzahl_Personen', 1),
+                    'Weisser_Saal': guest.get('Weisser_Saal', 0),
+                    'Anzahl_Essen': guest.get('Anzahl_Essen', 0),
+                    'Anzahl_Party': guest.get('Anzahl_Party', 0)
                 }
             })
         
@@ -1771,7 +1781,9 @@ def get_guest_location_coordinates():
             'rathaus aachen': {'lat': 50.7753, 'lng': 6.0839},
             'kruppstraße 28, 52072 aachen': {'lat': 50.7698, 'lng': 6.0892},
             'kruppstrasse 28, 52072 aachen': {'lat': 50.7698, 'lng': 6.0892},
-            'hotel kastanienhof aachen': {'lat': 50.7698, 'lng': 6.0892}
+            'hotel kastanienhof aachen': {'lat': 50.7698, 'lng': 6.0892},
+            'komericher weg 42/44, 52078 aachen-brand': {'lat': 50.7435, 'lng': 6.1242},
+            'komericher mühle': {'lat': 50.7435, 'lng': 6.1242}
         }
         
         for location_type, location_info in config['locations'].items():
@@ -2505,6 +2517,233 @@ if __name__ == '__main__':
     
     print("⚠️  Zum Beenden: Strg+C")
     print("=" * 50)
+    
+# =============================================================================
+# Aufgabenplaner API Routen
+# =============================================================================
+
+@app.route('/aufgabenplaner')
+@require_auth
+@require_role(['admin', 'user'])
+def aufgabenplaner():
+    """Aufgabenplaner Seite"""
+    try:
+        # Lade Einstellungen für Braut/Bräutigam-Namen
+        config = data_manager.load_config()
+        settings = config.get('settings', {})
+        
+        # Erstelle Kontext mit Namen
+        context = {
+            'bride_name': settings.get('bride_name', 'Braut'),
+            'groom_name': settings.get('groom_name', 'Bräutigam')
+        }
+        
+        return render_template('aufgabenplaner.html', **context)
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Aufgabenplaner-Seite: {str(e)}")
+        # Fallback mit Standardwerten
+        return render_template('aufgabenplaner.html', bride_name='Braut', groom_name='Bräutigam')
+
+@app.route('/api/aufgaben/list')
+@require_auth
+@require_role(['admin', 'user'])
+def api_aufgaben_list():
+    """Aufgabenliste abrufen"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        aufgaben = data_manager.load_aufgaben()
+        
+        return jsonify({
+            'success': True,
+            'aufgaben': clean_json_data(aufgaben)
+        })
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Aufgaben: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/aufgaben/get/<int:aufgabe_id>')
+@require_auth
+@require_role(['admin', 'user'])
+def api_aufgaben_get(aufgabe_id):
+    """Einzelne Aufgabe abrufen"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        aufgaben = data_manager.load_aufgaben()
+        aufgabe = next((a for a in aufgaben if a.get('id') == aufgabe_id), None)
+        
+        if not aufgabe:
+            return jsonify({'success': False, 'error': 'Aufgabe nicht gefunden'}), 404
+        
+        return jsonify({
+            'success': True,
+            'aufgabe': clean_json_data(aufgabe)
+        })
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Aufgabe: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/aufgaben/add', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_aufgaben_add():
+    """Neue Aufgabe hinzufügen"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Keine Daten empfangen'}), 400
+        
+        # Validiere erforderliche Felder
+        if not data.get('titel'):
+            return jsonify({'success': False, 'error': 'Titel ist erforderlich'}), 400
+        
+        # Setze Standardwerte
+        aufgabe_data = {
+            'titel': data.get('titel', '').strip(),
+            'beschreibung': data.get('beschreibung', '').strip(),
+            'zustaendig': data.get('zustaendig', 'Braut'),
+            'status': data.get('status', 'Offen'),
+            'prioritaet': data.get('prioritaet', 'Mittel'),
+            'faelligkeitsdatum': data.get('faelligkeitsdatum', ''),
+            'kategorie': data.get('kategorie', '').strip(),
+            'notizen': data.get('notizen', '').strip()
+        }
+        
+        # Aufgabe hinzufügen
+        aufgabe_id = data_manager.add_aufgabe(aufgabe_data)
+        
+        if aufgabe_id > 0:
+            return jsonify({
+                'success': True,
+                'message': 'Aufgabe erfolgreich hinzugefügt',
+                'aufgabe_id': aufgabe_id
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Fehler beim Hinzufügen der Aufgabe'}), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Hinzufügen der Aufgabe: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/aufgaben/update/<int:aufgabe_id>', methods=['PUT'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_aufgaben_update(aufgabe_id):
+    """Aufgabe aktualisieren"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Keine Daten empfangen'}), 400
+        
+        # Validiere erforderliche Felder
+        if not data.get('titel'):
+            return jsonify({'success': False, 'error': 'Titel ist erforderlich'}), 400
+        
+        # Setze Daten
+        aufgabe_data = {
+            'titel': data.get('titel', '').strip(),
+            'beschreibung': data.get('beschreibung', '').strip(),
+            'zustaendig': data.get('zustaendig', 'Braut'),
+            'status': data.get('status', 'Offen'),
+            'prioritaet': data.get('prioritaet', 'Mittel'),
+            'faelligkeitsdatum': data.get('faelligkeitsdatum', ''),
+            'kategorie': data.get('kategorie', '').strip(),
+            'notizen': data.get('notizen', '').strip()
+        }
+        
+        # Aufgabe aktualisieren
+        success = data_manager.update_aufgabe(aufgabe_id, aufgabe_data)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Aufgabe erfolgreich aktualisiert'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Aufgabe nicht gefunden oder Fehler beim Aktualisieren'}), 404
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Aktualisieren der Aufgabe: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/aufgaben/delete/<int:aufgabe_id>', methods=['DELETE'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_aufgaben_delete(aufgabe_id):
+    """Aufgabe löschen"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        # Aufgabe löschen
+        success = data_manager.delete_aufgabe(aufgabe_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Aufgabe erfolgreich gelöscht'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Aufgabe nicht gefunden oder Fehler beim Löschen'}), 404
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Löschen der Aufgabe: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/aufgaben/statistics')
+@require_auth
+@require_role(['admin', 'user'])
+def api_aufgaben_statistics():
+    """Aufgaben-Statistiken abrufen"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        statistics = data_manager.get_aufgaben_statistics()
+        
+        return jsonify({
+            'success': True,
+            'statistics': clean_json_data(statistics)
+        })
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Aufgaben-Statistiken: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# =============================================================================
+# Hauptprogramm
+# =============================================================================
+
+if __name__ == '__main__':
+    print("🎉 Hochzeitsplaner Web-Anwendung (Direkter Start)")
+    print("==================================================")
+    
+    if not data_manager:
+        print("❌ KRITISCHER FEHLER: DataManager konnte nicht initialisiert werden!")
+        exit(1)
+    else:
+        print(f"✅ DataManager bereits initialisiert: {DATA_DIR}")
+    
+    # Freien Port finden
+    port = find_free_port()
+    print(f"🌐 URL: http://localhost:{port}")
+    
+    # Debug: Zeige registrierte Routen
+    print("\n📋 Registrierte Routen:")
+    for rule in app.url_map.iter_rules():
+        methods = ','.join(rule.methods)
+        print(f"  - {rule.rule} ({methods})")
+    
+    print("⚠️  Zum Beenden: Strg+C")
+    print("==================================================")
     
     app.run(
         host='0.0.0.0',

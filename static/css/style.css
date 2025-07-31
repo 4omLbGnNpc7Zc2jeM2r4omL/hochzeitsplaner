@@ -1095,3 +1095,108 @@
 .map-preview-close:hover {
     color: #495057;
 }
+
+/* Aufgabenplaner Styles */
+.badge.bg-pink {
+    background-color: #e91e63 !important;
+    color: white;
+}
+
+.badge.bg-blue {
+    background-color: #2196f3 !important;
+    color: white;
+}
+
+.badge.bg-purple {
+    background-color: #9c27b0 !important;
+    color: white;
+}
+
+/* Aufgaben-Tabelle */
+#aufgabenTable tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.table-success.opacity-75 {
+    opacity: 0.75;
+}
+
+.table-danger {
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+/* Dashboard Card Hover */
+.dashboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    transition: all 0.3s ease;
+}
+
+.dashboard-card .card-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem;
+}
+
+.dashboard-card .card-content {
+    flex: 1;
+}
+
+.dashboard-card .card-title {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.dashboard-card h3 {
+    margin-bottom: 0.25rem;
+    font-weight: 700;
+    font-size: 1.875rem;
+    line-height: 1.2;
+}
+
+.dashboard-card small {
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
+/* =============================================================================
+   Alert Container - Fixed Position (prevents header jumping)
+   ============================================================================= */
+
+.alert-container-fixed {
+    position: fixed;
+    top: 80px; /* Below the navbar with some padding */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1050; /* Above modals */
+    width: 90%;
+    max-width: 600px;
+    pointer-events: none; /* Allows clicking through when empty */
+}
+
+.alert-container-fixed .alert {
+    pointer-events: auto; /* Re-enables pointer events for alert content */
+    margin-bottom: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    border: none;
+}
+
+/* Smooth slide-down animation for alerts */
+.alert-container-fixed .alert.fade.show {
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

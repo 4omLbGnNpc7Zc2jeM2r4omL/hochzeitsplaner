@@ -220,23 +220,39 @@ async function loadSystemInfo() {
 }
 
 function showAlert(message, type) {
-    // Alert am Anfang der Seite anzeigen
-    const alertHtml = `
-        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
+    // Verwende den globalen festen Alert-Container
+    let alertContainer = document.getElementById('globalAlertContainer');
+    
+    if (!alertContainer) {
+        // Fallback: Erstelle globalen festen Alert-Container falls nicht vorhanden
+        alertContainer = document.createElement('div');
+        alertContainer.id = 'globalAlertContainer';
+        alertContainer.className = 'alert-container-fixed';
+        document.body.appendChild(alertContainer);
+    }
+    
+    // Erstelle Alert-Element
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
     
-    // Alert vor dem ersten Element einfügen
-    const container = document.querySelector('.row');
-    container.insertAdjacentHTML('afterbegin', alertHtml);
+    // Füge Alert zum Container hinzu
+    alertContainer.appendChild(alertDiv);
     
-    // Alert nach 5 Sekunden automatisch ausblenden
+    // Automatisch nach 5 Sekunden ausblenden mit Fadeout-Effekt
     setTimeout(() => {
-        const alert = document.querySelector('.alert');
-        if (alert) {
-            alert.remove();
+        if (alertDiv.parentNode) {
+            alertDiv.classList.remove('show');
+            alertDiv.classList.add('fade');
+            // Nach der Fade-Animation entfernen
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 150);
         }
     }, 5000);
 }
