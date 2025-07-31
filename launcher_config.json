@@ -5,6 +5,20 @@
   "port": 8443,
   "auto_open_browser": true,
   "domain": "pascalundkäthe-heiraten.de",
+  "punycode_domain": "xn--pascalundkthe-heiraten-94b.de",
+  "local_domains": [
+    "localhost",
+    "127.0.0.1",
+    "::1",
+    "192.168.178.96",
+    "pascalundkäthe-heiraten.de",
+    "xn--pascalundkthe-heiraten-94b.de"
+  ],
+  "external_domain": "xn--pascalundkthe-heiraten-94b.de",
+  "dns_rebinding_protection": {
+    "enabled": false,
+    "description": "Domain funktioniert im LAN - kein DNS-Rebinding-Schutz aktiv"
+  },
   "production_server": true,
   "workers": 4,
   "timeout": 120,

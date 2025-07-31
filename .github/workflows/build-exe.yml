@@ -78,7 +78,7 @@ jobs:
     
     - name: Build executable
       run: |
-        pyinstaller --onefile --console --name Hochzeitsplaner launcher.py --add-data "data;data" --add-data "static;static" --add-data "templates;templates" --add-data "auth_config.json;." --add-data "gunicorn.conf.py;." --add-data "dyndns_config.json;." --add-data "dyndns_manager.py;." --add-data "requirements.txt;." --add-data "ssl_certificate.crt;." --add-data "ssl_private_key.key;." --hidden-import flask --hidden-import flask_cors --hidden-import pandas --hidden-import openpyxl --hidden-import requests --hidden-import gunicorn --hidden-import gevent --hidden-import datenmanager --hidden-import dyndns_manager --hidden-import smtplib --hidden-import email
+        pyinstaller --onefile --console --name Hochzeitsplaner launcher.py --add-data "data;data" --add-data "static;static" --add-data "templates;templates" --add-data "auth_config.json;." --add-data "gunicorn.conf.py;." --add-data "dyndns_config.json;." --add-data "dyndns_manager.py;." --add-data "email_manager.py;." --add-data "universal_launcher.py;." --add-data "production_launcher.py;." --add-data "safe_launcher_ssl.py;." --add-data "launcher_config.json;." --add-data "test_dns_rebinding.py;." --add-data "requirements.txt;." --add-data "ssl_certificate.crt;." --add-data "ssl_private_key.key;." --hidden-import flask --hidden-import flask_cors --hidden-import pandas --hidden-import openpyxl --hidden-import requests --hidden-import gunicorn --hidden-import gevent --hidden-import datenmanager --hidden-import dyndns_manager --hidden-import email_manager --hidden-import smtplib --hidden-import email --hidden-import imaplib --hidden-import threading --hidden-import idna
     
     - name: Create distribution
       shell: cmd
@@ -89,15 +89,20 @@ jobs:
         echo # Hochzeitsplaner Windows .exe - Produktivversion 2.0 > "Distribution\README.txt"
         echo. >> "Distribution\README.txt"
         echo NEUE FEATURES: >> "Distribution\README.txt"
+        echo - Vollstaendige E-Mail Integration mit SMTP/IMAP >> "Distribution\README.txt"
+        echo - Aufgaben-E-Mail-Verwaltung und automatische Zuordnung >> "Distribution\README.txt"
+        echo - Professionelle E-Mail-Signaturen >> "Distribution\README.txt"
+        echo - DNS-Rebinding-Schutz Erkennung fuer lokale Domains >> "Distribution\README.txt"
+        echo - Punycode-Domain-Support (Unicode + ASCII) >> "Distribution\README.txt"
         echo - Automatischer Gunicorn Produktivserver >> "Distribution\README.txt"
         echo - Dual-Stack IPv4+IPv6 Support >> "Distribution\README.txt"
         echo - SSL/HTTPS Support mit Zertifikaten >> "Distribution\README.txt"
-        echo - E-Mail Integration >> "Distribution\README.txt"
         echo - Optimierte Performance >> "Distribution\README.txt"
         echo. >> "Distribution\README.txt"
         echo KONFIGURATION: >> "Distribution\README.txt"
         echo - launcher_config.json fuer Server-Einstellungen >> "Distribution\README.txt"
         echo - auth_config.json fuer E-Mail-Konfiguration >> "Distribution\README.txt"
+        echo - E-Mail SMTP/IMAP Einstellungen in der Anwendung >> "Distribution\README.txt"
         echo. >> "Distribution\README.txt"
         echo VERWENDUNG: >> "Distribution\README.txt"
         echo Doppelklick auf Hochzeitsplaner.exe zum Starten >> "Distribution\README.txt"

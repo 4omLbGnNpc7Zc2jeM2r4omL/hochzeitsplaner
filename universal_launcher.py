@@ -96,6 +96,19 @@ class UniversalConfig:
         except Exception:
             pass
 
+def check_dns_rebinding_protection(domain, port=80):
+    """Prüft ob Domain im lokalen Netzwerk durch DNS-Rebinding-Schutz blockiert wird"""
+    if not domain or domain in ['localhost', '127.0.0.1', '::1']:
+        return False
+    
+    try:
+        import socket
+        # Versuche DNS-Auflösung
+        socket.gethostbyname(domain)
+        return False  # Domain wird aufgelöst, kein DNS-Rebinding-Schutz
+    except socket.gaierror:
+        return True  # Domain wird nicht aufgelöst, wahrscheinlich DNS-Rebinding-Schutz
+
 def check_ssl_certificates():
     """Prüft SSL-Zertifikate"""
     search_dirs = []
@@ -255,6 +268,25 @@ def main():
     # SSL-Zertifikate prüfen
     ssl_available, cert_path, key_path = check_ssl_certificates()
     
+    # DNS-Rebinding-Schutz prüfen
+    domain_name = config.get('domain', 'localhost')
+    punycode_domain = config.get('punycode_domain', domain_name)
+    
+    dns_rebinding_detected = False
+    if domain_name != 'localhost':
+        dns_rebinding_detected = check_dns_rebinding_protection(domain_name)
+        if dns_rebinding_detected and not config.get('dns_rebinding_protection', {}).get('enabled', False):
+            # Automatisch DNS-Rebinding-Schutz in Konfiguration aktivieren
+            if 'dns_rebinding_protection' not in config:
+                config['dns_rebinding_protection'] = {}
+            config['dns_rebinding_protection']['enabled'] = True
+            config['dns_rebinding_protection']['description'] = "Automatisch erkannt: Router blockiert externe Domain im LAN"
+            config_manager.save_config()
+            print(f"⚠️ DNS-Rebinding-Schutz erkannt: {domain_name} wird im LAN blockiert")
+            print("   💡 Verwende localhost/LAN-IP für lokalen Zugriff")
+        elif not dns_rebinding_detected:
+            print(f"✅ Domain {domain_name} ist im lokalen Netzwerk erreichbar")
+    
     # Lokale IP ermitteln
     local_ip = get_local_ip()
     
@@ -287,6 +319,11 @@ def main():
     print(f"   📊 HTTP Port {http_port}: {'✅' if http_available else '❌'}")
     print(f"   📊 HTTPS Port {https_port}: {'✅' if https_available else '❌'}")
     
+    # Domain-Namen aus Konfiguration abrufen
+    domain_name = config.get('domain', 'localhost')
+    punycode_domain = config.get('punycode_domain', domain_name)
+    external_domain = config.get('external_domain', punycode_domain)
+    
     # Bestimme besten Modus
     if http_available and ssl_available and https_available:
         print(f"\n✅ DUAL-MODE: HTTP lokal + HTTPS extern")
@@ -294,17 +331,20 @@ def main():
         print(f"   🏠 LOKAL (HTTP - alle Geräte im Netzwerk):")
         print(f"      → http://localhost:{http_port}")
         print(f"      → http://{local_ip}:{http_port}")
-        print(f"      → http://hochzeitsplaner.de:{http_port}")
+        if config.get('dns_rebinding_protection', {}).get('enabled', False):
+            print(f"      💡 Domain {domain_name} wird im LAN blockiert (DNS-Rebinding-Schutz)")
+        else:
+            print(f"      → http://{domain_name}:{http_port}")
         
         print(f"   🌍 EXTERN (HTTPS):")
         if network_type == "ds-lite":
             print("      💡 DS-Lite: Direkter IPv6-Zugriff (keine Portweiterleitung nötig)")
             for addr in ipv6_addresses[:2]:
                 print(f"      → https://[{addr}]:{https_port}")
-            print(f"      → https://pascalundkäthe-heiraten.de:{https_port} (nach DNS-Update)")
+            print(f"      → https://{external_domain}:{https_port} (nach DNS-Update)")
         else:
             print("      💡 Fritz!Box: IPv6 Portweiterleitung Port 8443 konfigurieren")
-            print(f"      → https://pascalundkäthe-heiraten.de:{https_port}")
+            print(f"      → https://{external_domain}:{https_port}")
             print("      ⚡ Nur HTTPS extern verfügbar (IPv4 Portweiterleitung nicht möglich)")
         
         # Browser öffnen für lokalen Zugriff
@@ -319,7 +359,10 @@ def main():
         print("📍 ZUGRIFF-URLS:")
         print(f"   🏠 LOKAL: http://localhost:{http_port}")
         print(f"   📱 NETZWERK: http://{local_ip}:{http_port}")
-        print(f"   🌐 DOMAIN: http://hochzeitsplaner.de:{http_port}")
+        if config.get('dns_rebinding_protection', {}).get('enabled', False):
+            print(f"   ⚠️ Domain {domain_name} wird im LAN blockiert (DNS-Rebinding-Schutz)")
+        else:
+            print(f"   🌐 DOMAIN: http://{domain_name}:{http_port}")
         print("   💡 Für HTTPS: SSL-Zertifikate hinzufügen")
         
         # Browser öffnen
