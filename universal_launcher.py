@@ -265,7 +265,7 @@ def main():
     # Ports konfigurieren
     http_port = config.get('http_port', 8080)
     https_port = config.get('https_port', 8443)
-    host = config.get('host', '0.0.0.0')
+    host = config.get('host', '::')  # IPv6 + IPv4 Dual Stack
     
     # Port-Verfügbarkeit prüfen
     http_available = check_port_available(http_port)

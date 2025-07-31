@@ -284,8 +284,8 @@ def start_dual_ipv6_servers(data_path, http_port, https_port, host, cert_path, k
     
     def run_http():
         try:
-            # HTTP nur auf IPv4 für lokales Netzwerk
-            app.run(host='0.0.0.0', port=http_port, debug=False, use_reloader=False, threaded=True)
+            # HTTP auf IPv6 + IPv4 (Dual Stack) für lokales und externes Netzwerk
+            app.run(host='::', port=http_port, debug=False, use_reloader=False, threaded=True)
         except Exception as e:
             print(f"❌ HTTP Server Fehler: {e}")
     

@@ -202,7 +202,7 @@ def safe_main():
         
         # Server starten - OHNE Threading-Probleme
         app.run(
-            host="0.0.0.0",
+            host="::",  # IPv6 + IPv4 (Dual Stack)
             port=port,
             debug=False,
             use_reloader=False,
