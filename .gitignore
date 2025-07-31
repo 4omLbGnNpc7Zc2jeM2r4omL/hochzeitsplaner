@@ -24,6 +24,7 @@ app_debug.log
 
 # Test- und Dokumentationsdateien
 test_connectivity.py
+test_dns_rebinding.py
 *.md
 !README.md
 
