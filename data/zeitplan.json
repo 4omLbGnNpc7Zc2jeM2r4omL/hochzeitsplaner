@@ -6,7 +6,8 @@
     "Verantwortlich":"K\u00e4the",
     "Status":"Geplant",
     "EndZeit":"10:30",
-    "public":0.0
+    "public":0,
+    "eventteile":null
   },
   {
     "Uhrzeit":"08:00",
@@ -15,7 +16,8 @@
     "Verantwortlich":"Pascal",
     "Status":"Geplant",
     "EndZeit":"09:00",
-    "public":0.0
+    "public":0,
+    "eventteile":null
   },
   {
     "Uhrzeit":"09:30",
@@ -24,7 +26,8 @@
     "Verantwortlich":"Pascal",
     "Status":"Geplant",
     "EndZeit":"10:30",
-    "public":0.0
+    "public":0,
+    "eventteile":null
   },
   {
     "Uhrzeit":"11:30",
@@ -33,7 +36,10 @@
     "Verantwortlich":"Pascal & K\u00e4the",
     "Status":"Gebucht",
     "EndZeit":"12:00",
-    "public":1.0
+    "public":1,
+    "eventteile":[
+      "weisser_saal"
+    ]
   },
   {
     "Uhrzeit":"12:00",
@@ -42,7 +48,8 @@
     "Verantwortlich":"K\u00e4the & Pascal",
     "Status":"Geplant",
     "EndZeit":"14:00",
-    "public":1.0
+    "public":1,
+    "eventteile":"[\"weisser_saal\", \"essen\"]"
   },
   {
     "Uhrzeit":"15:00",
@@ -51,7 +58,8 @@
     "Verantwortlich":"K\u00e4the & Pascal",
     "Status":"Geplant",
     "EndZeit":"17:00",
-    "public":1.0
+    "public":1,
+    "eventteile":"[\"weisser_saal\", \"essen\"]"
   },
   {
     "Uhrzeit":"18:00",
@@ -60,7 +68,8 @@
     "Verantwortlich":"Catering K\u00fcchen",
     "Status":"Geplant",
     "EndZeit":"21:00",
-    "public":1.0
+    "public":true,
+    "eventteile":"[\"weisser_saal\", \"essen\"]"
   },
   {
     "Uhrzeit":"21:00",
@@ -69,6 +78,7 @@
     "Verantwortlich":"K\u00e4the & Pascal",
     "Status":"Geplant",
     "EndZeit":"23:59",
-    "public":true
+    "public":1,
+    "eventteile":"[\"weisser_saal\", \"essen\", \"party\"]"
   }
 ]

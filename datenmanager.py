@@ -2555,6 +2555,7 @@ class HochzeitsDatenManager:
             
             for index, guest in self.gaesteliste_df.iterrows():
                 credentials_list.append({
+                    'index': index,
                     'vorname': guest.get('Vorname', ''),
                     'nachname': guest.get('Nachname', ''),
                     'login_code': guest.get('guest_code', ''),

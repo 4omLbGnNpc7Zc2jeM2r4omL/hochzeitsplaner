@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadBrideGroomNames();
     loadZeitplan();
     setupResponsibleDropdowns();
+    ensureEventpartsToggle();
 });
 
 // Braut/Bräutigam Namen laden
@@ -403,6 +404,37 @@ function showEventDetails(index) {
                         <div class="detail-value">${event.Verantwortlich}</div>
                     </div>
                 </div>` : ''}
+                ${event.public && event.eventteile && event.eventteile.length > 0 ? `
+                <div class="detail-item">
+                    <div class="detail-icon">
+                        <i class="bi bi-people"></i>
+                    </div>
+                    <div class="detail-content">
+                        <div class="detail-label">Sichtbar für Eventteile</div>
+                        <div class="detail-value">
+                            ${event.eventteile.map(teil => {
+                                switch(teil) {
+                                    case 'weisser_saal': return '<span class="badge bg-secondary me-1"><i class="bi bi-building me-1"></i>Weißer Saal</span>';
+                                    case 'essen': return '<span class="badge bg-success me-1"><i class="bi bi-cup-hot me-1"></i>Essen</span>';
+                                    case 'party': return '<span class="badge bg-warning me-1"><i class="bi bi-music-note me-1"></i>Party</span>';
+                                    default: return `<span class="badge bg-light text-dark me-1">${teil}</span>`;
+                                }
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>` : ''}
+                ${event.public && (!event.eventteile || event.eventteile.length === 0) ? `
+                <div class="detail-item">
+                    <div class="detail-icon">
+                        <i class="bi bi-eye"></i>
+                    </div>
+                    <div class="detail-content">
+                        <div class="detail-label">Sichtbarkeit</div>
+                        <div class="detail-value">
+                            <span class="badge bg-info"><i class="bi bi-people me-1"></i>Für alle Gäste sichtbar</span>
+                        </div>
+                    </div>
+                </div>` : ''}
                 <div class="mt-3">
                     <button type="button" class="btn btn-outline-primary btn-sm me-2" onclick="editEvent(${index})">
                         <i class="bi bi-pencil me-1"></i>
@@ -510,6 +542,14 @@ function addEvent() {
         // Verantwortlich-Feld direkt verwenden
         const responsibleValue = document.getElementById('eventResponsible').value || '';
         
+        // Eventteile sammeln (nur wenn öffentlich)
+        const eventteile = [];
+        if (document.getElementById('eventPublic').checked) {
+            if (document.getElementById('eventWS').checked) eventteile.push('weisser_saal');
+            if (document.getElementById('eventEssen').checked) eventteile.push('essen');
+            if (document.getElementById('eventParty').checked) eventteile.push('party');
+        }
+        
         const eventData = {
             Uhrzeit: startTime,
             Programmpunkt: document.getElementById('eventTitle').value,
@@ -517,14 +557,15 @@ function addEvent() {
             EndZeit: endTime,
             Verantwortlich: responsibleValue,
             Status: document.getElementById('eventStatus').value,
-            public: document.getElementById('eventPublic').checked
+            public: document.getElementById('eventPublic').checked,
+            eventteile: eventteile
         };
         
         console.log('Event-Daten:', eventData);
         
         // Validierung
         if (!eventData.Uhrzeit || !eventData.Programmpunkt) {
-            alert('Bitte füllen Sie mindestens Beginn und Programmpunkt aus.');
+            showError('Bitte füllen Sie mindestens Beginn und Programmpunkt aus.');
             return;
         }
         
@@ -548,18 +589,18 @@ function addEvent() {
                 // Zeitplan neu laden
                 loadZeitplan();
                 
-                alert('Programmpunkt erfolgreich hinzugefügt!');
+                showSuccess('Programmpunkt erfolgreich hinzugefügt!');
             } else {
-                alert('Fehler beim Hinzufügen: ' + (data.error || 'Unbekannter Fehler'));
+                showError('Fehler beim Hinzufügen: ' + (data.error || 'Unbekannter Fehler'));
             }
         })
         .catch(error => {
             console.error('Fehler beim Hinzufügen:', error);
-            alert('Fehler beim Hinzufügen des Programmpunkts: ' + error.message);
+            showError('Fehler beim Hinzufügen des Programmpunkts: ' + error.message);
         });
     } catch (error) {
         console.error('Globaler Fehler in addEvent:', error);
-        alert('Ein unerwarteter Fehler ist aufgetreten: ' + error.message);
+        showError('Ein unerwarteter Fehler ist aufgetreten: ' + error.message);
     }
 }
 
@@ -632,7 +673,7 @@ function editEvent(index) {
     try {
         if (!currentZeitplan || !currentZeitplan[index]) {
             console.error('Event nicht gefunden:', {index, currentZeitplan});
-            alert('Event-Daten konnten nicht geladen werden.');
+            showError('Event-Daten konnten nicht geladen werden.');
             return;
         }
         
@@ -652,7 +693,25 @@ function editEvent(index) {
         document.getElementById('editEventStatus').value = event.Status;
         
         // Public-Flag setzen
-        document.getElementById('editEventPublic').checked = event.public || false;
+        const isPublic = event.public || false;
+        document.getElementById('editEventPublic').checked = isPublic;
+        
+        // Eventteile setzen
+        const eventteile = event.eventteile || [];
+        document.getElementById('editEventWS').checked = eventteile.includes('weisser_saal');
+        document.getElementById('editEventEssen').checked = eventteile.includes('essen');
+        document.getElementById('editEventParty').checked = eventteile.includes('party');
+        
+        // Eventteile-Bereich mit toggleEventParts korrekt anzeigen/verstecken
+        if (typeof toggleEventParts === 'function') {
+            toggleEventParts('editEventParts', isPublic);
+        } else {
+            // Fallback falls toggleEventParts nicht verfügbar
+            const editEventPartsDiv = document.getElementById('editEventParts');
+            if (editEventPartsDiv) {
+                editEventPartsDiv.style.display = isPublic ? 'block' : 'none';
+            }
+        }
         
         console.log('Modal-Felder gefüllt');
         
@@ -700,11 +759,11 @@ function editEvent(index) {
             }
         } else {
             console.error('Edit Modal Element nicht gefunden');
-            alert('Modal konnte nicht gefunden werden.');
+            showError('Modal konnte nicht gefunden werden.');
         }
     } catch (globalError) {
         console.error('Globaler Fehler in editEvent:', globalError);
-        alert('Ein unerwarteter Fehler ist aufgetreten: ' + globalError.message);
+        showError('Ein unerwarteter Fehler ist aufgetreten: ' + globalError.message);
     }
 }
 
@@ -721,6 +780,14 @@ function saveEditEvent() {
         // Verantwortlich-Feld direkt verwenden
         const editResponsibleValue = document.getElementById('editEventResponsible').value || '';
         
+        // Eventteile sammeln (nur wenn öffentlich)
+        const eventteile = [];
+        if (document.getElementById('editEventPublic').checked) {
+            if (document.getElementById('editEventWS').checked) eventteile.push('weisser_saal');
+            if (document.getElementById('editEventEssen').checked) eventteile.push('essen');
+            if (document.getElementById('editEventParty').checked) eventteile.push('party');
+        }
+        
         const eventData = {
             Uhrzeit: startTime,
             Programmpunkt: document.getElementById('editEventTitle').value,
@@ -728,19 +795,20 @@ function saveEditEvent() {
             EndZeit: endTime,
             Verantwortlich: editResponsibleValue,
             Status: document.getElementById('editEventStatus').value,
-            public: document.getElementById('editEventPublic').checked
+            public: document.getElementById('editEventPublic').checked,
+            eventteile: eventteile
         };
         
         console.log('Update-Daten:', {index, eventData});
         
         // Validierung
         if (!eventData.Uhrzeit || !eventData.Programmpunkt) {
-            alert('Bitte füllen Sie mindestens Beginn und Programmpunkt aus.');
+            showError('Bitte füllen Sie mindestens Beginn und Programmpunkt aus.');
             return;
         }
         
         if (index < 0 || isNaN(index)) {
-            alert('Ungültiger Event-Index.');
+            showError('Ungültiger Event-Index.');
             return;
         }
         
@@ -774,18 +842,18 @@ function saveEditEvent() {
                     }
                 });
                 
-                alert('Programmpunkt erfolgreich aktualisiert!');
+                showSuccess('Programmpunkt erfolgreich aktualisiert!');
             } else {
-                alert('Fehler beim Aktualisieren: ' + (data.error || 'Unbekannter Fehler'));
+                showError('Fehler beim Aktualisieren: ' + (data.error || 'Unbekannter Fehler'));
             }
         })
         .catch(error => {
             console.error('Fehler beim Aktualisieren:', error);
-            alert('Fehler beim Aktualisieren des Programmpunkts: ' + error.message);
+            showError('Fehler beim Aktualisieren des Programmpunkts: ' + error.message);
         });
     } catch (error) {
         console.error('Globaler Fehler in saveEditEvent:', error);
-        alert('Ein unerwarteter Fehler ist aufgetreten: ' + error.message);
+        showError('Ein unerwarteter Fehler ist aufgetreten: ' + error.message);
     }
 }
 
@@ -810,12 +878,12 @@ function deleteEvent() {
         } else if (selectedEventIndex !== null) {
             index = selectedEventIndex;
         } else {
-            alert('Kein Event zum Löschen ausgewählt.');
+            showError('Kein Event zum Löschen ausgewählt.');
             return;
         }
         
         if (index < 0 || isNaN(index)) {
-            alert('Ungültiger Event-Index.');
+            showError('Ungültiger Event-Index.');
             return;
         }
         
@@ -851,18 +919,18 @@ function deleteEvent() {
                     }
                 });
                 
-                alert('Programmpunkt erfolgreich gelöscht!');
+                showSuccess('Programmpunkt erfolgreich gelöscht!');
             } else {
-                alert('Fehler beim Löschen: ' + (data.error || 'Unbekannter Fehler'));
+                showError('Fehler beim Löschen: ' + (data.error || 'Unbekannter Fehler'));
             }
         })
         .catch(error => {
             console.error('Fehler beim Löschen:', error);
-            alert('Fehler beim Löschen des Programmpunkts: ' + error.message);
+            showError('Fehler beim Löschen des Programmpunkts: ' + error.message);
         });
     } catch (error) {
         console.error('Globaler Fehler in deleteEvent:', error);
-        alert('Ein unerwarteter Fehler ist aufgetreten: ' + error.message);
+        showError('Ein unerwarteter Fehler ist aufgetreten: ' + error.message);
     }
 }
 
@@ -946,7 +1014,7 @@ function exportToICal() {
 
 function generateICalFile(weddingDate) {
     if (!currentZeitplan || currentZeitplan.length === 0) {
-        alert('Keine Termine zum Exportieren verfügbar');
+        showError('Keine Termine zum Exportieren verfügbar');
         return;
     }
     
@@ -1042,4 +1110,74 @@ function parseDurationToMinutes(duration) {
         return (hours * 60) + minutes;
     }
     return 30;
+}
+
+// Eventteile Toggle Setup
+function setupEventpartsToggle() {
+    // Add Event Modal
+    const eventPublicCheckbox = document.getElementById('eventPublic');
+    const eventPartsDiv = document.getElementById('eventParts');
+    
+    if (eventPublicCheckbox && eventPartsDiv) {
+        eventPublicCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                eventPartsDiv.style.display = 'block';
+                // Standard: alle Eventteile auswählen
+                const wsCheckbox = document.getElementById('eventWS');
+                const essenCheckbox = document.getElementById('eventEssen');
+                const partyCheckbox = document.getElementById('eventParty');
+                
+                if (wsCheckbox) wsCheckbox.checked = true;
+                if (essenCheckbox) essenCheckbox.checked = true;
+                if (partyCheckbox) partyCheckbox.checked = true;
+            } else {
+                eventPartsDiv.style.display = 'none';
+                // Alle Eventteile deaktivieren
+                const wsCheckbox = document.getElementById('eventWS');
+                const essenCheckbox = document.getElementById('eventEssen');
+                const partyCheckbox = document.getElementById('eventParty');
+                
+                if (wsCheckbox) wsCheckbox.checked = false;
+                if (essenCheckbox) essenCheckbox.checked = false;
+                if (partyCheckbox) partyCheckbox.checked = false;
+            }
+        });
+    }
+    
+    // Edit Event Modal
+    const editEventPublicCheckbox = document.getElementById('editEventPublic');
+    const editEventPartsDiv = document.getElementById('editEventParts');
+    
+    if (editEventPublicCheckbox && editEventPartsDiv) {
+        editEventPublicCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                editEventPartsDiv.style.display = 'block';
+            } else {
+                editEventPartsDiv.style.display = 'none';
+                // Alle Eventteile deaktivieren
+                const wsCheckbox = document.getElementById('editEventWS');
+                const essenCheckbox = document.getElementById('editEventEssen');
+                const partyCheckbox = document.getElementById('editEventParty');
+                
+                if (wsCheckbox) wsCheckbox.checked = false;
+                if (essenCheckbox) essenCheckbox.checked = false;
+                if (partyCheckbox) partyCheckbox.checked = false;
+            }
+        });
+    }
+}
+
+// Robustere Setup-Funktion mit Retry-Mechanismus
+function ensureEventpartsToggle() {
+    setupEventpartsToggle();
+    
+    // Retry nach kurzer Verzögerung für den Fall, dass die Modals noch nicht geladen sind
+    setTimeout(() => {
+        setupEventpartsToggle();
+    }, 500);
+    
+    // Nochmals nach längerer Verzögerung
+    setTimeout(() => {
+        setupEventpartsToggle();
+    }, 2000);
 }

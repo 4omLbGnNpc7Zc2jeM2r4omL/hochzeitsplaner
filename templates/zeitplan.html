@@ -146,11 +146,40 @@
                     </div>
                     <div class="mb-3">
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="eventPublic" value="true">
+                            <input class="form-check-input" type="checkbox" id="eventPublic" value="true" 
+                                   onchange="toggleEventParts('eventParts', this.checked)">
                             <label class="form-check-label" for="eventPublic">
                                 <i class="bi bi-eye me-2"></i>
                                 <strong>Für Gäste sichtbar</strong>
                                 <small class="d-block text-muted">Wenn aktiviert, können Gäste diesen Programmpunkt im Hochzeitsablauf sehen</small>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="eventParts" style="display: none;">
+                        <label for="eventEventteile" class="form-label">
+                            <i class="bi bi-people me-2"></i>
+                            Sichtbar für Eventteile
+                        </label>
+                        <div class="form-text mb-2">Wählen Sie die Eventteile aus, für die dieser Programmpunkt sichtbar sein soll:</div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="eventWS" value="weisser_saal">
+                            <label class="form-check-label" for="eventWS">
+                                <i class="bi bi-building me-1"></i>
+                                Weißer Saal (Standesamtliche Trauung)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="eventEssen" value="essen">
+                            <label class="form-check-label" for="eventEssen">
+                                <i class="bi bi-cup-hot me-1"></i>
+                                Essen
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="eventParty" value="party">
+                            <label class="form-check-label" for="eventParty">
+                                <i class="bi bi-music-note me-1"></i>
+                                Party
                             </label>
                         </div>
                     </div>
@@ -221,11 +250,40 @@
                     </div>
                     <div class="mb-3">
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="editEventPublic" value="true">
+                            <input class="form-check-input" type="checkbox" id="editEventPublic" value="true"
+                                   onchange="toggleEventParts('editEventParts', this.checked)">
                             <label class="form-check-label" for="editEventPublic">
                                 <i class="bi bi-eye me-2"></i>
                                 <strong>Für Gäste sichtbar</strong>
                                 <small class="d-block text-muted">Wenn aktiviert, können Gäste diesen Programmpunkt im Hochzeitsablauf sehen</small>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="editEventParts" style="display: none;">
+                        <label for="editEventEventteile" class="form-label">
+                            <i class="bi bi-people me-2"></i>
+                            Sichtbar für Eventteile
+                        </label>
+                        <div class="form-text mb-2">Wählen Sie die Eventteile aus, für die dieser Programmpunkt sichtbar sein soll:</div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="editEventWS" value="weisser_saal">
+                            <label class="form-check-label" for="editEventWS">
+                                <i class="bi bi-building me-1"></i>
+                                Weißer Saal (Standesamtliche Trauung)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="editEventEssen" value="essen">
+                            <label class="form-check-label" for="editEventEssen">
+                                <i class="bi bi-cup-hot me-1"></i>
+                                Essen
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="editEventParty" value="party">
+                            <label class="form-check-label" for="editEventParty">
+                                <i class="bi bi-music-note me-1"></i>
+                                Party
                             </label>
                         </div>
                     </div>
@@ -250,4 +308,45 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/zeitplan.js') }}"></script>
+<script>
+// Inline Toggle-Funktion für Eventteile
+function toggleEventParts(partsId, isChecked) {
+    const partsDiv = document.getElementById(partsId);
+    if (partsDiv) {
+        partsDiv.style.display = isChecked ? 'block' : 'none';
+        
+        // Wenn aktiviert, alle Eventteile auswählen (nur für Add-Modal)
+        if (isChecked && partsId === 'eventParts') {
+            const wsCheckbox = document.getElementById('eventWS');
+            const essenCheckbox = document.getElementById('eventEssen');
+            const partyCheckbox = document.getElementById('eventParty');
+            
+            if (wsCheckbox) wsCheckbox.checked = true;
+            if (essenCheckbox) essenCheckbox.checked = true;
+            if (partyCheckbox) partyCheckbox.checked = true;
+        }
+        
+        // Wenn deaktiviert, alle Eventteile deaktivieren
+        if (!isChecked) {
+            if (partsId === 'eventParts') {
+                const wsCheckbox = document.getElementById('eventWS');
+                const essenCheckbox = document.getElementById('eventEssen');
+                const partyCheckbox = document.getElementById('eventParty');
+                
+                if (wsCheckbox) wsCheckbox.checked = false;
+                if (essenCheckbox) essenCheckbox.checked = false;
+                if (partyCheckbox) partyCheckbox.checked = false;
+            } else if (partsId === 'editEventParts') {
+                const wsCheckbox = document.getElementById('editEventWS');
+                const essenCheckbox = document.getElementById('editEventEssen');
+                const partyCheckbox = document.getElementById('editEventParty');
+                
+                if (wsCheckbox) wsCheckbox.checked = false;
+                if (essenCheckbox) essenCheckbox.checked = false;
+                if (partyCheckbox) partyCheckbox.checked = false;
+            }
+        }
+    }
+}
+</script>
 {% endblock %}

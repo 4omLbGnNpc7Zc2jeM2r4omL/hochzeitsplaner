@@ -1229,3 +1229,30 @@
     transform: translateY(-1px);
     border-color: #0d6efd;
 }
+
+/* Eventteile Styles */
+#eventParts, #editEventParts {
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    margin-top: 0.5rem;
+}
+
+#eventParts .form-check, #editEventParts .form-check {
+    margin-bottom: 0.5rem;
+}
+
+#eventParts .form-check:last-child, #editEventParts .form-check:last-child {
+    margin-bottom: 0;
+}
+
+#eventParts .form-check-label, #editEventParts .form-check-label {
+    font-weight: 500;
+    cursor: pointer;
+}
+
+#eventParts .form-check-input:checked, #editEventParts .form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}

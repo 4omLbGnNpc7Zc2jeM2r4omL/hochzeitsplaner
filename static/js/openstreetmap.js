@@ -1,35 +1,46 @@
 /**
  * OpenStreetMap Integration für Hochzeitsplaner
  * Verwendet Leaflet.js für Kartendarstellung ohne API-Keys
+ * v1.1 - Debug Control
  */
 
-console.log('🔄 Lade OpenStreetMap Integration...');
+// Debug-Modus - auf false setzen um alle Debug-Ausgaben zu deaktivieren
+const DEBUG_OPENSTREETMAP = false;
+
+// Debug-Helper-Funktion
+function debugLog(...args) {
+    if (DEBUG_OPENSTREETMAP) {
+        console.log(...args);
+    }
+}
+
+debugLog('🔄 Lade OpenStreetMap Integration...');
 
 // Debug: Teste window Objekt
-console.log('🔍 window verfügbar:', typeof window);
-console.log('🔍 document verfügbar:', typeof document);
+debugLog('🔍 window verfügbar:', typeof window);
+debugLog('🔍 document verfügbar:', typeof document);
 
 class OpenStreetMapIntegration {
     constructor() {
-        console.log('🏗️ OpenStreetMapIntegration Constructor gestartet');
+        debugLog('🏗️ OpenStreetMapIntegration Constructor gestartet');
         try {
             this.initialized = false;
-            console.log('✅ initialized = false gesetzt');
+            debugLog('✅ initialized = false gesetzt');
             
             this.maps = new Map(); // Speichert erstellte Karten
-            console.log('✅ maps Map erstellt');
+            debugLog('✅ maps Map erstellt');
             
             this.loadLeafletCSS();
-            console.log('✅ loadLeafletCSS aufgerufen');
+            debugLog('✅ loadLeafletCSS aufgerufen');
             
             // WICHTIG: loadLeafletJS ist async, aber Constructor kann nicht async sein
             // Daher wird initialized erst später auf true gesetzt
             this.loadLeafletJS().catch(error => {
                 console.error('❌ Fehler beim Laden von Leaflet.js:', error);
             });
-            console.log('✅ loadLeafletJS gestartet (async)');
+            debugLog('✅ loadLeafletJS gestartet (async)');
             
-            console.log('✅ OpenStreetMapIntegration Constructor abgeschlossen');
+            debugLog('✅ OpenStreetMapIntegration Constructor abgeschlossen');
         } catch (error) {
             console.error('❌ Fehler im OpenStreetMapIntegration Constructor:', error);
             throw error;
@@ -58,7 +69,7 @@ class OpenStreetMapIntegration {
                 script.crossOrigin = '';
                 script.onload = () => {
                     this.initialized = true;
-                    console.log('✅ Leaflet.js erfolgreich geladen');
+                    debugLog('✅ Leaflet.js erfolgreich geladen');
                     resolve();
                 };
                 script.onerror = () => {
@@ -69,7 +80,7 @@ class OpenStreetMapIntegration {
             });
         } else {
             this.initialized = true;
-            console.log('✅ Leaflet.js bereits verfügbar');
+            debugLog('✅ Leaflet.js bereits verfügbar');
             return Promise.resolve();
         }
     }
@@ -122,7 +133,7 @@ class OpenStreetMapIntegration {
             // Karte speichern für spätere Referenz
             this.maps.set(containerId, map);
 
-            console.log(`✅ Karte ${containerId} erfolgreich erstellt`);
+            debugLog(`✅ Karte ${containerId} erfolgreich erstellt`);
             return map;
 
         } catch (error) {
@@ -174,7 +185,7 @@ class OpenStreetMapIntegration {
             }
 
             const originalAddress = address.trim();
-            console.log(`🔍 Starte Geocoding für: "${originalAddress}"`);
+            debugLog(`🔍 Starte Geocoding für: "${originalAddress}"`);
 
             // Spezielle Behandlung für bekannte Aachen-Adressen
             const aachenSpecialCases = {
@@ -192,7 +203,7 @@ class OpenStreetMapIntegration {
             for (const [knownAddress, coords] of Object.entries(aachenSpecialCases)) {
                 if (normalizedAddress.includes(knownAddress.toLowerCase()) || 
                     knownAddress.toLowerCase().includes(normalizedAddress)) {
-                    console.log(`✅ Bekannte Adresse gefunden: ${originalAddress} → ${knownAddress}`);
+                    debugLog(`✅ Bekannte Adresse gefunden: ${originalAddress} → ${knownAddress}`);
                     return coords;
                 }
             }
@@ -219,12 +230,12 @@ class OpenStreetMapIntegration {
                 const searchTerm = searchStrategies[i];
                 if (!searchTerm || searchTerm.length < 3) continue;
                 
-                console.log(`🔍 Strategie ${i + 1}: "${searchTerm}"`);
+                debugLog(`🔍 Strategie ${i + 1}: "${searchTerm}"`);
                 
                 try {
                     const result = await this.tryGeocode(searchTerm, i + 1);
                     if (result) {
-                        console.log(`✅ Geocoding erfolgreich mit Strategie ${i + 1}: ${result.lat}, ${result.lng}`);
+                        debugLog(`✅ Geocoding erfolgreich mit Strategie ${i + 1}: ${result.lat}, ${result.lng}`);
                         return result;
                     }
                 } catch (strategyError) {
@@ -256,7 +267,7 @@ class OpenStreetMapIntegration {
         ];
         const url = `${baseUrl}?${params.join('&')}`;
         
-        console.log(`🌐 Nominatim URL (Strategie ${strategyNumber}): ${url}`);
+        debugLog(`🌐 Nominatim URL (Strategie ${strategyNumber}): ${url}`);
         
         // Timeout für die Anfrage hinzufügen
         const controller = new AbortController();
@@ -278,7 +289,7 @@ class OpenStreetMapIntegration {
         }
 
         const data = await response.json();
-        console.log(`📍 Geocoding Antwort (Strategie ${strategyNumber}):`, data);
+        debugLog(`📍 Geocoding Antwort (Strategie ${strategyNumber}):`, data);
 
         if (data && data.length > 0) {
             const result = data[0];
@@ -325,13 +336,13 @@ class OpenStreetMapIntegration {
                 return false;
             }
 
-            console.log(`🔍 Suche Adresse: "${address}"`);
+            debugLog(`🔍 Suche Adresse: "${address}"`);
             
             // Geocoding durchführen
             const result = await this.geocodeAddress(address);
             
             if (result && result.lat && result.lng) {
-                console.log(`� Zentriere Karte auf: ${result.lat}, ${result.lng}`);
+                debugLog(`� Zentriere Karte auf: ${result.lat}, ${result.lng}`);
                 
                 // Karte auf neue Position zentrieren mit angemessenem Zoom
                 map.setView([result.lat, result.lng], 15);
@@ -348,7 +359,7 @@ class OpenStreetMapIntegration {
                 `;
                 marker.bindPopup(popupContent);
                 
-                console.log(`✅ Karte erfolgreich zentriert und Marker hinzugefügt`);
+                debugLog(`✅ Karte erfolgreich zentriert und Marker hinzugefügt`);
                 return true;
                 
             } else {
@@ -451,7 +462,7 @@ class OpenStreetMapIntegration {
         if (map) {
             map.remove();
             this.maps.delete(containerId);
-            console.log(`✅ Karte ${containerId} entfernt`);
+            debugLog(`✅ Karte ${containerId} entfernt`);
         }
     }
 
@@ -460,7 +471,7 @@ class OpenStreetMapIntegration {
      */
     async createSimpleLocationMap(containerId, address, locationName = '') {
         try {
-            console.log(`🗺️ Erstelle einfache Karte für Container: ${containerId}, Adresse: "${address}"`);
+            debugLog(`🗺️ Erstelle einfache Karte für Container: ${containerId}, Adresse: "${address}"`);
             
             // Prüfe ob Container existiert
             const container = document.getElementById(containerId);
@@ -480,13 +491,13 @@ class OpenStreetMapIntegration {
             }
 
             if (address && address.trim()) {
-                console.log(`📍 Starte Geocoding für Adresse: "${address}"`);
+                debugLog(`📍 Starte Geocoding für Adresse: "${address}"`);
                 
                 try {
                     const result = await this.geocodeAddress(address);
                     
                     if (result && result.lat && result.lng) {
-                        console.log(`🎯 Geocoding erfolgreich! Setze Kartenansicht auf: ${result.lat}, ${result.lng}`);
+                        debugLog(`🎯 Geocoding erfolgreich! Setze Kartenansicht auf: ${result.lat}, ${result.lng}`);
                         
                         // Karte zentrieren mit optimiertem Zoom für Location-Anzeige
                         map.setView([result.lat, result.lng], 17, {
@@ -513,7 +524,7 @@ class OpenStreetMapIntegration {
                         
                         marker.bindPopup(popupContent);
                         
-                        console.log(`✅ Karte erfolgreich erstellt mit Adresse: "${address}"`);
+                        debugLog(`✅ Karte erfolgreich erstellt mit Adresse: "${address}"`);
                         return map;
                         
                     } else {
@@ -605,7 +616,7 @@ class OpenStreetMapIntegration {
 
 // Debug-Funktion für Geocoding-Tests
 window.testGeocoding = async function(address) {
-    console.log(`🧪 Teste Geocoding für: "${address}"`);
+    debugLog(`🧪 Teste Geocoding für: "${address}"`);
     
     try {
         // Direkter Test mit verschiedenen Ansätzen
@@ -617,7 +628,7 @@ window.testGeocoding = async function(address) {
         
         for (let i = 0; i < testUrls.length; i++) {
             const url = testUrls[i];
-            console.log(`🔍 Test ${i + 1}: ${url}`);
+            debugLog(`🔍 Test ${i + 1}: ${url}`);
             
             try {
                 const response = await fetch(url, {
@@ -627,19 +638,19 @@ window.testGeocoding = async function(address) {
                     }
                 });
                 
-                console.log(`📊 Response Status: ${response.status} ${response.statusText}`);
-                console.log(`📊 Response Headers:`, [...response.headers.entries()]);
+                debugLog(`📊 Response Status: ${response.status} ${response.statusText}`);
+                debugLog(`📊 Response Headers:`, [...response.headers.entries()]);
                 
                 if (response.ok) {
                     const text = await response.text();
-                    console.log(`📄 Raw Response:`, text);
+                    debugLog(`📄 Raw Response:`, text);
                     
                     const data = JSON.parse(text);
-                    console.log(`📍 Test ${i + 1} Ergebnis:`, data);
+                    debugLog(`📍 Test ${i + 1} Ergebnis:`, data);
                     
                     if (data && data.length > 0) {
                         const result = data[0];
-                        console.log(`✅ Test ${i + 1} erfolgreich: ${result.lat}, ${result.lon}`);
+                        debugLog(`✅ Test ${i + 1} erfolgreich: ${result.lat}, ${result.lon}`);
                         return { lat: parseFloat(result.lat), lng: parseFloat(result.lon), display_name: result.display_name };
                     } else {
                         console.warn(`⚠️ Test ${i + 1}: Keine Ergebnisse`);
@@ -661,43 +672,43 @@ window.testGeocoding = async function(address) {
     }
 }
 
-console.log('📚 OpenStreetMapIntegration Klasse definiert');
+debugLog('📚 OpenStreetMapIntegration Klasse definiert');
 
 // Debug: Teste Klassen-Instanziierung
-console.log('🏗️ Beginne Instanzerstellung...');
+debugLog('🏗️ Beginne Instanzerstellung...');
 try {
     // Instanz sofort erstellen
     window.openStreetMap = new OpenStreetMapIntegration();
-    console.log('🗺️ OpenStreetMap Instanz erstellt');
-    console.log('🔍 window.openStreetMap type:', typeof window.openStreetMap);
-    console.log('🔍 window.openStreetMap instanceof OpenStreetMapIntegration:', window.openStreetMap instanceof OpenStreetMapIntegration);
+    debugLog('🗺️ OpenStreetMap Instanz erstellt');
+    debugLog('🔍 window.openStreetMap type:', typeof window.openStreetMap);
+    debugLog('🔍 window.openStreetMap instanceof OpenStreetMapIntegration:', window.openStreetMap instanceof OpenStreetMapIntegration);
 } catch (error) {
     console.error('❌ Fehler beim Erstellen der OpenStreetMap Instanz:', error);
     console.error('❌ Error stack:', error.stack);
 }
 
 // Helper-Funktionen für einfache Nutzung
-console.log('🔧 Erstelle Helper-Funktionen...');
+debugLog('🔧 Erstelle Helper-Funktionen...');
 try {
     window.createLocationMap = async function(containerId, address, locationName = '') {
         return await window.openStreetMap.createSimpleLocationMap(containerId, address, locationName);
     };
-    console.log('✅ window.createLocationMap erstellt');
+    debugLog('✅ window.createLocationMap erstellt');
 
     window.createMultiLocationMap = async function(containerId, locations, options = {}) {
         return await window.openStreetMap.createMultiLocationMap(containerId, locations, options);
     };
-    console.log('✅ window.createMultiLocationMap erstellt');
+    debugLog('✅ window.createMultiLocationMap erstellt');
 } catch (error) {
     console.error('❌ Fehler beim Erstellen der Helper-Funktionen:', error);
 }
 
 // Neue Helper-Funktion: Erstellt Karte mit Backend-Koordinaten
-console.log('🌐 Erstelle Backend-Helper-Funktion...');
+debugLog('🌐 Erstelle Backend-Helper-Funktion...');
 try {
     window.createLocationMapFromBackend = async function(containerId, locationType, options = {}) {
         try {
-            console.log(`🗺️ Erstelle Karte für ${locationType} mit Backend-Koordinaten...`);
+            debugLog(`🗺️ Erstelle Karte für ${locationType} mit Backend-Koordinaten...`);
             
             // Koordinaten vom Backend holen
             const response = await fetch('/api/guest/location-coordinates', {
@@ -744,7 +755,7 @@ try {
             // Marker hinzufügen
             const marker = L.marker([coords.lat, coords.lng]).addTo(map);
             
-            console.log(`✅ Karte ${containerId} erfolgreich mit Backend-Koordinaten erstellt`);
+            debugLog(`✅ Karte ${containerId} erfolgreich mit Backend-Koordinaten erstellt`);
             return map;
 
         } catch (error) {
@@ -752,27 +763,27 @@ try {
             return null;
         }
     };
-    console.log('✅ window.createLocationMapFromBackend erstellt');
+    debugLog('✅ window.createLocationMapFromBackend erstellt');
 } catch (error) {
     console.error('❌ Fehler beim Erstellen der Backend-Helper-Funktion:', error);
 }
 
 // Instanz erstellen nur falls noch nicht vorhanden (redundante Prüfung für Sicherheit)
-console.log('🔍 Redundante Prüfung...');
+debugLog('🔍 Redundante Prüfung...');
 if (!window.openStreetMap) {
-    console.log('⚠️ window.openStreetMap nicht gefunden, erstelle redundante Instanz');
+    debugLog('⚠️ window.openStreetMap nicht gefunden, erstelle redundante Instanz');
     try {
         window.openStreetMap = new OpenStreetMapIntegration();
-        console.log('🔄 Redundante OpenStreetMap Instanz erstellt');
+        debugLog('🔄 Redundante OpenStreetMap Instanz erstellt');
     } catch (error) {
         console.error('❌ Fehler bei redundanter Instanzerstellung:', error);
     }
 } else {
-    console.log('✅ window.openStreetMap bereits vorhanden');
+    debugLog('✅ window.openStreetMap bereits vorhanden');
 }
 
-console.log('✅ OpenStreetMap Integration geladen');
-console.log('📊 Final Status:');
-console.log('  - window.openStreetMap:', typeof window.openStreetMap);
-console.log('  - window.createLocationMap:', typeof window.createLocationMap);
-console.log('  - window.createLocationMapFromBackend:', typeof window.createLocationMapFromBackend);
+debugLog('✅ OpenStreetMap Integration geladen');
+debugLog('📊 Final Status:');
+debugLog('  - window.openStreetMap:', typeof window.openStreetMap);
+debugLog('  - window.createLocationMap:', typeof window.createLocationMap);
+debugLog('  - window.createLocationMapFromBackend:', typeof window.createLocationMapFromBackend);

@@ -1,3 +1,17 @@
+/**
+ * Guest Dashboard v1.1 - Debug Control
+ */
+
+// Debug-Modus - auf false setzen um alle Debug-Ausgaben zu deaktivieren
+const DEBUG_GUEST_DASHBOARD = false;
+
+// Debug-Helper-Funktion
+function debugLog(...args) {
+    if (DEBUG_GUEST_DASHBOARD) {
+        console.log(...args);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     loadGuestData();
     loadZeitplanPreview();
@@ -32,20 +46,20 @@ let locationsData = null;
 let guestInformationen = null;
 
 function loadLocationData() {
-    console.log('🔄 Loading location data...');
+    debugLog('🔄 Loading location data...');
     
     const locationInfoDiv = document.getElementById('locationInfo');
     
     fetch('/api/guest/location')
         .then(response => {
-            console.log('📡 Location API response status:', response.status);
+            debugLog('📡 Location API response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            console.log('📍 Location data received:', data);
+            debugLog('📍 Location data received:', data);
             locationsData = data;
             
             // Locations anzeigen
@@ -71,10 +85,10 @@ function loadLocationData() {
 }
 
 async function initializeOpenStreetMap() {
-    console.log('🗺️ initializeOpenStreetMap called');
+    debugLog('🗺️ initializeOpenStreetMap called');
     
     if (!locationsData || !locationsData.success) {
-        console.log('⚠️ No locations data available for maps');
+        debugLog('⚠️ No locations data available for maps');
         return;
     }
 
@@ -83,12 +97,12 @@ async function initializeOpenStreetMap() {
     try {
         // Warte bis OpenStreetMap vollständig geladen ist
         if (typeof window.openStreetMap !== 'undefined') {
-            console.log('📚 OpenStreetMap Objekt gefunden, warte auf vollständige Initialisierung...');
+            debugLog('📚 OpenStreetMap Objekt gefunden, warte auf vollständige Initialisierung...');
             
             // Warte auf Leaflet
             let maxWait = 10; // Maximal 10 Sekunden warten
             while ((!window.openStreetMap.initialized || typeof L === 'undefined') && maxWait > 0) {
-                console.log(`⏳ Warte auf Leaflet... (${maxWait}s verbleibend)`);
+                debugLog(`⏳ Warte auf Leaflet... (${maxWait}s verbleibend)`);
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 maxWait--;
             }
@@ -99,20 +113,32 @@ async function initializeOpenStreetMap() {
                 return;
             }
             
-            console.log('✅ Leaflet erfolgreich geladen');
+            debugLog('✅ Leaflet erfolgreich geladen');
             
             let hasAnyMaps = false;
             
             // Standesamt Kartenvorschau
+            const standesamtContainer = document.getElementById('guestStandesamtMapPreview');
             if (locations.standesamt && locations.standesamt.adresse) {
-                console.log('🗺️ Creating OpenStreetMap for Standesamt');
+                debugLog('🗺️ Creating OpenStreetMap for Standesamt');
                 const success = await createGuestLocationMap('standesamt', locations.standesamt);
                 if (success) hasAnyMaps = true;
+                
+                // Container anzeigen
+                if (standesamtContainer) {
+                    standesamtContainer.style.display = 'block';
+                }
+            } else {
+                debugLog('🚫 Standesamt access denied or no data - hiding container');
+                // Container verstecken
+                if (standesamtContainer) {
+                    standesamtContainer.style.display = 'none';
+                }
             }
             
             // Hochzeitslocation Kartenvorschau  
             if (locations.hochzeitslocation && locations.hochzeitslocation.adresse) {
-                console.log('🗺️ Creating OpenStreetMap for Hochzeitslocation');
+                debugLog('🗺️ Creating OpenStreetMap for Hochzeitslocation');
                 const success = await createGuestLocationMap('hochzeitslocation', locations.hochzeitslocation);
                 if (success) hasAnyMaps = true;
             }
@@ -125,9 +151,9 @@ async function initializeOpenStreetMap() {
                 }
             }
             
-            console.log('✅ OpenStreetMap initialization completed, maps created:', hasAnyMaps);
+            debugLog('✅ OpenStreetMap initialization completed, maps created:', hasAnyMaps);
         } else {
-            console.log('❌ OpenStreetMap integration not available, using fallback');
+            debugLog('❌ OpenStreetMap integration not available, using fallback');
             initializeFallbackMaps();
         }
     } catch (error) {
@@ -141,7 +167,7 @@ async function createGuestLocationMap(locationType, locationData) {
     const mapPreviewId = `guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}MapPreview`;
     
     try {
-        console.log(`🗺️ Erstelle Gast-Karte für ${locationType}:`, locationData);
+        debugLog(`🗺️ Erstelle Gast-Karte für ${locationType}:`, locationData);
         
         const mapPreview = document.getElementById(mapPreviewId);
         if (mapPreview) {
@@ -153,7 +179,7 @@ async function createGuestLocationMap(locationType, locationData) {
         
         // Verwende die gleiche Logik wie in Einstellungen: direkte Adress-basierte Karten
         if (window.openStreetMap && locationData.adresse) {
-            console.log(`✅ Verwende Adress-basierte Karten für ${locationType}: ${locationData.adresse}`);
+            debugLog(`✅ Verwende Adress-basierte Karten für ${locationType}: ${locationData.adresse}`);
             // Verwende die bewährte Adress-basierte Kartenfunktion aus Einstellungen
             const map = await window.openStreetMap.createSimpleLocationMap(
                 mapContainerId, 
@@ -162,7 +188,7 @@ async function createGuestLocationMap(locationType, locationData) {
             );
             
             if (map) {
-                console.log(`✅ Adress-Karte für ${locationType} erfolgreich erstellt`);
+                debugLog(`✅ Adress-Karte für ${locationType} erfolgreich erstellt`);
                 return true;
             }
         }
@@ -180,10 +206,10 @@ async function createGuestLocationMap(locationType, locationData) {
     }
 }function initializeFallbackMaps() {
     // Fallback-Implementierung für Kartenvorschauen
-    console.log('initializeFallbackMaps called - creating fallback map previews');
+    debugLog('initializeFallbackMaps called - creating fallback map previews');
     
     if (!locationsData || !locationsData.success) {
-        console.log('No locations data available for fallback maps');
+        debugLog('No locations data available for fallback maps');
         return;
     }
     
@@ -192,14 +218,14 @@ async function createGuestLocationMap(locationType, locationData) {
     
     // Standesamt Kartenvorschau
     if (locations.standesamt && locations.standesamt.adresse) {
-        console.log('Creating fallback map preview for Standesamt');
+        debugLog('Creating fallback map preview for Standesamt');
         showFallbackLocationMap('standesamt', locations.standesamt);
         hasAnyMaps = true;
     }
     
     // Hochzeitslocation Kartenvorschau  
     if (locations.hochzeitslocation && locations.hochzeitslocation.adresse) {
-        console.log('Creating fallback map preview for Hochzeitslocation');
+        debugLog('Creating fallback map preview for Hochzeitslocation');
         showFallbackLocationMap('hochzeitslocation', locations.hochzeitslocation);
         hasAnyMaps = true;
     }
@@ -214,7 +240,7 @@ async function createGuestLocationMap(locationType, locationData) {
 }
 
 function showFallbackLocationMap(locationType, locationData) {
-    console.log(`Creating fallback map for ${locationType}:`, locationData);
+    debugLog(`Creating fallback map for ${locationType}:`, locationData);
     
     const mapContainerId = `guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}Map`;
     const mapPreviewId = `guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}MapPreview`;
@@ -223,7 +249,7 @@ function showFallbackLocationMap(locationType, locationData) {
     const mapPreview = document.getElementById(mapPreviewId);
     
     if (!mapContainer || !mapPreview) {
-        console.log(`Map elements not found for ${locationType}`);
+        debugLog(`Map elements not found for ${locationType}`);
         return;
     }
 
@@ -276,7 +302,7 @@ function displayLocationInformation(locations) {
     
     mapFrameElement.src = dataUrl;
     mapPreviewDiv.style.display = 'block';
-    console.log('Map link fallback created');
+    debugLog('Map link fallback created');
 }
 
 function displayLocationInfo() {
@@ -337,23 +363,26 @@ function displayLocationInfo() {
 }
 
 function loadGuestInformationen() {
-    console.log('Loading guest informationen...');
+    debugLog('Loading guest informationen...');
     fetch('/api/guest/informationen')
         .then(response => {
-            console.log('Guest informationen API response status:', response.status);
+            debugLog('Guest informationen API response status:', response.status);
             return response.json();
         })
         .then(data => {
-            console.log('Guest informationen data received:', data);
+            debugLog('Guest informationen data received:', data);
             if (data.success && data.informationen) {
                 guestInformationen = data.informationen;
-                displayGuestInformationen();
+                debugLog('✅ guestInformationen gesetzt:', guestInformationen);
                 
                 // Aktualisiere die Plural-Texte nach dem Laden der Informationen
                 const personenAnzahlInput = document.getElementById('personenAnzahl');
                 if (personenAnzahlInput) {
                     const currentPersonen = parseInt(personenAnzahlInput.max) || parseInt(personenAnzahlInput.value) || 1;
                     updateInformationenTexts(currentPersonen > 1);
+                } else {
+                    // Fallback: Nutze "mehrere" als Standard
+                    updateInformationenTexts(true);
                 }
             }
         })
@@ -364,13 +393,13 @@ function loadGuestInformationen() {
 
 function displayGuestInformationen() {
     if (!guestInformationen) {
-        console.log('No guest informationen to display');
+        debugLog('No guest informationen to display');
         return;
     }
     
     const informationenContainer = document.getElementById('guestInformationenContainer');
     if (!informationenContainer) {
-        console.log('Guest informationen container not found');
+        debugLog('Guest informationen container not found');
         return;
     }
     
@@ -407,11 +436,11 @@ function displayGuestInformationen() {
 }
 
 function loadGuestData() {
-    console.log('🔄 Loading guest data...');
+    debugLog('🔄 Loading guest data...');
     const guestId = new URLSearchParams(window.location.search).get('id');
     
     if (!guestId) {
-        console.log('ℹ️ No guest ID provided in URL - loading session-based guest data');
+        debugLog('ℹ️ No guest ID provided in URL - loading session-based guest data');
         // Für eingeloggte Gäste laden wir Session-Daten
         loadSessionGuestData();
         return;
@@ -419,14 +448,14 @@ function loadGuestData() {
     
     fetch(`/api/guest/data?id=${guestId}`)
         .then(response => {
-            console.log('📊 Guest data API response status:', response.status);
+            debugLog('📊 Guest data API response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            console.log('📊 Guest data received:', data);
+            debugLog('📊 Guest data received:', data);
             displayGuestData(data);
         })
         .catch(error => {
@@ -440,18 +469,18 @@ function loadGuestData() {
 
 // Neue Funktion für Session-basierte Gäste
 function loadSessionGuestData() {
-    console.log('🔄 Loading session-based guest data...');
+    debugLog('🔄 Loading session-based guest data...');
     
     fetch('/api/guest/data')
         .then(response => {
-            console.log('📊 Session guest data API response status:', response.status);
+            debugLog('📊 Session guest data API response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            console.log('📊 Session guest data received:', data);
+            debugLog('📊 Session guest data received:', data);
             if (data.success && data.guest) {
                 updateGuestFormLimits(data.guest);
             }
@@ -463,7 +492,7 @@ function loadSessionGuestData() {
 
 // Neue Funktion um Formular-Limits zu setzen
 function updateGuestFormLimits(guestData) {
-    console.log('🔧 Updating form limits for guest:', guestData);
+    debugLog('🔧 Updating form limits for guest:', guestData);
     
     const personenAnzahlInput = document.getElementById('personenAnzahl');
     const maxPersonenSpan = document.getElementById('maxPersonen');
@@ -481,7 +510,7 @@ function updateGuestFormLimits(guestData) {
         // Neue Funktion: Update der Plural-/Singular-Texte
         updatePluralTexts(maxPersonen);
         
-        console.log(`✅ Person limits updated: max=${maxPersonen}, current=${personenAnzahlInput.value}`);
+        debugLog(`✅ Person limits updated: max=${maxPersonen}, current=${personenAnzahlInput.value}`);
     }
 }
 
@@ -527,7 +556,7 @@ function updatePluralTexts(personenanzahl) {
     // Informationsbereiche aktualisieren (falls guestInformationen geladen wurden)
     updateInformationenTexts(isPlural);
     
-    console.log(`✅ Plural texts updated for ${personenanzahl} person(s), isPlural: ${isPlural}`);
+    debugLog(`✅ Plural texts updated for ${personenanzahl} person(s), isPlural: ${isPlural}`);
 }
 
 // Hilfsfunktion für die Aktualisierung der Informationen-Texte
@@ -574,6 +603,42 @@ function updateInformationenTexts(isPlural) {
                 dresscodeText.textContent = dresscodeInfo;
             }
         }
+        
+        // WhatsApp-Button konfigurieren
+        updateWhatsAppButton();
+    }
+}
+
+function updateWhatsAppButton() {
+    const whatsappContainer = document.getElementById('whatsappContainer');
+    const whatsappLink = document.getElementById('whatsappLink');
+    
+    debugLog('🔍 WhatsApp Button Debug:');
+    debugLog('  - whatsappContainer gefunden:', !!whatsappContainer);
+    debugLog('  - whatsappLink gefunden:', !!whatsappLink);
+    debugLog('  - guestInformationen:', guestInformationen);
+    debugLog('  - guestInformationen.kontakt:', guestInformationen?.kontakt);
+    debugLog('  - whatsapp_nummer:', guestInformationen?.kontakt?.whatsapp_nummer);
+    
+    // Quick-Fix: Nutze die WhatsApp-Nummer aus settings.json direkt
+    const fallbackNumber = "+4915140737042";
+    const whatsappNumber = guestInformationen?.kontakt?.whatsapp_nummer || fallbackNumber;
+    
+    if (whatsappContainer && whatsappLink && whatsappNumber) {
+        // WhatsApp-URL erstellen (internationale Nummer ohne +, ohne vordefinierte Nachricht)
+        const cleanNumber = whatsappNumber.replace(/\D/g, '');
+        const whatsappUrl = `https://wa.me/${cleanNumber}`;
+        
+        whatsappLink.href = whatsappUrl;
+        whatsappLink.target = '_blank';
+        whatsappContainer.style.display = 'block';
+        
+        debugLog('✅ WhatsApp-Button konfiguriert:', whatsappUrl);
+    } else {
+        if (whatsappContainer) {
+            whatsappContainer.style.display = 'none';
+        }
+        debugLog('❌ WhatsApp-Button versteckt - Bedingung nicht erfüllt');
     }
 }
 
@@ -629,7 +694,7 @@ function displayMenuOptions(menuOptionen, ausgewaehlt) {
     const menuContainer = document.getElementById('menuOptions');
     
     if (!menuContainer) {
-        console.log('Menu container not found');
+        debugLog('Menu container not found');
         return;
     }
     
@@ -661,7 +726,7 @@ function handleStatusChange() {
     const additionalFields = document.getElementById('additionalFields');
     
     if (!statusElement || !additionalFields) {
-        console.log('Status change elements not found');
+        debugLog('Status change elements not found');
         return;
     }
     
@@ -698,7 +763,7 @@ function saveRsvp() {
         menu_auswahl: menuAuswahl
     };
     
-    console.log('Saving RSVP data:', rsvpData);
+    debugLog('Saving RSVP data:', rsvpData);
     
     fetch('/api/guest/rsvp', {
         method: 'POST',
@@ -709,7 +774,7 @@ function saveRsvp() {
     })
     .then(response => response.json())
     .then(data => {
-        console.log('RSVP save response:', data);
+        debugLog('RSVP save response:', data);
         if (data.success) {
             showSuccessMessage('RSVP erfolgreich gespeichert!');
         } else {
@@ -723,20 +788,20 @@ function saveRsvp() {
 }
 
 function loadZeitplanPreview() {
-    console.log('🔄 Loading zeitplan preview...');
+    debugLog('🔄 Loading zeitplan preview...');
     
     const zeitplanPreviewDiv = document.getElementById('zeitplanPreview');
     
     fetch('/api/guest/zeitplan_preview')
         .then(response => {
-            console.log('📅 Zeitplan API response status:', response.status);
+            debugLog('📅 Zeitplan API response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            console.log('📅 Zeitplan data received:', data);
+            debugLog('📅 Zeitplan data received:', data);
             displayZeitplanPreview(data);
         })
         .catch(error => {
@@ -806,7 +871,7 @@ function displayZeitplanPreview(response) {
 
 // Neue Funktion für personalisierte Begrüßungsnachricht
 function updatePersonalizedWelcome() {
-    console.log('🔄 Updating personalized welcome message...');
+    debugLog('🔄 Updating personalized welcome message...');
     
     fetch('/api/guest/data')
         .then(response => {
@@ -816,7 +881,7 @@ function updatePersonalizedWelcome() {
             return response.json();
         })
         .then(data => {
-            console.log('📊 Guest data for welcome message:', data);
+            debugLog('📊 Guest data for welcome message:', data);
             if (data.success && data.guest) {
                 displayPersonalizedWelcome(data.guest);
             }

@@ -1050,7 +1050,17 @@ def find_free_port(start_port=8081):
 def clean_json_data(data):
     """Bereinigt Daten für JSON-Serialisierung"""
     if isinstance(data, dict):
-        return {key: clean_json_data(value) for key, value in data.items()}
+        cleaned = {}
+        for key, value in data.items():
+            # Spezielle Behandlung für eventteile
+            if key == 'eventteile' and isinstance(value, str):
+                try:
+                    cleaned[key] = json.loads(value)
+                except (json.JSONDecodeError, TypeError):
+                    cleaned[key] = []
+            else:
+                cleaned[key] = clean_json_data(value)
+        return cleaned
     elif isinstance(data, list):
         return [clean_json_data(item) for item in data]
     elif pd.isna(data) or (isinstance(data, float) and str(data) == 'nan'):
@@ -1621,6 +1631,33 @@ def get_guest_zeitplan_preview():
                 'success': True,
                 'events': []
             })
+
+        # Gast-Daten laden
+        guest_id = session.get('guest_id')
+        guest_info = None
+        if guest_id is not None:
+            try:
+                # guest_id ist der DataFrame-Index (0-basiert), nicht 1-basiert!
+                guest_index = int(guest_id)
+                if guest_index >= 0 and guest_index < len(data_manager.gaesteliste_df):
+                    guest_row = data_manager.gaesteliste_df.iloc[guest_index]
+                    guest_info = guest_row.to_dict()
+                    
+                    # Pandas-Werte zu Python-Typen konvertieren
+                    guest_data = {}
+                    for key, value in guest_info.items():
+                        if pd.isna(value):
+                            guest_data[key] = None
+                        elif hasattr(value, 'item'):  # pandas scalars
+                            guest_data[key] = value.item()
+                        else:
+                            guest_data[key] = value
+                    guest_info = guest_data
+                    
+                    # Debug-Log für alle Gäste
+                    logger.info(f"Guest {guest_index} ({guest_info.get('Nachname', 'Unknown')}) - Weisser_Saal: {guest_info.get('Weisser_Saal')}, Anzahl_Essen: {guest_info.get('Anzahl_Essen')}, Anzahl_Party: {guest_info.get('Anzahl_Party')}")
+            except (IndexError, ValueError):
+                pass
         
         # DataFrame zu Liste von Dictionaries konvertieren
         zeitplan_events = []
@@ -1635,8 +1672,50 @@ def get_guest_zeitplan_preview():
                     event_dict[key] = value
             zeitplan_events.append(event_dict)
         
-        # Nur öffentliche Events filtern
-        public_events = [event for event in zeitplan_events if event.get('public', False)]
+        # Nur öffentliche Events filtern mit Eventteile-Berücksichtigung
+        public_events = []
+        for event in zeitplan_events:
+            if not event.get('public', False):
+                continue
+                
+            # Eventteile-Filter anwenden
+            eventteile = event.get('eventteile', [])
+            
+            # Eventteile normalisieren (Array oder JSON-String zu Array)
+            if isinstance(eventteile, str):
+                try:
+                    eventteile = json.loads(eventteile)
+                except (json.JSONDecodeError, TypeError):
+                    eventteile = []
+            elif not isinstance(eventteile, list):
+                eventteile = []
+                
+            if not eventteile:  # Wenn keine Eventteile definiert, für alle sichtbar
+                public_events.append(event)
+                continue
+                
+            # Prüfen, ob Gast an einem der Eventteile teilnimmt (numerische Felder prüfen)
+            guest_participates = False
+            if guest_info:
+                # Sichere Konvertierung zu int
+                weisser_saal = int(guest_info.get('Weisser_Saal', 0) or 0)
+                anzahl_essen = int(guest_info.get('Anzahl_Essen', 0) or 0)
+                anzahl_party = int(guest_info.get('Anzahl_Party', 0) or 0)
+                
+                # Debug-Log für Bartmann
+                if 'Bartmann' in guest_info.get('Nachname', ''):
+                    logger.info(f"Bartmann Preview Debug - Event: {event.get('Programmpunkt')}, eventteile: {eventteile}, weisser_saal: {weisser_saal}, anzahl_essen: {anzahl_essen}, anzahl_party: {anzahl_party}")
+                
+                if 'weisser_saal' in eventteile and weisser_saal > 0:
+                    guest_participates = True
+                if 'essen' in eventteile and anzahl_essen > 0:
+                    guest_participates = True
+                if 'party' in eventteile and anzahl_party > 0:
+                    guest_participates = True
+            
+            # Event NUR hinzufügen wenn Gast teilnimmt (Fallback entfernt!)
+            if guest_participates:
+                public_events.append(event)
         
         # Nach Startzeit sortieren
         public_events.sort(key=lambda x: x.get('Uhrzeit', ''))
@@ -1662,6 +1741,38 @@ def get_guest_location():
         if not data_manager:
             return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
         
+        # Gast-Daten laden für Berechtigungsprüfung
+        guest_id = session.get('guest_id')
+        guest_info = None
+        guest_participates_weisser_saal = False
+        
+        if guest_id is not None:
+            try:
+                guest_index = int(guest_id)
+                
+                if guest_index >= 0 and guest_index < len(data_manager.gaesteliste_df):
+                    guest_row = data_manager.gaesteliste_df.iloc[guest_index]
+                    guest_info = guest_row.to_dict()
+                    
+                    # Pandas-Werte zu Python-Typen konvertieren
+                    guest_data = {}
+                    for key, value in guest_info.items():
+                        if pd.isna(value):
+                            guest_data[key] = None
+                        elif hasattr(value, 'item'):
+                            guest_data[key] = value.item()
+                        else:
+                            guest_data[key] = value
+                    guest_info = guest_data
+                    
+                    # Prüfen ob Gast am Weißen Saal teilnimmt
+                    weisser_saal = int(guest_info.get('Weisser_Saal', 0) or 0)
+                    guest_participates_weisser_saal = weisser_saal > 0
+                    
+            except (IndexError, ValueError) as e:
+                logger.error(f"DEBUG: Fehler beim Laden der Gastdaten: {e}")
+                pass
+        
         # Zuerst aus hochzeit_config.json laden
         config = data_manager.load_config()
         logger.info(f"Geladene Config für Location: {config}")
@@ -1670,10 +1781,14 @@ def get_guest_location():
         
         # 1. Neue Struktur: locations.standesamt und locations.hochzeitslocation
         if config and 'locations' in config:
-            if 'standesamt' in config['locations']:
+            # Standesamt nur anzeigen wenn Gast berechtigt ist
+            if 'standesamt' in config['locations'] and guest_participates_weisser_saal:
                 locations['standesamt'] = config['locations']['standesamt']
-                logger.info(f"Standesamt aus config gefunden: {locations['standesamt']}")
+                logger.info(f"Standesamt aus config gefunden (Gast berechtigt): {locations['standesamt']}")
+            elif 'standesamt' in config['locations']:
+                logger.info(f"Standesamt aus config gefunden, aber Gast nicht berechtigt (Weisser_Saal: {guest_info.get('Weisser_Saal', 0) if guest_info else 0})")
             
+            # Hochzeitslocation immer anzeigen (alle Gäste dürfen die Location sehen)
             if 'hochzeitslocation' in config['locations']:
                 locations['hochzeitslocation'] = config['locations']['hochzeitslocation']
                 logger.info(f"Hochzeitslocation aus config gefunden: {locations['hochzeitslocation']}")
@@ -1769,9 +1884,13 @@ def get_guest_informationen():
             if kategorie not in gaeste_info:
                 gaeste_info[kategorie] = default_info[kategorie]
             else:
+                # Merge einzelne Felder, behalte zusätzliche Felder wie whatsapp_nummer
                 for typ in default_info[kategorie]:
                     if typ not in gaeste_info[kategorie]:
                         gaeste_info[kategorie][typ] = default_info[kategorie][typ]
+        
+        # Debug: Log die finale gaeste_info
+        logger.info(f"Final gaeste_info being sent: {gaeste_info}")
         
         return jsonify({
             'success': True,
@@ -1794,6 +1913,36 @@ def get_guest_location_coordinates():
         import requests
         import time
         
+        # Gast-Daten laden für Berechtigungsprüfung
+        guest_id = session.get('guest_id')
+        guest_info = None
+        guest_participates_weisser_saal = False
+        
+        if guest_id is not None:
+            try:
+                guest_index = int(guest_id)
+                if guest_index >= 0 and guest_index < len(data_manager.gaesteliste_df):
+                    guest_row = data_manager.gaesteliste_df.iloc[guest_index]
+                    guest_info = guest_row.to_dict()
+                    
+                    # Pandas-Werte zu Python-Typen konvertieren
+                    guest_data = {}
+                    for key, value in guest_info.items():
+                        if pd.isna(value):
+                            guest_data[key] = None
+                        elif hasattr(value, 'item'):
+                            guest_data[key] = value.item()
+                        else:
+                            guest_data[key] = value
+                    guest_info = guest_data
+                    
+                    # Prüfen ob Gast am Weißen Saal teilnimmt
+                    weisser_saal = int(guest_info.get('Weisser_Saal', 0) or 0)
+                    guest_participates_weisser_saal = weisser_saal > 0
+                    
+            except (IndexError, ValueError):
+                pass
+        
         # Location-Daten aus Config laden
         config = data_manager.load_config()
         
@@ -1815,6 +1964,11 @@ def get_guest_location_coordinates():
         }
         
         for location_type, location_info in config['locations'].items():
+            # Standesamt nur für berechtigte Gäste
+            if location_type == 'standesamt' and not guest_participates_weisser_saal:
+                logger.info(f"Standesamt-Koordinaten für Gast {guest_id} nicht verfügbar (Weisser_Saal: {guest_info.get('Weisser_Saal', 0) if guest_info else 0})")
+                continue
+                
             if isinstance(location_info, dict) and 'adresse' in location_info:
                 address = location_info['adresse'].lower().strip()
                 
@@ -1933,6 +2087,36 @@ def get_guest_zeitplan():
                 'success': True,
                 'events': []
             })
+
+        # Gast-Daten laden
+        guest_id = session.get('guest_id')
+        if not guest_id:
+            return jsonify({'success': False, 'message': 'Gast nicht authentifiziert'})
+        
+        # Gast-Details abrufen
+        guest_info = None
+        try:
+            # guest_id ist der DataFrame-Index (0-basiert), nicht 1-basiert!
+            guest_index = int(guest_id)
+            if guest_index >= 0 and guest_index < len(data_manager.gaesteliste_df):
+                guest_row = data_manager.gaesteliste_df.iloc[guest_index]
+                guest_info = guest_row.to_dict()
+                
+                # Pandas-Werte zu Python-Typen konvertieren
+                guest_data = {}
+                for key, value in guest_info.items():
+                    if pd.isna(value):
+                        guest_data[key] = None
+                    elif hasattr(value, 'item'):  # pandas scalars
+                        guest_data[key] = value.item()
+                    else:
+                        guest_data[key] = value
+                guest_info = guest_data
+                
+                # Debug-Log für alle Gäste
+                logger.info(f"Guest {guest_index} ({guest_info.get('Nachname', 'Unknown')}) - Weisser_Saal: {guest_info.get('Weisser_Saal')}, Anzahl_Essen: {guest_info.get('Anzahl_Essen')}, Anzahl_Party: {guest_info.get('Anzahl_Party')}")
+        except (IndexError, ValueError):
+            pass
         
         # DataFrame zu Liste von Dictionaries konvertieren
         zeitplan_events = []
@@ -1948,7 +2132,49 @@ def get_guest_zeitplan():
             zeitplan_events.append(event_dict)
         
         # Nur öffentliche Events filtern
-        public_events = [event for event in zeitplan_events if event.get('public', False)]
+        public_events = []
+        for event in zeitplan_events:
+            if not event.get('public', False):
+                continue
+                
+            # Eventteile-Filter anwenden
+            eventteile = event.get('eventteile', [])
+            
+            # Eventteile normalisieren (Array oder JSON-String zu Array)
+            if isinstance(eventteile, str):
+                try:
+                    eventteile = json.loads(eventteile)
+                except (json.JSONDecodeError, TypeError):
+                    eventteile = []
+            elif not isinstance(eventteile, list):
+                eventteile = []
+                
+            if not eventteile:  # Wenn keine Eventteile definiert, für alle sichtbar
+                public_events.append(event)
+                continue
+                
+            # Prüfen, ob Gast an einem der Eventteile teilnimmt (numerische Felder prüfen)
+            guest_participates = False
+            if guest_info:
+                # Sichere Konvertierung zu int
+                weisser_saal = int(guest_info.get('Weisser_Saal', 0) or 0)
+                anzahl_essen = int(guest_info.get('Anzahl_Essen', 0) or 0)
+                anzahl_party = int(guest_info.get('Anzahl_Party', 0) or 0)
+                
+                # Debug-Log für Bartmann
+                if 'Bartmann' in guest_info.get('Nachname', ''):
+                    logger.info(f"Bartmann Zeitplan Debug - Event: {event.get('Programmpunkt')}, eventteile: {eventteile}, weisser_saal: {weisser_saal}, anzahl_essen: {anzahl_essen}, anzahl_party: {anzahl_party}")
+                
+                if 'weisser_saal' in eventteile and weisser_saal > 0:
+                    guest_participates = True
+                if 'essen' in eventteile and anzahl_essen > 0:
+                    guest_participates = True
+                if 'party' in eventteile and anzahl_party > 0:
+                    guest_participates = True
+            
+            # Event NUR hinzufügen wenn Gast teilnimmt (Fallback entfernt!)
+            if guest_participates:
+                public_events.append(event)
         
         # Nach Startzeit sortieren
         public_events.sort(key=lambda x: x.get('Uhrzeit', ''))
@@ -2250,6 +2476,9 @@ def api_zeitplan_add():
         data_manager.load_zeitplan()
         
         # Neuen Eintrag erstellen
+        eventteile = event_data.get('eventteile', [])
+        eventteile_json = json.dumps(eventteile) if isinstance(eventteile, list) else json.dumps([])
+        
         new_event = {
             'Uhrzeit': event_data.get('Uhrzeit'),
             'Programmpunkt': event_data.get('Programmpunkt'),
@@ -2257,7 +2486,8 @@ def api_zeitplan_add():
             'EndZeit': event_data.get('EndZeit', ''),
             'Verantwortlich': event_data.get('Verantwortlich', ''),
             'Status': event_data.get('Status', 'Geplant'),
-            'public': event_data.get('public', False)
+            'public': event_data.get('public', False),
+            'eventteile': eventteile_json
         }
         
         # Zu DataFrame hinzufügen
@@ -2308,6 +2538,13 @@ def api_zeitplan_update():
         data_manager.zeitplan_df.loc[index, 'Verantwortlich'] = event_data.get('Verantwortlich', '')
         data_manager.zeitplan_df.loc[index, 'Status'] = event_data.get('Status', 'Geplant')
         data_manager.zeitplan_df.loc[index, 'public'] = event_data.get('public', False)
+        
+        # Eventteile als JSON-String speichern
+        eventteile = event_data.get('eventteile', [])
+        if isinstance(eventteile, list):
+            data_manager.zeitplan_df.loc[index, 'eventteile'] = json.dumps(eventteile)
+        else:
+            data_manager.zeitplan_df.loc[index, 'eventteile'] = json.dumps([])
         
         # Speichern
         data_manager.save_zeitplan()

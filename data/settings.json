@@ -1,6 +1,6 @@
 {
   "hochzeitsdatum": "2025-09-01",
-  "hochzeitszeit": "15:00",
+  "hochzeitszeit": "11:30",
   "brautpaar_namen": "Käthe & Pascal",
   "hochzeitsort": {
     "name": "Beispiel Hochzeitslocation",
@@ -10,7 +10,8 @@
   "gaeste_informationen": {
     "kontakt": {
       "einzelperson": "Bei Fragen kannst du dich gerne an uns wenden.",
-      "mehrere": "Bei Fragen könnt ihr euch gerne an uns wenden."
+      "mehrere": "Bei Fragen könnt ihr euch gerne an uns wenden.",
+      "whatsapp_nummer": "+4915140737042"
     },
     "geschenke": {
       "einzelperson": "Über dein Kommen freuen wir uns am meisten!",
