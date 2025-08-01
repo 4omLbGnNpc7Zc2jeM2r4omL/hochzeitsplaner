@@ -8,6 +8,7 @@ Verwaltet Import, Export und Manipulation der Hochzeitsdaten
 import pandas as pd
 import json
 import os
+import threading
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
@@ -33,6 +34,9 @@ class HochzeitsDatenManager:
         self.settings_file = os.path.join(data_dir, "settings.json")
         self.aufgaben_file = os.path.join(data_dir, "aufgaben.json")
         
+        # Thread-Lock für atomare Operationen
+        self._lock = threading.RLock()
+        
         # GUI Update Callback für automatische Dashboard-Aktualisierung
         self.gui_update_callback = None
         
@@ -48,6 +52,15 @@ class HochzeitsDatenManager:
         
         # Daten laden
         self.load_all_data()
+        
+    def get_lock(self):
+        """
+        Gibt den Thread-Lock für atomare Operationen zurück
+        
+        Returns:
+            threading.RLock: Der Lock für threadsichere Operationen
+        """
+        return self._lock
         
     def import_excel_gaesteliste(self, file_path: str, sheet_name: str = 0) -> bool:
         """

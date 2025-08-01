@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     let zeitplanData = [];
+    let hochzeitsdatum = null;
     
     // Event Listeners
     document.querySelectorAll('input[name="viewType"]').forEach(radio => {
@@ -7,8 +8,27 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Initial laden
-    loadZeitplan();
+    loadHochzeitsdatum();
 });
+
+// Hochzeitsdatum aus Einstellungen laden
+function loadHochzeitsdatum() {
+    fetch('/api/settings/get')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.settings) {
+                hochzeitsdatum = data.settings.hochzeitsdatum;
+                console.log('Hochzeitsdatum geladen:', hochzeitsdatum);
+            }
+            // Nach dem Laden des Datums den Zeitplan laden
+            loadZeitplan();
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden des Hochzeitsdatums:', error);
+            // Auch bei Fehler den Zeitplan laden
+            loadZeitplan();
+        });
+}
 
 function loadZeitplan() {
     fetch('/api/guest/zeitplan')
@@ -77,13 +97,34 @@ function updateListView() {
         const ort = event.Ort || '';
         const beschreibung = event.Beschreibung || '';
         
-        // Datum aus Uhrzeit extrahieren (falls Format: YYYY-MM-DD HH:MM)
+        // Datum aus Hochzeitsdatum und Uhrzeit zusammensetzen
         let dateStr = '';
         let timeStr = uhrzeit;
+        
+        if (hochzeitsdatum) {
+            // Formatiere das Datum schön
+            const date = new Date(hochzeitsdatum);
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            dateStr = date.toLocaleDateString('de-DE', options);
+        }
+        
+        // Falls Uhrzeit bereits ein vollständiges Datum enthält (Format: YYYY-MM-DD HH:MM)
         if (uhrzeit.includes(' ')) {
             const parts = uhrzeit.split(' ');
             if (parts.length >= 2) {
-                dateStr = parts[0];
+                const eventDate = new Date(parts[0]);
+                const options = { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                };
+                dateStr = eventDate.toLocaleDateString('de-DE', options);
                 timeStr = parts[1];
             }
         }
@@ -170,7 +211,29 @@ function updateGanttView() {
     const totalHours = endHour - startHour;
     
     // Gantt Container erstellen
-    let html = `
+    let html = '';
+    
+    // Datum-Header hinzufügen, falls Hochzeitsdatum verfügbar
+    if (hochzeitsdatum) {
+        const date = new Date(hochzeitsdatum);
+        const options = { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        };
+        const dateStr = date.toLocaleDateString('de-DE', options);
+        html += `
+            <div class="gantt-date-header">
+                <h5 class="mb-3">
+                    <i class="bi bi-calendar3 me-2"></i>
+                    ${dateStr}
+                </h5>
+            </div>
+        `;
+    }
+    
+    html += `
         <div class="gantt-timeline">
             <div class="gantt-header">
                 <div class="gantt-time-label">Zeit</div>
@@ -292,13 +355,34 @@ function showEventDetails(eventIndex) {
     
     title.textContent = programmpunkt;
     
-    // Datum aus Uhrzeit extrahieren (falls Format: YYYY-MM-DD HH:MM)
+    // Datum aus Hochzeitsdatum und Uhrzeit zusammensetzen
     let dateStr = '';
     let timeStr = uhrzeit;
+    
+    if (hochzeitsdatum) {
+        // Formatiere das Datum schön
+        const date = new Date(hochzeitsdatum);
+        const options = { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        };
+        dateStr = date.toLocaleDateString('de-DE', options);
+    }
+    
+    // Falls Uhrzeit bereits ein vollständiges Datum enthält (Format: YYYY-MM-DD HH:MM)
     if (uhrzeit.includes(' ')) {
         const parts = uhrzeit.split(' ');
         if (parts.length >= 2) {
-            dateStr = parts[0];
+            const eventDate = new Date(parts[0]);
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            dateStr = eventDate.toLocaleDateString('de-DE', options);
             timeStr = parts[1];
         }
     }

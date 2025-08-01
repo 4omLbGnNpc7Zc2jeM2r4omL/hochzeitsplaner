@@ -11,6 +11,7 @@ import logging
 import json
 import tempfile
 import zipfile
+import time
 from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for, flash
 from flask_cors import CORS
 from datetime import datetime, timedelta
@@ -1466,6 +1467,22 @@ def get_guest_data():
                     else:
                         guest[key] = value
                 
+                # Bestimme das echte Maximum
+                original_max = guest.get('Max_Personen')
+                if pd.isna(original_max) or original_max is None:
+                    # Fallback: Berechne aus vorhandenen Event-Feldern
+                    event_anzahlen = []
+                    for field in ['Anzahl_Personen', 'Anzahl_Essen', 'Anzahl_Party', 'Weisser_Saal']:
+                        val = guest.get(field)
+                        if pd.notna(val) and val != '' and val is not None:
+                            try:
+                                event_anzahlen.append(int(val))
+                            except (ValueError, TypeError):
+                                pass
+                    original_max = max(event_anzahlen) if event_anzahlen else 1
+                else:
+                    original_max = int(original_max)
+                
                 return jsonify({
                     'success': True,
                     'guest': {
@@ -1474,10 +1491,11 @@ def get_guest_data():
                         'nachname': guest.get('Name', ''),
                         'status': guest.get('Status', 'Offen'),
                         'personen': guest.get('Anzahl_Personen', 1),
-                        'max_personen': guest.get('Anzahl_Personen', 1),  # Nutze Gesamt als Maximum
+                        'max_personen': original_max,  # Verwende das berechnete Maximum
                         'notiz': guest.get('Bemerkungen', ''),
                         'email': guest.get('Email', ''),
                         'guest_code': guest.get('guest_code', ''),
+                        'last_modified': guest.get('last_modified'),  # Timestamp für Conflict Detection
                         # Event-spezifische Felder für personalisierte Begrüßung
                         'Anzahl_Personen': guest.get('Anzahl_Personen', 1),
                         'Weisser_Saal': guest.get('Weisser_Saal', 0),
@@ -1527,6 +1545,7 @@ def get_guest_data():
                     'notiz': guest.get('Bemerkungen', ''),
                     'email': guest.get('Email', ''),
                     'guest_code': guest.get('guest_code', ''),
+                    'last_modified': guest.get('last_modified'),  # Timestamp für Conflict Detection
                     # Event-spezifische Felder für personalisierte Begrüßung
                     'Anzahl_Personen': guest.get('Anzahl_Personen', 1),
                     'Weisser_Saal': guest.get('Weisser_Saal', 0),
@@ -1562,60 +1581,150 @@ def update_guest_rsvp():
         personen = int(data.get('personen', 1))
         notiz = data.get('notiz', '').strip()
         
-        # Gast finden und aktualisieren
-        gaesteliste_df = data_manager.gaesteliste_df
-        guest_index = None
+        # Timestamp für letzte Änderung
+        last_modified = data.get('last_modified')
+        current_timestamp = int(time.time() * 1000)  # Millisekunden seit Epoch
         
-        # Zuerst über guest_id (DataFrame-Index) suchen
-        if guest_id is not None:
-            try:
-                if guest_id < len(gaesteliste_df):
-                    guest_index = guest_id
-            except (IndexError, TypeError):
-                pass
-        
-        # Fallback: Über Code oder Email suchen
-        if guest_index is None:
-            if guest_code and 'guest_code' in gaesteliste_df.columns:
-                code_matches = gaesteliste_df[gaesteliste_df['guest_code'] == guest_code]
-                if not code_matches.empty:
-                    guest_index = code_matches.index[0]
+        # Atomare Aktualisierung mit Lock
+        with data_manager.get_lock():
+            # Daten vor Aktualisierung neu laden (wichtig für Race Condition Prevention)
+            data_manager.load_gaesteliste()
+            gaesteliste_df = data_manager.gaesteliste_df
+            guest_index = None
             
-            if guest_index is None and guest_email and 'Email' in gaesteliste_df.columns:
-                email_matches = gaesteliste_df[gaesteliste_df['Email'].str.lower() == guest_email.lower()]
-                if not email_matches.empty:
-                    guest_index = email_matches.index[0]
-        
-        if guest_index is None:
-            return jsonify({'success': False, 'message': 'Gast nicht gefunden'})
-        
-        # Validierung: Personenanzahl nicht über Maximum
-        max_personen = gaesteliste_df.loc[guest_index, 'Anzahl_Personen']
-        if pd.isna(max_personen):
-            max_personen = 1
-        else:
-            max_personen = int(max_personen)
+            # Zuerst über guest_id (DataFrame-Index) suchen
+            if guest_id is not None:
+                try:
+                    if guest_id < len(gaesteliste_df):
+                        guest_index = guest_id
+                except (IndexError, TypeError):
+                    pass
             
-        if personen > max_personen:
+            # Fallback: Über Code oder Email suchen
+            if guest_index is None:
+                if guest_code and 'guest_code' in gaesteliste_df.columns:
+                    code_matches = gaesteliste_df[gaesteliste_df['guest_code'] == guest_code]
+                    if not code_matches.empty:
+                        guest_index = code_matches.index[0]
+                
+                if guest_index is None and guest_email and 'Email' in gaesteliste_df.columns:
+                    email_matches = gaesteliste_df[gaesteliste_df['Email'].str.lower() == guest_email.lower()]
+                    if not email_matches.empty:
+                        guest_index = email_matches.index[0]
+            
+            if guest_index is None:
+                return jsonify({'success': False, 'message': 'Gast nicht gefunden'})
+            
+            # Timestamp-Spalte hinzufügen falls nicht vorhanden
+            if 'last_modified' not in gaesteliste_df.columns:
+                gaesteliste_df['last_modified'] = current_timestamp
+            
+            # Conflict Detection: Prüfe ob Daten zwischenzeitlich geändert wurden
+            current_guest_timestamp = gaesteliste_df.loc[guest_index, 'last_modified']
+            if last_modified and pd.notna(current_guest_timestamp):
+                if int(current_guest_timestamp) > int(last_modified):
+                    # Daten wurden zwischenzeitlich geändert - Conflict!
+                    current_guest = gaesteliste_df.loc[guest_index]
+                    return jsonify({
+                        'success': False, 
+                        'conflict': True,
+                        'message': 'Die Daten wurden zwischenzeitlich von einer anderen Session geändert.',
+                        'current_data': {
+                            'status': current_guest.get('Status', 'Offen'),
+                            'personen': int(current_guest.get('Anzahl_Personen', 1)),
+                            'notiz': current_guest.get('Bemerkungen', ''),
+                            'last_modified': int(current_guest_timestamp)
+                        }
+                    })
+            
+            # Originalmaximum bestimmen: Verwende ein separates Max-Feld oder die ursprüngliche Anzahl_Personen
+            original_max_personen = None
+            
+            # Prüfe ob es ein separates Max_Personen Feld gibt
+            if 'Max_Personen' in gaesteliste_df.columns:
+                original_max_personen = gaesteliste_df.loc[guest_index, 'Max_Personen']
+            
+            # Fallback: Berechne Maximum aus vorhandenen Event-Feldern oder verwende Anzahl_Personen
+            if pd.isna(original_max_personen) or original_max_personen is None:
+                # Nimm das Maximum aus allen Event-Anzahlen oder Anzahl_Personen
+                event_anzahlen = []
+                for field in ['Anzahl_Personen', 'Anzahl_Essen', 'Anzahl_Party', 'Weisser_Saal']:
+                    if field in gaesteliste_df.columns:
+                        val = gaesteliste_df.loc[guest_index, field]
+                        if pd.notna(val) and val != '':
+                            try:
+                                event_anzahlen.append(int(val))
+                            except (ValueError, TypeError):
+                                pass
+                
+                # Verwende das Maximum aus allen Event-Anzahlen, mindestens aber 1
+                original_max_personen = max(event_anzahlen) if event_anzahlen else 1
+                
+                # Speichere das ermittelte Maximum für zukünftige Verwendung
+                if 'Max_Personen' not in gaesteliste_df.columns:
+                    gaesteliste_df['Max_Personen'] = gaesteliste_df.apply(
+                        lambda row: max([
+                            int(row.get('Anzahl_Personen', 1) or 1),
+                            int(row.get('Anzahl_Essen', 0) or 0),
+                            int(row.get('Anzahl_Party', 0) or 0),
+                            int(row.get('Weisser_Saal', 0) or 0)
+                        ]), axis=1
+                    )
+                    original_max_personen = gaesteliste_df.loc[guest_index, 'Max_Personen']
+                else:
+                    gaesteliste_df.loc[guest_index, 'Max_Personen'] = original_max_personen
+            
+            # Sicherheitscheck: Maximum muss mindestens 1 sein
+            if pd.isna(original_max_personen) or original_max_personen < 1:
+                original_max_personen = 1
+            else:
+                original_max_personen = int(original_max_personen)
+                
+            # Validierung: Neue Personenanzahl darf das ursprüngliche Maximum nicht überschreiten
+            if personen > original_max_personen:
+                return jsonify({
+                    'success': False, 
+                    'message': f'Maximale Personenanzahl ({original_max_personen}) überschritten. Sie können zwischen 0 und {original_max_personen} Personen anmelden.'
+                })
+            
+            # Validierung: Personenanzahl muss mindestens 0 sein (für Absagen)
+            if personen < 0:
+                return jsonify({
+                    'success': False, 
+                    'message': 'Personenanzahl kann nicht negativ sein.'
+                })
+            
+            # Daten atomisch aktualisieren
+            data_manager.gaesteliste_df.loc[guest_index, 'Status'] = status
+            data_manager.gaesteliste_df.loc[guest_index, 'Bemerkungen'] = notiz
+            data_manager.gaesteliste_df.loc[guest_index, 'last_modified'] = current_timestamp
+            
+            # Personenanzahl-Logik:
+            # - Bei 'Zugesagt': Verwende die gewählte Personenanzahl
+            # - Bei 'Abgesagt': Setze auf 0, aber behalte das Maximum bei
+            # - Bei 'Offen': Behalte die aktuelle Anzahl bei
+            if status == 'Zugesagt':
+                # Bei Zusage: Setze die gewünschte Personenanzahl
+                data_manager.gaesteliste_df.loc[guest_index, 'Anzahl_Personen'] = personen
+            elif status == 'Abgesagt':
+                # Bei Absage: Setze auf 0, aber Maximum bleibt erhalten
+                data_manager.gaesteliste_df.loc[guest_index, 'Anzahl_Personen'] = 0
+            # Bei 'Offen' bleibt Anzahl_Personen unverändert
+            
+            # Stelle sicher, dass Max_Personen immer gesetzt ist
+            if 'Max_Personen' in data_manager.gaesteliste_df.columns:
+                current_max = data_manager.gaesteliste_df.loc[guest_index, 'Max_Personen']
+                if pd.isna(current_max) or current_max < original_max_personen:
+                    data_manager.gaesteliste_df.loc[guest_index, 'Max_Personen'] = original_max_personen
+            
+            # Speichern
+            data_manager.save_gaesteliste()
+            
             return jsonify({
-                'success': False, 
-                'message': f'Maximale Personenanzahl ({max_personen}) überschritten'
+                'success': True, 
+                'message': 'Teilnahme gespeichert',
+                'last_modified': current_timestamp
             })
-        
-        # Daten aktualisieren
-        data_manager.gaesteliste_df.loc[guest_index, 'Status'] = status
-        data_manager.gaesteliste_df.loc[guest_index, 'Bemerkungen'] = notiz
-        
-        # Personenanzahl nur bei Zusage setzen
-        if status == 'Zugesagt':
-            data_manager.gaesteliste_df.loc[guest_index, 'Anzahl_Personen'] = personen
-        elif status == 'Abgesagt':
-            data_manager.gaesteliste_df.loc[guest_index, 'Anzahl_Personen'] = 0
-        
-        # Speichern
-        data_manager.save_gaesteliste()
-        
-        return jsonify({'success': True, 'message': 'Teilnahme gespeichert'})
         
     except Exception as e:
         logger.error(f"Fehler beim Speichern der RSVP: {e}")

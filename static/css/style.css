@@ -412,6 +412,21 @@
 }
 
 /* Gantt Chart Styling */
+.gantt-date-header {
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    padding: 1rem;
+    text-align: center;
+    margin-bottom: 1rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.gantt-date-header h5 {
+    margin: 0;
+    color: #495057;
+    font-weight: 600;
+}
+
 .gantt-container {
     overflow-x: auto;
     overflow-y: hidden;

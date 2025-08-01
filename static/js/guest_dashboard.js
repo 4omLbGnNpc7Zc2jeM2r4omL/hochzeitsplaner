@@ -496,13 +496,15 @@ function updateGuestFormLimits(guestData) {
     
     const personenAnzahlInput = document.getElementById('personenAnzahl');
     const maxPersonenSpan = document.getElementById('maxPersonen');
+    const statusElement = document.getElementById('guestStatus');
+    const notizElement = document.getElementById('guestNotiz');
     
     if (personenAnzahlInput && maxPersonenSpan) {
         const maxPersonen = guestData.max_personen || guestData.personen || 1;
         
         // Setze das Maximum und den aktuellen Wert
         personenAnzahlInput.max = maxPersonen;
-        personenAnzahlInput.value = Math.min(personenAnzahlInput.value || 1, maxPersonen);
+        personenAnzahlInput.value = Math.min(guestData.personen || personenAnzahlInput.value || 1, maxPersonen);
         
         // Update den Hinweistext
         maxPersonenSpan.textContent = maxPersonen;
@@ -511,6 +513,21 @@ function updateGuestFormLimits(guestData) {
         updatePluralTexts(maxPersonen);
         
         debugLog(`✅ Person limits updated: max=${maxPersonen}, current=${personenAnzahlInput.value}`);
+    }
+    
+    // Status und Notiz aus den Daten setzen
+    if (statusElement && guestData.status) {
+        statusElement.value = guestData.status;
+    }
+    
+    if (notizElement && guestData.notiz) {
+        notizElement.value = guestData.notiz;
+    }
+    
+    // Timestamp für Conflict Detection speichern
+    if (guestData.last_modified) {
+        lastModified = guestData.last_modified;
+        debugLog('🕒 Last modified timestamp loaded:', lastModified);
     }
 }
 
@@ -739,10 +756,15 @@ function handleStatusChange() {
     }
 }
 
+// Globale Variable für letzte Änderungszeit
+let lastModified = null;
+
 function saveRsvp() {
     const guestId = new URLSearchParams(window.location.search).get('id');
     const statusElement = document.getElementById('guestStatus');
     const commentElement = document.getElementById('guestComment');
+    const personenElement = document.getElementById('personenAnzahl');
+    const notizElement = document.getElementById('guestNotiz');
     
     if (!statusElement) {
         console.error('Guest status element not found');
@@ -751,16 +773,21 @@ function saveRsvp() {
     
     const status = statusElement.value;
     const kommentar = commentElement ? commentElement.value : '';
+    const personen = personenElement ? parseInt(personenElement.value) || 1 : 1;
+    const notiz = notizElement ? notizElement.value : '';
     
-    // Menü-Auswahl sammeln
+    // Menü-Auswahl sammeln (falls vorhanden)
     const menuCheckboxes = document.querySelectorAll('#menuOptions input[type="checkbox"]:checked');
     const menuAuswahl = Array.from(menuCheckboxes).map(cb => cb.value);
     
     const rsvpData = {
         id: guestId,
         status: status,
+        personen: personen,
+        notiz: notiz,
         kommentar: kommentar,
-        menu_auswahl: menuAuswahl
+        menu_auswahl: menuAuswahl,
+        last_modified: lastModified  // Timestamp für Conflict Detection
     };
     
     debugLog('Saving RSVP data:', rsvpData);
@@ -775,16 +802,75 @@ function saveRsvp() {
     .then(response => response.json())
     .then(data => {
         debugLog('RSVP save response:', data);
+        
         if (data.success) {
-            showSuccessMessage('RSVP erfolgreich gespeichert!');
+            // Timestamp aktualisieren für zukünftige Änderungen
+            lastModified = data.last_modified;
+            showSuccessMessage('Teilnahme erfolgreich gespeichert!');
+        } else if (data.conflict) {
+            // Conflict Handler: Benutzer über Änderungen informieren
+            const conflictMessage = `
+                Die Daten wurden zwischenzeitlich geändert. Aktuelle Werte:
+                - Status: ${data.current_data.status}
+                - Personen: ${data.current_data.personen}
+                - Notiz: ${data.current_data.notiz || 'Keine'}
+                
+                Möchten Sie Ihre Änderungen trotzdem übernehmen?
+            `;
+            
+            if (confirm(conflictMessage)) {
+                // Force Update: Setze den aktuellen Timestamp und versuche erneut
+                rsvpData.last_modified = data.current_data.last_modified;
+                lastModified = data.current_data.last_modified;
+                
+                fetch('/api/guest/rsvp', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(rsvpData)
+                })
+                .then(response => response.json())
+                .then(retryData => {
+                    if (retryData.success) {
+                        lastModified = retryData.last_modified;
+                        showSuccessMessage('Teilnahme erfolgreich gespeichert!');
+                    } else {
+                        showErrorMessage('Fehler beim Speichern: ' + (retryData.message || 'Unbekannter Fehler'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error on retry:', error);
+                    showErrorMessage('Fehler beim erneuten Speichern: ' + error.message);
+                });
+            } else {
+                // Benutzer möchte nicht überschreiben - lade aktuelle Daten
+                loadCurrentGuestData(data.current_data);
+            }
         } else {
-            showErrorMessage('Fehler beim Speichern der RSVP: ' + (data.error || 'Unbekannter Fehler'));
+            showErrorMessage('Fehler beim Speichern: ' + (data.message || data.error || 'Unbekannter Fehler'));
         }
     })
     .catch(error => {
         console.error('Error saving RSVP:', error);
-        showErrorMessage('Fehler beim Speichern der RSVP: ' + error.message);
+        showErrorMessage('Fehler beim Speichern der Teilnahme: ' + error.message);
     });
+}
+
+function loadCurrentGuestData(currentData) {
+    // Lade die aktuellen Daten ins Formular
+    const statusElement = document.getElementById('guestStatus');
+    const personenElement = document.getElementById('personenAnzahl');
+    const notizElement = document.getElementById('guestNotiz');
+    
+    if (statusElement) statusElement.value = currentData.status || 'Offen';
+    if (personenElement) personenElement.value = currentData.personen || 1;
+    if (notizElement) notizElement.value = currentData.notiz || '';
+    
+    // Timestamp aktualisieren
+    lastModified = currentData.last_modified;
+    
+    showInfoMessage('Die Daten wurden auf die aktuellen Werte zurückgesetzt.');
 }
 
 function loadZeitplanPreview() {
@@ -960,6 +1046,23 @@ function showSuccessMessage(message) {
 function showErrorMessage(message) {
     const alertDiv = document.createElement('div');
     alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+    alertDiv.style.top = '20px';
+    alertDiv.style.right = '20px';
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+
+function showInfoMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-info alert-dismissible fade show position-fixed';
     alertDiv.style.top = '20px';
     alertDiv.style.right = '20px';
     alertDiv.style.zIndex = '9999';
