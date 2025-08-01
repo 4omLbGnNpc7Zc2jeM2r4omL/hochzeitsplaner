@@ -7,7 +7,7 @@
     },
     "hochzeitslocation": {
       "name": "Komericher Mühle",
-      "adresse": "Komericher Weg 42/44, 52078 Aachen-Brand",
+      "adresse": "Komericher Weg 42, 52078 Aachen-Brand",
       "beschreibung": "Hier feiern wir unsere Hochzeit"
     }
   },
@@ -21,6 +21,7 @@
     "braut_name": "Käthe",
     "braeutigam_name": "Pascal",
     "hochzeitsdatum": "2026-07-25",
+    "hochzeitszeit": "11:30",
     "hochzeitsort": "Rathaus, Aachen",
     "gesamtbudget": 0,
     "essen_pro_person": 0,

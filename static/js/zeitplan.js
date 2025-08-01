@@ -6,6 +6,7 @@ let currentZeitplan = [];
 let currentView = 'gantt'; // 'gantt' oder 'list'
 let selectedEventIndex = null;
 let brideGroom = { bride: 'Braut', groom: 'Bräutigam' }; // Default-Werte
+let hochzeitsdatum = null; // Hochzeitsdatum aus Settings
 
 document.addEventListener('DOMContentLoaded', function() {
     loadBrideGroomNames();
@@ -14,7 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
     ensureEventpartsToggle();
 });
 
-// Braut/Bräutigam Namen laden
+// Braut/Bräutigam Namen und Hochzeitsdatum laden
 function loadBrideGroomNames() {
     fetch('/api/settings/get')
         .then(response => response.json())
@@ -25,6 +26,13 @@ function loadBrideGroomNames() {
                     brideGroom.bride = data.settings.bride_name;
                     brideGroom.groom = data.settings.groom_name;
                 }
+                
+                // Lade auch das Hochzeitsdatum
+                if (data.settings.hochzeitsdatum) {
+                    hochzeitsdatum = data.settings.hochzeitsdatum;
+                    console.log('Hochzeitsdatum für Admin-Zeitplan geladen:', hochzeitsdatum);
+                }
+                
                 console.log('Braut/Bräutigam Namen geladen:', brideGroom);
                 updateResponsibleDropdowns();
             }
@@ -150,26 +158,84 @@ function displayGanttChart(zeitplan) {
     // Sortiere nach Uhrzeit
     zeitplan.sort((a, b) => a.Uhrzeit.localeCompare(b.Uhrzeit));
     
-    // Zeitbereich automatisch bestimmen
+    // Zeitbereich automatisch bestimmen - erweitert für Events über Mitternacht
     const times = zeitplan.map(event => parseTimeToMinutes(event.Uhrzeit));
     const earliestTime = Math.min(...times);
-    const latestTime = Math.max(...times);
+    let latestTime = Math.max(...times);
+    
+    // Prüfe auf Events mit EndZeit über Mitternacht und erweitere entsprechend
+    let maxEndTime = latestTime;
+    
+    zeitplan.forEach(event => {
+        if (event.EndZeit) {
+            const eventStart = parseTimeToMinutes(event.Uhrzeit);
+            const eventEndRaw = parseTimeToMinutes(event.EndZeit);
+            
+            // Falls EndZeit früher als StartZeit ist, gehe vom nächsten Tag aus
+            const eventEnd = eventEndRaw < eventStart ? eventEndRaw + 24 * 60 : eventEndRaw;
+            
+            maxEndTime = Math.max(maxEndTime, eventEnd);
+        }
+    });
+    
+    latestTime = maxEndTime;
     
     // Puffer hinzufügen (1 Stunde vor und nach)
     const startHour = Math.max(0, Math.floor(earliestTime / 60) - 1);
-    const endHour = Math.min(24, Math.ceil(latestTime / 60) + 2);
+    let endHour = Math.min(30, Math.ceil(latestTime / 60) + 1); // Erweitert bis 30 Uhr (6:00 nächster Tag)
+    
+    // Mindestens bis 24:00 Uhr anzeigen
+    if (endHour < 24) {
+        endHour = 24;
+    }
+    
     const totalHours = endHour - startHour;
     
     // Gantt Container erstellen
-    let html = `
+    let html = '';
+    
+    // Datum-Header hinzufügen, falls Hochzeitsdatum verfügbar
+    if (hochzeitsdatum) {
+        try {
+            const date = new Date(hochzeitsdatum);
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            const dateStr = date.toLocaleDateString('de-DE', options);
+            html += `
+                <div class="gantt-date-header mb-3">
+                    <h5 class="text-primary">
+                        <i class="bi bi-calendar3 me-2"></i>
+                        ${dateStr}
+                    </h5>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Fehler beim Formatieren des Hochzeitsdatums:', error);
+        }
+    }
+    
+    html += `
         <div class="gantt-timeline">
             <div class="gantt-header">
                 <div class="gantt-time-label">Zeit</div>
     `;
     
-    // Zeitstunden-Header erstellen
-    for (let hour = startHour; hour < endHour; hour++) {
-        html += `<div class="gantt-header-cell">${hour.toString().padStart(2, '0')}:00</div>`;
+    // Erweiterte Zeitstunden-Header erstellen
+    for (let hour = startHour; hour < endHour; hour += 2) {
+        let displayHour = hour >= 24 ? hour - 24 : hour;
+        const timeLabel = `${displayHour.toString().padStart(2, '0')}:00`;
+        html += `<div class="gantt-header-cell gantt-hour-major">${timeLabel}</div>`;
+        
+        // Zwischenstunde falls sie im Bereich liegt
+        if (hour + 1 < endHour) {
+            let displayHourMinor = (hour + 1) >= 24 ? (hour + 1) - 24 : (hour + 1);
+            const timeLabelMinor = `${displayHourMinor.toString().padStart(2, '0')}:00`;
+            html += `<div class="gantt-header-cell gantt-hour-minor">${timeLabelMinor}</div>`;
+        }
     }
     
     html += `
@@ -182,31 +248,68 @@ function displayGanttChart(zeitplan) {
         const eventStart = parseTimeToMinutes(event.Uhrzeit);
         const startPosition = ((eventStart - (startHour * 60)) / (totalHours * 60)) * 100;
         
-        // Dauer berechnen
+        // Dauer berechnen mit korrekter Behandlung für Events über Mitternacht
         let eventEnd = eventStart + 30; // Standard: 30 Min
-        if (event.Dauer) {
+        
+        if (event.EndZeit) {
+            const eventEndRaw = parseTimeToMinutes(event.EndZeit);
+            // Korrekte Behandlung für Events über Mitternacht
+            eventEnd = eventEndRaw < eventStart ? eventEndRaw + 24 * 60 : eventEndRaw;
+        } else if (event.Dauer && event.Dauer !== '') {
             const durationMinutes = parseDurationToMinutes(event.Dauer);
             eventEnd = eventStart + durationMinutes;
-        } else if (event.EndZeit) {
-            eventEnd = parseTimeToMinutes(event.EndZeit);
+        } else if (event.Programmpunkt.toLowerCase().includes('party')) {
+            // Standard-Party-Dauer: bis 2:00 Uhr nächster Tag
+            eventEnd = eventStart + (5 * 60); // 5 Stunden Standard für Party
+            if (eventEnd >= 24 * 60) {
+                // Party geht über Mitternacht - das ist normal
+            }
         }
         
         const eventWidth = Math.max(((eventEnd - eventStart) / (totalHours * 60)) * 100, 2);
         const statusClass = `status-${event.Status.toLowerCase()}`;
         const publicClass = event.public ? 'public-event' : 'private-event';
         
+        // Spezial-Styling für Events über Mitternacht
+        const isOverMidnight = eventEnd > 24 * 60;
+        const overtimeClass = isOverMidnight ? 'party-overtime' : '';
+        
+        // Endzeit für Tooltip formatieren
+        let endTimeDisplay = '';
+        if (event.EndZeit) {
+            if (isOverMidnight) {
+                const endHour = Math.floor((eventEnd % (24 * 60)) / 60);
+                const endMin = (eventEnd % (24 * 60)) % 60;
+                endTimeDisplay = `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`;
+            } else {
+                endTimeDisplay = event.EndZeit;
+            }
+        }
+        
+        // Berechne die tatsächliche Dauer für Anzeige
+        let durationDisplay = '';
+        if (event.Dauer && event.Dauer !== '') {
+            durationDisplay = event.Dauer;
+        } else if (event.EndZeit) {
+            const totalMinutes = eventEnd - eventStart;
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            durationDisplay = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        }
+        
         html += `
             <div class="gantt-row">
                 <div class="gantt-time-label">${event.Uhrzeit}</div>
                 <div class="gantt-timeline-area" style="position: relative;">
-                    <div class="gantt-bar ${statusClass} ${publicClass}" 
+                    <div class="gantt-bar ${statusClass} ${publicClass} ${overtimeClass}" 
                          style="left: ${startPosition}%; width: ${eventWidth}%; cursor: pointer;"
-                         title="${event.Programmpunkt} (${event.Uhrzeit}${event.EndZeit ? ' - ' + event.EndZeit : ''})"
+                         title="${event.Programmpunkt} (${event.Uhrzeit}${endTimeDisplay ? ' - ' + endTimeDisplay : ''})${durationDisplay ? ' | Dauer: ' + durationDisplay : ''}"
                          onclick="selectEventFromGantt(${index})"
                          data-index="${index}">
                         <div class="gantt-bar-content">
                             <i class="gantt-bar-icon ${getStatusIcon(event.Status)}"></i>
                             <span class="gantt-bar-text">${event.Programmpunkt}</span>
+                            ${isOverMidnight ? '<i class="bi bi-moon gantt-overtime-icon" title="Bis nach Mitternacht"></i>' : ''}
                             ${event.public ? '<i class="bi bi-eye gantt-visibility-icon"></i>' : '<i class="bi bi-eye-slash gantt-visibility-icon"></i>'}
                         </div>
                     </div>
@@ -651,10 +754,12 @@ function calculateDuration() {
 // Zeit-Differenz berechnen
 function calculateTimeDifference(startTime, endTime) {
     const start = new Date(`2000-01-01T${startTime}:00`);
-    const end = new Date(`2000-01-01T${endTime}:00`);
+    let end = new Date(`2000-01-01T${endTime}:00`);
     
+    // Wenn das Ende vor dem Start liegt, bedeutet das Ereignis geht über Mitternacht
     if (end <= start) {
-        return '00:00';
+        // Füge einen Tag zum Enddatum hinzu
+        end = new Date(`2000-01-02T${endTime}:00`);
     }
     
     const diff = end - start;

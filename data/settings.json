@@ -1,6 +1,4 @@
 {
-  "hochzeitsdatum": "2025-09-01",
-  "hochzeitszeit": "11:30",
   "brautpaar_namen": "Käthe & Pascal",
   "hochzeitsort": {
     "name": "Beispiel Hochzeitslocation",
@@ -21,5 +19,7 @@
       "einzelperson": "Festliche Kleidung erwünscht.",
       "mehrere": "Festliche Kleidung erwünscht."
     }
-  }
+  },
+  "bride_name": "Käthe",
+  "groom_name": "Pascal"
 }

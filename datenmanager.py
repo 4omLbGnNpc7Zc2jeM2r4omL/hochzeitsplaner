@@ -1134,14 +1134,34 @@ class HochzeitsDatenManager:
             return default_value
     
     def set_setting(self, key: str, value) -> bool:
-        """Setzt allgemeine Einstellung"""
+        """Setzt allgemeine Einstellung - speichert je nach Typ in die richtige Datei"""
         try:
-            config = self.load_config()
-            if 'settings' not in config:
-                config['settings'] = {}
-            config['settings'][key] = value
-            self.save_config(config)
-            return True
+            # Datum/Zeit-Felder gehen AUSSCHLIESSLICH in hochzeit_config.json
+            datetime_fields = ['hochzeitsdatum', 'hochzeitszeit']
+            
+            if key in datetime_fields:
+                # Nur in hochzeit_config.json speichern
+                config = self.load_config()
+                if 'settings' not in config:
+                    config['settings'] = {}
+                config['settings'][key] = value
+                return self.save_config(config)
+            else:
+                # Alle anderen Felder in beide Dateien für Konsistenz
+                # 1. In hochzeit_config.json speichern
+                config = self.load_config()
+                if 'settings' not in config:
+                    config['settings'] = {}
+                config['settings'][key] = value
+                success1 = self.save_config(config)
+                
+                # 2. Auch in settings.json speichern (für Kompatibilität)
+                self.settings[key] = value
+                self.save_settings()
+                success2 = True
+                
+                return success1 and success2
+                
         except Exception as e:
             print(f"Fehler beim Speichern der Einstellung {key}: {e}")
             return False
@@ -2372,8 +2392,39 @@ class HochzeitsDatenManager:
             print(f"Fehler beim Speichern der Einstellungen: {e}")
     
     def get_settings(self) -> dict:
-        """Gibt alle Einstellungen zurück"""
-        return self.settings.copy()
+        """Gibt alle Einstellungen zurück - vereint settings.json und hochzeit_config.json"""
+        try:
+            # 1. Lade Einstellungen aus hochzeit_config.json (als Basis)
+            config = self.load_config()
+            config_settings = config.get('settings', {})
+            
+            # 2. Lade settings.json (für andere Benutzereinstellungen)
+            settings_from_file = self.settings.copy()
+            
+            # 3. Vereinige beide - hochzeit_config.json hat Priorität für Datum/Zeit-Felder
+            combined_settings = settings_from_file.copy()
+            combined_settings.update(config_settings)
+            
+            # 4. Datum/Zeit-Felder kommen AUSSCHLIESSLICH aus hochzeit_config.json
+            datetime_fields = ['hochzeitsdatum', 'hochzeitszeit']
+            for field in datetime_fields:
+                if field in config_settings:
+                    combined_settings[field] = config_settings[field]
+                elif field in combined_settings:
+                    # Entferne Datum/Zeit-Felder die nur in settings.json stehen
+                    del combined_settings[field]
+            
+            # 5. Andere wichtige Felder aus settings.json haben Priorität
+            priority_fields = ['bride_name', 'groom_name', 'braut_name', 'braeutigam_name', 'brautpaar_namen']
+            for field in priority_fields:
+                if field in settings_from_file and settings_from_file[field]:
+                    combined_settings[field] = settings_from_file[field]
+            
+            return combined_settings
+            
+        except Exception as e:
+            print(f"Fehler beim Laden der Einstellungen: {e}")
+            return self.settings.copy()  # Fallback zu settings.json
     
     def set_wedding_date(self, date_str: str, time_str: str = "15:00") -> bool:
         """Setzt das Hochzeitsdatum"""

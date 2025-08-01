@@ -12,6 +12,7 @@ import json
 import tempfile
 import zipfile
 import time
+import requests
 from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for, flash
 from flask_cors import CORS
 from datetime import datetime, timedelta
@@ -2191,7 +2192,10 @@ def get_guest_credentials():
 @require_role(['guest'])
 def get_guest_zeitplan():
     try:
+        logger.info("=== GET GUEST ZEITPLAN START ===")
+        
         if data_manager.zeitplan_df.empty:
+            logger.info("Zeitplan DataFrame ist leer")
             return jsonify({
                 'success': True,
                 'events': []
@@ -2199,7 +2203,10 @@ def get_guest_zeitplan():
 
         # Gast-Daten laden
         guest_id = session.get('guest_id')
-        if not guest_id:
+        logger.debug(f"Guest ID aus Session: {guest_id}")
+        
+        if guest_id is None:
+            logger.error("Gast nicht authentifiziert - keine guest_id in Session")
             return jsonify({'success': False, 'message': 'Gast nicht authentifiziert'})
         
         # Gast-Details abrufen
@@ -2207,6 +2214,8 @@ def get_guest_zeitplan():
         try:
             # guest_id ist der DataFrame-Index (0-basiert), nicht 1-basiert!
             guest_index = int(guest_id)
+            logger.debug(f"Guest Index: {guest_index}, Gaesteliste length: {len(data_manager.gaesteliste_df)}")
+            
             if guest_index >= 0 and guest_index < len(data_manager.gaesteliste_df):
                 guest_row = data_manager.gaesteliste_df.iloc[guest_index]
                 guest_info = guest_row.to_dict()
@@ -2222,13 +2231,17 @@ def get_guest_zeitplan():
                         guest_data[key] = value
                 guest_info = guest_data
                 
-                # Debug-Log für alle Gäste
-                logger.info(f"Guest {guest_index} ({guest_info.get('Nachname', 'Unknown')}) - Weisser_Saal: {guest_info.get('Weisser_Saal')}, Anzahl_Essen: {guest_info.get('Anzahl_Essen')}, Anzahl_Party: {guest_info.get('Anzahl_Party')}")
-        except (IndexError, ValueError):
+                logger.debug(f"Guest Info loaded successfully: {guest_info.get('Nachname')} - Weisser_Saal: {guest_info.get('Weisser_Saal')}, Anzahl_Essen: {guest_info.get('Anzahl_Essen')}, Anzahl_Party: {guest_info.get('Anzahl_Party')}")
+            else:
+                logger.error(f"Guest index {guest_index} out of range")
+        except (IndexError, ValueError) as e:
+            logger.error(f"Error loading guest info: {e}")
             pass
         
         # DataFrame zu Liste von Dictionaries konvertieren
         zeitplan_events = []
+        logger.debug(f"Zeitplan DataFrame hat {len(data_manager.zeitplan_df)} Events")
+        
         for index, row in data_manager.zeitplan_df.iterrows():
             event_dict = {}
             for key, value in row.to_dict().items():
@@ -2240,10 +2253,15 @@ def get_guest_zeitplan():
                     event_dict[key] = value
             zeitplan_events.append(event_dict)
         
+        logger.debug(f"Konvertierte {len(zeitplan_events)} Events")
+        
         # Nur öffentliche Events filtern
         public_events = []
         for event in zeitplan_events:
+            logger.debug(f"Processing event: {event.get('Programmpunkt')} - public: {event.get('public')}")
+            
             if not event.get('public', False):
+                logger.debug(f"Event '{event.get('Programmpunkt')}' ist nicht öffentlich - übersprungen")
                 continue
                 
             # Eventteile-Filter anwenden
@@ -2270,20 +2288,23 @@ def get_guest_zeitplan():
                 anzahl_essen = int(guest_info.get('Anzahl_Essen', 0) or 0)
                 anzahl_party = int(guest_info.get('Anzahl_Party', 0) or 0)
                 
-                # Debug-Log für Bartmann
-                if 'Bartmann' in guest_info.get('Nachname', ''):
-                    logger.info(f"Bartmann Zeitplan Debug - Event: {event.get('Programmpunkt')}, eventteile: {eventteile}, weisser_saal: {weisser_saal}, anzahl_essen: {anzahl_essen}, anzahl_party: {anzahl_party}")
+                # Debug-Log für alle Gäste - deaktiviert
+                # logger.info(f"Guest {guest_info.get('Nachname', 'Unknown')} Zeitplan Debug - Event: {event.get('Programmpunkt')}, eventteile: {eventteile}, weisser_saal: {weisser_saal}, anzahl_essen: {anzahl_essen}, anzahl_party: {anzahl_party}")
                 
                 if 'weisser_saal' in eventteile and weisser_saal > 0:
                     guest_participates = True
+                    # logger.info(f"Guest participates via weisser_saal")
                 if 'essen' in eventteile and anzahl_essen > 0:
                     guest_participates = True
+                    # logger.info(f"Guest participates via essen")
                 if 'party' in eventteile and anzahl_party > 0:
                     guest_participates = True
+                    # logger.info(f"Guest participates via party")
             
-            # Event NUR hinzufügen wenn Gast teilnimmt (Fallback entfernt!)
-            if guest_participates:
+            # Event hinzufügen wenn Gast teilnimmt ODER wenn keine eventteile definiert sind
+            if guest_participates or not eventteile:
                 public_events.append(event)
+                # logger.info(f"Event '{event.get('Programmpunkt')}' added for guest (participates: {guest_participates}, no eventteile: {not eventteile})")
         
         # Nach Startzeit sortieren
         public_events.sort(key=lambda x: x.get('Uhrzeit', ''))
@@ -2736,6 +2757,101 @@ def api_settings_save():
     except Exception as e:
         logger.error(f"Fehler beim Speichern der Einstellungen: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geocode', methods=['GET'])
+@require_auth
+def api_geocode():
+    """Proxy für Nominatim OpenStreetMap Geocoding API um CORS-Probleme zu umgehen"""
+    try:
+        query = request.args.get('q', '').strip()
+        if not query:
+            return jsonify({'error': 'Keine Suchanfrage angegeben'}), 400
+        
+        # Bekannte Aachen-Adressen für bessere Performance und Fallback
+        aachen_coordinates = {
+            'rathaus, markt 39, 52062 aachen': {'lat': 50.7753, 'lng': 6.0839, 'display_name': 'Rathaus Aachen, Markt 39, 52062 Aachen'},
+            'markt 39, 52062 aachen': {'lat': 50.7753, 'lng': 6.0839, 'display_name': 'Markt 39, 52062 Aachen'},
+            'rathaus aachen': {'lat': 50.7753, 'lng': 6.0839, 'display_name': 'Rathaus Aachen'},
+            'kruppstraße 28, 52072 aachen': {'lat': 50.7698, 'lng': 6.0892, 'display_name': 'Kruppstraße 28, 52072 Aachen'},
+            'kruppstrasse 28, 52072 aachen': {'lat': 50.7698, 'lng': 6.0892, 'display_name': 'Kruppstraße 28, 52072 Aachen'},
+            'hotel kastanienhof aachen': {'lat': 50.7698, 'lng': 6.0892, 'display_name': 'Hotel Kastanienhof, Aachen'},
+            'komericher weg 42/44, 52078 aachen-brand': {'lat': 50.7435, 'lng': 6.1242, 'display_name': 'Komericher Weg 42/44, 52078 Aachen-Brand'},
+            'komericher mühle': {'lat': 50.7435, 'lng': 6.1242, 'display_name': 'Komericher Mühle, Aachen-Brand'}
+        }
+        
+        # Zuerst im lokalen Cache suchen
+        query_lower = query.lower().strip()
+        for known_address, coords in aachen_coordinates.items():
+            if query_lower in known_address or known_address in query_lower:
+                logger.info(f"✅ Lokaler Cache-Hit für: {query} -> {coords}")
+                return jsonify({
+                    'success': True,
+                    'lat': coords['lat'],
+                    'lng': coords['lng'],
+                    'display_name': coords['display_name'],
+                    'source': 'local_cache'
+                })
+        
+        # Falls nicht im Cache, versuche Nominatim API
+        nominatim_url = 'https://nominatim.openstreetmap.org/search'
+        params = {
+            'format': 'json',
+            'q': query,
+            'limit': 1,
+            'addressdetails': 1,
+            'countrycodes': 'de'
+        }
+        
+        headers = {
+            'User-Agent': 'Hochzeitsplaner/1.0 (contact@example.com)',  # Wichtig für Nominatim
+            'Accept': 'application/json',
+            'Accept-Language': 'de,en'
+        }
+        
+        try:
+            response = requests.get(nominatim_url, params=params, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            if data and len(data) > 0:
+                result = data[0]
+                coords = {
+                    'lat': float(result['lat']),
+                    'lng': float(result['lon']),
+                    'display_name': result.get('display_name', query)
+                }
+                logger.info(f"✅ Nominatim API erfolg für: {query} -> {coords}")
+                return jsonify({
+                    'success': True,
+                    'lat': coords['lat'],
+                    'lng': coords['lng'],
+                    'display_name': coords['display_name'],
+                    'source': 'nominatim'
+                })
+            else:
+                logger.warning(f"⚠️ Nominatim API keine Ergebnisse für: {query}")
+                return jsonify({'success': False, 'error': 'Keine Ergebnisse gefunden'}), 404
+                
+        except requests.exceptions.RequestException as api_error:
+            logger.error(f"❌ Nominatim API Fehler für {query}: {api_error}")
+            
+            # Fallback: Versuche eine generische Koordinate für Aachen
+            if any(city in query_lower for city in ['aachen', 'brand']):
+                fallback_coords = {'lat': 50.7753, 'lng': 6.0839, 'display_name': f'{query} (Fallback: Aachen)'}
+                logger.info(f"🔄 Fallback für Aachen-Adresse: {query} -> {fallback_coords}")
+                return jsonify({
+                    'success': True,
+                    'lat': fallback_coords['lat'],
+                    'lng': fallback_coords['lng'],
+                    'display_name': fallback_coords['display_name'],
+                    'source': 'fallback'
+                })
+            
+            return jsonify({'success': False, 'error': f'API-Fehler: {str(api_error)}'}), 500
+            
+    except Exception as e:
+        logger.error(f"Unerwarteter Fehler in Geocoding API: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/export/excel')
 def api_export_excel():

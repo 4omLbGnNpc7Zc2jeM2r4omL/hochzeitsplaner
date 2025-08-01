@@ -256,28 +256,19 @@ class OpenStreetMapIntegration {
      * Hilfsfunktion für einzelne Geocoding-Versuche
      */
     async tryGeocode(searchTerm, strategyNumber) {
+        // Verwende die neue lokale API anstatt direkt Nominatim
         const encodedAddress = encodeURIComponent(searchTerm);
-        const baseUrl = 'https://nominatim.openstreetmap.org/search';
-        const params = [
-            'format=json',
-            `q=${encodedAddress}`,
-            'limit=1',
-            'addressdetails=1',
-            'countrycodes=de' // Beschränke auf Deutschland
-        ];
-        const url = `${baseUrl}?${params.join('&')}`;
+        const url = `/api/geocode?q=${encodedAddress}`;
         
-        debugLog(`🌐 Nominatim URL (Strategie ${strategyNumber}): ${url}`);
+        debugLog(`🌐 Lokale Geocoding API (Strategie ${strategyNumber}): ${url}`);
         
         // Timeout für die Anfrage hinzufügen
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 Sekunden Timeout
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 Sekunden Timeout
         
         const response = await fetch(url, {
             headers: {
-                'User-Agent': 'Hochzeitsplaner-App/1.0 (https://example.com)',
-                'Accept': 'application/json',
-                'Accept-Language': 'de,en'
+                'Accept': 'application/json'
             },
             signal: controller.signal
         });
@@ -291,10 +282,9 @@ class OpenStreetMapIntegration {
         const data = await response.json();
         debugLog(`📍 Geocoding Antwort (Strategie ${strategyNumber}):`, data);
 
-        if (data && data.length > 0) {
-            const result = data[0];
-            const lat = parseFloat(result.lat);
-            const lng = parseFloat(result.lon);
+        if (data && data.success) {
+            const lat = parseFloat(data.lat);
+            const lng = parseFloat(data.lng);
             
             if (isNaN(lat) || isNaN(lng)) {
                 throw new Error('Ungültige Koordinaten erhalten');
@@ -302,12 +292,14 @@ class OpenStreetMapIntegration {
             
             return { 
                 lat, 
-                lng, 
-                display_name: result.display_name,
-                address: result.address || {},
-                importance: result.importance || 0,
+                lng,
+                lon: lng, // Alias für Kompatibilität  
+                display_name: data.display_name || searchTerm,
+                address: {},
+                importance: 1,
                 search_term: searchTerm,
-                strategy: strategyNumber
+                strategy: strategyNumber,
+                source: data.source || 'api'
             };
         }
         

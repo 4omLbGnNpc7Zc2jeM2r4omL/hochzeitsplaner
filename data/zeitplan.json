@@ -68,17 +68,17 @@
     "Verantwortlich":"Catering K\u00fcchen",
     "Status":"Geplant",
     "EndZeit":"21:00",
-    "public":true,
+    "public":1,
     "eventteile":"[\"weisser_saal\", \"essen\"]"
   },
   {
     "Uhrzeit":"21:00",
     "Programmpunkt":"Party",
-    "Dauer":"02:59",
+    "Dauer":"09:00",
     "Verantwortlich":"K\u00e4the & Pascal",
     "Status":"Geplant",
-    "EndZeit":"23:59",
-    "public":1,
+    "EndZeit":"06:00",
+    "public":true,
     "eventteile":"[\"weisser_saal\", \"essen\", \"party\"]"
   }
 ]

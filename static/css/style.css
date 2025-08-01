@@ -463,6 +463,38 @@
     white-space: nowrap;
 }
 
+/* Prägnantere Uhrzeiten-Anzeige */
+.gantt-header-cell.gantt-hour-major {
+    font-weight: 600;
+    font-size: 0.95rem;
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: white;
+}
+
+.gantt-header-cell.gantt-hour-minor {
+    font-weight: 400;
+    font-size: 0.8rem;
+    opacity: 0.7;
+    background: rgba(108, 117, 125, 0.1);
+    color: #6c757d;
+}
+
+/* Datum-Header für Gantt-Chart */
+.gantt-date-header {
+    text-align: center;
+    padding: 1rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #0d6efd;
+}
+
+.gantt-date-header h5 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
 .gantt-header-cell:last-child {
     border-right: none;
 }
@@ -616,6 +648,7 @@
 
 /* Erweiterte Gantt-Chart Styles */
 .gantt-time-label {
+    display: none; /* Y-Achse (Uhrzeiten-Spalte) ausblenden */
     min-width: 80px;
     padding: 8px 12px;
     background: #f8f9fa;
@@ -623,7 +656,6 @@
     font-weight: 500;
     font-size: 0.875rem;
     color: #495057;
-    display: flex;
     align-items: center;
     justify-content: center;
 }
@@ -656,6 +688,57 @@
     margin-left: 4px;
     font-size: 0.75rem;
     opacity: 0.7;
+}
+
+/* Party Events über Mitternacht */
+.gantt-bar.party-overtime {
+    background: linear-gradient(135deg, #6f42c1 0%, #8e44ad 50%, #2c3e50 100%);
+    border-left: 4px solid #5a2d91;
+    position: relative;
+    animation: partyPulse 2s infinite alternate;
+}
+
+.gantt-bar.party-overtime::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    bottom: -2px;
+    left: -2px;
+    background: linear-gradient(45deg, rgba(111, 66, 193, 0.3), rgba(142, 68, 173, 0.3));
+    border-radius: 18px;
+    z-index: -1;
+    animation: partyGlow 3s infinite alternate;
+}
+
+.gantt-overtime-icon {
+    margin-left: 4px;
+    font-size: 0.75rem;
+    color: #ffd700;
+    text-shadow: 0 0 3px rgba(255, 215, 0, 0.8);
+    animation: moonPulse 2s infinite alternate;
+}
+
+@keyframes partyPulse {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.02); }
+}
+
+@keyframes partyGlow {
+    0% { opacity: 0.3; }
+    100% { opacity: 0.6; }
+}
+
+@keyframes moonPulse {
+    0% { opacity: 0.7; text-shadow: 0 0 3px rgba(255, 215, 0, 0.8); }
+    100% { opacity: 1; text-shadow: 0 0 6px rgba(255, 215, 0, 1); }
+}
+
+/* Erweiterte Zeiten-Header für Stunden nach Mitternacht */
+.gantt-header-cell .text-muted {
+    font-size: 0.7rem;
+    font-weight: 300;
+    opacity: 0.8;
 }
 
 .gantt-row {
