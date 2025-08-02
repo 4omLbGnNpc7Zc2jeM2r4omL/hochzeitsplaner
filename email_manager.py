@@ -10,6 +10,7 @@ import email
 import json
 import os
 import logging
+import sqlite3
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -882,9 +883,15 @@ Pascal Schumacher & Katharina Schaffrath
                     if result == 'OK':
                         email_message = email.message_from_bytes(msg_data[0][1])
                         
-                        # Flags extrahieren um zu sehen ob gelesen
+                        # Flags extrahieren um zu sehen ob gelesen/ignoriert
                         flags_match = msg_data[0][0].decode()
                         is_read = '\\Seen' in flags_match
+                        is_ignored = '\\Flagged' in flags_match
+                        
+                        # Prüfe auch lokale Ignored-Liste
+                        if not is_ignored:
+                            ignored_emails = self._get_ignored_emails()
+                            is_ignored = email_id.decode() in ignored_emails
                         
                         # E-Mail-Details extrahieren
                         email_info = {
@@ -897,7 +904,8 @@ Pascal Schumacher & Katharina Schaffrath
                             'body': self._extract_email_content(email_message),
                             'message_id': email_message.get('Message-ID', ''),
                             'thread_id': self._extract_thread_id(email_message),
-                            'is_read': is_read
+                            'is_read': is_read,
+                            'is_ignored': is_ignored
                         }
                         
                         all_emails.append(email_info)
@@ -988,6 +996,99 @@ Pascal Schumacher & Katharina Schaffrath
         except Exception as e:
             self.logger.error(f"Fehler beim Markieren der E-Mail {email_id} als gelesen: {e}")
             return False
+
+    def mark_email_as_ignored(self, email_id: str) -> bool:
+        """Markiert eine E-Mail als ignoriert (nur SQLite-Datenbank)"""
+        if not self.is_enabled():
+            return False
+        
+        try:
+            db_path = os.path.join(os.path.dirname(__file__), 'data', 'hochzeit.db')
+            
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Prüfe ob bereits ignoriert
+                cursor.execute("SELECT id FROM ignored_emails WHERE email_id = ?", (email_id,))
+                if cursor.fetchone():
+                    self.logger.info(f"E-Mail {email_id} ist bereits als ignoriert markiert")
+                    return True
+                
+                # Markiere als ignoriert
+                cursor.execute("""
+                    INSERT INTO ignored_emails (email_id, ignored_by) 
+                    VALUES (?, ?)
+                """, (email_id, 'system'))
+                
+                conn.commit()
+                
+            self.logger.info(f"✅ E-Mail {email_id} als ignoriert markiert (SQLite)")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Markieren der E-Mail {email_id} als ignoriert: {e}")
+            return False
+
+    def is_email_ignored(self, email_id: str) -> bool:
+        """Prüft ob eine E-Mail ignoriert ist (nur SQLite-Datenbank)"""
+        if not self.is_enabled():
+            return False
+        
+        try:
+            db_path = os.path.join(os.path.dirname(__file__), 'data', 'hochzeit.db')
+            
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT id FROM ignored_emails WHERE email_id = ?", (email_id,))
+                result = cursor.fetchone()
+                return result is not None
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Prüfen des Ignored-Status für E-Mail {email_id}: {e}")
+            return False
+
+    def remove_email_from_ignored(self, email_id: str) -> bool:
+        """Entfernt eine E-Mail aus der Ignored-Liste (nur SQLite-Datenbank)"""
+        if not self.is_enabled():
+            return False
+        
+        try:
+            db_path = os.path.join(os.path.dirname(__file__), 'data', 'hochzeit.db')
+            
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Prüfe ob E-Mail ignoriert ist
+                cursor.execute("SELECT id FROM ignored_emails WHERE email_id = ?", (email_id,))
+                if not cursor.fetchone():
+                    self.logger.info(f"E-Mail {email_id} ist nicht als ignoriert markiert")
+                    return True
+                
+                # Entferne aus Ignored-Liste
+                cursor.execute("DELETE FROM ignored_emails WHERE email_id = ?", (email_id,))
+                conn.commit()
+                
+            self.logger.info(f"✅ E-Mail {email_id} aus Ignored-Liste entfernt (SQLite)")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Entfernen der E-Mail {email_id} aus Ignored-Liste: {e}")
+            return False
+
+    def _get_ignored_emails(self) -> List[str]:
+        """Ruft die Liste der ignorierten E-Mail-IDs aus der SQLite-Datenbank ab"""
+        try:
+            db_path = os.path.join(os.path.dirname(__file__), 'data', 'hochzeit.db')
+            
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT email_id FROM ignored_emails")
+                results = cursor.fetchall()
+                return [row[0] for row in results]
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Laden der Ignored-Liste aus SQLite: {e}")
+            return []
 
 def get_email_manager() -> EmailManager:
     """Factory-Funktion für den E-Mail Manager"""

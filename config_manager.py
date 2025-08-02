@@ -8,6 +8,7 @@ Verwaltet die initiale Konfiguration und Datenbankpfad-Einstellungen
 import os
 import json
 import sys
+import datetime
 from pathlib import Path
 
 class ConfigManager:

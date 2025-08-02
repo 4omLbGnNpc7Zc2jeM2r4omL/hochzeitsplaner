@@ -1457,7 +1457,13 @@ class SQLiteHochzeitsDatenManager:
                         gesamtpreis,
                         ausgegeben
                     FROM budget 
-                    ORDER BY kategorie, beschreibung
+                    ORDER BY 
+                        CASE 
+                            WHEN details LIKE '%Personen ×%' OR details LIKE '%Kinder ×%' OR details = 'Pauschalpreis' THEN 0
+                            ELSE 1 
+                        END,
+                        kategorie, 
+                        beschreibung
                 """)
                 
                 rows = cursor.fetchall()
@@ -1541,6 +1547,7 @@ class SQLiteHochzeitsDatenManager:
             # Lade aus SQLite-Einstellungen
             fixed_costs = {}
             detailed_costs = {}
+            manual_guest_counts = {}
             
             with self._lock:
                 conn = sqlite3.connect(self.db_path)
@@ -1562,6 +1569,16 @@ class SQLiteHochzeitsDatenManager:
                     try:
                         detailed_costs = json.loads(row[0])
                     except:
+                        pass
+                
+                # Lade manual_guest_counts aus SQLite
+                cursor.execute("SELECT wert FROM einstellungen WHERE schluessel = 'kosten_manual_guest_counts'")
+                row = cursor.fetchone()
+                if row and row[0]:
+                    try:
+                        manual_guest_counts = json.loads(row[0])
+                    except:
+                        pass
                         pass
                         
                 conn.close()
@@ -1599,7 +1616,8 @@ class SQLiteHochzeitsDatenManager:
             
             return {
                 "fixed_costs": fixed_costs,
-                "detailed_costs": detailed_costs
+                "detailed_costs": detailed_costs,
+                "manual_guest_counts": manual_guest_counts
             }
                 
         except Exception as e:
@@ -1620,6 +1638,10 @@ class SQLiteHochzeitsDatenManager:
                 if 'detailed_costs' in config:
                     cursor.execute("INSERT OR REPLACE INTO einstellungen (schluessel, wert, typ) VALUES (?, ?, ?)", 
                                  ('kosten_detailed_costs', json.dumps(config['detailed_costs']), 'json'))
+                
+                if 'manual_guest_counts' in config:
+                    cursor.execute("INSERT OR REPLACE INTO einstellungen (schluessel, wert, typ) VALUES (?, ?, ?)", 
+                                 ('kosten_manual_guest_counts', json.dumps(config['manual_guest_counts']), 'json'))
                 
                 conn.commit()
                 conn.close()

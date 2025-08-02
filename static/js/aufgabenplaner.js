@@ -883,13 +883,78 @@ async function openEmailAssignment() {
         const modal = new bootstrap.Modal(document.getElementById('emailAssignmentModal'));
         modal.show();
         
+        // Event Listener für Filter-Buttons hinzufügen
+        document.querySelectorAll('input[name="emailFilter"]').forEach(radio => {
+            radio.addEventListener('change', handleEmailFilterChange);
+        });
+        
         // Daten laden
-        await loadUnassignedEmails();
+        await loadEmailsByFilter();
         await loadTasksForAssignment();
         
     } catch (error) {
         console.error('Fehler beim Öffnen der E-Mail-Zuordnung:', error);
         showAlert('E-Mail-Zuordnung konnte nicht geöffnet werden.', 'danger');
+    }
+}
+
+async function handleEmailFilterChange() {
+    selectedEmailForAssignment = null;
+    await loadEmailsByFilter();
+    await loadTasksForAssignment();
+}
+
+async function loadEmailsByFilter() {
+    const selectedFilter = document.querySelector('input[name="emailFilter"]:checked').value;
+    
+    try {
+        let emails = [];
+        let titleText = '';
+        
+        switch(selectedFilter) {
+            case 'unassigned':
+                const unassignedResponse = await fetch('/api/email/unassigned');
+                const unassignedData = await unassignedResponse.json();
+                if (unassignedData.success) {
+                    emails = unassignedData.emails;
+                    titleText = '(nicht zugeordnet)';
+                }
+                break;
+                
+            case 'all':
+                const allResponse = await fetch('/api/email/all');
+                const allData = await allResponse.json();
+                if (allData.success) {
+                    emails = allData.emails;
+                    titleText = '(alle)';
+                }
+                break;
+                
+            case 'ignored':
+                const ignoredResponse = await fetch('/api/email/all');
+                const ignoredData = await ignoredResponse.json();
+                if (ignoredData.success) {
+                    emails = ignoredData.emails.filter(email => email.is_ignored);
+                    titleText = '(ignorierte)';
+                }
+                break;
+        }
+        
+        // Titel aktualisieren
+        document.getElementById('emailListTitle').textContent = titleText;
+        
+        // E-Mails rendern
+        renderUnassignedEmails(emails);
+        
+    } catch (error) {
+        console.error('Fehler beim Laden der E-Mails:', error);
+        document.getElementById('unassignedEmailsList').innerHTML = `
+            <div class="text-center text-danger">
+                <i class="bi bi-exclamation-triangle fs-1"></i>
+                <p>Fehler beim Laden der E-Mails</p>
+                <small>${error.message}</small>
+            </div>
+        `;
     }
 }
 
@@ -900,8 +965,8 @@ async function loadUnassignedEmails() {
         
         if (data.success) {
             renderUnassignedEmails(data.emails);
-            // Badge nur mit ungelesenen E-Mails aktualisieren
-            const unreadCount = data.emails.filter(email => !email.is_read).length;
+            // Badge nur mit ungelesenen, nicht ignorierten E-Mails aktualisieren
+            const unreadCount = data.emails.filter(email => !email.is_read && !email.is_ignored).length;
             updateUnassignedEmailBadge(unreadCount);
         } else {
             throw new Error(data.message || 'Fehler beim Laden der E-Mails');
@@ -942,10 +1007,33 @@ function renderUnassignedEmails(emails) {
         const fromEmail = email.from_email.includes('<') ? 
             email.from_email.match(/<(.+)>/)[1] : email.from_email;
         
-        // Status-Badge basierend auf gelesen/ungelesen
-        const statusBadge = email.is_read ? 
-            '<span class="badge bg-secondary">Gelesen</span>' : 
-            '<span class="badge bg-info">Ungelesen</span>';
+        // Status-Badge basierend auf gelesen/ungelesen/ignoriert/zugeordnet
+        let statusBadge = '';
+        if (email.is_ignored) {
+            statusBadge = '<span class="badge bg-warning">Ignoriert</span>';
+        } else if (email.is_assigned) {
+            statusBadge = `<span class="badge bg-success" title="Zugeordnet an: ${email.assigned_task ? email.assigned_task.title : 'Unbekannte Aufgabe'}">Zugeordnet</span>`;
+        } else if (email.is_read) {
+            statusBadge = '<span class="badge bg-secondary">Gelesen</span>';
+        } else {
+            statusBadge = '<span class="badge bg-info">Ungelesen</span>';
+        }
+        
+        // Aktions-Buttons basierend auf Status
+        let actionButtons = '';
+        if (email.is_ignored) {
+            actionButtons = `<button class="btn btn-sm btn-outline-success me-1" onclick="event.stopPropagation(); unignoreEmail('${email.email_id}')" title="Nicht mehr ignorieren">
+                <i class="bi bi-arrow-counterclockwise"></i>
+            </button>`;
+        } else if (email.is_assigned) {
+            actionButtons = `<button class="btn btn-sm btn-outline-danger me-1" onclick="event.stopPropagation(); unassignEmail('${email.email_id}')" title="Zuordnung entfernen">
+                <i class="bi bi-x-circle"></i>
+            </button>`;
+        } else {
+            actionButtons = `<button class="btn btn-sm btn-outline-warning me-1" onclick="event.stopPropagation(); ignoreEmail('${email.email_id}')" title="Ignorieren">
+                <i class="bi bi-eye-slash"></i>
+            </button>`;
+        }
         
         html += `
             <div class="card mb-2 email-card ${selectedEmailForAssignment === email.email_id ? 'border-primary' : ''}" 
@@ -961,8 +1049,13 @@ function renderUnassignedEmails(emails) {
                                 <small>${shortBody}</small>
                             </p>
                         </div>
-                        <div class="ms-2">
-                            ${statusBadge}
+                        <div class="ms-2 d-flex flex-column align-items-end">
+                            <div class="mb-2">
+                                ${statusBadge}
+                            </div>
+                            <div class="btn-group-vertical" role="group" onclick="event.stopPropagation();">
+                                ${actionButtons}
+                            </div>
                         </div>
                     </div>
                     <div class="mt-2">
@@ -1131,6 +1224,121 @@ function updateUnassignedEmailBadge(count) {
     }
 }
 
+// =============================================================================
+// E-MAIL IGNORIERUNG FUNKTIONEN
+// =============================================================================
+
+async function ignoreEmail(emailId) {
+    if (!confirm('Möchten Sie diese E-Mail wirklich ignorieren? Sie wird dann nicht mehr in der Zuordnung angezeigt.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/email/ignore', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                email_id: emailId
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('E-Mail erfolgreich ignoriert!', 'success');
+            
+            // E-Mail-Liste neu laden
+            await loadUnassignedEmails();
+            
+            // Badge aktualisieren (ignorierte E-Mails zählen nicht als ungelesen)
+            const emailResponse = await fetch('/api/email/unassigned');
+            const emailData = await emailResponse.json();
+            if (emailData.success) {
+                const unreadCount = emailData.emails.filter(email => !email.is_read && !email.is_ignored).length;
+                updateUnassignedEmailBadge(unreadCount);
+            }
+            
+        } else {
+            throw new Error(data.message || 'Fehler beim Ignorieren der E-Mail');
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Ignorieren der E-Mail:', error);
+        showAlert(`Fehler beim Ignorieren: ${error.message}`, 'danger');
+    }
+}
+
+async function unignoreEmail(emailId) {
+    try {
+        const response = await fetch('/api/email/unignore', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                email_id: emailId
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('E-Mail-Ignorierung erfolgreich entfernt!', 'success');
+            
+            // E-Mail-Liste neu laden
+            await loadUnassignedEmails();
+            
+            // Badge aktualisieren
+            const emailResponse = await fetch('/api/email/unassigned');
+            const emailData = await emailResponse.json();
+            if (emailData.success) {
+                const unreadCount = emailData.emails.filter(email => !email.is_read && !email.is_ignored).length;
+                updateUnassignedEmailBadge(unreadCount);
+            }
+            
+        } else {
+            throw new Error(data.message || 'Fehler beim Entfernen der E-Mail-Ignorierung');
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Entfernen der E-Mail-Ignorierung:', error);
+        showAlert(`Fehler beim Entfernen der Ignorierung: ${error.message}`, 'danger');
+    }
+}
+
+// Neue Funktion: E-Mail-Zuordnung zu Aufgabe entfernen
+async function unassignEmail(emailId) {
+    try {
+        const response = await fetch('/api/email/unassign', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                email_id: emailId
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('E-Mail-Zuordnung erfolgreich entfernt!', 'success');
+            
+            // E-Mail-Liste neu laden
+            loadEmailsByFilter();
+            
+        } else {
+            throw new Error(data.message || 'Fehler beim Entfernen der E-Mail-Zuordnung');
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Entfernen der E-Mail-Zuordnung:', error);
+        showAlert(`Fehler beim Entfernen der Zuordnung: ${error.message}`, 'danger');
+    }
+}
+
 // Beim Laden der Seite ungelesene E-Mails prüfen
 document.addEventListener('DOMContentLoaded', function() {
     // Nach kurzer Verzögerung prüfen
@@ -1139,7 +1347,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('/api/email/unassigned');
             const data = await response.json();
             if (data.success) {
-                updateUnassignedEmailBadge(data.count);
+                // Nur ungelesene, nicht ignorierte E-Mails zählen
+                const unreadCount = data.emails.filter(email => !email.is_read && !email.is_ignored).length;
+                updateUnassignedEmailBadge(unreadCount);
             }
         } catch (error) {
             console.log('Fehler beim Prüfen ungelesener E-Mails:', error);

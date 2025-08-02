@@ -464,10 +464,32 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <!-- Filter-Optionen -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="btn-group" role="group" aria-label="E-Mail Filter">
+                            <input type="radio" class="btn-check" name="emailFilter" id="filterUnassigned" value="unassigned" checked>
+                            <label class="btn btn-outline-primary" for="filterUnassigned">
+                                <i class="bi bi-envelope me-1"></i>Nicht zugeordnet
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="emailFilter" id="filterAll" value="all">
+                            <label class="btn btn-outline-secondary" for="filterAll">
+                                <i class="bi bi-list me-1"></i>Alle
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="emailFilter" id="filterIgnored" value="ignored">
+                            <label class="btn btn-outline-warning" for="filterIgnored">
+                                <i class="bi bi-eye-slash me-1"></i>Ignorierte
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="row">
                     <!-- E-Mails -->
                     <div class="col-md-6">
-                        <h6><i class="bi bi-envelope me-2"></i>E-Mails (alle)</h6>
+                        <h6><i class="bi bi-envelope me-2"></i>E-Mails <span id="emailListTitle">(nicht zugeordnet)</span></h6>
                         <div id="unassignedEmailsList" class="border rounded p-3" style="max-height: 500px; overflow-y: auto;">
                             <div class="text-center text-muted">
                                 <i class="bi bi-hourglass-split fs-1"></i>

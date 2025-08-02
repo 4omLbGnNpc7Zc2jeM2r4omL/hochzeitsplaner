@@ -3749,13 +3749,23 @@ def api_email_unassigned():
                 if email_id:
                     assigned_email_ids.add(email_id)
         
-        # Nur nicht zugeordnete E-Mails zurückgeben
-        unassigned_emails = [
-            email for email in all_emails 
-            if email.get('email_id') not in assigned_email_ids  # HIER WAR DER FEHLER: 'id' → 'email_id'
-        ]
+        # Nur nicht zugeordnete und nicht ignorierte E-Mails zurückgeben
+        unassigned_emails = []
+        for email in all_emails:
+            email_id = email.get('email_id')
+            is_ignored = email.get('is_ignored', False)
+            
+            # Überspringe zugeordnete E-Mails
+            if email_id in assigned_email_ids:
+                continue
+                
+            # Überspringe ignorierte E-Mails
+            if is_ignored:
+                continue
+                
+            unassigned_emails.append(email)
         
-        logger.info(f"✅ {len(all_emails)} E-Mails abgerufen, {len(assigned_email_ids)} bereits zugeordnet, {len(unassigned_emails)} verfügbar")
+        logger.info(f"✅ {len(all_emails)} E-Mails abgerufen, {len(assigned_email_ids)} bereits zugeordnet, {len(unassigned_emails)} verfügbar (ignorierte ausgeschlossen)")
         
         return jsonify({
             'success': True,
@@ -3846,6 +3856,26 @@ def api_email_assign():
         success = data_manager.update_aufgabe(task_id, aufgabe)
         
         if success:
+            # Zusätzlich in SQLite-Tabelle für E-Mail-Zuordnung speichern
+            try:
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO email_aufgaben_zuordnung 
+                        (email_id, aufgabe_id, zugeordnet_von, email_betreff, email_absender) 
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (
+                        email_id, 
+                        task_id, 
+                        session.get('username', 'System'),
+                        email_details.get('subject', '')[:255],  # Begrenze auf 255 Zeichen
+                        email_details.get('from_email', '')[:255]
+                    ))
+                    conn.commit()
+                    logger.info(f"✅ E-Mail-Zuordnung in SQLite gespeichert: {email_id} -> Aufgabe {task_id}")
+            except Exception as e:
+                logger.warning(f"Fehler beim Speichern der E-Mail-Zuordnung in SQLite: {e}")
+            
             # E-Mail als gelesen markieren
             try:
                 email_manager.mark_email_as_read(email_id)
@@ -3871,6 +3901,207 @@ def api_email_assign():
         return jsonify({
             'success': False,
             'message': f'Fehler beim Zuordnen: {str(e)}'
+        }), 500
+
+@app.route('/api/email/ignore', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_email_ignore():
+    """Markiert eine E-Mail als ignoriert"""
+    if not EMAIL_AVAILABLE or not email_manager:
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail Manager nicht verfügbar'
+        }), 400
+    
+    try:
+        data = request.get_json()
+        
+        if not data or 'email_id' not in data:
+            return jsonify({
+                'success': False,
+                'message': 'E-Mail-ID fehlt'
+            }), 400
+        
+        email_id = data['email_id']
+        
+        # E-Mail als ignoriert markieren
+        success = email_manager.mark_email_as_ignored(email_id)
+        
+        if success:
+            logger.info(f"✅ E-Mail {email_id} als ignoriert markiert")
+            return jsonify({
+                'success': True,
+                'message': 'E-Mail erfolgreich als ignoriert markiert'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Fehler beim Markieren der E-Mail als ignoriert'
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Ignorieren der E-Mail: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Ignorieren: {str(e)}'
+        }), 500
+
+@app.route('/api/email/unignore', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_email_unignore():
+    """Entfernt die Ignorierung einer E-Mail"""
+    if not EMAIL_AVAILABLE or not email_manager:
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail Manager nicht verfügbar'
+        }), 400
+    
+    try:
+        data = request.get_json()
+        
+        if not data or 'email_id' not in data:
+            return jsonify({
+                'success': False,
+                'message': 'E-Mail-ID fehlt'
+            }), 400
+        
+        email_id = data['email_id']
+        
+        # E-Mail-Ignorierung entfernen
+        success = email_manager.remove_email_from_ignored(email_id)
+        
+        if success:
+            logger.info(f"✅ E-Mail {email_id} nicht mehr ignoriert")
+            return jsonify({
+                'success': True,
+                'message': 'E-Mail-Ignorierung erfolgreich entfernt'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Fehler beim Entfernen der E-Mail-Ignorierung'
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Entfernen der E-Mail-Ignorierung: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Entfernen der Ignorierung: {str(e)}'
+        }), 500
+
+@app.route('/api/email/all', methods=['GET'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_email_all():
+    """Ruft alle E-Mails ab (zugeordnet und nicht zugeordnet)"""
+    if not EMAIL_AVAILABLE or not email_manager:
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail Manager nicht verfügbar'
+        }), 400
+    
+    if not email_manager.is_enabled():
+        return jsonify({
+            'success': False,
+            'message': 'E-Mail-Funktionalität ist deaktiviert'
+        }), 400
+    
+    try:
+        # Alle E-Mails abrufen
+        all_emails = email_manager.get_all_emails()
+        
+        # Zuordnungsstatus für jede E-Mail ermitteln
+        aufgaben = data_manager.load_aufgaben()
+        assigned_email_ids = set()
+        
+        for aufgabe in aufgaben:
+            email_replies = aufgabe.get('email_replies', [])
+            for reply in email_replies:
+                email_id = reply.get('email_id')
+                if email_id:
+                    assigned_email_ids.add(email_id)
+        
+        # E-Mails mit Zuordnungsstatus anreichern
+        for email in all_emails:
+            email_id = email.get('email_id')
+            email['is_assigned'] = email_id in assigned_email_ids
+            
+            # Aufgaben-Info hinzufügen falls zugeordnet
+            if email['is_assigned']:
+                for aufgabe in aufgaben:
+                    email_replies = aufgabe.get('email_replies', [])
+                    for reply in email_replies:
+                        if reply.get('email_id') == email_id:
+                            email['assigned_task'] = {
+                                'id': aufgabe.get('id'),
+                                'title': aufgabe.get('titel', 'Unbekannte Aufgabe')
+                            }
+                            break
+                    if 'assigned_task' in email:
+                        break
+        
+        logger.info(f"✅ {len(all_emails)} E-Mails abgerufen (alle)")
+        
+        return jsonify({
+            'success': True,
+            'emails': clean_json_data(all_emails),
+            'count': len(all_emails),
+            'assigned_count': len(assigned_email_ids)
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Abrufen aller E-Mails: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Abrufen: {str(e)}'
+        }), 500
+
+@app.route('/api/email/unassign', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_email_unassign():
+    """Entfernt die Zuordnung einer E-Mail von einer Aufgabe"""
+    try:
+        data = request.get_json()
+        email_id = data.get('email_id')
+        
+        if not email_id:
+            return jsonify({
+                'success': False, 
+                'message': 'Email ID erforderlich'
+            }), 400
+        
+        # Zuordnung aus der Datenbank entfernen
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Prüfen, ob die E-Mail zugeordnet ist
+            cursor.execute("SELECT aufgabe_id FROM email_aufgaben_zuordnung WHERE email_id = ?", (email_id,))
+            result = cursor.fetchone()
+            
+            if result:
+                # Zuordnung entfernen
+                cursor.execute("DELETE FROM email_aufgaben_zuordnung WHERE email_id = ?", (email_id,))
+                conn.commit()
+                
+                logger.info(f"✅ E-Mail-Zuordnung entfernt für Email-ID: {email_id}")
+                return jsonify({
+                    'success': True, 
+                    'message': 'E-Mail-Zuordnung erfolgreich entfernt'
+                })
+            else:
+                return jsonify({
+                    'success': False, 
+                    'message': 'E-Mail ist keiner Aufgabe zugeordnet'
+                }), 400
+                
+    except Exception as e:
+        logger.error(f"❌ Fehler beim Entfernen der E-Mail-Zuordnung: {e}")
+        return jsonify({
+            'success': False, 
+            'message': f'Fehler beim Entfernen der Zuordnung: {str(e)}'
         }), 500
 
 @app.route('/api/aufgaben/<int:aufgabe_id>/email/reply', methods=['POST'])
@@ -3968,34 +4199,86 @@ def api_aufgaben_email_reply_send(aufgabe_id):
 # ===================================================================
 # ===================================================================
 
-if __name__ == '__main__':
-    print("🎉 Hochzeitsplaner Web-Anwendung (Direkter Start)")
-    print("==================================================")
+def start_server_with_ssl():
+    """Startet den Server mit SSL-Unterstützung"""
+    # Lade DynDNS-Konfiguration für Punycode-Domain
+    dyndns_config_path = os.path.join(os.path.dirname(__file__), 'dyndns_config.json')
+    punycode_domain = None
+    external_port = 8443
     
-    if not data_manager:
-        print("❌ KRITISCHER FEHLER: DataManager konnte nicht initialisiert werden!")
-        exit(1)
-    else:
-        print(f"✅ DataManager bereits initialisiert: {DATA_DIR}")
+    if os.path.exists(dyndns_config_path):
+        try:
+            with open(dyndns_config_path, 'r', encoding='utf-8') as f:
+                dyndns_config = json.load(f)
+                punycode_domain = dyndns_config.get('dyndns', {}).get('domain')
+                external_port = dyndns_config.get('dyndns', {}).get('external_port', 8443)
+        except Exception as e:
+            logger.warning(f"Fehler beim Laden der DynDNS-Konfiguration: {e}")
     
-    # Fester Port 8080 verwenden
-    port = 8080
-    print(f"🌐 URL: http://localhost:{port}")
+    # SSL-Zertifikat-Pfade
+    ssl_cert_path = os.path.join(os.path.dirname(__file__), 'ssl_certificate.crt')
+    ssl_key_path = os.path.join(os.path.dirname(__file__), 'ssl_private_key.key')
     
-    # Debug: Zeige registrierte Routen
-    print("\n📋 Registrierte Routen:")
-    for rule in app.url_map.iter_rules():
-        methods = ','.join(rule.methods)
-        print(f"  - {rule.rule} ({methods})")
+    # Prüfe SSL-Zertifikate
+    ssl_context = None
+    if os.path.exists(ssl_cert_path) and os.path.exists(ssl_key_path):
+        try:
+            ssl_context = (ssl_cert_path, ssl_key_path)
+            print(f"✅ SSL-Zertifikate gefunden")
+        except Exception as e:
+            logger.warning(f"SSL-Zertifikate gefunden, aber fehlerhaft: {e}")
+            ssl_context = None
+    
+    # Lokaler Port 8080 (immer verfügbar)
+    local_port = 8080
+    
+    print("🎉 Hochzeitsplaner Web-Anwendung")
+    print("=" * 60)
+    print(f"✅ DataManager initialisiert: {DATA_DIR}")
+    print(f"🌐 Lokale URL: http://localhost:{local_port}")
+    
+    if punycode_domain and ssl_context:
+        print(f"� SSL-URL: https://{punycode_domain}:{external_port}")
+        print(f"🌍 Punycode-Domain: {punycode_domain}")
+    elif punycode_domain:
+        print(f"⚠️  Punycode-Domain konfiguriert, aber SSL-Zertifikate fehlen")
+        print(f"   Domain: {punycode_domain}:{external_port}")
     
     print("⚠️  Zum Beenden: Strg+C")
-    print("==================================================")
+    print("=" * 60)
+    
+    # Server-Konfiguration
+    if ssl_context and punycode_domain:
+        # SSL-Server für externe Punycode-Domain auf Port 8443
+        import threading
+        
+        def start_ssl_server():
+            try:
+                print(f"🔒 Starte SSL-Server auf Port {external_port}...")
+                app.run(
+                    host='0.0.0.0',
+                    port=external_port,
+                    debug=False,
+                    threaded=True,
+                    ssl_context=ssl_context
+                )
+            except Exception as e:
+                logger.error(f"SSL-Server Fehler: {e}")
+        
+        # SSL-Server in separatem Thread starten
+        ssl_thread = threading.Thread(target=start_ssl_server, daemon=True)
+        ssl_thread.start()
+        
+        # Warte kurz, dann starte lokalen HTTP-Server
+        import time
+        time.sleep(1)
     
     try:
-        # IPv6 + IPv4 Support für DS-Lite/externe Erreichbarkeit
+        # Lokaler HTTP-Server auf Port 8080 (immer verfügbar)
+        print(f"🌐 Starte lokalen HTTP-Server auf Port {local_port}...")
         app.run(
-            host='0.0.0.0',  # Explizit alle IPv4-Interfaces + IPv6 dual-stack
-            port=port,
+            host='0.0.0.0',  # IPv4 + IPv6 Support
+            port=local_port,
             debug=False,
             threaded=True
         )
@@ -4006,4 +4289,11 @@ if __name__ == '__main__':
         if email_manager and EMAIL_AVAILABLE:
             email_manager.stop_email_checking()
         print("👋 Auf Wiedersehen!")
+
+if __name__ == '__main__':
+    if not data_manager:
+        print("❌ KRITISCHER FEHLER: DataManager konnte nicht initialisiert werden!")
+        exit(1)
+    
+    start_server_with_ssl()
 

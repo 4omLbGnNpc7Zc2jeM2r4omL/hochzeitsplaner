@@ -22,6 +22,9 @@ hochzeitsplaner_config.json
 cookies.txt
 app_debug.log
 
+# Datenbank und Datenverzeichnis
+data/
+
 # Test- und Dokumentationsdateien
 test_connectivity.py
 test_dns_rebinding.py
