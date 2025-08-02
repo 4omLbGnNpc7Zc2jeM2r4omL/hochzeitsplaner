@@ -293,6 +293,13 @@ print("SQLite DataManager wird verwendet")
 app = Flask(__name__)
 app.config['SECRET_KEY'] = auth_config['app']['secret_key']
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=auth_config['auth']['session_timeout_hours'])
+
+# Flask Logging komplett deaktivieren für saubere Ausgabe
+import logging
+logging.getLogger('werkzeug').disabled = True
+logging.getLogger('werkzeug').setLevel(logging.CRITICAL)
+app.logger.disabled = True
+
 CORS(app)
 
 # DataManager initialisieren (WICHTIG: Immer initialisieren, nicht nur bei direktem Start)
@@ -4201,94 +4208,243 @@ def api_aufgaben_email_reply_send(aufgabe_id):
 
 def start_server_with_ssl():
     """Startet den Server mit SSL-Unterstützung"""
-    # Lade DynDNS-Konfiguration für Punycode-Domain
-    dyndns_config_path = os.path.join(os.path.dirname(__file__), 'dyndns_config.json')
-    punycode_domain = None
-    external_port = 8443
+    import threading
+    import time
+    import socket
+    import logging
     
-    if os.path.exists(dyndns_config_path):
+    # Flask-Logging komplett deaktivieren - FRÜH machen!
+    logging.getLogger('werkzeug').setLevel(logging.CRITICAL)
+    logging.getLogger('werkzeug').disabled = True
+    
+    def get_local_ip():
+        """Ermittelt die lokale IP-Adresse des Geräts"""
         try:
-            with open(dyndns_config_path, 'r', encoding='utf-8') as f:
-                dyndns_config = json.load(f)
-                punycode_domain = dyndns_config.get('dyndns', {}).get('domain')
-                external_port = dyndns_config.get('dyndns', {}).get('external_port', 8443)
-        except Exception as e:
-            logger.warning(f"Fehler beim Laden der DynDNS-Konfiguration: {e}")
+            # Verbinde zu einem externen Server (ohne tatsächlich Daten zu senden)
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                local_ip = s.getsockname()[0]
+                return local_ip
+        except Exception:
+            # Fallback
+            try:
+                hostname = socket.gethostname()
+                local_ip = socket.gethostbyname(hostname)
+                if local_ip.startswith("127."):
+                    # Wenn localhost zurückgegeben wird, versuche andere Methode
+                    return "localhost"
+                return local_ip
+            except Exception:
+                return "localhost"
     
-    # SSL-Zertifikat-Pfade
-    ssl_cert_path = os.path.join(os.path.dirname(__file__), 'ssl_certificate.crt')
-    ssl_key_path = os.path.join(os.path.dirname(__file__), 'ssl_private_key.key')
+    print("🚀 Hochzeitsplaner Dual-Server-Start")
+    print("=" * 60)
+    print(f"📁 Arbeitsverzeichnis: {os.getcwd()}")
+    
+    # Lade Hochzeitsplaner-Konfiguration für Domain und SSL
+    config_path = os.path.join(os.path.dirname(__file__), 'hochzeitsplaner_config.json')
+    punycode_domain = "xn--pascalundkthe-heiraten-94b.de"  # Standard Punycode für pascalundkäthe-heiraten.de
+    external_port = 8443
+    ssl_enabled = False
+    original_domain = ""
+    
+    print("\n📋 Konfiguration laden")
+    print("-" * 30)
+    
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                original_domain = config.get('domain', '')
+                # Konvertiere Unicode-Domain zu Punycode falls nötig
+                if 'ä' in original_domain or 'ö' in original_domain or 'ü' in original_domain:
+                    punycode_domain = original_domain.encode('idna').decode('ascii')
+                    print(f"🌐 Domain: {original_domain}")
+                    print(f"🔤 Punycode: {punycode_domain}")
+                else:
+                    punycode_domain = original_domain
+                    print(f"🌐 Domain: {original_domain}")
+                external_port = config.get('port', 8443)
+                ssl_enabled = config.get('ssl_enabled', False)
+                print(f"🔒 SSL aktiviert: {ssl_enabled}")
+                print(f"🚪 Port: {external_port}")
+                print(f"🖥️  Host: {config.get('host', '0.0.0.0')}")
+        except Exception as e:
+            logger.warning(f"Fehler beim Laden der Hochzeitsplaner-Konfiguration: {e}")
+            print(f"❌ Fehler beim Laden der Konfiguration: {e}")
+    else:
+        print(f"⚠️  Keine Konfiguration gefunden: {config_path}")
+    
+    # SSL-Zertifikat-Pfade - PyInstaller-kompatibel
+    def get_ssl_paths():
+        """Findet SSL-Zertifikate sowohl für Entwicklung als auch für PyInstaller .exe"""
+        possible_base_dirs = []
+        
+        # 1. Verzeichnis neben der .exe (PyInstaller-Bundle)
+        if getattr(sys, 'frozen', False):
+            # Wenn als .exe ausgeführt
+            exe_dir = os.path.dirname(sys.executable)
+            possible_base_dirs.append(exe_dir)
+            print(f"🔍 PyInstaller-Modus: Suche SSL-Zertifikate in {exe_dir}")
+        
+        # 2. Skript-Verzeichnis (Entwicklung)
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        possible_base_dirs.append(script_dir)
+        
+        # 3. Arbeitsverzeichnis
+        possible_base_dirs.append(os.getcwd())
+        
+        for base_dir in possible_base_dirs:
+            cert_path = os.path.join(base_dir, 'ssl_certificate.crt')
+            key_path = os.path.join(base_dir, 'ssl_private_key.key')
+            
+            print(f"🔍 Suche in: {base_dir}")
+            cert_exists = os.path.exists(cert_path)
+            key_exists = os.path.exists(key_path)
+            print(f"   📜 Zertifikat: ssl_certificate.crt -> {'✅' if cert_exists else '❌'}")
+            print(f"   🔑 Schlüssel: ssl_private_key.key -> {'✅' if key_exists else '❌'}")
+            
+            if cert_exists and key_exists:
+                print(f"✅ SSL-Zertifikate gefunden in: {base_dir}")
+                return cert_path, key_path
+        
+        return None, None
+    
+    print("\n🔒 SSL-Setup prüfen")
+    print("-" * 30)
+    
+    ssl_cert_path, ssl_key_path = get_ssl_paths()
     
     # Prüfe SSL-Zertifikate
     ssl_context = None
-    if os.path.exists(ssl_cert_path) and os.path.exists(ssl_key_path):
+    if ssl_cert_path and ssl_key_path and ssl_enabled:
         try:
-            ssl_context = (ssl_cert_path, ssl_key_path)
-            print(f"✅ SSL-Zertifikate gefunden")
+            # Teste SSL-Kontext
+            import ssl as ssl_module
+            ssl_context = ssl_module.create_default_context(ssl_module.Purpose.CLIENT_AUTH)
+            ssl_context.load_cert_chain(ssl_cert_path, ssl_key_path)
+            print(f"✅ SSL-Kontext erfolgreich erstellt")
+            if original_domain and punycode_domain != original_domain:
+                print(f"🌐 Domain: {original_domain}")
+                print(f"🔤 Punycode: {punycode_domain}")
+            print(f"✅ Alle SSL-Tests erfolgreich!")
         except Exception as e:
             logger.warning(f"SSL-Zertifikate gefunden, aber fehlerhaft: {e}")
             ssl_context = None
+            print(f"❌ SSL-Kontext-Fehler: {e}")
+    elif ssl_cert_path and ssl_key_path and not ssl_enabled:
+        print(f"📋 SSL-Zertifikate vorhanden, aber SSL ist deaktiviert")
+        print(f"   Zum Aktivieren: ssl_enabled: true in {config_path}")
+    elif not ssl_cert_path or not ssl_key_path:
+        print(f"❌ SSL-Zertifikate nicht gefunden")
+        print(f"   Benötigt: ssl_certificate.crt und ssl_private_key.key")
+    else:
+        print(f"ℹ️  SSL nicht konfiguriert")
     
     # Lokaler Port 8080 (immer verfügbar)
     local_port = 8080
+    local_ip = get_local_ip()
     
-    print("🎉 Hochzeitsplaner Web-Anwendung")
-    print("=" * 60)
+    print("\n📊 System-Zusammenfassung")
+    print("-" * 30)
     print(f"✅ DataManager initialisiert: {DATA_DIR}")
-    print(f"🌐 Lokale URL: http://localhost:{local_port}")
+    if email_manager and EMAIL_AVAILABLE:
+        print(f"📧 E-Mail Manager: {'✅ Aktiv' if email_manager.is_enabled() else '⏸️ Inaktiv'}")
+    else:
+        print(f"📧 E-Mail Manager: ❌ Nicht verfügbar")
+    
+    print("\n🎯 Server-Ziele")
+    print("-" * 30)
+    print(f"🌐 Lokal:  http://localhost:{local_port}")
+    print(f"🏠 LAN:    http://{local_ip}:{local_port}")
     
     if punycode_domain and ssl_context:
-        print(f"� SSL-URL: https://{punycode_domain}:{external_port}")
-        print(f"🌍 Punycode-Domain: {punycode_domain}")
-    elif punycode_domain:
-        print(f"⚠️  Punycode-Domain konfiguriert, aber SSL-Zertifikate fehlen")
-        print(f"   Domain: {punycode_domain}:{external_port}")
+        print(f"🔒 Extern: https://{punycode_domain}:{external_port}")
+        if original_domain and punycode_domain != original_domain:
+            print(f"   Original: {original_domain}")
+    elif punycode_domain and ssl_enabled:
+        print(f"⚠️  SSL-Domain konfiguriert, aber Zertifikate fehlen")
+        print(f"   Wäre: https://{punycode_domain}:{external_port}")
+    else:
+        print(f"ℹ️  Nur lokaler Zugriff verfügbar")
     
-    print("⚠️  Zum Beenden: Strg+C")
+    if ssl_context and punycode_domain:
+        print("\n🎉 BEREIT FÜR DUAL-SERVER-START!")
+        print(f"🌐 Lokal:  http://localhost:{local_port}")
+        print(f"🏠 LAN:    http://{local_ip}:{local_port}")
+        print(f"🔒 Extern: https://{punycode_domain}:{external_port}")
+    else:
+        print("\n🌐 BEREIT FÜR LOKALEN SERVER-START!")
+        print(f"🏠 Lokal:  http://localhost:{local_port}")
+        print(f"🏠 LAN:    http://{local_ip}:{local_port}")
+    
+    print("\n🚀 Server starten")
     print("=" * 60)
     
-    # Server-Konfiguration
+    print("=" * 60)
+    
+    # Server-Konfiguration - Optimiert für Dual-Server-Setup
+    ssl_server_started = False
+    
     if ssl_context and punycode_domain:
         # SSL-Server für externe Punycode-Domain auf Port 8443
-        import threading
-        
         def start_ssl_server():
+            nonlocal ssl_server_started
             try:
-                print(f"🔒 Starte SSL-Server auf Port {external_port}...")
+                print(f"🔒 Starte SSL-Server auf Port {external_port} für {punycode_domain}...")
+                ssl_server_started = True
+                
                 app.run(
-                    host='0.0.0.0',
+                    host='0.0.0.0',  # Alle Interfaces für externe Erreichbarkeit
                     port=external_port,
                     debug=False,
                     threaded=True,
-                    ssl_context=ssl_context
+                    ssl_context=ssl_context,
+                    use_reloader=False  # Wichtig für Threading
                 )
             except Exception as e:
-                logger.error(f"SSL-Server Fehler: {e}")
+                logger.error(f"SSL-Server Fehler auf Port {external_port}: {e}")
+                print(f"❌ SSL-Server konnte nicht gestartet werden: {e}")
+                ssl_server_started = False
         
         # SSL-Server in separatem Thread starten
         ssl_thread = threading.Thread(target=start_ssl_server, daemon=True)
         ssl_thread.start()
+        print(f"✅ SSL-Server-Thread gestartet")
         
-        # Warte kurz, dann starte lokalen HTTP-Server
-        import time
-        time.sleep(1)
+        # Kurz warten, damit SSL-Server startet
+        time.sleep(2)
+        
+        if ssl_server_started:
+            print(f"✅ SSL-Server läuft auf https://{punycode_domain}:{external_port}")
     
     try:
         # Lokaler HTTP-Server auf Port 8080 (immer verfügbar)
         print(f"🌐 Starte lokalen HTTP-Server auf Port {local_port}...")
+        
         app.run(
             host='0.0.0.0',  # IPv4 + IPv6 Support
             port=local_port,
             debug=False,
-            threaded=True
+            threaded=True,
+            use_reloader=False  # Wichtig für Dual-Server
         )
     except KeyboardInterrupt:
         print("\n🛑 Server wird beendet...")
+    except Exception as e:
+        logger.error(f"HTTP-Server Fehler auf Port {local_port}: {e}")
+        print(f"❌ Lokaler Server konnte nicht gestartet werden: {e}")
     finally:
         # E-Mail-Checking stoppen beim Beenden
         if email_manager and EMAIL_AVAILABLE:
-            email_manager.stop_email_checking()
-        print("👋 Auf Wiedersehen!")
+            try:
+                email_manager.stop_email_checking()
+                print("📧 E-Mail-Checking gestoppt")
+            except:
+                pass
+        
+        print("\n👋 Auf Wiedersehen!")
+        print("=" * 60)
 
 if __name__ == '__main__':
     if not data_manager:

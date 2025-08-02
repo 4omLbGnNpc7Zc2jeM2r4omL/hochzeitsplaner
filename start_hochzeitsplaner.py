@@ -47,35 +47,13 @@ def main():
         # Importiere und starte die app.py direkt
         import app
         
-        print("\n🎉 Hochzeitsplaner Web-Anwendung")
-        print("==================================================")
-        
+        # Prüfe kritische Abhängigkeiten
         if not app.data_manager:
             print("❌ KRITISCHER FEHLER: DataManager konnte nicht initialisiert werden!")
             return 1
-        else:
-            print(f"✅ DataManager bereits initialisiert: {app.DATA_DIR}")
         
-        # Feste Ports wie in der ursprünglichen Konfiguration
-        port = 8080
-        print(f"🌐 URL: http://localhost:{port}")
-        
-        # Debug: Zeige registrierte Routen
-        print("\n� Registrierte Routen:")
-        for rule in app.app.url_map.iter_rules():
-            methods = ','.join(rule.methods)
-            print(f"  - {rule.rule} ({methods})")
-        
-        print("\n⚠️  Zum Beenden: Strg+C")
-        print("==================================================")
-        
-        # IPv6 + IPv4 Support für DS-Lite/externe Erreichbarkeit (wie original)
-        app.app.run(
-            host='0.0.0.0',  # Explizit alle IPv4-Interfaces + IPv6 dual-stack
-            port=port,
-            debug=False,
-            threaded=True
-        )
+        # Verwende die SSL-Funktion mit detaillierter Logging
+        return app.start_server_with_ssl()
         
     except KeyboardInterrupt:
         print("\n🛑 Server wird beendet...")
