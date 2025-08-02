@@ -998,14 +998,17 @@ Pascal Schumacher & Katharina Schaffrath
             return False
 
     def mark_email_as_ignored(self, email_id: str) -> bool:
-        """Markiert eine E-Mail als ignoriert (nur SQLite-Datenbank)"""
+        """Markiert eine E-Mail als ignoriert (verwendet SQLite DataManager)"""
         if not self.is_enabled():
             return False
         
         try:
-            db_path = os.path.join(os.path.dirname(__file__), 'data', 'hochzeit.db')
+            # Verwende den DataManager für korrekte Datenbankverbindung
+            if not self.data_manager:
+                self.logger.error("DataManager nicht verfügbar für E-Mail-Ignorierung")
+                return False
             
-            with sqlite3.connect(db_path) as conn:
+            with sqlite3.connect(self.data_manager.db_path) as conn:
                 cursor = conn.cursor()
                 
                 # Prüfe ob bereits ignoriert
@@ -1030,14 +1033,17 @@ Pascal Schumacher & Katharina Schaffrath
             return False
 
     def is_email_ignored(self, email_id: str) -> bool:
-        """Prüft ob eine E-Mail ignoriert ist (nur SQLite-Datenbank)"""
+        """Prüft ob eine E-Mail ignoriert ist (verwendet SQLite DataManager)"""
         if not self.is_enabled():
             return False
         
         try:
-            db_path = os.path.join(os.path.dirname(__file__), 'data', 'hochzeit.db')
+            # Verwende den DataManager für korrekte Datenbankverbindung
+            if not self.data_manager:
+                self.logger.error("DataManager nicht verfügbar für E-Mail-Ignorierung-Prüfung")
+                return False
             
-            with sqlite3.connect(db_path) as conn:
+            with sqlite3.connect(self.data_manager.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT id FROM ignored_emails WHERE email_id = ?", (email_id,))
                 result = cursor.fetchone()
@@ -1048,14 +1054,17 @@ Pascal Schumacher & Katharina Schaffrath
             return False
 
     def remove_email_from_ignored(self, email_id: str) -> bool:
-        """Entfernt eine E-Mail aus der Ignored-Liste (nur SQLite-Datenbank)"""
+        """Entfernt eine E-Mail aus der Ignored-Liste (verwendet SQLite DataManager)"""
         if not self.is_enabled():
             return False
         
         try:
-            db_path = os.path.join(os.path.dirname(__file__), 'data', 'hochzeit.db')
+            # Verwende den DataManager für korrekte Datenbankverbindung
+            if not self.data_manager:
+                self.logger.error("DataManager nicht verfügbar für E-Mail-Ignorierung-Entfernung")
+                return False
             
-            with sqlite3.connect(db_path) as conn:
+            with sqlite3.connect(self.data_manager.db_path) as conn:
                 cursor = conn.cursor()
                 
                 # Prüfe ob E-Mail ignoriert ist
@@ -1076,11 +1085,14 @@ Pascal Schumacher & Katharina Schaffrath
             return False
 
     def _get_ignored_emails(self) -> List[str]:
-        """Ruft die Liste der ignorierten E-Mail-IDs aus der SQLite-Datenbank ab"""
+        """Ruft die Liste der ignorierten E-Mail-IDs aus der SQLite-Datenbank ab (verwendet DataManager)"""
         try:
-            db_path = os.path.join(os.path.dirname(__file__), 'data', 'hochzeit.db')
+            # Verwende den DataManager für korrekte Datenbankverbindung
+            if not self.data_manager:
+                self.logger.error("DataManager nicht verfügbar für Ignored-Liste-Abfrage")
+                return []
             
-            with sqlite3.connect(db_path) as conn:
+            with sqlite3.connect(self.data_manager.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT email_id FROM ignored_emails")
                 results = cursor.fetchall()

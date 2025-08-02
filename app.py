@@ -1769,22 +1769,24 @@ def get_guest_location():
             else:
                 logger.error(f"Guest {guest_id} nicht gefunden")
         
-        # Location-Daten direkt aus SQLite laden (temporäre Lösung)
+        # Location-Daten direkt aus SQLite laden (verwendet DataManager)
         locations = {}
         
-        # Direkte SQLite-Abfrage für bessere Kontrolle
-        import sqlite3
-        db_path = os.path.join(data_manager.data_directory, 'hochzeit.db')
-        
+        # Verwende DataManager für korrekte Datenbankverbindung
         def get_setting_direct(key):
             try:
-                conn = sqlite3.connect(db_path)
-                cursor = conn.cursor()
-                cursor.execute('SELECT wert FROM einstellungen WHERE schluessel = ?', (key,))
-                row = cursor.fetchone()
-                conn.close()
-                return row[0] if row else ''
-            except:
+                # Verwende den DataManager anstatt hardcodierte Pfade
+                if not data_manager:
+                    logger.warning("DataManager nicht verfügbar für Setting-Abfrage")
+                    return ''
+                
+                with data_manager._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT wert FROM einstellungen WHERE schluessel = ?', (key,))
+                    row = cursor.fetchone()
+                    return row[0] if row else ''
+            except Exception as e:
+                logger.warning(f"Fehler beim Laden der Einstellung '{key}': {e}")
                 return ''
         
         # Standesamt-Daten aus SQLite laden und nur anzeigen wenn Gast berechtigt ist
@@ -3863,9 +3865,9 @@ def api_email_assign():
         success = data_manager.update_aufgabe(task_id, aufgabe)
         
         if success:
-            # Zusätzlich in SQLite-Tabelle für E-Mail-Zuordnung speichern
+            # Zusätzlich in SQLite-Tabelle für E-Mail-Zuordnung speichern (verwendet DataManager)
             try:
-                with get_db_connection() as conn:
+                with data_manager._get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute("""
                         INSERT OR IGNORE INTO email_aufgaben_zuordnung 
@@ -4080,8 +4082,8 @@ def api_email_unassign():
                 'message': 'Email ID erforderlich'
             }), 400
         
-        # Zuordnung aus der Datenbank entfernen
-        with get_db_connection() as conn:
+        # Zuordnung aus der Datenbank entfernen (verwendet DataManager)
+        with data_manager._get_connection() as conn:
             cursor = conn.cursor()
             
             # Prüfen, ob die E-Mail zugeordnet ist
