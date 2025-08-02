@@ -610,6 +610,9 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    /* Standard-Hintergrund für Events ohne spezifischen Status */
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    border-left: 4px solid #495057;
 }
 
 .gantt-bar:hover {
@@ -628,6 +631,12 @@
 }
 
 .gantt-bar.status-bestaetigt {
+    background: linear-gradient(135deg, #28a745 0%, #34ce57 100%);
+    border-left: 4px solid #1e7e34;
+}
+
+/* Zusätzliche Regel für Umlaut-Version */
+.gantt-bar.status-bestätigt {
     background: linear-gradient(135deg, #28a745 0%, #34ce57 100%);
     border-left: 4px solid #1e7e34;
 }
@@ -740,7 +749,7 @@
 
 .gantt-bar.private-event {
     border-bottom: 3px solid #dc3545;
-    opacity: 0.8;
+    /* Entfernt: opacity: 0.8; - Private Events sollen nicht durchsichtig sein */
 }
 
 .gantt-visibility-icon {
