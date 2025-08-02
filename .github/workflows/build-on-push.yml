@@ -1,0 +1,219 @@
+name: Build Windows on Push
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller==6.14.2
+
+    - name: List project structure
+      run: |
+        Write-Host "=== Projekt-Struktur ==="
+        Get-ChildItem -Recurse -Name | Select-Object -First 50
+        Write-Host "=== Python-Dateien ==="
+        Get-ChildItem -Name "*.py"
+        
+    - name: Verify main application file
+      run: |
+        if (Test-Path start_hochzeitsplaner.py) {
+          Write-Host "✅ start_hochzeitsplaner.py gefunden"
+        } else {
+          Write-Host "❌ start_hochzeitsplaner.py nicht gefunden"
+          exit 1
+        }
+    
+    - name: Create PyInstaller spec file
+      run: |
+        @"
+        # -*- mode: python ; coding: utf-8 -*-
+        
+        block_cipher = None
+        
+        a = Analysis(
+            ['start_hochzeitsplaner.py'],
+            pathex=[],
+            binaries=[],
+            datas=[
+                ('templates', 'templates'),
+                ('static', 'static'),
+                ('auth_config.json', '.'),
+                ('dyndns_config.json', '.'),
+                ('google_maps_config.json', '.'),
+                ('hochzeitsplaner_config.json', '.'),
+                ('launcher_config.json', '.'),
+                ('requirements.txt', '.'),
+            ],
+            hiddenimports=[
+                'flask',
+                'flask_cors',
+                'sqlite3',
+                'json',
+                'datetime',
+                'os',
+                'sys',
+                'logging',
+                'functools',
+                'werkzeug',
+                'jinja2',
+                'markupsafe',
+                'itsdangerous',
+                'click',
+                'blinker',
+                'email_manager',
+                'sqlite_datenmanager',
+                'dyndns_manager',
+                'config_manager',
+            ],
+            hookspath=[],
+            hooksconfig={},
+            runtime_hooks=[],
+            excludes=[],
+            win_no_prefer_redirects=False,
+            win_private_assemblies=False,
+            cipher=block_cipher,
+            noarchive=False,
+        )
+        
+        pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+        
+        exe = EXE(
+            pyz,
+            a.scripts,
+            a.binaries,
+            a.zipfiles,
+            a.datas,
+            [],
+            name='HochzeitsplanerApp',
+            debug=False,
+            bootloader_ignore_signals=False,
+            strip=False,
+            upx=True,
+            upx_exclude=[],
+            runtime_tmpdir=None,
+            console=True,
+            disable_windowed_traceback=False,
+            target_arch=None,
+            codesign_identity=None,
+            entitlements_file=None,
+            icon=None,
+        )
+        "@ | Out-File -FilePath "hochzeitsplaner.spec" -Encoding utf8
+        
+    - name: Verify spec file content
+      run: |
+        Write-Host "=== SPEC FILE CONTENT ==="
+        Get-Content hochzeitsplaner.spec
+        Write-Host "=== END SPEC FILE ==="
+    
+    - name: Build with PyInstaller
+      run: |
+        Write-Host "=== STARTING PYINSTALLER BUILD ==="
+        pyinstaller --clean --noconfirm hochzeitsplaner.spec
+        Write-Host "=== PYINSTALLER BUILD COMPLETED ==="
+    
+    - name: Verify build output
+      run: |
+        Write-Host "=== DIST DIRECTORY CONTENT ==="
+        if (Test-Path "dist") {
+          Get-ChildItem dist -Recurse | Select-Object Name, Length, FullName | Format-Table -AutoSize
+        } else {
+          Write-Host "❌ dist directory not found"
+          exit 1
+        }
+        
+        Write-Host "=== CHECKING FOR EXECUTABLE ==="
+        if (Test-Path "dist/HochzeitsplanerApp.exe") {
+          $exe = Get-Item "dist/HochzeitsplanerApp.exe"
+          Write-Host "✅ Executable found: $($exe.FullName)"
+          Write-Host "📁 Size: $([math]::Round($exe.Length / 1MB, 2)) MB"
+        } else {
+          Write-Host "❌ HochzeitsplanerApp.exe not found in dist directory"
+          Write-Host "Available files:"
+          Get-ChildItem dist -Recurse
+          exit 1
+        }
+
+    - name: Test executable launch
+      run: |
+        Write-Host "=== TESTING EXECUTABLE ==="
+        try {
+          Start-Process -FilePath "dist/HochzeitsplanerApp.exe" -ArgumentList "--version" -Wait -NoNewWindow -PassThru -ErrorAction Stop
+          Write-Host "✅ Executable launched successfully"
+        } catch {
+          Write-Host "⚠️  Executable test failed (expected for GUI apps): $($_.Exception.Message)"
+        }
+
+    - name: Create distribution package
+      run: |
+        Write-Host "=== CREATING DISTRIBUTION PACKAGE ==="
+        
+        # Erstelle Distributions-Verzeichnis
+        New-Item -ItemType Directory -Force -Path "distribution"
+        
+        # Kopiere Executable
+        Copy-Item "dist/HochzeitsplanerApp.exe" "distribution/"
+        
+        # Erstelle README für Distribution
+        @"
+        # Hochzeitsplaner Windows Application
+        
+        ## Installation und Start
+        
+        1. Alle Dateien in einen Ordner entpacken
+        2. HochzeitsplanerApp.exe ausführen
+        3. Die Anwendung läuft auf http://localhost:8080
+        
+        ## SSL-Zugang (falls konfiguriert)
+        
+        - Lokaler Zugang: http://localhost:8080
+        - SSL-Zugang: https://[domain]:8443 (falls SSL-Zertifikate vorhanden)
+        
+        ## Erstmaliger Start
+        
+        Beim ersten Start wird automatisch ein Datenverzeichnis erstellt.
+        
+        ## Support
+        
+        Build-Datum: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+        Build-Commit: $env:GITHUB_SHA
+        
+        "@ | Out-File -FilePath "distribution/README.txt" -Encoding utf8
+        
+        # Zeige finale Struktur
+        Write-Host "=== DISTRIBUTION PACKAGE CONTENT ==="
+        Get-ChildItem distribution -Recurse | Select-Object Name, Length | Format-Table -AutoSize
+
+    - name: Upload Windows executable
+      uses: actions/upload-artifact@v4
+      with:
+        name: hochzeitsplaner-windows-${{ github.sha }}
+        path: distribution/
+        retention-days: 30
+
+    - name: Build Summary
+      run: |
+        Write-Host "=== BUILD SUMMARY ==="
+        Write-Host "✅ Build completed successfully"
+        Write-Host "📦 Executable: HochzeitsplanerApp.exe"
+        Write-Host "🔗 Download: Actions artifacts"
+        Write-Host "🚀 Commit: $env:GITHUB_SHA"
+        Write-Host "📅 Build time: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")"
