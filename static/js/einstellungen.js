@@ -92,6 +92,18 @@ document.addEventListener('DOMContentLoaded', function() {
         resetFirstLoginBtn.addEventListener('click', resetFirstLoginForAllGuests);
     }
     
+    // Personalisierte Einladungstexte Buttons
+    const previewInvitationTextsBtn = document.getElementById('previewInvitationTexts');
+    const testInvitationGenerationBtn = document.getElementById('testInvitationGeneration');
+    
+    if (previewInvitationTextsBtn) {
+        previewInvitationTextsBtn.addEventListener('click', showInvitationTextsPreview);
+    }
+    
+    if (testInvitationGenerationBtn) {
+        testInvitationGenerationBtn.addEventListener('click', testInvitationGeneration);
+    }
+    
     // System Info laden
     loadSystemInfo();
 });
@@ -167,6 +179,29 @@ function populateSettingsForm(settings) {
         setInputValue('firstLoginText', settings.first_login_text);
     }
     
+    // Personalisierte Einladungstexte
+    if (settings.invitation_texts) {
+        // Haupttexte
+        setInputValue('invitationTextSingular', settings.invitation_texts.singular);
+        setInputValue('invitationTextPlural', settings.invitation_texts.plural);
+        
+        // Event-spezifische Texte
+        if (settings.invitation_texts.events) {
+            setInputValue('eventTextTrauungSingular', settings.invitation_texts.events.trauung_singular);
+            setInputValue('eventTextTrauungPlural', settings.invitation_texts.events.trauung_plural);
+            setInputValue('eventTextEssenSingular', settings.invitation_texts.events.essen_singular);
+            setInputValue('eventTextEssenPlural', settings.invitation_texts.events.essen_plural);
+            setInputValue('eventTextPartySingular', settings.invitation_texts.events.party_singular);
+            setInputValue('eventTextPartyPlural', settings.invitation_texts.events.party_plural);
+        }
+        
+        // Spezielle Hinweise
+        if (settings.invitation_texts.special_notes) {
+            setInputValue('specialNotesWeisserSaalSingular', settings.invitation_texts.special_notes.weisser_saal_singular);
+            setInputValue('specialNotesWeisserSaalPlural', settings.invitation_texts.special_notes.weisser_saal_plural);
+        }
+    }
+    
     // Kartenvorschauen für neue Locations aktualisieren wenn Adressen vorhanden
     setTimeout(() => {
         const standesamtInput = document.getElementById('standesamtAdresse');
@@ -222,6 +257,24 @@ async function handleSaveSettings(event) {
         first_login_image: getInputValue('firstLoginImage'),
         first_login_image_data: getInputValue('firstLoginImageData'),
         first_login_text: getInputValue('firstLoginText'),
+        
+        // Personalisierte Einladungstexte
+        invitation_texts: {
+            singular: getInputValue('invitationTextSingular'),
+            plural: getInputValue('invitationTextPlural'),
+            events: {
+                trauung_singular: getInputValue('eventTextTrauungSingular'),
+                trauung_plural: getInputValue('eventTextTrauungPlural'),
+                essen_singular: getInputValue('eventTextEssenSingular'),
+                essen_plural: getInputValue('eventTextEssenPlural'),
+                party_singular: getInputValue('eventTextPartySingular'),
+                party_plural: getInputValue('eventTextPartyPlural')
+            },
+            special_notes: {
+                weisser_saal_singular: getInputValue('specialNotesWeisserSaalSingular'),
+                weisser_saal_plural: getInputValue('specialNotesWeisserSaalPlural')
+            }
+        },
         
         // Legacy Hochzeitsort für Kompatibilität - verwende hochzeitslocation-Daten
         hochzeitsort: {
@@ -1076,4 +1129,254 @@ function convertCurrentImageToBlackWhite() {
         
         showToast('Bild erfolgreich zu Schwarz-Weiß konvertiert!', 'success');
     });
+}
+
+// ===============================================
+// Personalisierte Einladungstexte Funktionen
+// ===============================================
+
+/**
+ * Zeigt eine Vorschau der konfigurierten Einladungstexte
+ */
+function showInvitationTextsPreview() {
+    console.log('🔍 Zeige Einladungstexte Vorschau');
+    
+    // Aktuelle Werte aus den Einstellungen holen
+    const singularText = document.getElementById('invitationTextSingular').value.trim();
+    const pluralText = document.getElementById('invitationTextPlural').value.trim();
+    
+    // Event-spezifische Texte
+    const eventTexts = {
+        trauung_singular: document.getElementById('eventTextTrauungSingular').value.trim(),
+        trauung_plural: document.getElementById('eventTextTrauungPlural').value.trim(),
+        essen_singular: document.getElementById('eventTextEssenSingular').value.trim(),
+        essen_plural: document.getElementById('eventTextEssenPlural').value.trim(),
+        party_singular: document.getElementById('eventTextPartySingular').value.trim(),
+        party_plural: document.getElementById('eventTextPartyPlural').value.trim()
+    };
+    
+    // Spezielle Hinweise
+    const specialNotes = {
+        weisser_saal_singular: document.getElementById('specialNotesWeisserSaalSingular').value.trim(),
+        weisser_saal_plural: document.getElementById('specialNotesWeisserSaalPlural').value.trim()
+    };
+    
+    // Modal-Inhalt erstellen
+    let modalContent = `
+        <div class="modal fade" id="invitationPreviewModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-envelope-heart me-2"></i>
+                            Vorschau: Personalisierte Einladungstexte
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-primary">
+                                    <i class="bi bi-person me-1"></i>
+                                    Singular (Eine Person)
+                                </h6>
+                                <div class="border rounded p-3 bg-light mb-4" style="min-height: 200px;">
+                                    <pre style="white-space: pre-wrap; font-family: inherit;">${singularText || '<em class="text-muted">Nicht konfiguriert</em>'}</pre>
+                                </div>
+                                
+                                <h6 class="text-secondary">Event-Texte (Singular)</h6>
+                                <div class="border rounded p-2 mb-2">
+                                    <strong>Trauung:</strong> ${eventTexts.trauung_singular || '<em class="text-muted">Nicht konfiguriert</em>'}
+                                </div>
+                                <div class="border rounded p-2 mb-2">
+                                    <strong>Essen:</strong> ${eventTexts.essen_singular || '<em class="text-muted">Nicht konfiguriert</em>'}
+                                </div>
+                                <div class="border rounded p-2 mb-2">
+                                    <strong>Party:</strong> ${eventTexts.party_singular || '<em class="text-muted">Nicht konfiguriert</em>'}
+                                </div>
+                                <div class="border rounded p-2 mb-2">
+                                    <strong>Weißer Saal Hinweis:</strong> ${specialNotes.weisser_saal_singular || '<em class="text-muted">Nicht konfiguriert</em>'}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h6 class="text-primary">
+                                    <i class="bi bi-people me-1"></i>
+                                    Plural (Mehrere Personen)
+                                </h6>
+                                <div class="border rounded p-3 bg-light mb-4" style="min-height: 200px;">
+                                    <pre style="white-space: pre-wrap; font-family: inherit;">${pluralText || '<em class="text-muted">Nicht konfiguriert</em>'}</pre>
+                                </div>
+                                
+                                <h6 class="text-secondary">Event-Texte (Plural)</h6>
+                                <div class="border rounded p-2 mb-2">
+                                    <strong>Trauung:</strong> ${eventTexts.trauung_plural || '<em class="text-muted">Nicht konfiguriert</em>'}
+                                </div>
+                                <div class="border rounded p-2 mb-2">
+                                    <strong>Essen:</strong> ${eventTexts.essen_plural || '<em class="text-muted">Nicht konfiguriert</em>'}
+                                </div>
+                                <div class="border rounded p-2 mb-2">
+                                    <strong>Party:</strong> ${eventTexts.party_plural || '<em class="text-muted">Nicht konfiguriert</em>'}
+                                </div>
+                                <div class="border rounded p-2 mb-2">
+                                    <strong>Weißer Saal Hinweis:</strong> ${specialNotes.weisser_saal_plural || '<em class="text-muted">Nicht konfiguriert</em>'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Entferne existierendes Modal
+    const existingModal = document.getElementById('invitationPreviewModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Füge neues Modal hinzu
+    document.body.insertAdjacentHTML('beforeend', modalContent);
+    
+    // Modal anzeigen
+    const modal = new bootstrap.Modal(document.getElementById('invitationPreviewModal'));
+    modal.show();
+}
+
+/**
+ * Testet die Template-Generierung mit Beispieldaten
+ */
+async function testInvitationGeneration() {
+    console.log('🧪 Teste Einladungs-Template-Generierung');
+    
+    const button = document.getElementById('testInvitationGeneration');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Teste...';
+    button.disabled = true;
+    
+    try {
+        // Beispiel-Testdaten für verschiedene Szenarien
+        const testCases = [
+            {
+                name: "Max Mustermann",
+                anzahl_personen: 1,
+                weisser_saal: 1,
+                anzahl_essen: 1,
+                anzahl_party: 1
+            },
+            {
+                name: "Familie Müller", 
+                anzahl_personen: 3,
+                weisser_saal: 3,
+                anzahl_essen: 3,
+                anzahl_party: 3
+            },
+            {
+                name: "Anna Schmidt",
+                anzahl_personen: 1,
+                weisser_saal: 0,
+                anzahl_essen: 1,
+                anzahl_party: 1
+            }
+        ];
+        
+        // Teste die Generierung für jeden Fall
+        const results = [];
+        for (const testCase of testCases) {
+            const response = await fetch('/api/admin/test-invitation-generation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(testCase)
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                results.push({
+                    testCase,
+                    result: result.success ? result.message : result.error
+                });
+            } else {
+                results.push({
+                    testCase,
+                    result: 'Fehler beim Testen'
+                });
+            }
+        }
+        
+        // Ergebnisse in Modal anzeigen
+        showTestResults(results);
+        
+    } catch (error) {
+        console.error('Fehler beim Testen der Template-Generierung:', error);
+        showToast('Fehler beim Testen der Template-Generierung', 'danger');
+    } finally {
+        // Button zurücksetzen
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+}
+
+/**
+ * Zeigt die Test-Ergebnisse in einem Modal an
+ */
+function showTestResults(results) {
+    let modalContent = `
+        <div class="modal fade" id="testResultsModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-gear me-2"></i>
+                            Template-Test Ergebnisse
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+    `;
+    
+    results.forEach((item, index) => {
+        const testCase = item.testCase;
+        modalContent += `
+            <div class="mb-4">
+                <h6 class="text-primary">
+                    Test ${index + 1}: ${testCase.name} 
+                    (${testCase.anzahl_personen} Person${testCase.anzahl_personen > 1 ? 'en' : ''})
+                </h6>
+                <small class="text-muted">
+                    Trauung: ${testCase.weisser_saal}, Essen: ${testCase.anzahl_essen}, Party: ${testCase.anzahl_party}
+                </small>
+                <div class="border rounded p-3 bg-light mt-2">
+                    <pre style="white-space: pre-wrap; font-family: inherit; font-size: 0.9em;">${item.result}</pre>
+                </div>
+            </div>
+        `;
+    });
+    
+    modalContent += `
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Entferne existierendes Modal
+    const existingModal = document.getElementById('testResultsModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Füge neues Modal hinzu
+    document.body.insertAdjacentHTML('beforeend', modalContent);
+    
+    // Modal anzeigen
+    const modal = new bootstrap.Modal(document.getElementById('testResultsModal'));
+    modal.show();
 }

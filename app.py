@@ -1628,6 +1628,74 @@ def format_wedding_date_for_message(date_string):
 def generate_personalized_welcome_message(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date):
     """Generiert eine personalisierte Willkommensnachricht basierend auf den Event-Teilnahmen"""
     
+    # Lade die konfigurierten Einladungstexte aus den Einstellungen
+    settings = data_manager.load_settings() if data_manager else {}
+    invitation_texts = settings.get('invitation_texts', {})
+    
+    # Prüfe ob personalisierte Texte konfiguriert sind
+    if invitation_texts and (invitation_texts.get('singular') or invitation_texts.get('plural')):
+        return generate_personalized_message_from_settings(
+            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date, invitation_texts
+        )
+    
+    # Fallback auf die ursprüngliche hart kodierte Logik
+    return generate_legacy_welcome_message(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date)
+
+def generate_personalized_message_from_settings(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date, invitation_texts):
+    """Generiert die Nachricht basierend auf den konfigurierten Settings"""
+    
+    # Bestimme ob Singular oder Plural
+    is_plural = anzahl_personen > 1
+    
+    # Basis-Template auswählen
+    base_template = invitation_texts.get('plural' if is_plural else 'singular', '')
+    
+    if not base_template:
+        # Fallback wenn kein Template konfiguriert
+        return generate_legacy_welcome_message(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date)
+    
+    # Event-spezifische Texte
+    events = invitation_texts.get('events', {})
+    special_notes = invitation_texts.get('special_notes', {})
+    
+    # Event-Teile sammeln
+    event_parts = []
+    
+    if weisser_saal > 0:
+        text_key = 'trauung_plural' if is_plural else 'trauung_singular'
+        event_text = events.get(text_key, '')
+        if event_text:
+            event_parts.append(event_text)
+    
+    if anzahl_essen > 0:
+        text_key = 'essen_plural' if is_plural else 'essen_singular'
+        event_text = events.get(text_key, '')
+        if event_text:
+            event_parts.append(event_text)
+    
+    if anzahl_party > 0:
+        text_key = 'party_plural' if is_plural else 'party_singular'
+        event_text = events.get(text_key, '')
+        if event_text:
+            event_parts.append(event_text)
+    
+    # Spezielle Hinweise
+    special_notes_text = ''
+    if weisser_saal > 0:
+        notes_key = 'weisser_saal_plural' if is_plural else 'weisser_saal_singular'
+        special_notes_text = special_notes.get(notes_key, '')
+    
+    # Template-Variablen ersetzen
+    message = base_template
+    message = message.replace('{{wedding_date}}', wedding_date)
+    message = message.replace('{{event_parts}}', '\n'.join(event_parts))
+    message = message.replace('{{special_notes}}', special_notes_text)
+    
+    return message
+
+def generate_legacy_welcome_message(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date):
+    """Original hart kodierte Logik als Fallback"""
+    
     # Herzliche Begrüßung
     if anzahl_personen > 1:
         base_message = f"Hallo ihr Lieben,\n\nihr gehört zu den Menschen, die uns am wichtigsten sind - deshalb laden wir euch zu unserem kompletten Hochzeitstag am {wedding_date} ein:"
@@ -2088,6 +2156,48 @@ def reset_first_login_for_all_guests():
     except Exception as e:
         logger.error(f"Fehler beim Zurücksetzen des First-Login-Status: {e}")
         return jsonify({'success': False, 'message': 'Serverfehler'})
+
+@app.route('/api/admin/test-invitation-generation', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def test_invitation_generation():
+    """API-Endpunkt zum Testen der personalisierten Einladungsgenerierung (nur für Admins)"""
+    try:
+        if not data_manager:
+            return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
+        
+        # Test-Daten aus dem Request lesen
+        test_data = request.get_json()
+        
+        if not test_data:
+            return jsonify({'success': False, 'message': 'Keine Test-Daten erhalten'})
+        
+        # Benötigte Parameter extrahieren
+        anzahl_personen = test_data.get('anzahl_personen', 1)
+        weisser_saal = test_data.get('weisser_saal', 0)
+        anzahl_essen = test_data.get('anzahl_essen', 0)
+        anzahl_party = test_data.get('anzahl_party', 0)
+        
+        # Hochzeitsdatum aus Settings laden
+        settings = data_manager.load_settings()
+        hochzeitsdatum = settings.get('hochzeitsdatum') or settings.get('hochzeit', {}).get('datum', '25.07.2026')
+        formatted_date = format_wedding_date_for_message(hochzeitsdatum)
+        
+        # Personalisierte Nachricht generieren
+        message = generate_personalized_welcome_message(
+            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, formatted_date
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': message,
+            'test_data': test_data,
+            'wedding_date': formatted_date
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Testen der Einladungsgenerierung: {e}")
+        return jsonify({'success': False, 'message': 'Serverfehler: ' + str(e)})
 
 @app.route('/api/guest/zeitplan')
 @require_auth
