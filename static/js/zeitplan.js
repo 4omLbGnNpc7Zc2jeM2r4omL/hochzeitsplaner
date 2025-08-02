@@ -784,10 +784,12 @@ function editEvent(index) {
         
         const event = currentZeitplan[index];
         console.log('Event gefunden:', event);
+        console.log('Event ID:', event.id);
         
         // Edit Modal mit Event-Daten füllen
         console.log('Fülle Modal-Felder...');
         document.getElementById('editEventIndex').value = index;
+        document.getElementById('editEventId').value = event.id; // Speichere die ID
         document.getElementById('editEventStartTime').value = event.Uhrzeit;
         document.getElementById('editEventEndTime').value = event.EndZeit || '';
         document.getElementById('editEventTitle').value = event.Programmpunkt;
@@ -878,6 +880,7 @@ function saveEditEvent() {
     
     try {
         const index = parseInt(document.getElementById('editEventIndex').value);
+        const eventId = parseInt(document.getElementById('editEventId').value);
         const startTime = document.getElementById('editEventStartTime').value;
         const endTime = document.getElementById('editEventEndTime').value;
         const calculatedDuration = document.getElementById('editCalculatedDuration').textContent;
@@ -904,7 +907,7 @@ function saveEditEvent() {
             eventteile: eventteile
         };
         
-        console.log('Update-Daten:', {index, eventData});
+        console.log('Update-Daten:', {index, eventId, eventData});
         
         // Validierung
         if (!eventData.Uhrzeit || !eventData.Programmpunkt) {
@@ -912,8 +915,8 @@ function saveEditEvent() {
             return;
         }
         
-        if (index < 0 || isNaN(index)) {
-            showError('Ungültiger Event-Index.');
+        if (!eventId || isNaN(eventId)) {
+            showError('Ungültige Event-ID.');
             return;
         }
         
@@ -924,7 +927,7 @@ function saveEditEvent() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                index: index,
+                id: eventId,
                 data: eventData
             })
         })
@@ -974,21 +977,25 @@ function deleteEvent() {
     console.log('DeleteEvent aufgerufen');
     
     try {
-        let index;
+        let index, eventId;
         
-        // Index ermitteln - entweder vom Edit-Modal oder von selectedEventIndex
+        // Index und ID ermitteln - entweder vom Edit-Modal oder von selectedEventIndex
         const editIndex = document.getElementById('editEventIndex');
-        if (editIndex && editIndex.value) {
+        const editId = document.getElementById('editEventId');
+        
+        if (editIndex && editIndex.value && editId && editId.value) {
             index = parseInt(editIndex.value);
-        } else if (selectedEventIndex !== null) {
+            eventId = parseInt(editId.value);
+        } else if (selectedEventIndex !== null && currentZeitplan && currentZeitplan[selectedEventIndex]) {
             index = selectedEventIndex;
+            eventId = currentZeitplan[selectedEventIndex].id;
         } else {
             showError('Kein Event zum Löschen ausgewählt.');
             return;
         }
         
-        if (index < 0 || isNaN(index)) {
-            showError('Ungültiger Event-Index.');
+        if (!eventId || isNaN(eventId)) {
+            showError('Ungültige Event-ID.');
             return;
         }
         
@@ -996,7 +1003,7 @@ function deleteEvent() {
             return;
         }
         
-        console.log('Lösche Event mit Index:', index);
+        console.log('Lösche Event mit Index:', index, 'und ID:', eventId);
         
         // API-Aufruf zum Löschen
         fetch('/api/zeitplan/delete', {
@@ -1005,7 +1012,7 @@ function deleteEvent() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                index: index
+                id: eventId
             })
         })
         .then(response => response.json())
@@ -1086,9 +1093,15 @@ function calculateEditDuration() {
 // Bestätigung vor Löschung
 function confirmDeleteEvent(index) {
     if (confirm('Möchten Sie diesen Programmpunkt wirklich löschen?')) {
-        // Temporär den Index setzen für deleteEvent
-        document.getElementById('editEventIndex').value = index;
-        deleteEvent();
+        // Event anhand des Index finden und ID extrahieren
+        if (currentZeitplan && currentZeitplan[index]) {
+            const event = currentZeitplan[index];
+            document.getElementById('editEventIndex').value = index;
+            document.getElementById('editEventId').value = event.id;
+            deleteEvent();
+        } else {
+            showError('Event nicht gefunden.');
+        }
     }
 }
 

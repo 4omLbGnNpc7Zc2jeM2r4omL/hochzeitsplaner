@@ -3,7 +3,7 @@
  */
 
 // Debug-Modus - auf false setzen um alle Debug-Ausgaben zu deaktivieren
-const DEBUG_GUEST_DASHBOARD = false;
+const DEBUG_GUEST_DASHBOARD = true;
 
 // Debug-Helper-Funktion
 function debugLog(...args) {
@@ -13,6 +13,9 @@ function debugLog(...args) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // First Login Check - sofort als erstes prüfen
+    checkFirstLogin();
+    
     loadGuestData();
     loadZeitplanPreview();
     loadLocationData();
@@ -36,6 +39,14 @@ document.addEventListener('DOMContentLoaded', function() {
         personenAnzahlInput.addEventListener('input', function() {
             const currentValue = parseInt(this.value) || 1;
             updatePluralTexts(currentValue);
+        });
+    }
+    
+    // Event Listener für "Einladung anzeigen" Button
+    const showInvitationBtn = document.getElementById('showInvitationBtn');
+    if (showInvitationBtn) {
+        showInvitationBtn.addEventListener('click', function() {
+            showInvitationModal();
         });
     }
 });
@@ -336,6 +347,16 @@ function displayLocationInfo() {
                 ${locations.standesamt.beschreibung ? `<p class="text-muted small">${locations.standesamt.beschreibung}</p>` : ''}
             </div>
         `;
+        
+        // Standesamt-Daten in die Kartenelemente laden
+        const standesamtNameEl = document.getElementById('standesamtName');
+        const standesamtAdresseEl = document.getElementById('standesamtAdresse');
+        if (standesamtNameEl) {
+            standesamtNameEl.textContent = locations.standesamt.name || 'Standesamt';
+        }
+        if (standesamtAdresseEl) {
+            standesamtAdresseEl.textContent = locations.standesamt.adresse;
+        }
     }
     
     // Hochzeitslocation Information
@@ -348,6 +369,16 @@ function displayLocationInfo() {
                 ${locations.hochzeitslocation.beschreibung ? `<p class="text-muted small">${locations.hochzeitslocation.beschreibung}</p>` : ''}
             </div>
         `;
+        
+        // Hochzeitslocation-Daten in die Kartenelemente laden
+        const hochzeitslocationNameEl = document.getElementById('hochzeitslocationName');
+        const hochzeitslocationAdresseEl = document.getElementById('hochzeitslocationAdresse');
+        if (hochzeitslocationNameEl) {
+            hochzeitslocationNameEl.textContent = locations.hochzeitslocation.name || 'Hochzeitslocation';
+        }
+        if (hochzeitslocationAdresseEl) {
+            hochzeitslocationAdresseEl.textContent = locations.hochzeitslocation.adresse;
+        }
     }
     
     if (html === '') {
@@ -572,6 +603,14 @@ function updatePluralTexts(personenanzahl) {
     
     // Informationsbereiche aktualisieren (falls guestInformationen geladen wurden)
     updateInformationenTexts(isPlural);
+    
+    // Einladungstext aktualisieren
+    const invitationText = document.getElementById('invitationText');
+    if (invitationText) {
+        invitationText.textContent = isPlural 
+            ? 'Ihr möchtet eure persönliche Einladung nochmal ansehen? Hier könnt ihr sie erneut öffnen.'
+            : 'Du möchtest deine persönliche Einladung nochmal ansehen? Hier kannst du sie erneut öffnen.';
+    }
     
     debugLog(`✅ Plural texts updated for ${personenanzahl} person(s), isPlural: ${isPlural}`);
 }
@@ -942,8 +981,8 @@ function displayZeitplanPreview(response) {
     events.slice(0, 3).forEach(event => { // Nur erste 3 Events zeigen
         html += `
             <div class="d-flex align-items-center mb-2">
-                <span class="badge bg-primary me-2">${event.Uhrzeit || '00:00'}</span>
-                <small class="text-muted">${event.Programmpunkt || 'Programmpunkt'}</small>
+                <span class="badge bg-primary me-2">${event.uhrzeit || '00:00'}</span>
+                <small class="text-muted">${event.titel || 'Programmpunkt'}</small>
             </div>
         `;
     });
@@ -1075,4 +1114,111 @@ function showInfoMessage(message) {
     setTimeout(() => {
         alertDiv.remove();
     }, 5000);
+}
+
+
+/**
+ * Zeigt das Einladungsmodal an (First Login Modal)
+ */
+function showInvitationModal() {
+    debugLog("🎫 Opening invitation modal...");
+    
+    // Lade die personalisierte Nachricht und das Foto
+    Promise.all([
+        loadPersonalizedMessage(),
+        loadWeddingPhoto()
+    ]).then(() => {
+        // Öffne das Modal
+        const modal = new bootstrap.Modal(document.getElementById("firstLoginModal"));
+        modal.show();
+        
+        debugLog("✅ Invitation modal opened");
+    }).catch(error => {
+        console.error("❌ Error loading personalized message for invitation:", error);
+        showErrorMessage("Fehler beim Laden der personalisierten Einladung.");
+    });
+}
+
+
+/**
+ * Lädt die personalisierte Nachricht für das Modal
+ */
+async function loadPersonalizedMessage() {
+    try {
+        const response = await fetch("/api/guest/first-login-message");
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            if (result.success && result.message) {
+                const welcomeText = document.getElementById("welcomeText");
+                if (welcomeText) {
+                    welcomeText.innerHTML = result.message.replace(/\n/g, "<br>");
+                    welcomeText.dataset.personalized = "true";
+                    debugLog("✅ Personalisierte Nachricht geladen");
+                }
+                
+                // Aktualisiere auch das Datum im Header falls verfügbar
+                if (result.wedding_date) {
+                    const weddingDateDisplay = document.getElementById("weddingDateDisplay");
+                    if (weddingDateDisplay) {
+                        // Einfache Datumsformatierung
+                        weddingDateDisplay.textContent = result.wedding_date;
+                    }
+                }
+            }
+        } else {
+            debugLog("⚠️ Personalisierte Nachricht konnte nicht geladen werden, verwende Fallback");
+        }
+    } catch (error) {
+        debugLog("⚠️ Fehler beim Laden der personalisierten Nachricht:", error);
+        throw error; // Re-throw für Fehlerbehandlung in showInvitationModal
+    }
+}
+
+
+/**
+ * Lädt das Hochzeitsfoto für das Modal
+ */
+async function loadWeddingPhoto() {
+    try {
+        const response = await fetch("/api/guest/wedding-photo");
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            if (result.success && result.photo_data) {
+                const welcomeImage = document.getElementById("welcomeImage");
+                const welcomeImageContainer = document.getElementById("welcomeImageContainer");
+                const welcomeImagePlaceholder = document.getElementById("welcomeImagePlaceholder");
+                
+                if (welcomeImage && welcomeImageContainer && welcomeImagePlaceholder) {
+                    // Setze das Foto
+                    welcomeImage.src = result.photo_data;
+                    
+                    // Zeige das Foto, verstecke Placeholder
+                    welcomeImageContainer.classList.remove("d-none");
+                    welcomeImagePlaceholder.classList.add("d-none");
+                    
+                    debugLog("✅ Hochzeitsfoto für Einladung geladen");
+                }
+            } else {
+                // Kein Foto verfügbar - zeige Placeholder
+                const welcomeImageContainer = document.getElementById("welcomeImageContainer");
+                const welcomeImagePlaceholder = document.getElementById("welcomeImagePlaceholder");
+                
+                if (welcomeImageContainer && welcomeImagePlaceholder) {
+                    welcomeImageContainer.classList.add("d-none");
+                    welcomeImagePlaceholder.classList.remove("d-none");
+                }
+                
+                debugLog("ℹ️ Kein Hochzeitsfoto verfügbar, verwende Placeholder");
+            }
+        } else {
+            debugLog("⚠️ Hochzeitsfoto konnte nicht geladen werden");
+        }
+    } catch (error) {
+        debugLog("⚠️ Fehler beim Laden des Hochzeitsfotos:", error);
+        throw error;
+    }
 }

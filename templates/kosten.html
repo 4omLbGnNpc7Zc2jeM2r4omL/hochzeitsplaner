@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Kostenkonfiguration - {{ brautpaar_namen or "Brautpaar" }} Heiraten 💕{% endblock %}
+{% block title %}Kostenkonfiguration - {{ brautpaar_namen or "Brautpaar heiratet" }}{% endblock %}
 
 {% block content %}
 <div class="kosten-page">
@@ -119,6 +119,15 @@
                                    step="0.50" min="0" value="0.00">
                         </div>
                         <div class="form-text">Späte Snacks für die Party</div>
+                        
+                        <!-- Manuelle Gästeanzahl für Mitternachtssnack -->
+                        <div class="mt-2">
+                            <label for="mitternachtssnackGaeste" class="form-label small text-muted">
+                                <i class="fas fa-users me-1"></i>Anzahl Gäste (manuell)
+                            </label>
+                            <input type="number" class="form-control form-control-sm" id="mitternachtssnackGaeste" 
+                                   min="0" value="80" placeholder="Anzahl Gäste">
+                        </div>
                     </div>
                     <hr>
                     <div class="d-flex justify-content-between">

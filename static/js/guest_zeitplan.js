@@ -1,7 +1,8 @@
+// Globale Variablen
+let zeitplanData = [];
+let hochzeitsdatum = null;
+
 document.addEventListener('DOMContentLoaded', function() {
-    let zeitplanData = [];
-    let hochzeitsdatum = null;
-    
     // Event Listeners
     document.querySelectorAll('input[name="viewType"]').forEach(radio => {
         radio.addEventListener('change', switchView);
@@ -16,13 +17,25 @@ function loadHochzeitsdatum() {
     fetch('/api/settings/get')
         .then(response => response.json())
         .then(data => {
-            if (data.success && data.settings.hochzeitsdatum) {
-                hochzeitsdatum = data.settings.hochzeitsdatum;
-                console.log('Hochzeitsdatum Typ:', typeof hochzeitsdatum);
-                console.log('Hochzeitsdatum Wert:', hochzeitsdatum);
+            if (data.success) {
+                // Neue strukturierte Settings-Struktur
+                if (data.settings.hochzeit && data.settings.hochzeit.datum) {
+                    hochzeitsdatum = data.settings.hochzeit.datum;
+                } 
+                // Fallback für direkte Settings
+                else if (data.settings.hochzeitsdatum) {
+                    hochzeitsdatum = data.settings.hochzeitsdatum;
+                }
+                
+                if (hochzeitsdatum) {
+                    console.log('Hochzeitsdatum Typ:', typeof hochzeitsdatum);
+                    console.log('Hochzeitsdatum Wert:', hochzeitsdatum);
+                } else {
+                    console.error('Hochzeitsdatum nicht gefunden in Settings:', data.settings);
+                }
                 loadZeitplan();
             } else {
-                console.error('Hochzeitsdatum nicht gefunden');
+                console.error('Fehler beim Laden der Settings:', data);
                 loadZeitplan();
             }
         })

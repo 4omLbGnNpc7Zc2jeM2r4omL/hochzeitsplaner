@@ -242,11 +242,19 @@ function filterAufgaben() {
 }
 
 function editAufgabe(id) {
+    console.log('=== EDIT AUFGABE DEBUG ===');
+    console.log('Loading Aufgabe ID:', id);
+    
     // Finde die Aufgabe in den geladenen Daten
     fetch(`/api/aufgaben/get/${id}`)
-        .then(response => response.json())
+        .then(response => {
+            console.log('GET Response Status:', response.status);
+            return response.json();
+        })
         .then(data => {
+            console.log('GET Response Data:', data);
             if (data.success) {
+                console.log('Aufgabe von Server erhalten:', data.aufgabe);
                 fillForm(data.aufgabe);
                 document.getElementById('aufgabeModalLabel').textContent = 'Aufgabe bearbeiten';
                 document.getElementById('deleteAufgabeBtn').style.display = 'inline-block';
@@ -254,16 +262,23 @@ function editAufgabe(id) {
                 const modal = new bootstrap.Modal(document.getElementById('aufgabeModal'));
                 modal.show();
             } else {
+                console.error('Fehler beim Laden der Aufgabe:', data.error);
                 showAlert('Fehler beim Laden der Aufgabe: ' + data.error, 'danger');
             }
         })
         .catch(error => {
-            console.error('Fehler beim Laden der Aufgabe:', error);
+            console.error('Fetch Error beim Laden der Aufgabe:', error);
             showAlert('Aufgabe konnte nicht geladen werden.', 'danger');
         });
 }
 
 function fillForm(aufgabe) {
+    console.log('=== FILL FORM DEBUG ===');
+    console.log('Aufgabe Object:', aufgabe);
+    console.log('Fälligkeitsdatum aus Aufgabe:', aufgabe.faelligkeitsdatum);
+    console.log('Zuständig aus Aufgabe:', aufgabe.zustaendig);
+    console.log('======================');
+    
     document.getElementById('aufgabeId').value = aufgabe.id || '';
     document.getElementById('aufgabeTitel').value = aufgabe.titel || '';
     document.getElementById('aufgabeBeschreibung').value = aufgabe.beschreibung || '';
@@ -273,6 +288,8 @@ function fillForm(aufgabe) {
     document.getElementById('aufgabeFaelligkeitsdatum').value = aufgabe.faelligkeitsdatum || '';
     document.getElementById('aufgabeKategorie').value = aufgabe.kategorie || '';
     document.getElementById('aufgabeNotizen').value = aufgabe.notizen || '';
+    
+    console.log('Form gefüllt - Fälligkeitsdatum Element:', document.getElementById('aufgabeFaelligkeitsdatum').value);
 }
 
 function resetForm() {
@@ -303,9 +320,22 @@ async function saveAufgabe() {
     const aufgabeId = document.getElementById('aufgabeId').value;
     const isEdit = aufgabeId !== '';
     
+    // Debug: Log der zu sendenden Daten
+    console.log('=== SAVE AUFGABE DEBUG ===');
+    console.log('Mode:', isEdit ? 'EDIT' : 'NEW');
+    console.log('Aufgabe ID:', aufgabeId);
+    console.log('Aufgabe Daten:', aufgabeData);
+    console.log('Fälligkeitsdatum Element Wert:', document.getElementById('aufgabeFaelligkeitsdatum').value);
+    console.log('Fälligkeitsdatum in Data:', aufgabeData.faelligkeitsdatum);
+    console.log('========================');
+    
     try {
         const url = isEdit ? `/api/aufgaben/update/${aufgabeId}` : '/api/aufgaben/add';
         const method = isEdit ? 'PUT' : 'POST';
+        
+        console.log('Request URL:', url);
+        console.log('Request Method:', method);
+        console.log('Request Body:', JSON.stringify(aufgabeData));
         
         const response = await fetch(url, {
             method: method,
@@ -316,6 +346,9 @@ async function saveAufgabe() {
         });
         
         const data = await response.json();
+        
+        console.log('Response Status:', response.status);
+        console.log('Response Data:', data);
         
         if (data.success) {
             showAlert(isEdit ? 'Aufgabe erfolgreich aktualisiert!' : 'Aufgabe erfolgreich erstellt!', 'success');

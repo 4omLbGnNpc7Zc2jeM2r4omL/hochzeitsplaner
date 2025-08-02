@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Einstellungen - {{ brautpaar_namen or "Brautpaar" }} Heiraten 💕{% endblock %}
+{% block title %}Einstellungen - {{ brautpaar_namen or "Brautpaar heiratet" }}{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -173,7 +173,126 @@
                                 </div>
                             </div>
                         </div>
-                    </div>                    <!-- Legacy Hochzeitsort (wird ausgeblendet, aber für Kompatibilität beibehalten) -->
+                    </div>
+                    
+                    <!-- First Login Modal Configuration -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="bi bi-person-check me-2"></i>
+                                Gäste Willkommensnachricht
+                            </h6>
+                            
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-card-text me-2"></i>
+                                        Willkommensnachricht (wird beim ersten Login angezeigt)
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <!-- Bild Upload/URL Eingabe -->
+                                            <div class="mb-3">
+                                                <label class="form-label">Willkommensbild</label>
+                                                
+                                                <!-- Tab Navigation -->
+                                                <ul class="nav nav-tabs nav-fill mb-3" id="imageInputTabs" role="tablist">
+                                                    <li class="nav-item" role="presentation">
+                                                        <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-pane" type="button" role="tab">
+                                                            <i class="bi bi-upload me-1"></i>Upload
+                                                        </button>
+                                                    </li>
+                                                    <li class="nav-item" role="presentation">
+                                                        <button class="nav-link" id="url-tab" data-bs-toggle="tab" data-bs-target="#url-pane" type="button" role="tab">
+                                                            <i class="bi bi-link-45deg me-1"></i>URL
+                                                        </button>
+                                                    </li>
+                                                </ul>
+                                                
+                                                <!-- Tab Content -->
+                                                <div class="tab-content" id="imageInputTabContent">
+                                                    <!-- Upload Tab -->
+                                                    <div class="tab-pane fade show active" id="upload-pane" role="tabpanel">
+                                                        <div class="mb-3">
+                                                            <input type="file" class="form-control" id="firstLoginImageFile" accept="image/*">
+                                                            <div class="form-text">JPG, PNG oder GIF (max. 5MB)</div>
+                                                        </div>
+                                                        <div class="d-flex gap-2">
+                                                            <button type="button" class="btn btn-outline-secondary btn-sm" id="convertToBlackWhite" style="display: none;">
+                                                                <i class="bi bi-palette me-1"></i>Zu Schwarz-Weiß
+                                                            </button>
+                                                            <button type="button" class="btn btn-outline-danger btn-sm" id="clearUploadedImage" style="display: none;">
+                                                                <i class="bi bi-trash me-1"></i>Bild löschen
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <!-- URL Tab -->
+                                                    <div class="tab-pane fade" id="url-pane" role="tabpanel">
+                                                        <div class="mb-3">
+                                                            <input type="url" class="form-control" id="firstLoginImage" placeholder="https://example.com/hochzeitsbild.jpg">
+                                                            <div class="form-text">URL zu einem Bild, das im Willkommens-Modal angezeigt wird</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Hidden field für Base64 Daten -->
+                                                <input type="hidden" id="firstLoginImageData" name="firstLoginImageData">
+                                            </div>
+                                            
+                                            <!-- Bild-Vorschau -->
+                                            <div class="mb-3">
+                                                <label class="form-label">Bildvorschau</label>
+                                                <div class="border rounded p-3 text-center bg-light" style="min-height: 150px;">
+                                                    <img id="firstLoginImagePreview" src="" alt="Bildvorschau" style="max-width: 100%; max-height: 140px; display: none;" class="rounded">
+                                                    <div id="firstLoginImagePlaceholder" class="text-muted">
+                                                        <i class="bi bi-image" style="font-size: 2rem;"></i>
+                                                        <br>Keine Bildvorschau verfügbar
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="firstLoginText" class="form-label">Willkommenstext</label>
+                                                <textarea class="form-control" id="firstLoginText" rows="8" placeholder="Liebe Gäste,&#10;&#10;herzlich willkommen auf unserer Hochzeitswebseite!&#10;&#10;Hier findet ihr alle wichtigen Informationen zu unserem besonderen Tag..."></textarea>
+                                                <div class="form-text">Dieser Text wird neben dem Bild im Willkommens-Modal angezeigt</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <div class="alert alert-info">
+                                                <i class="bi bi-info-circle me-2"></i>
+                                                <strong>Hinweis:</strong> Dieses Modal wird nur beim ersten Login eines Gastes angezeigt. Danach können Gäste die Informationen über den Bereich "Informationen" einsehen.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Modal Vorschau und Reset-Funktionen -->
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <button type="button" class="btn btn-outline-primary w-100" id="previewFirstLoginModal">
+                                                <i class="bi bi-eye me-2"></i>
+                                                Vorschau anzeigen
+                                            </button>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <button type="button" class="btn btn-outline-warning w-100" id="resetFirstLoginForAllGuests">
+                                                <i class="bi bi-arrow-clockwise me-2"></i>
+                                                First-Login für alle zurücksetzen
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Legacy Hochzeitsort (wird ausgeblendet, aber für Kompatibilität beibehalten) -->
                     <div class="row d-none">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -235,9 +354,90 @@
         </div>
     </div>
 </div>
+
+<!-- First Login Modal Vorschau - Einladungskarten Design -->
+<div class="modal fade" id="firstLoginModalPreview" tabindex="-1" aria-labelledby="firstLoginModalPreviewLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);">
+            <div class="modal-header bg-gradient-primary text-white border-0">
+                <h4 class="modal-title fw-bold" id="firstLoginModalPreviewLabel">
+                    <i class="bi bi-eye-fill me-2"></i>
+                    Vorschau: Einladungskarte
+                </h4>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <!-- Einladungskarte Design -->
+                <div class="invitation-card text-center p-5" style="background: #ffffff; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+                    
+                    <!-- Hochzeitsdatum oben -->
+                    <div class="wedding-date mb-4">
+                        <h3 id="previewWeddingDate" class="text-elegant mb-3" style="font-family: 'Playfair Display', serif; font-weight: 300; color: #8b7355; letter-spacing: 2px;">
+                            25. Juli 2026
+                        </h3>
+                        <hr class="elegant-divider mx-auto" style="width: 150px; height: 2px; background: linear-gradient(90deg, transparent, #d4af37, transparent); border: none;">
+                    </div>
+                    
+                    <!-- Foto Bereich -->
+                    <div class="wedding-photo mb-4">
+                        <div id="previewImageContainer">
+                            <img id="previewImage" src="" alt="Hochzeitsfoto" class="img-fluid shadow-lg" 
+                                 style="max-height: 300px; max-width: 100%; object-fit: cover; border-radius: 10px; border: 3px solid #f8f9fa; display: none;">
+                            <div id="previewImagePlaceholder" class="photo-placeholder p-4" 
+                                 style="background: linear-gradient(45deg, #f8f9fa, #e9ecef); border-radius: 10px; border: 2px dashed #d4af37;">
+                                <i class="bi bi-heart-fill text-muted opacity-50" style="font-size: 4rem;"></i>
+                                <p class="text-muted mt-2 mb-0">Hochzeitsfoto nicht konfiguriert</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Trennstrich unter dem Foto -->
+                    <hr class="elegant-divider mx-auto mb-4" style="width: 150px; height: 2px; background: linear-gradient(90deg, transparent, #d4af37, transparent); border: none;">
+                    
+                    <!-- Ring Emoji -->
+                    <div class="rings-emoji mb-4">
+                        <span style="font-size: 2.5rem;">💍💍</span>
+                    </div>
+                    
+                    <!-- Einladungstext -->
+                    <div class="invitation-text">
+                        <h4 class="text-elegant mb-3" style="font-family: 'Playfair Display', serif; font-weight: 400; color: #8b7355;">
+                            💕 Persönliche Einladung 💒
+                        </h4>
+                        <div id="previewText" class="text-content mx-auto" 
+                             style="font-family: 'Crimson Text', serif; font-size: 1.1rem; line-height: 1.8; color: #5a5a5a; max-width: 400px;">
+                            <em class="text-muted">Text nicht konfiguriert</em>
+                        </div>
+                    </div>
+                    
+                    <!-- Hinweis für Admin -->
+                    <div class="mt-4 p-3 bg-light rounded" style="border-left: 4px solid #d4af37;">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Vorschau der Einladungskarte, die Gäste beim ersten Login sehen
+                        </small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-0 pt-4">
+                <div class="d-flex justify-content-between align-items-center w-100">
+                    <small class="text-muted">
+                        <i class="bi bi-palette me-1"></i>
+                        Design wird automatisch an Ihre Hochzeitsdaten angepasst
+                    </small>
+                    <button type="button" class="btn btn-elegant rounded-pill px-4" data-bs-dismiss="modal"
+                            style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border: none; color: #8b7355;">
+                        <i class="bi bi-x-lg me-2"></i>
+                        Schließen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/openstreetmap.js') }}"></script>
 <script src="{{ url_for('static', filename='js/einstellungen.js') }}"></script>
 {% endblock %}

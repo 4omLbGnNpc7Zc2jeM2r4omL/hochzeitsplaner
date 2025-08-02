@@ -16,11 +16,13 @@ import requests
 from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for, flash
 from flask_cors import CORS
 from datetime import datetime, timedelta
-import pandas as pd
 import shutil
-from datetime import datetime, timedelta
-import pandas as pd
 from functools import wraps
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 # E-Mail Manager importieren
 try:
@@ -42,23 +44,30 @@ except ImportError:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Datenverzeichnis konfigurieren
-def get_data_directory():
-    """Ermittelt das Datenverzeichnis aus Umgebungsvariablen oder Standard"""
-    data_path = os.environ.get('DATA_PATH')
-    if data_path and os.path.exists(data_path):
-        return data_path
+# Konfigurationsmanager importieren
+try:
+    from config_manager import get_data_directory
+    CONFIG_MANAGER_AVAILABLE = True
+except ImportError:
+    CONFIG_MANAGER_AVAILABLE = False
     
-    # Fallback: data-Verzeichnis neben der app.py
-    # Korrekte Pfad-Erkennung für PyInstaller auf Windows
-    if getattr(sys, 'frozen', False):
-        # Wenn als .exe ausgeführt (PyInstaller)
-        app_dir = os.path.dirname(sys.executable)
-    else:
-        # Normal als Python-Script
-        app_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    return os.path.join(app_dir, 'data')
+    # Fallback-Funktion wenn config_manager nicht verfügbar
+    def get_data_directory():
+        """Ermittelt das Datenverzeichnis aus Umgebungsvariablen oder Standard"""
+        data_path = os.environ.get('DATA_PATH')
+        if data_path and os.path.exists(data_path):
+            return data_path
+        
+        # Fallback: data-Verzeichnis neben der app.py
+        # Korrekte Pfad-Erkennung für PyInstaller auf Windows
+        if getattr(sys, 'frozen', False):
+            # Wenn als .exe ausgeführt (PyInstaller)
+            app_dir = os.path.dirname(sys.executable)
+        else:
+            # Normal als Python-Script
+            app_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        return os.path.join(app_dir, 'data')
 
 # Datenverzeichnis setzen
 DATA_DIR = get_data_directory()
@@ -136,82 +145,84 @@ def authenticate_user(username, password):
     return None
 
 def authenticate_guest(username, password):
-    """Authentifiziert einen Gast gegen die Gästeliste"""
+    """Authentifiziert einen Gast gegen die Gästeliste mit SQLite"""
     try:
         if not data_manager:
             return None
             
-        # Gästeliste laden
-        gaeste_df = data_manager.gaesteliste_df
-        
-        if gaeste_df.empty:
-            return None
-        
         # Nach Gast suchen - PRIORITÄT: guest_code > Email > Namen
-        guest_row = None
+        guest_data = None
         
         # 1. PRIORITÄT: Nach generiertem Guest-Code suchen (sicherste Methode)
-        if 'guest_code' in gaeste_df.columns:
-            code_match = gaeste_df[gaeste_df['guest_code'].str.upper() == username.upper()]
-            if not code_match.empty:
-                guest_row = code_match.iloc[0]
-                logger.info(f"Guest login via code: {username}")
+        guest_data = data_manager.find_guest_by(guest_code=username)
         
         # 2. PRIORITÄT: Nach Email suchen (falls vorhanden und kein Code-Match)
-        if guest_row is None and 'Email' in gaeste_df.columns:
-            email_match = gaeste_df[gaeste_df['Email'].str.lower() == username.lower()]
-            if not email_match.empty:
-                guest_row = email_match.iloc[0]
-                logger.info(f"Guest login via email: {username}")
+        if not guest_data:
+            guest_data = data_manager.find_guest_by(email=username)
         
         # 3. PRIORITÄT: Einfache Namenssuche (nur als Fallback)
-        if guest_row is None:
-            # Versuche nach Namen zu suchen (erster/letzter Name)
-            name_matches = gaeste_df[
-                gaeste_df['Name'].str.contains(username, case=False, na=False) |
-                gaeste_df['Vorname'].str.contains(username, case=False, na=False)
-            ]
-            if len(name_matches) == 1:  # Nur wenn eindeutig
-                guest_row = name_matches.iloc[0]
-                logger.info(f"Guest login via name: {username}")
+        if not guest_data:
+            # Suche nach Namen in der SQLite-Datenbank
+            try:
+                with data_manager._get_connection() as conn:
+                    cursor = conn.execute("""
+                        SELECT * FROM gaeste 
+                        WHERE LOWER(nachname) LIKE LOWER(?) 
+                           OR LOWER(vorname) LIKE LOWER(?)
+                    """, (f"%{username}%", f"%{username}%"))
+                    
+                    rows = cursor.fetchall()
+                    if len(rows) == 1:  # Nur wenn eindeutig
+                        columns = [description[0] for description in cursor.description]
+                        guest_data = dict(zip(columns, rows[0]))
+            except Exception as e:
+                logger.error(f"Fehler bei Namenssuche: {e}")
         
-        if guest_row is not None:
-            # Passwort prüfen - PRIORITÄT: guest_password > Nachname > Name
+        if guest_data:
+            # Passwort prüfen - PRIORITÄT: guest_password > nachname > vorname
             expected_passwords = []
             
             # 1. PRIORITÄT: Generiertes Gast-Passwort
-            if pd.notna(guest_row.get('guest_password')) and guest_row.get('guest_password') != '':
-                expected_passwords.append(str(guest_row.get('guest_password')).lower())
+            if guest_data.get('guest_password') and guest_data.get('guest_password').strip():
+                expected_passwords.append(guest_data.get('guest_password').lower())
             
             # 2. PRIORITÄT: Nachname (Fallback für alte Gäste)
-            if guest_row.get('Nachname'):
-                expected_passwords.append(guest_row.get('Nachname', '').lower())
+            if guest_data.get('nachname'):
+                expected_passwords.append(guest_data.get('nachname').lower())
             
-            # 3. PRIORITÄT: Name (weiterer Fallback)
-            if guest_row.get('Name'):
-                expected_passwords.append(guest_row.get('Name', '').lower())
+            # 3. PRIORITÄT: Vorname (weiterer Fallback)
+            if guest_data.get('vorname'):
+                expected_passwords.append(guest_data.get('vorname').lower())
             
             # 4. PRIORITÄT: Username als letzter Fallback
             expected_passwords.append(username.lower())
             
             # Passwort-Prüfung
             if password.lower() in [p for p in expected_passwords if p]:
-                # Konvertiere alle pandas-Werte zu nativen Python-Typen für JSON-Serialisierung
-                guest_data = {}
-                for key, value in guest_row.to_dict().items():
-                    if pd.isna(value):
-                        guest_data[key] = None
-                    elif hasattr(value, 'item'):  # pandas scalars
-                        guest_data[key] = value.item()
-                    else:
-                        guest_data[key] = value
+                # First Login Check
+                is_first_login = guest_data.get('first_login', 1) == 1
+                
+                # First Login vermerken (nur wenn es der erste ist)
+                if is_first_login:
+                    try:
+                        with data_manager._get_connection() as conn:
+                            conn.execute("""
+                                UPDATE gaeste 
+                                SET first_login = 0, first_login_at = CURRENT_TIMESTAMP 
+                                WHERE id = ?
+                            """, (guest_data['id'],))
+                    except Exception as e:
+                        logger.error(f"Fehler beim First-Login-Tracking: {e}")
                 
                 return {
                     'username': username,
                     'role': 'guest',
-                    'display_name': f"{guest_row.get('Vorname', '')} {guest_row.get('Name', '')}".strip(),
-                    'guest_id': int(guest_row.name),  # DataFrame index als normaler int
-                    'guest_data': guest_data
+                    'display_name': f"{guest_data.get('vorname', '')} {guest_data.get('nachname', '')}".strip(),
+                    'guest_id': guest_data.get('id'),
+                    'guest_code': guest_data.get('guest_code'),
+                    'guest_email': guest_data.get('email'),
+                    'guest_data': guest_data,
+                    'is_first_login': is_first_login
                 }
     
     except Exception as e:
@@ -227,12 +238,8 @@ def require_auth(f):
         if request.endpoint == 'login':
             return f(*args, **kwargs)
             
-        # Debug: Session-Info loggen
-        logger.info(f"Session check for {request.path}: {dict(session)}")
-            
         # Prüfen ob Benutzer eingeloggt ist
         if 'logged_in' not in session or not session['logged_in']:
-            logger.warning(f"Authentication failed for {request.path} - not logged in")
             if request.path.startswith('/api/'):
                 return jsonify({'error': 'Authentication required'}), 401
             return redirect(url_for('login'))
@@ -278,11 +285,9 @@ else:
 
 sys.path.append(current_dir)
 
-try:
-    from datenmanager import HochzeitsDatenManager
-except ImportError as e:
-    print(f"❌ Fehler beim Importieren des DataManagers: {e}")
-    sys.exit(1)
+# SQLite DataManager importieren
+from sqlite_datenmanager import SQLiteHochzeitsDatenManager as HochzeitsDatenManager
+print("SQLite DataManager wird verwendet")
 
 # Flask App initialisieren
 app = Flask(__name__)
@@ -297,14 +302,13 @@ def init_data_manager():
     try:
         # Verwende das konfigurierbare Datenverzeichnis
         data_manager = HochzeitsDatenManager(DATA_DIR)
-        print(f"✅ DataManager initialisiert: {DATA_DIR}")
         
         # Stelle sicher, dass das Verzeichnis existiert
         os.makedirs(DATA_DIR, exist_ok=True)
         
         return True
     except Exception as e:
-        print(f"❌ Fehler beim Initialisieren des DataManagers: {e}")
+        print(f"Fehler beim Initialisieren des DataManagers: {e}")
         return False
 
 def init_config_files():
@@ -349,23 +353,23 @@ email_manager = None
 init_config_files()
 
 if not init_data_manager():
-    print("❌ KRITISCHER FEHLER: DataManager konnte nicht initialisiert werden!")
+    print("KRITISCHER FEHLER: DataManager konnte nicht initialisiert werden!")
     print(f"   Datenverzeichnis: {DATA_DIR}")
     print("   Prüfen Sie die Dateiberechtigungen und Verzeichnisstruktur.")
 else:
-    print(f"✅ DataManager erfolgreich initialisiert: {DATA_DIR}")
+    print(f"DataManager erfolgreich initialisiert: {DATA_DIR}")
 
 # E-Mail Manager initialisieren (NACH DataManager)
 if EMAIL_AVAILABLE:
     try:
         email_manager = EmailManager()
         if email_manager.is_enabled():
-            print("✅ E-Mail Manager aktiviert")
+            print("E-Mail Manager aktiviert")
             # DataManager-Referenz setzen und Auto-Check starten
             email_manager.set_data_manager(data_manager)
             email_manager.start_email_checking()
         else:
-            print("⚠️ E-Mail Manager verfügbar, aber deaktiviert")
+            print("E-Mail Manager verfügbar, aber deaktiviert")
     except Exception as e:
         logger.error(f"Fehler beim Initialisieren des E-Mail Managers: {e}")
         email_manager = None
@@ -374,7 +378,7 @@ if EMAIL_AVAILABLE:
 def init_dyndns_manager():
     """Initialisiert den DynDNS Manager"""
     if not DYNDNS_AVAILABLE:
-        print("⚠️ DynDNS Manager nicht verfügbar")
+        print("DynDNS Manager nicht verfügbar")
         return False
     
     try:
@@ -417,16 +421,31 @@ def init_dyndns_manager():
 def initialize_guest_credentials():
     """Initialisiert Gast-Credentials beim ersten Start falls noch nicht vorhanden"""
     try:
-        if data_manager and not data_manager.gaesteliste_df.empty:
-            # Prüfen ob bereits Credentials vorhanden sind
-            if 'guest_code' not in data_manager.gaesteliste_df.columns or \
-               data_manager.gaesteliste_df['guest_code'].isna().all():
-                logger.info("Generiere initial Gast-Credentials...")
-                success = data_manager.generate_all_guest_credentials()
-                if success:
-                    logger.info("✅ Initiale Gast-Credentials erfolgreich generiert")
-                else:
-                    logger.warning("⚠️ Fehler bei initialer Credential-Generierung")
+        if data_manager:
+            # SQLite DataManager verwenden wenn verfügbar
+            if hasattr(data_manager, 'get_all_guests'):
+                guests = data_manager.get_all_guests()
+                if guests and len(guests) > 0:
+                    # Prüfen ob bereits Credentials vorhanden sind
+                    has_credentials = all(guest.get('guest_code') for guest in guests)
+                    if not has_credentials:
+                        logger.info("Generiere initial Gast-Credentials...")
+                        success = data_manager.generate_all_guest_credentials()
+                        if success:
+                            logger.info("✅ Initiale Gast-Credentials erfolgreich generiert")
+                        else:
+                            logger.warning("⚠️ Fehler bei initialer Credential-Generierung")
+            # Fallback für pandas DataManager
+            elif hasattr(data_manager, 'gaesteliste_df') and not data_manager.gaesteliste_df.empty:
+                # Prüfen ob bereits Credentials vorhanden sind
+                if 'guest_code' not in data_manager.gaesteliste_df.columns or \
+                   data_manager.gaesteliste_df['guest_code'].isna().all():
+                    logger.info("Generiere initial Gast-Credentials...")
+                    success = data_manager.generate_all_guest_credentials()
+                    if success:
+                        logger.info("✅ Initiale Gast-Credentials erfolgreich generiert")
+                    else:
+                        logger.warning("⚠️ Fehler bei initialer Credential-Generierung")
     except Exception as e:
         logger.error(f"Fehler bei initialer Credential-Generierung: {e}")
 
@@ -442,20 +461,39 @@ def inject_global_vars():
         if data_manager:
             settings = data_manager.load_settings()
             if settings:  # Zusätzliche Sicherheitsüberprüfung
-                braut_name = settings.get('braut_name', '')
-                braeutigam_name = settings.get('braeutigam_name', '')
+                # Versuche neue strukturierte Settings zu laden
+                braut_name = ""
+                braeutigam_name = ""
+                
+                # Erst strukturierte Settings versuchen
+                if 'hochzeit' in settings and isinstance(settings['hochzeit'], dict):
+                    brautpaar = settings['hochzeit'].get('brautpaar', {})
+                    if isinstance(brautpaar, dict):
+                        braut_name = brautpaar.get('braut', '')
+                        braeutigam_name = brautpaar.get('braeutigam', '')
+                
+                # Fallback: Direkt aus den Einzelwerten laden (das funktioniert aktuell)
+                if not braut_name:
+                    braut_name = settings.get('braut_name', '')
+                if not braeutigam_name:
+                    braeutigam_name = settings.get('braeutigam_name', '')
                 
                 if braut_name and braeutigam_name:
-                    brautpaar_namen = f"{braut_name} & {braeutigam_name}"
+                    brautpaar_namen = f"{braut_name} & {braeutigam_name} heiraten"
+                    admin_header = "💕 Hochzeitsplaner 💒"
                 elif braut_name:
-                    brautpaar_namen = braut_name
+                    brautpaar_namen = f"{braut_name} heiratet"
+                    admin_header = "💕 Hochzeitsplaner 💒"
                 elif braeutigam_name:
-                    brautpaar_namen = braeutigam_name
+                    brautpaar_namen = f"{braeutigam_name} heiratet"
+                    admin_header = "💕 Hochzeitsplaner 💒"
                 else:
-                    brautpaar_namen = "Brautpaar"
+                    brautpaar_namen = "Brautpaar heiratet"
+                    admin_header = "💕 Hochzeitsplaner 💒"
                     
                 return {
                     'brautpaar_namen': brautpaar_namen,
+                    'admin_header': admin_header,
                     'bride_name': braut_name,
                     'groom_name': braeutigam_name
                 }
@@ -463,7 +501,7 @@ def inject_global_vars():
         logger.warning(f"Fehler beim Laden der globalen Template-Variablen: {e}")
     
     return {
-        'brautpaar_namen': "Brautpaar",
+        'brautpaar_namen': "Brautpaar heiratet",
         'bride_name': "",
         'groom_name': ""
     }
@@ -527,7 +565,6 @@ def api_budget_auto_generate():
         
         # Lade Kostenkonfiguration
         kosten_config_raw = data_manager.load_kosten_config()
-        logger.info(f"Kostenkonfiguration geladen: {type(kosten_config_raw)}")
         
         # Konvertiere die Kostenkonfiguration in das erwartete Format
         kosten_config = []
@@ -577,9 +614,7 @@ def api_budget_auto_generate():
             
             # Fixed costs verarbeiten
             fixed_costs = kosten_config_raw.get('fixed_costs', {})
-            logger.info(f"Fixed costs gefunden: {fixed_costs}")
             for beschreibung, preis in fixed_costs.items():
-                logger.info(f"Verarbeite Fixed cost: {beschreibung} = {preis}€")
                 if preis > 0:  # Nur Kosten > 0 berücksichtigen
                     kosten_config.append({
                         'kategorie': 'Fixkosten',  # Verwende normale Fixkosten-Kategorie
@@ -589,12 +624,9 @@ def api_budget_auto_generate():
                         'aktiv': True
                     })
         
-        logger.info(f"Konvertierte Kostenkonfiguration: {len(kosten_config)} Items")
-        
         # Lade Gästedaten
         data_manager.load_gaesteliste()  # Daten in gaesteliste_df laden
         gaeste_data = data_manager.gaesteliste_df.to_dict('records') if not data_manager.gaesteliste_df.empty else []
-        logger.info(f"Gästedaten geladen: {len(gaeste_data)} Gäste")
         
         # Berechne Gästestatistiken basierend auf Anzahl-Feldern (nicht Ja/Nein)
         def safe_int(value):
@@ -613,10 +645,11 @@ def api_budget_auto_generate():
         
         for guest in gaeste_data:
             # Zähle basierend auf den Anzahl-Feldern, unabhängig von Ja/Nein
-            anzahl_essen = safe_int(guest.get('Anzahl_Essen', 0))
-            anzahl_party = safe_int(guest.get('Anzahl_Party', 0))
-            weisser_saal = safe_int(guest.get('Weisser_Saal', 0))
-            kinder = safe_int(guest.get('Kind', 0))
+            # SQLite verwendet lowercase Spalten-Namen
+            anzahl_essen = safe_int(guest.get('anzahl_essen', 0))
+            anzahl_party = safe_int(guest.get('anzahl_party', 0))
+            weisser_saal = safe_int(guest.get('weisser_saal', 0))
+            kinder = safe_int(guest.get('kind', 0))
             
             # Implementiere die hierarchische Logik:
             # Weißer Saal → automatisch auch Essen
@@ -630,43 +663,33 @@ def api_budget_auto_generate():
             total_party += final_party
             total_kinder += kinder
         
-        logger.info(f"Gästestatistiken (nach hierarchischer Logik) - Weißer Saal: {total_weisser_saal}, Essen: {total_essen}, Party: {total_party}, Kinder: {total_kinder}")
+        # Lade manuelle Gästeanzahlen aus der Kostenkonfiguration
+        manual_guest_counts = kosten_config_raw.get('manual_guest_counts', {})
         
-        # Lade bestehendes Budget um Duplikate zu vermeiden
+        # Lade bestehendes Budget um "ausgegeben"-Werte zu übernehmen
         try:
             existing_budget_df = data_manager.lade_budget()
             existing_budget_items = existing_budget_df.to_dict('records') if not existing_budget_df.empty else []
         except:
             existing_budget_items = []
         
-        # Erstelle Set der bereits existierenden Einträge (Kategorie:Beschreibung)
-        existing_keys = set()
+        # Erstelle Dictionary der bereits ausgegebenen Beträge (Kategorie:Beschreibung -> ausgegeben)
+        ausgegeben_map = {}
         for item in existing_budget_items:
             beschreibung = item.get('beschreibung', '')
             kategorie = item.get('kategorie', '')
             key = f"{kategorie}:{beschreibung}"
-            existing_keys.add(key)
+            ausgegeben_map[key] = float(item.get('ausgegeben', 0))
             # Spezialbehandlung: "Essen" kann auch als "Hauptgang" existieren
             if beschreibung == "Essen":
-                existing_keys.add(f"{kategorie}:Hauptgang")
+                ausgegeben_map[f"{kategorie}:Hauptgang"] = float(item.get('ausgegeben', 0))
+            if beschreibung == "Hauptgang":
+                ausgegeben_map[f"{kategorie}:Essen"] = float(item.get('ausgegeben', 0))
         
-        # Beginne mit allen existierenden Einträgen
+        # Erstelle komplett neues Budget basierend auf aktueller Kostenkonfiguration
         budget_items = []
-        for item in existing_budget_items:
-            budget_items.append({
-                'kategorie': item.get('kategorie', ''),
-                'beschreibung': item.get('beschreibung', ''),
-                'details': item.get('details', ''),
-                'menge': float(item.get('menge', 0)),
-                'einzelpreis': float(item.get('einzelpreis', 0)),
-                'gesamtpreis': float(item.get('gesamtpreis', 0)),
-                'ausgegeben': float(item.get('ausgegeben', 0))
-            })
-        
-        logger.info(f"Verarbeite {len(kosten_config)} Kostenelemente")
         
         for i, item in enumerate(kosten_config):
-            logger.info(f"Verarbeite Item {i}: {item}")
             
             if not item.get('aktiv', True):
                 continue
@@ -692,12 +715,19 @@ def api_budget_auto_generate():
                 if beschreibung == "Hauptgang":
                     beschreibung = "Essen"
             elif item.get('typ') == 'pro_person_party':
-                # Nur zusätzliche Party-Gäste (die nicht bereits vom Essen kommen)
-                zusaetzliche_party_gaeste = total_party - total_essen
-                menge = zusaetzliche_party_gaeste
-                einzelpreis = float(item.get('preis_pro_einheit', 0) or 0)
-                gesamtpreis = menge * einzelpreis
-                details = f"{menge} Personen × {einzelpreis}€ (zusätzlich zur Party)" if menge > 0 else "0 zusätzliche Party-Gäste"
+                # Spezialbehandlung für Mitternachtssnack mit manueller Gästeanzahl
+                if beschreibung.lower() == 'mitternachtssnack' and 'mitternachtssnack' in manual_guest_counts:
+                    menge = manual_guest_counts['mitternachtssnack']
+                    einzelpreis = float(item.get('preis_pro_einheit', 0) or 0)
+                    gesamtpreis = menge * einzelpreis
+                    details = f"{menge} Personen × {einzelpreis}€ (manuell festgelegt)"
+                else:
+                    # Nur zusätzliche Party-Gäste (die nicht bereits vom Essen kommen)
+                    zusaetzliche_party_gaeste = total_party - total_essen
+                    menge = zusaetzliche_party_gaeste
+                    einzelpreis = float(item.get('preis_pro_einheit', 0) or 0)
+                    gesamtpreis = menge * einzelpreis
+                    details = f"{menge} Personen × {einzelpreis}€ (zusätzlich zur Party)" if menge > 0 else "0 zusätzliche Party-Gäste"
             elif item.get('typ') == 'pro_kind':
                 menge = total_kinder
                 einzelpreis = float(item.get('preis_pro_einheit', 0) or 0)
@@ -715,11 +745,9 @@ def api_budget_auto_generate():
                 gesamtpreis = einzelpreis
                 details = "Einzelpreis"
             
-            # Prüfe ob dieser Eintrag bereits existiert
+            # Übernehme bereits ausgegebenen Betrag falls vorhanden
             key = f"{kategorie}:{beschreibung}"
-            if key in existing_keys:
-                logger.info(f"Überspringe bereits existierenden Eintrag: {key}")
-                continue
+            ausgegeben = ausgegeben_map.get(key, 0)
             
             budget_items.append({
                 'kategorie': kategorie,
@@ -728,22 +756,19 @@ def api_budget_auto_generate():
                 'menge': menge,
                 'einzelpreis': einzelpreis,
                 'gesamtpreis': gesamtpreis,
-                'ausgegeben': 0  # Neue Einträge haben standardmäßig 0 ausgegeben
+                'ausgegeben': ausgegeben  # Übernehme bestehenden ausgegebenen Betrag
             })
         
         # Berechne Gesamtsumme - stelle sicher, dass alle gesamtpreis-Werte numerisch sind
         gesamtsumme = sum(float(item.get('gesamtpreis', 0) or 0) for item in budget_items)
         
-        logger.info(f"Budget generiert: {len(budget_items)} Items, Gesamtsumme: {gesamtsumme}")
-        logger.info(f"Bereits vorhandene Budget-Einträge: {len(existing_budget_items)}")
-        logger.info(f"Konvertierte Kostenelemente: {len(kosten_config)} - {[item['beschreibung'] for item in kosten_config]}")
-        
         # Speichere das generierte Budget automatisch
         try:
-            import pandas as pd
-            budget_df = pd.DataFrame(budget_items)
-            data_manager.speichere_budget(budget_df)
-            logger.info("Budget automatisch gespeichert")
+            if pd is not None:
+                budget_df = pd.DataFrame(budget_items)
+                data_manager.speichere_budget(budget_df)
+            else:
+                logger.warning("Pandas nicht verfügbar - Budget wird nicht gespeichert")
         except Exception as e:
             logger.error(f"Fehler beim automatischen Speichern: {str(e)}")
         
@@ -810,12 +835,14 @@ def api_budget_add():
         }
         
         # Füge zur DataFrame hinzu
-        import pandas as pd
-        neuer_eintrag_df = pd.DataFrame([neuer_eintrag])
-        budget_df = pd.concat([budget_df, neuer_eintrag_df], ignore_index=True)
-        
-        # Speichere Budget
-        data_manager.speichere_budget(budget_df)
+        if pd is not None:
+            neuer_eintrag_df = pd.DataFrame([neuer_eintrag])
+            budget_df = pd.concat([budget_df, neuer_eintrag_df], ignore_index=True)
+            
+            # Speichere Budget
+            data_manager.speichere_budget(budget_df)
+        else:
+            return jsonify({'error': 'Pandas nicht verfügbar'}), 500
         
         return jsonify({
             'success': True,
@@ -931,23 +958,25 @@ def api_budget_save():
             return jsonify({'error': 'Budget-Daten erforderlich'}), 400
         
         # Konvertiere Budget-Daten zu DataFrame
-        import pandas as pd
-        budget_items = data['budget']
-        
-        # Validiere und konvertiere numerische Werte
-        for item in budget_items:
-            try:
-                item['einzelpreis'] = float(item.get('einzelpreis', 0))
-                item['menge'] = float(item.get('menge', 0))
-                item['gesamtpreis'] = item['einzelpreis'] * item['menge']
-                item['ausgegeben'] = float(item.get('ausgegeben', 0))
-            except (ValueError, TypeError):
-                return jsonify({'error': 'Ungültige numerische Werte in Budget-Daten'}), 400
-        
-        budget_df = pd.DataFrame(budget_items)
-        
-        # Speichere Budget
-        data_manager.speichere_budget(budget_df)
+        if pd is not None:
+            budget_items = data['budget']
+            
+            # Validiere und konvertiere numerische Werte
+            for item in budget_items:
+                try:
+                    item['einzelpreis'] = float(item.get('einzelpreis', 0))
+                    item['menge'] = float(item.get('menge', 0))
+                    item['gesamtpreis'] = item['einzelpreis'] * item['menge']
+                    item['ausgegeben'] = float(item.get('ausgegeben', 0))
+                except (ValueError, TypeError):
+                    return jsonify({'error': 'Ungültige numerische Werte in Budget-Daten'}), 400
+            
+            budget_df = pd.DataFrame(budget_items)
+            
+            # Speichere Budget
+            data_manager.speichere_budget(budget_df)
+        else:
+            return jsonify({'error': 'Pandas nicht verfügbar'}), 500
         
         return jsonify({
             'success': True,
@@ -993,7 +1022,6 @@ def api_kosten_save():
         # Lade rohe Daten und parse manuell
         try:
             raw_data = request.get_data(as_text=True)
-            logger.info(f"Raw request data: {raw_data[:200]}...")  # Erste 200 Zeichen loggen
             
             if not raw_data.strip():
                 logger.error("No data received")
@@ -1023,8 +1051,6 @@ def api_kosten_save():
             if key not in config_data:
                 logger.warning(f"Missing key in config: {key}")
         
-        logger.info(f"Speichere Kostenkonfiguration: {config_data}")
-        
         # Speichere Kostenkonfiguration
         success = data_manager.save_kosten_config(config_data)
         
@@ -1049,6 +1075,21 @@ def find_free_port(start_port=8081):
             port += 1
     return start_port  # Fallback
 
+def is_na_value(value):
+    """Prüft ob ein Wert None/NaN/leer ist - Ersatz für pd.isna()"""
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.lower() in ['nan', 'nat', 'null', '']
+    if isinstance(value, float):
+        # Prüfe mathematisches NaN
+        return value != value or str(value).lower() in ['nan', 'nat']
+    return False
+
+def is_not_na_value(value):
+    """Prüft ob ein Wert NICHT None/NaN/leer ist - Ersatz für pd.notna()"""
+    return not is_na_value(value)
+
 def clean_json_data(data):
     """Bereinigt Daten für JSON-Serialisierung"""
     if isinstance(data, dict):
@@ -1065,11 +1106,27 @@ def clean_json_data(data):
         return cleaned
     elif isinstance(data, list):
         return [clean_json_data(item) for item in data]
-    elif pd.isna(data) or (isinstance(data, float) and str(data) == 'nan'):
+    elif data is None:
         return ''
-    elif isinstance(data, (int, float, str, bool)):
+    elif isinstance(data, str) and data.lower() in ['nan', 'nat', 'null']:
+        return ''
+    elif isinstance(data, float):
+        # Prüfe auf NaN ohne pandas
+        if str(data).lower() in ['nan', 'nat']:
+            return ''
+        # Prüfe mathematisches NaN
+        if data != data:  # NaN != NaN ist True
+            return ''
+        return data
+    elif isinstance(data, (int, str, bool)):
         return data
     else:
+        # Für pandas-Objekte falls vorhanden
+        try:
+            if hasattr(data, 'item'):  # pandas scalars
+                return data.item()
+        except:
+            pass
         return str(data)
 
 # =============================================================================
@@ -1086,7 +1143,6 @@ def login():
         # Benutzer authentifizieren
         user = authenticate_user(username, password)
         if user:
-            logger.info(f"Authentication successful for user: {user}")
             session['logged_in'] = True
             session['username'] = user['username']
             session['user_role'] = user['role']
@@ -1094,20 +1150,32 @@ def login():
             session['login_time'] = datetime.now().isoformat()
             session.permanent = True
             
-            logger.info(f"Session after login: {dict(session)}")
-            
             # Zusätzliche Daten für Gäste
             if user['role'] == 'guest':
                 guest_data = user.get('guest_data', {})
                 session['guest_id'] = user.get('guest_id')
                 session['guest_code'] = guest_data.get('guest_code')
                 session['guest_email'] = guest_data.get('Email') or guest_data.get('email')
+                
+                # First Login Check
+                is_first_login = user.get('is_first_login', False)
             
             # Redirect basierend auf Rolle
             next_page = request.args.get('next')
             if user['role'] == 'guest':
-                logger.info(f"Redirecting guest to: {next_page or url_for('guest_dashboard')}")
-                return redirect(next_page or url_for('guest_dashboard'))
+                # Für Gäste: First-Login-Parameter hinzufügen wenn notwendig
+                redirect_url = next_page or url_for('guest_dashboard')
+                if user.get('is_first_login', False):
+                    # First Login Parameter hinzufügen
+                    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+                    parsed = urlparse(redirect_url)
+                    query_dict = parse_qs(parsed.query)
+                    query_dict['first_login'] = ['1']
+                    new_query = urlencode(query_dict, doseq=True)
+                    redirect_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+                else:
+                    pass  # Keine zusätzlichen Logs
+                return redirect(redirect_url)
             else:
                 return redirect(next_page or url_for('index'))
         else:
@@ -1145,6 +1213,12 @@ def index():
 @require_role(['admin', 'user'])
 def gaesteliste():
     return render_template('gaesteliste.html')
+
+@app.route('/gaeste/import')
+@require_auth
+@require_role(['admin', 'user'])
+def gaeste_import():
+    return render_template('import_gaeste.html')
 
 @app.route('/budget')
 @require_auth
@@ -1414,30 +1488,16 @@ def zeitplan():
 @require_role(['guest'])
 def guest_dashboard():
     """Gäste-Dashboard"""
-    # Brautpaar-Namen aus Einstellungen laden
-    brautpaar_namen = "Hochzeit"  # Fallback
-    try:
-        if data_manager and data_manager.settings:
-            brautpaar_namen = data_manager.settings.get('brautpaar_namen', 'Hochzeit')
-    except Exception as e:
-        logger.error(f"Fehler beim Laden der Brautpaar-Namen: {e}")
-    
-    return render_template('guest_dashboard.html', brautpaar_namen=brautpaar_namen)
+    # Die brautpaar_namen Variable wird automatisch durch inject_global_vars() bereitgestellt
+    return render_template('guest_dashboard.html')
 
 @app.route('/guest/zeitplan')
 @require_auth
 @require_role(['guest'])
 def guest_zeitplan():
     """Öffentlicher Zeitplan für Gäste"""
-    # Brautpaar-Namen aus Einstellungen laden
-    brautpaar_namen = "Hochzeit"  # Fallback
-    try:
-        if data_manager and data_manager.settings:
-            brautpaar_namen = data_manager.settings.get('brautpaar_namen', 'Hochzeit')
-    except Exception as e:
-        logger.error(f"Fehler beim Laden der Brautpaar-Namen: {e}")
-    
-    return render_template('guest_zeitplan.html', brautpaar_namen=brautpaar_namen)
+    # Die brautpaar_namen Variable wird automatisch durch inject_global_vars() bereitgestellt
+    return render_template('guest_zeitplan.html')
 
 # Guest API-Endpunkte
 @app.route('/api/guest/data')
@@ -1452,106 +1512,48 @@ def get_guest_data():
         if not guest_id and not guest_code and not guest_email:
             return jsonify({'success': False, 'message': 'Gast-Session ungültig'})
         
-        # Direkter Zugriff über guest_id (DataFrame-Index)
+        # Direkter Zugriff über guest_id
+        guest_data = None
         if guest_id is not None:
-            try:
-                guest_row = data_manager.gaesteliste_df.iloc[guest_id]
-                guest_dict = guest_row.to_dict()
-                
-                # Pandas-Werte zu Python-Typen konvertieren
-                guest = {}
-                for key, value in guest_dict.items():
-                    if pd.isna(value):
-                        guest[key] = None
-                    elif hasattr(value, 'item'):  # pandas scalars
-                        guest[key] = value.item()
-                    else:
-                        guest[key] = value
-                
-                # Bestimme das echte Maximum
-                original_max = guest.get('Max_Personen')
-                if pd.isna(original_max) or original_max is None:
-                    # Fallback: Berechne aus vorhandenen Event-Feldern
-                    event_anzahlen = []
-                    for field in ['Anzahl_Personen', 'Anzahl_Essen', 'Anzahl_Party', 'Weisser_Saal']:
-                        val = guest.get(field)
-                        if pd.notna(val) and val != '' and val is not None:
-                            try:
-                                event_anzahlen.append(int(val))
-                            except (ValueError, TypeError):
-                                pass
-                    original_max = max(event_anzahlen) if event_anzahlen else 1
-                else:
-                    original_max = int(original_max)
-                
-                return jsonify({
-                    'success': True,
-                    'guest': {
-                        'name': f"{guest.get('Vorname', '')} {guest.get('Name', '')}".strip(),
-                        'vorname': guest.get('Vorname', ''),
-                        'nachname': guest.get('Name', ''),
-                        'status': guest.get('Status', 'Offen'),
-                        'personen': guest.get('Anzahl_Personen', 1),
-                        'max_personen': original_max,  # Verwende das berechnete Maximum
-                        'notiz': guest.get('Bemerkungen', ''),
-                        'email': guest.get('Email', ''),
-                        'guest_code': guest.get('guest_code', ''),
-                        'last_modified': guest.get('last_modified'),  # Timestamp für Conflict Detection
-                        # Event-spezifische Felder für personalisierte Begrüßung
-                        'Anzahl_Personen': guest.get('Anzahl_Personen', 1),
-                        'Weisser_Saal': guest.get('Weisser_Saal', 0),
-                        'Anzahl_Essen': guest.get('Anzahl_Essen', 0),
-                        'Anzahl_Party': guest.get('Anzahl_Party', 0)
-                    }
-                })
-            except IndexError:
-                pass
+            guest_data = data_manager.find_guest_by(guest_id=guest_id)
         
         # Fallback: Suche über Code oder Email
-        gaesteliste_df = data_manager.gaesteliste_df
-        guest_row = None
+        if not guest_data and guest_code:
+            guest_data = data_manager.find_guest_by(guest_code=guest_code)
         
-        if guest_code and 'guest_code' in gaesteliste_df.columns:
-            code_matches = gaesteliste_df[gaesteliste_df['guest_code'] == guest_code]
-            if not code_matches.empty:
-                guest_row = code_matches.iloc[0]
+        if not guest_data and guest_email:
+            guest_data = data_manager.find_guest_by(email=guest_email)
         
-        if guest_row is None and guest_email and 'Email' in gaesteliste_df.columns:
-            email_matches = gaesteliste_df[gaesteliste_df['Email'].str.lower() == guest_email.lower()]
-            if not email_matches.empty:
-                guest_row = email_matches.iloc[0]
-        
-        if guest_row is not None:
-            guest_dict = guest_row.to_dict()
-            
-            # Pandas-Werte zu Python-Typen konvertieren
-            guest = {}
-            for key, value in guest_dict.items():
-                if pd.isna(value):
-                    guest[key] = None
-                elif hasattr(value, 'item'):  # pandas scalars
-                    guest[key] = value.item()
-                else:
-                    guest[key] = value
+        if guest_data:
+            # Bestimme das echte Maximum
+            original_max = guest_data.get('max_personen')
+            if not original_max:
+                # Fallback: Berechne aus vorhandenen Event-Feldern
+                event_anzahlen = []
+                for field in ['anzahl_personen', 'anzahl_essen', 'anzahl_party', 'weisser_saal']:
+                    val = guest_data.get(field)
+                    if val and val > 0:
+                        event_anzahlen.append(int(val))
+                original_max = max(event_anzahlen) if event_anzahlen else 1
             
             return jsonify({
                 'success': True,
                 'guest': {
-                    'name': f"{guest.get('Vorname', '')} {guest.get('Name', '')}".strip(),
-                    'vorname': guest.get('Vorname', ''),
-                    'nachname': guest.get('Name', ''),
-                    'status': guest.get('Status', 'Offen'),
-                    'personen': guest.get('Anzahl_Personen', 1),
-                    'max_personen': guest.get('Anzahl_Personen', 1),  # Nutze Gesamt als Maximum
-                    'notiz': guest.get('Bemerkungen', ''),
-                    'email': guest.get('Email', ''),
-                    'guest_code': guest.get('guest_code', ''),
-                    'last_modified': guest.get('last_modified'),  # Timestamp für Conflict Detection
+                    'name': f"{guest_data.get('vorname', '')} {guest_data.get('nachname', '')}".strip(),
+                    'vorname': guest_data.get('vorname', ''),
+                    'nachname': guest_data.get('nachname', ''),
+                    'status': guest_data.get('status', 'Offen'),
+                    'personen': guest_data.get('anzahl_personen', 1),
+                    'max_personen': original_max,  # Verwende das berechnete Maximum
+                    'notiz': guest_data.get('bemerkungen', ''),
+                    'email': guest_data.get('email', ''),
+                    'guest_code': guest_data.get('guest_code', ''),
+                    'last_modified': guest_data.get('last_modified'),  # Timestamp für Conflict Detection
                     # Event-spezifische Felder für personalisierte Begrüßung
-                    'Anzahl_Personen': guest.get('Anzahl_Personen', 1),
-                    'Weisser_Saal': guest.get('Weisser_Saal', 0),
-                    'Anzahl_Essen': guest.get('Anzahl_Essen', 0),
-                    'Anzahl_Party': guest.get('Anzahl_Party', 0)
+                    'Anzahl_Personen': guest_data.get('anzahl_personen', 1),
+                    'Weisser_Saal': guest_data.get('weisser_saal', 0),
+                    'Anzahl_Essen': guest_data.get('anzahl_essen', 0),
+                    'Anzahl_Party': guest_data.get('anzahl_party', 0)
                 }
             })
         
@@ -1559,6 +1561,126 @@ def get_guest_data():
         
     except Exception as e:
         logger.error(f"Fehler beim Laden der Gästdaten: {e}")
+        return jsonify({'success': False, 'message': 'Serverfehler'})
+
+@app.route('/api/guest/first-login-message')
+@require_auth
+@require_role(['guest'])
+def get_first_login_message():
+    """Generiert eine personalisierte First-Login-Nachricht für den Gast"""
+    try:
+        if not data_manager:
+            return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
+        
+        guest_id = session.get('guest_id')
+        if not guest_id:
+            return jsonify({'success': False, 'message': 'Gast-ID nicht gefunden'})
+        
+        # Gast-Daten laden
+        guest_data = data_manager.get_guest_by_id(guest_id)
+        if not guest_data:
+            return jsonify({'success': False, 'message': 'Gast nicht gefunden'})
+        
+        # Settings für Hochzeitsdatum laden
+        settings = data_manager.load_settings()
+        hochzeitsdatum = settings.get('hochzeitsdatum') or settings.get('hochzeit', {}).get('datum', '25.07.2026')
+        
+        # Hochzeitsdatum formatieren
+        formatted_date = format_wedding_date_for_message(hochzeitsdatum)
+        
+        # Event-Teilnahme ermitteln
+        weisser_saal = guest_data.get('weisser_saal', 0) or guest_data.get('Weisser_Saal', 0)
+        anzahl_essen = guest_data.get('anzahl_essen', 0) or guest_data.get('Anzahl_Essen', 0)
+        anzahl_party = guest_data.get('anzahl_party', 0) or guest_data.get('Anzahl_Party', 0)
+        anzahl_personen = guest_data.get('anzahl_personen', 1) or guest_data.get('Anzahl_Personen', 1)
+        
+        # Personalisierte Nachricht generieren
+        message = generate_personalized_welcome_message(
+            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, formatted_date
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': message,
+            'wedding_date': formatted_date
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Generieren der First-Login-Nachricht: {e}")
+        return jsonify({'success': False, 'message': 'Serverfehler'})
+
+def format_wedding_date_for_message(date_string):
+    """Formatiert das Hochzeitsdatum für die Nachricht"""
+    try:
+        from datetime import datetime
+        date = datetime.strptime(date_string, '%Y-%m-%d')
+        return date.strftime('%d.%m.%Y')
+    except:
+        return date_string
+
+def generate_personalized_welcome_message(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date):
+    """Generiert eine personalisierte Willkommensnachricht basierend auf den Event-Teilnahmen"""
+    
+    # Herzliche Begrüßung
+    if anzahl_personen > 1:
+        base_message = f"Hallo ihr Lieben,\n\nihr gehört zu den Menschen, die uns am wichtigsten sind - deshalb laden wir euch zu unserem kompletten Hochzeitstag am {wedding_date} ein:"
+    else:
+        base_message = f"Hallo du Liebe/r,\n\ndu gehörst zu den Menschen, die uns am wichtigsten sind - deshalb laden wir dich zu unserem kompletten Hochzeitstag am {wedding_date} ein:"
+    
+    # Event-spezifische Nachrichten mit Emojis
+    event_parts = []
+    
+    if weisser_saal > 0:
+        event_parts.append("🤵👰 Seid dabei, wenn wir uns das Ja-Wort geben (Weißer Saal)" if anzahl_personen > 1 else "🤵👰 Sei dabei, wenn wir uns das Ja-Wort geben (Weißer Saal)")
+    
+    if anzahl_essen > 0:
+        event_parts.append("🥂 Genießt mit uns das Hochzeitsessen" if anzahl_personen > 1 else "🥂 Genieße mit uns das Hochzeitsessen")
+    
+    if anzahl_party > 0:
+        event_parts.append("💃🕺 Feiert und tanzt mit uns bis in die frühen Morgenstunden" if anzahl_personen > 1 else "💃🕺 Feiere und tanze mit uns bis in die frühen Morgenstunden")
+    
+    # Spezielle Hinweise für Weißer Saal
+    special_notes = []
+    
+    if weisser_saal > 0:
+        if anzahl_personen > 1:
+            special_notes.append("Für die Trauung im Weißen Saal haben wir nur 42 Plätze - einige davon werden reserviert sein, schaut bitte vor Ort ob noch Platz für euch ist. Ansonsten laden wir euch herzlich ein mit der restlichen Gesellschaft vor dem Rathaus auf uns zu warten, auch dort wird es für niemanden langweilig werden.")
+        else:
+            special_notes.append("Für die Trauung im Weißen Saal haben wir nur 42 Plätze - einige davon werden reserviert sein, schau bitte vor Ort ob noch Platz für dich ist. Ansonsten laden wir dich herzlich ein mit der restlichen Gesellschaft vor dem Rathaus auf uns zu warten, auch dort wird es für niemanden langweilig werden.")
+    
+    # Nachricht zusammensetzen
+    full_message = base_message
+    
+    if event_parts:
+        full_message += "\n\n" + "\n".join(event_parts)
+    
+    if special_notes:
+        full_message += "\n\n" + special_notes[0]
+    
+    return full_message
+
+@app.route('/api/guest/wedding-photo')
+@require_auth
+@require_role(['guest'])
+def get_guest_wedding_photo():
+    """API-Endpunkt für das Hochzeitsfoto in der Einladung"""
+    try:
+        if not data_manager:
+            return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
+        
+        # Lade Einstellungen
+        settings = data_manager.load_settings()
+        
+        # Foto-Daten extrahieren
+        photo_data = settings.get('first_login_image_data', '')
+        
+        return jsonify({
+            'success': True,
+            'photo_data': photo_data
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden des Hochzeitsfotos: {e}")
         return jsonify({'success': False, 'message': 'Serverfehler'})
 
 @app.route('/api/guest/rsvp', methods=['POST'])
@@ -1581,369 +1703,120 @@ def update_guest_rsvp():
         
         personen = int(data.get('personen', 1))
         notiz = data.get('notiz', '').strip()
-        
-        # Timestamp für letzte Änderung
         last_modified = data.get('last_modified')
-        current_timestamp = int(time.time() * 1000)  # Millisekunden seit Epoch
         
-        # Atomare Aktualisierung mit Lock
-        with data_manager.get_lock():
-            # Daten vor Aktualisierung neu laden (wichtig für Race Condition Prevention)
-            data_manager.load_gaesteliste()
-            gaesteliste_df = data_manager.gaesteliste_df
-            guest_index = None
-            
-            # Zuerst über guest_id (DataFrame-Index) suchen
-            if guest_id is not None:
-                try:
-                    if guest_id < len(gaesteliste_df):
-                        guest_index = guest_id
-                except (IndexError, TypeError):
-                    pass
-            
-            # Fallback: Über Code oder Email suchen
-            if guest_index is None:
-                if guest_code and 'guest_code' in gaesteliste_df.columns:
-                    code_matches = gaesteliste_df[gaesteliste_df['guest_code'] == guest_code]
-                    if not code_matches.empty:
-                        guest_index = code_matches.index[0]
-                
-                if guest_index is None and guest_email and 'Email' in gaesteliste_df.columns:
-                    email_matches = gaesteliste_df[gaesteliste_df['Email'].str.lower() == guest_email.lower()]
-                    if not email_matches.empty:
-                        guest_index = email_matches.index[0]
-            
-            if guest_index is None:
-                return jsonify({'success': False, 'message': 'Gast nicht gefunden'})
-            
-            # Timestamp-Spalte hinzufügen falls nicht vorhanden
-            if 'last_modified' not in gaesteliste_df.columns:
-                gaesteliste_df['last_modified'] = current_timestamp
-            
-            # Conflict Detection: Prüfe ob Daten zwischenzeitlich geändert wurden
-            current_guest_timestamp = gaesteliste_df.loc[guest_index, 'last_modified']
-            if last_modified and pd.notna(current_guest_timestamp):
-                if int(current_guest_timestamp) > int(last_modified):
-                    # Daten wurden zwischenzeitlich geändert - Conflict!
-                    current_guest = gaesteliste_df.loc[guest_index]
-                    return jsonify({
-                        'success': False, 
-                        'conflict': True,
-                        'message': 'Die Daten wurden zwischenzeitlich von einer anderen Session geändert.',
-                        'current_data': {
-                            'status': current_guest.get('Status', 'Offen'),
-                            'personen': int(current_guest.get('Anzahl_Personen', 1)),
-                            'notiz': current_guest.get('Bemerkungen', ''),
-                            'last_modified': int(current_guest_timestamp)
-                        }
-                    })
-            
-            # Originalmaximum bestimmen: Verwende ein separates Max-Feld oder die ursprüngliche Anzahl_Personen
-            original_max_personen = None
-            
-            # Prüfe ob es ein separates Max_Personen Feld gibt
-            if 'Max_Personen' in gaesteliste_df.columns:
-                original_max_personen = gaesteliste_df.loc[guest_index, 'Max_Personen']
-            
-            # Fallback: Berechne Maximum aus vorhandenen Event-Feldern oder verwende Anzahl_Personen
-            if pd.isna(original_max_personen) or original_max_personen is None:
-                # Nimm das Maximum aus allen Event-Anzahlen oder Anzahl_Personen
-                event_anzahlen = []
-                for field in ['Anzahl_Personen', 'Anzahl_Essen', 'Anzahl_Party', 'Weisser_Saal']:
-                    if field in gaesteliste_df.columns:
-                        val = gaesteliste_df.loc[guest_index, field]
-                        if pd.notna(val) and val != '':
-                            try:
-                                event_anzahlen.append(int(val))
-                            except (ValueError, TypeError):
-                                pass
-                
-                # Verwende das Maximum aus allen Event-Anzahlen, mindestens aber 1
-                original_max_personen = max(event_anzahlen) if event_anzahlen else 1
-                
-                # Speichere das ermittelte Maximum für zukünftige Verwendung
-                if 'Max_Personen' not in gaesteliste_df.columns:
-                    gaesteliste_df['Max_Personen'] = gaesteliste_df.apply(
-                        lambda row: max([
-                            int(row.get('Anzahl_Personen', 1) or 1),
-                            int(row.get('Anzahl_Essen', 0) or 0),
-                            int(row.get('Anzahl_Party', 0) or 0),
-                            int(row.get('Weisser_Saal', 0) or 0)
-                        ]), axis=1
-                    )
-                    original_max_personen = gaesteliste_df.loc[guest_index, 'Max_Personen']
-                else:
-                    gaesteliste_df.loc[guest_index, 'Max_Personen'] = original_max_personen
-            
-            # Sicherheitscheck: Maximum muss mindestens 1 sein
-            if pd.isna(original_max_personen) or original_max_personen < 1:
-                original_max_personen = 1
-            else:
-                original_max_personen = int(original_max_personen)
-                
-            # Validierung: Neue Personenanzahl darf das ursprüngliche Maximum nicht überschreiten
-            if personen > original_max_personen:
-                return jsonify({
-                    'success': False, 
-                    'message': f'Maximale Personenanzahl ({original_max_personen}) überschritten. Sie können zwischen 0 und {original_max_personen} Personen anmelden.'
-                })
-            
-            # Validierung: Personenanzahl muss mindestens 0 sein (für Absagen)
-            if personen < 0:
-                return jsonify({
-                    'success': False, 
-                    'message': 'Personenanzahl kann nicht negativ sein.'
-                })
-            
-            # Daten atomisch aktualisieren
-            data_manager.gaesteliste_df.loc[guest_index, 'Status'] = status
-            data_manager.gaesteliste_df.loc[guest_index, 'Bemerkungen'] = notiz
-            data_manager.gaesteliste_df.loc[guest_index, 'last_modified'] = current_timestamp
-            
-            # Personenanzahl-Logik:
-            # - Bei 'Zugesagt': Verwende die gewählte Personenanzahl
-            # - Bei 'Abgesagt': Setze auf 0, aber behalte das Maximum bei
-            # - Bei 'Offen': Behalte die aktuelle Anzahl bei
-            if status == 'Zugesagt':
-                # Bei Zusage: Setze die gewünschte Personenanzahl
-                data_manager.gaesteliste_df.loc[guest_index, 'Anzahl_Personen'] = personen
-            elif status == 'Abgesagt':
-                # Bei Absage: Setze auf 0, aber Maximum bleibt erhalten
-                data_manager.gaesteliste_df.loc[guest_index, 'Anzahl_Personen'] = 0
-            # Bei 'Offen' bleibt Anzahl_Personen unverändert
-            
-            # Stelle sicher, dass Max_Personen immer gesetzt ist
-            if 'Max_Personen' in data_manager.gaesteliste_df.columns:
-                current_max = data_manager.gaesteliste_df.loc[guest_index, 'Max_Personen']
-                if pd.isna(current_max) or current_max < original_max_personen:
-                    data_manager.gaesteliste_df.loc[guest_index, 'Max_Personen'] = original_max_personen
-            
-            # Speichern
-            data_manager.save_gaesteliste()
-            
-            return jsonify({
-                'success': True, 
-                'message': 'Teilnahme gespeichert',
-                'last_modified': current_timestamp
-            })
-        
-    except Exception as e:
-        logger.error(f"Fehler beim Speichern der RSVP: {e}")
-        return jsonify({'success': False, 'message': f'Serverfehler: {str(e)}'})
-
-@app.route('/api/guest/zeitplan_preview')
-@require_auth
-@require_role(['guest'])
-def get_guest_zeitplan_preview():
-    try:
-        if data_manager.zeitplan_df.empty:
-            return jsonify({
-                'success': True,
-                'events': []
-            })
-
-        # Gast-Daten laden
-        guest_id = session.get('guest_id')
-        guest_info = None
+        # Gast finden
+        guest_data = None
         if guest_id is not None:
-            try:
-                # guest_id ist der DataFrame-Index (0-basiert), nicht 1-basiert!
-                guest_index = int(guest_id)
-                if guest_index >= 0 and guest_index < len(data_manager.gaesteliste_df):
-                    guest_row = data_manager.gaesteliste_df.iloc[guest_index]
-                    guest_info = guest_row.to_dict()
-                    
-                    # Pandas-Werte zu Python-Typen konvertieren
-                    guest_data = {}
-                    for key, value in guest_info.items():
-                        if pd.isna(value):
-                            guest_data[key] = None
-                        elif hasattr(value, 'item'):  # pandas scalars
-                            guest_data[key] = value.item()
-                        else:
-                            guest_data[key] = value
-                    guest_info = guest_data
-                    
-                    # Debug-Log für alle Gäste
-                    logger.info(f"Guest {guest_index} ({guest_info.get('Nachname', 'Unknown')}) - Weisser_Saal: {guest_info.get('Weisser_Saal')}, Anzahl_Essen: {guest_info.get('Anzahl_Essen')}, Anzahl_Party: {guest_info.get('Anzahl_Party')}")
-            except (IndexError, ValueError):
-                pass
+            guest_data = data_manager.find_guest_by(guest_id=guest_id)
         
-        # DataFrame zu Liste von Dictionaries konvertieren
-        zeitplan_events = []
-        for index, row in data_manager.zeitplan_df.iterrows():
-            event_dict = {}
-            for key, value in row.to_dict().items():
-                if pd.isna(value):
-                    event_dict[key] = None
-                elif hasattr(value, 'item'):  # pandas scalars
-                    event_dict[key] = value.item()
-                else:
-                    event_dict[key] = value
-            zeitplan_events.append(event_dict)
+        if not guest_data and guest_code:
+            guest_data = data_manager.find_guest_by(guest_code=guest_code)
         
-        # Nur öffentliche Events filtern mit Eventteile-Berücksichtigung
-        public_events = []
-        for event in zeitplan_events:
-            if not event.get('public', False):
-                continue
-                
-            # Eventteile-Filter anwenden
-            eventteile = event.get('eventteile', [])
-            
-            # Eventteile normalisieren (Array oder JSON-String zu Array)
-            if isinstance(eventteile, str):
-                try:
-                    eventteile = json.loads(eventteile)
-                except (json.JSONDecodeError, TypeError):
-                    eventteile = []
-            elif not isinstance(eventteile, list):
-                eventteile = []
-                
-            if not eventteile:  # Wenn keine Eventteile definiert, für alle sichtbar
-                public_events.append(event)
-                continue
-                
-            # Prüfen, ob Gast an einem der Eventteile teilnimmt (numerische Felder prüfen)
-            guest_participates = False
-            if guest_info:
-                # Sichere Konvertierung zu int
-                weisser_saal = int(guest_info.get('Weisser_Saal', 0) or 0)
-                anzahl_essen = int(guest_info.get('Anzahl_Essen', 0) or 0)
-                anzahl_party = int(guest_info.get('Anzahl_Party', 0) or 0)
-                
-                # Debug-Log für Bartmann
-                if 'Bartmann' in guest_info.get('Nachname', ''):
-                    logger.info(f"Bartmann Preview Debug - Event: {event.get('Programmpunkt')}, eventteile: {eventteile}, weisser_saal: {weisser_saal}, anzahl_essen: {anzahl_essen}, anzahl_party: {anzahl_party}")
-                
-                if 'weisser_saal' in eventteile and weisser_saal > 0:
-                    guest_participates = True
-                if 'essen' in eventteile and anzahl_essen > 0:
-                    guest_participates = True
-                if 'party' in eventteile and anzahl_party > 0:
-                    guest_participates = True
-            
-            # Event NUR hinzufügen wenn Gast teilnimmt (Fallback entfernt!)
-            if guest_participates:
-                public_events.append(event)
+        if not guest_data and guest_email:
+            guest_data = data_manager.find_guest_by(email=guest_email)
         
-        # Nach Startzeit sortieren
-        public_events.sort(key=lambda x: x.get('Uhrzeit', ''))
+        if not guest_data:
+            return jsonify({'success': False, 'message': 'Gast nicht gefunden'})
         
-        # Erste 5 Events für Preview
-        preview_events = public_events[:5]
+        # RSVP-Update durchführen
+        result = data_manager.update_guest_rsvp(
+            guest_id=guest_data['id'],
+            status=status,
+            anzahl_personen=personen,
+            bemerkungen=notiz,
+            last_modified_check=last_modified
+        )
         
-        return jsonify({
-            'success': True,
-            'events': preview_events
-        })
+        if result['success']:
+            return jsonify(result)
+        else:
+            # Bei Conflict oder anderen Fehlern
+            status_code = 409 if result.get('conflict') else 400
+            return jsonify(result), status_code
         
     except Exception as e:
-        logger.error(f"Fehler beim Laden der Zeitplan-Vorschau: {e}")
-        return jsonify({'success': False, 'message': f'Serverfehler: {str(e)}'})
+        logger.error(f"Fehler beim RSVP-Update: {e}")
+        return jsonify({'success': False, 'message': 'Serverfehler'}), 500
 
 @app.route('/api/guest/location')
 @require_auth
 @require_role(['guest'])
 def get_guest_location():
-    """API-Endpunkt für Location-Informationen für Gäste"""
+    """API-Endpunkt für Location-Informationen für Gäste (SQLite-basiert)"""
     try:
         if not data_manager:
             return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
         
-        # Gast-Daten laden für Berechtigungsprüfung
+        # Gast-Daten laden für Berechtigungsprüfung (SQLite)
         guest_id = session.get('guest_id')
         guest_info = None
         guest_participates_weisser_saal = False
         
         if guest_id is not None:
-            try:
-                guest_index = int(guest_id)
-                
-                if guest_index >= 0 and guest_index < len(data_manager.gaesteliste_df):
-                    guest_row = data_manager.gaesteliste_df.iloc[guest_index]
-                    guest_info = guest_row.to_dict()
-                    
-                    # Pandas-Werte zu Python-Typen konvertieren
-                    guest_data = {}
-                    for key, value in guest_info.items():
-                        if pd.isna(value):
-                            guest_data[key] = None
-                        elif hasattr(value, 'item'):
-                            guest_data[key] = value.item()
-                        else:
-                            guest_data[key] = value
-                    guest_info = guest_data
-                    
-                    # Prüfen ob Gast am Weißen Saal teilnimmt
-                    weisser_saal = int(guest_info.get('Weisser_Saal', 0) or 0)
-                    guest_participates_weisser_saal = weisser_saal > 0
-                    
-            except (IndexError, ValueError) as e:
-                logger.error(f"DEBUG: Fehler beim Laden der Gastdaten: {e}")
-                pass
+            guest_info = data_manager.find_guest_by(guest_id=guest_id)
+            if guest_info:
+                # Prüfen ob Gast am Weißen Saal teilnimmt
+                weisser_saal = int(guest_info.get('weisser_saal', 0) or 0)
+                guest_participates_weisser_saal = weisser_saal > 0
+            else:
+                logger.error(f"Guest {guest_id} nicht gefunden")
         
-        # Zuerst aus hochzeit_config.json laden
-        config = data_manager.load_config()
-        logger.info(f"Geladene Config für Location: {config}")
-        
+        # Location-Daten direkt aus SQLite laden (temporäre Lösung)
         locations = {}
         
-        # 1. Neue Struktur: locations.standesamt und locations.hochzeitslocation
-        if config and 'locations' in config:
-            # Standesamt nur anzeigen wenn Gast berechtigt ist
-            if 'standesamt' in config['locations'] and guest_participates_weisser_saal:
-                locations['standesamt'] = config['locations']['standesamt']
-                logger.info(f"Standesamt aus config gefunden (Gast berechtigt): {locations['standesamt']}")
-            elif 'standesamt' in config['locations']:
-                logger.info(f"Standesamt aus config gefunden, aber Gast nicht berechtigt (Weisser_Saal: {guest_info.get('Weisser_Saal', 0) if guest_info else 0})")
+        # Direkte SQLite-Abfrage für bessere Kontrolle
+        import sqlite3
+        db_path = os.path.join(data_manager.data_directory, 'hochzeit.db')
+        
+        def get_setting_direct(key):
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute('SELECT wert FROM einstellungen WHERE schluessel = ?', (key,))
+                row = cursor.fetchone()
+                conn.close()
+                return row[0] if row else ''
+            except:
+                return ''
+        
+        # Standesamt-Daten aus SQLite laden und nur anzeigen wenn Gast berechtigt ist
+        if guest_participates_weisser_saal:
+            standesamt_name = get_setting_direct('standesamt_name')
+            standesamt_adresse = get_setting_direct('standesamt_adresse')
+            standesamt_beschreibung = get_setting_direct('standesamt_beschreibung')
             
-            # Hochzeitslocation immer anzeigen (alle Gäste dürfen die Location sehen)
-            if 'hochzeitslocation' in config['locations']:
-                locations['hochzeitslocation'] = config['locations']['hochzeitslocation']
-                logger.info(f"Hochzeitslocation aus config gefunden: {locations['hochzeitslocation']}")
+            if standesamt_name:  # Nur hinzufügen wenn Name vorhanden ist
+                locations['standesamt'] = {
+                    'name': standesamt_name,
+                    'adresse': standesamt_adresse,
+                    'beschreibung': standesamt_beschreibung
+                }
+            else:
+                pass  # Standesamt-Daten nicht in SQLite-Einstellungen gefunden
+        else:
+            pass  # Standesamt nicht angezeigt - Gast nicht berechtigt
         
-        # 2. Fallback: Alte Struktur unter 'hochzeitsort'
-        if not locations and config and 'hochzeitsort' in config:
-            # Verwende alte Struktur als Hochzeitslocation
-            locations['hochzeitslocation'] = config['hochzeitsort']
-            logger.info(f"Fallback: Hochzeitslocation aus alter Struktur: {locations['hochzeitslocation']}")
+        # Hochzeitslocation-Daten aus SQLite laden (immer für alle Gäste sichtbar)
+        hochzeitslocation_name = get_setting_direct('hochzeitslocation_name')
+        hochzeitslocation_adresse = get_setting_direct('hochzeitslocation_adresse')
+        hochzeitslocation_beschreibung = get_setting_direct('hochzeitslocation_beschreibung')
         
-        # 3. Fallback: Settings aus hochzeit_config.json
-        elif not locations and config and 'settings' in config and config['settings'] and 'hochzeitsort' in config['settings']:
-            ort_string = config['settings']['hochzeitsort']
-            if ort_string:
-                # Wenn es ein String ist, konvertiere zu Objekt
-                if isinstance(ort_string, str):
-                    locations['hochzeitslocation'] = {
-                        'name': ort_string,
-                        'adresse': ort_string,
-                        'beschreibung': ''
-                    }
-                else:
-                    locations['hochzeitslocation'] = ort_string
-                logger.info(f"Fallback: Location aus config settings: {locations['hochzeitslocation']}")
+        if hochzeitslocation_name:  # Nur hinzufügen wenn Name vorhanden ist
+            locations['hochzeitslocation'] = {
+                'name': hochzeitslocation_name,
+                'adresse': hochzeitslocation_adresse,
+                'beschreibung': hochzeitslocation_beschreibung
+            }
+        else:
+            logger.warning("Hochzeitslocation-Daten nicht in SQLite-Einstellungen gefunden")
         
-        # 4. Fallback: Settings aus settings.json prüfen
         if not locations:
-            settings = data_manager.load_settings()
-            logger.info(f"Fallback: Geladene Settings für Location: {settings}")
-            
-            if settings and 'hochzeitsort' in settings:
-                locations['hochzeitslocation'] = settings['hochzeitsort']
-                logger.info(f"Fallback: Location aus settings.json: {locations['hochzeitslocation']}")
-        
-        if not locations or not any(locations.values()):
-            logger.warning("Keine Location-Informationen gefunden")
+            logger.warning("Keine Location-Informationen in SQLite-Einstellungen gefunden")
             return jsonify({
                 'success': False,
                 'message': 'Keine Location-Informationen verfügbar'
             })
-        
-        # Sicherstellen, dass alle Locations korrekte Objekte sind
-        for location_type, location_info in locations.items():
-            if not isinstance(location_info, dict):
-                locations[location_type] = {'name': str(location_info), 'adresse': '', 'beschreibung': ''}
         
         return jsonify({
             'success': True,
@@ -1951,7 +1824,7 @@ def get_guest_location():
         })
         
     except Exception as e:
-        logger.error(f"Fehler beim Laden der Location-Daten: {e}")
+        logger.error(f"Fehler beim Laden der Location-Daten aus SQLite: {e}")
         return jsonify({'success': False, 'message': 'Serverfehler'})
 
 @app.route('/api/guest/informationen')
@@ -1965,7 +1838,6 @@ def get_guest_informationen():
         
         # Settings laden
         settings = data_manager.load_settings()
-        logger.info(f"Geladene Settings für Informationen: {settings}")
         
         # Fallback-Werte falls settings None ist
         if settings is None:
@@ -1999,8 +1871,7 @@ def get_guest_informationen():
                     if typ not in gaeste_info[kategorie]:
                         gaeste_info[kategorie][typ] = default_info[kategorie][typ]
         
-        # Debug: Log die finale gaeste_info
-        logger.info(f"Final gaeste_info being sent: {gaeste_info}")
+        # Debug: Log die finale gaeste_info (entfernt)
         
         return jsonify({
             'success': True,
@@ -2020,9 +1891,6 @@ def get_guest_location_coordinates():
         if not data_manager:
             return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
         
-        import requests
-        import time
-        
         # Gast-Daten laden für Berechtigungsprüfung
         guest_id = session.get('guest_id')
         guest_info = None
@@ -2038,7 +1906,7 @@ def get_guest_location_coordinates():
                     # Pandas-Werte zu Python-Typen konvertieren
                     guest_data = {}
                     for key, value in guest_info.items():
-                        if pd.isna(value):
+                        if is_na_value(value):
                             guest_data[key] = None
                         elif hasattr(value, 'item'):
                             guest_data[key] = value.item()
@@ -2178,13 +2046,38 @@ def get_guest_credentials():
         
         credentials_list = data_manager.get_guest_credentials_list()
         
+        # Daten für JSON bereinigen
+        cleaned_credentials = clean_json_data(credentials_list)
+        
         return jsonify({
             'success': True,
-            'credentials': credentials_list
+            'credentials': cleaned_credentials
         })
         
     except Exception as e:
         logger.error(f"Fehler beim Abrufen der Gast-Credentials: {e}")
+        return jsonify({'success': False, 'message': 'Serverfehler'})
+
+@app.route('/api/admin/reset-first-login', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def reset_first_login_for_all_guests():
+    """API-Endpunkt zum Zurücksetzen des First-Login-Status für alle Gäste (nur für Admins)"""
+    try:
+        if not data_manager:
+            return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
+        
+        # Anzahl der aktualisierten Gäste zählen
+        updated_count = data_manager.reset_first_login_for_all_guests()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'First-Login-Status für {updated_count} Gäste zurückgesetzt',
+            'count': updated_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Zurücksetzen des First-Login-Status: {e}")
         return jsonify({'success': False, 'message': 'Serverfehler'})
 
 @app.route('/api/guest/zeitplan')
@@ -2192,131 +2085,200 @@ def get_guest_credentials():
 @require_role(['guest'])
 def get_guest_zeitplan():
     try:
-        logger.info("=== GET GUEST ZEITPLAN START ===")
-        
-        if data_manager.zeitplan_df.empty:
-            logger.info("Zeitplan DataFrame ist leer")
-            return jsonify({
-                'success': True,
-                'events': []
-            })
-
         # Gast-Daten laden
         guest_id = session.get('guest_id')
-        logger.debug(f"Guest ID aus Session: {guest_id}")
         
         if guest_id is None:
-            logger.error("Gast nicht authentifiziert - keine guest_id in Session")
             return jsonify({'success': False, 'message': 'Gast nicht authentifiziert'})
         
-        # Gast-Details abrufen
-        guest_info = None
-        try:
-            # guest_id ist der DataFrame-Index (0-basiert), nicht 1-basiert!
-            guest_index = int(guest_id)
-            logger.debug(f"Guest Index: {guest_index}, Gaesteliste length: {len(data_manager.gaesteliste_df)}")
-            
-            if guest_index >= 0 and guest_index < len(data_manager.gaesteliste_df):
-                guest_row = data_manager.gaesteliste_df.iloc[guest_index]
-                guest_info = guest_row.to_dict()
-                
-                # Pandas-Werte zu Python-Typen konvertieren
-                guest_data = {}
-                for key, value in guest_info.items():
-                    if pd.isna(value):
-                        guest_data[key] = None
-                    elif hasattr(value, 'item'):  # pandas scalars
-                        guest_data[key] = value.item()
-                    else:
-                        guest_data[key] = value
-                guest_info = guest_data
-                
-                logger.debug(f"Guest Info loaded successfully: {guest_info.get('Nachname')} - Weisser_Saal: {guest_info.get('Weisser_Saal')}, Anzahl_Essen: {guest_info.get('Anzahl_Essen')}, Anzahl_Party: {guest_info.get('Anzahl_Party')}")
-            else:
-                logger.error(f"Guest index {guest_index} out of range")
-        except (IndexError, ValueError) as e:
-            logger.error(f"Error loading guest info: {e}")
-            pass
+        # Gast-Details abrufen (SQLite)
+        guest_info = data_manager.find_guest_by(guest_id=guest_id)
         
-        # DataFrame zu Liste von Dictionaries konvertieren
-        zeitplan_events = []
-        logger.debug(f"Zeitplan DataFrame hat {len(data_manager.zeitplan_df)} Events")
+        if not guest_info:
+            return jsonify({'success': False, 'message': 'Gast nicht gefunden'})
         
-        for index, row in data_manager.zeitplan_df.iterrows():
-            event_dict = {}
-            for key, value in row.to_dict().items():
-                if pd.isna(value):
-                    event_dict[key] = None
-                elif hasattr(value, 'item'):  # pandas scalars
-                    event_dict[key] = value.item()
-                else:
-                    event_dict[key] = value
-            zeitplan_events.append(event_dict)
+        # Zeitplan aus SQLite laden
+        zeitplan_events = data_manager.get_zeitplan(nur_oeffentlich=False)
         
-        logger.debug(f"Konvertierte {len(zeitplan_events)} Events")
-        
-        # Nur öffentliche Events filtern
-        public_events = []
+        # Events nach Gast-Berechtigung filtern
+        filtered_events = []
         for event in zeitplan_events:
-            logger.debug(f"Processing event: {event.get('Programmpunkt')} - public: {event.get('public')}")
+            # Prüfen ob Event für Gast sichtbar ist
+            should_show = True
             
-            if not event.get('public', False):
-                logger.debug(f"Event '{event.get('Programmpunkt')}' ist nicht öffentlich - übersprungen")
-                continue
-                
-            # Eventteile-Filter anwenden
+            # Wenn nur_brautpaar = 1, dann nur für Brautpaar sichtbar
+            if event.get('nur_brautpaar', 0) == 1:
+                should_show = False
+            
+            # Event-spezifische Berechtigung prüfen basierend auf Eventteilnahme
             eventteile = event.get('eventteile', [])
             
-            # Eventteile normalisieren (Array oder JSON-String zu Array)
-            if isinstance(eventteile, str):
-                try:
-                    eventteile = json.loads(eventteile)
-                except (json.JSONDecodeError, TypeError):
-                    eventteile = []
-            elif not isinstance(eventteile, list):
-                eventteile = []
+            if eventteile and isinstance(eventteile, list) and len(eventteile) > 0:
+                # Wenn Event spezifische Teile hat, prüfen ob Gast teilnimmt
+                guest_participates = False
                 
-            if not eventteile:  # Wenn keine Eventteile definiert, für alle sichtbar
-                public_events.append(event)
-                continue
+                for teil in eventteile:
+                    teil_name = teil.lower()
+                    
+                    if 'standesamt' in teil_name or 'weisser_saal' in teil_name:
+                        # Prüfen ob Gast am Weißen Saal teilnimmt
+                        weisser_saal = guest_info.get('weisser_saal', 0)
+                        if weisser_saal and int(weisser_saal) > 0:
+                            guest_participates = True
+                            break
+                    elif 'party' in teil_name or 'feier' in teil_name:
+                        # Prüfen ob Gast an Party teilnimmt
+                        anzahl_party = guest_info.get('anzahl_party', 0)
+                        logger.debug(f"      Party Check: Guest={anzahl_party}, Required={teil_name}")
+                        if anzahl_party and int(anzahl_party) > 0:
+                            guest_participates = True
+                            logger.debug(f"      ✅ Guest nimmt an Party teil")
+                            break
+                    elif 'essen' in teil_name:
+                        # Prüfen ob Gast am Essen teilnimmt
+                        anzahl_essen = guest_info.get('anzahl_essen', 0)
+                        logger.debug(f"      Essen Check: Guest={anzahl_essen}, Required={teil_name}")
+                        if anzahl_essen and int(anzahl_essen) > 0:
+                            guest_participates = True
+                            logger.debug(f"      ✅ Guest nimmt an Essen teil")
+                            break
+                    else:
+                        # Für unbekannte Event-Teile: allen Gästen zeigen
+                        logger.debug(f"      ⚠️ Unbekannter Eventteil '{teil_name}' - zeige allen Gästen")
+                        guest_participates = True
+                        break
                 
-            # Prüfen, ob Gast an einem der Eventteile teilnimmt (numerische Felder prüfen)
-            guest_participates = False
-            if guest_info:
-                # Sichere Konvertierung zu int
-                weisser_saal = int(guest_info.get('Weisser_Saal', 0) or 0)
-                anzahl_essen = int(guest_info.get('Anzahl_Essen', 0) or 0)
-                anzahl_party = int(guest_info.get('Anzahl_Party', 0) or 0)
-                
-                # Debug-Log für alle Gäste - deaktiviert
-                # logger.info(f"Guest {guest_info.get('Nachname', 'Unknown')} Zeitplan Debug - Event: {event.get('Programmpunkt')}, eventteile: {eventteile}, weisser_saal: {weisser_saal}, anzahl_essen: {anzahl_essen}, anzahl_party: {anzahl_party}")
-                
-                if 'weisser_saal' in eventteile and weisser_saal > 0:
-                    guest_participates = True
-                    # logger.info(f"Guest participates via weisser_saal")
-                if 'essen' in eventteile and anzahl_essen > 0:
-                    guest_participates = True
-                    # logger.info(f"Guest participates via essen")
-                if 'party' in eventteile and anzahl_party > 0:
-                    guest_participates = True
-                    # logger.info(f"Guest participates via party")
+                if not guest_participates:
+                    should_show = False
+                    logger.debug(f"❌ Event '{event.get('titel')}' - Gast nimmt nicht an erforderlichen Teilen teil")
+                else:
+                    logger.debug(f"✅ Event '{event.get('titel')}' - Gast nimmt an mindestens einem erforderlichen Teil teil")
+            else:
+                # Event ohne spezifische Eventteile - allen Gästen zeigen
+                logger.debug(f"📋 Event '{event.get('titel')}' - keine Eventteile definiert, zeige allen Gästen")
             
-            # Event hinzufügen wenn Gast teilnimmt ODER wenn keine eventteile definiert sind
-            if guest_participates or not eventteile:
-                public_events.append(event)
-                # logger.info(f"Event '{event.get('Programmpunkt')}' added for guest (participates: {guest_participates}, no eventteile: {not eventteile})")
+            if should_show:
+                # Legacy-Kompatibilität für Frontend
+                event_dict = {
+                    'id': event.get('id'),
+                    'Programmpunkt': event.get('titel', ''),
+                    'Verantwortlich': event.get('beschreibung', ''),
+                    'Status': event.get('kategorie', ''),
+                    'Uhrzeit': event.get('Uhrzeit', ''),
+                    'start_zeit': event.get('start_zeit'),
+                    'ende_zeit': event.get('ende_zeit'),
+                    'ort': event.get('ort', ''),
+                    'eventteile': event.get('eventteile', []),
+                    'public': not bool(event.get('nur_brautpaar', 0))
+                }
+                filtered_events.append(event_dict)
         
         # Nach Startzeit sortieren
-        public_events.sort(key=lambda x: x.get('Uhrzeit', ''))
+        filtered_events.sort(key=lambda x: x.get('Uhrzeit', ''))
         
         return jsonify({
             'success': True,
-            'events': public_events
+            'events': filtered_events
         })
         
     except Exception as e:
-        logger.error(f"Fehler beim Laden des Zeitplans: {e}")
+        logger.error(f"Fehler beim Laden des Gast-Zeitplans: {str(e)}")
         return jsonify({'success': False, 'message': f'Serverfehler: {str(e)}'})
+
+
+@app.route('/api/guest/zeitplan_preview')
+@require_auth
+@require_role(['guest'])
+def get_guest_zeitplan_preview():
+    """Vereinfachte Zeitplan-Vorschau für Gäste mit Gast-spezifischer Filterung"""
+    try:
+        # Gast-Daten laden für Filterung
+        guest_id = session.get('guest_id')
+        
+        if guest_id is None:
+            return jsonify({'success': False, 'message': 'Gast nicht authentifiziert'})
+        
+        # Gast-Details abrufen (SQLite)
+        guest_info = data_manager.find_guest_by(guest_id=guest_id)
+        
+        if not guest_info:
+            return jsonify({'success': False, 'message': 'Gast nicht gefunden'})
+        
+        # Zeitplan aus SQLite laden (alle Events, nicht nur öffentliche)
+        zeitplan_events = data_manager.get_zeitplan(nur_oeffentlich=False)
+        
+        # Events nach Gast-Berechtigung filtern (gleiche Logik wie get_guest_zeitplan)
+        preview_events = []  # Initialize preview_events list
+        for event in zeitplan_events:
+            # Prüfen ob Event für Gast sichtbar ist
+            should_show = True
+            
+            # Wenn nur_brautpaar = 1, dann nur für Brautpaar sichtbar
+            if event.get('nur_brautpaar', 0) == 1:
+                should_show = False
+                logger.debug(f"Event '{event.get('titel')}' ist nur für Brautpaar sichtbar")
+            
+            # Event-spezifische Berechtigung prüfen basierend auf Eventteilnahme
+            eventteile = event.get('eventteile', [])
+            
+            if eventteile and isinstance(eventteile, list) and len(eventteile) > 0:
+                # Wenn Event spezifische Teile hat, prüfen ob Gast teilnimmt
+                guest_participates = False
+                
+                for teil in eventteile:
+                    teil_name = teil.lower()
+                    logger.debug(f"    Prüfe Eventteil: '{teil_name}'")
+                    
+                    if 'standesamt' in teil_name or 'weisser_saal' in teil_name:
+                        # Prüfen ob Gast am Weißen Saal teilnimmt
+                        weisser_saal = guest_info.get('weisser_saal', 0)
+                        logger.debug(f"      Weisser_Saal Check: Guest={weisser_saal}, Required={teil_name}")
+                        if weisser_saal and int(weisser_saal) > 0:
+                            guest_participates = True
+                            break
+                    elif 'party' in teil_name or 'feier' in teil_name:
+                        # Prüfen ob Gast an Party teilnimmt
+                        anzahl_party = guest_info.get('anzahl_party', 0)
+                        if anzahl_party and int(anzahl_party) > 0:
+                            guest_participates = True
+                            break
+                    elif 'essen' in teil_name:
+                        # Prüfen ob Gast am Essen teilnimmt
+                        anzahl_essen = guest_info.get('anzahl_essen', 0)
+                        if anzahl_essen and int(anzahl_essen) > 0:
+                            guest_participates = True
+                            break
+                    else:
+                        # Für unbekannte Event-Teile: allen Gästen zeigen
+                        guest_participates = True
+                        break
+                
+                if not guest_participates:
+                    should_show = False
+            else:
+                # Event ohne spezifische Eventteile - allen Gästen zeigen
+                pass
+            
+            if should_show:
+                # Vereinfachte Event-Info für Preview
+                preview_events.append({
+                    'titel': event.get('titel', ''),
+                    'uhrzeit': event.get('Uhrzeit', ''),
+                    'ort': event.get('ort', '')
+                })
+        
+        # Nach Startzeit sortieren
+        preview_events.sort(key=lambda x: x.get('uhrzeit', ''))
+        
+        return jsonify({
+            'success': True,
+            'events': preview_events
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Zeitplan-Vorschau: {str(e)}")
+        return jsonify({'success': False, 'message': f'Serverfehler: {str(e)}'})
+
 
 # API Endpunkte
 @app.route('/api/dashboard/stats')
@@ -2347,9 +2309,8 @@ def api_gaeste_list():
         if not data_manager:
             return jsonify({'error': 'DataManager nicht initialisiert'}), 500
         
-        # DataFrame zu Records konvertieren und NaN-Werte behandeln
-        gaeste_df = data_manager.gaesteliste_df.fillna('')
-        gaeste_list = gaeste_df.to_dict('records')
+        # SQLite-basierte Gästeliste laden
+        gaeste_list = data_manager.get_gaeste_list()
         
         # Daten für JSON bereinigen
         cleaned_gaeste = clean_json_data(gaeste_list)
@@ -2459,10 +2420,7 @@ def api_gaeste_add():
             'Anzahl_Party': 0,
             'Email': '',
             'Adresse': '',
-            'Bemerkungen': '',
-            'Zum_Weisser_Saal': 'Nein',
-            'Zum_Essen': 'Nein',
-            'Zur_Party': 'Nein'
+            'Bemerkungen': ''
         }
         
         for key, default in defaults.items():
@@ -2477,6 +2435,15 @@ def api_gaeste_add():
             except (ValueError, TypeError):
                 gast_data[field] = 0
         
+        # Automatische Generierung der Teilnahme-Felder basierend auf Anzahlen
+        weisser_saal_count = gast_data.get('Weisser_Saal', 0)
+        essen_count = gast_data.get('Anzahl_Essen', 0)
+        party_count = gast_data.get('Anzahl_Party', 0)
+        
+        gast_data['Zum_Weisser_Saal'] = 'Ja' if weisser_saal_count > 0 else 'Nein'
+        gast_data['Zum_Essen'] = 'Ja' if essen_count > 0 else 'Nein'
+        gast_data['Zur_Party'] = 'Ja' if party_count > 0 else 'Nein'
+        
         success = data_manager.add_guest(gast_data)
         
         if success:
@@ -2487,25 +2454,35 @@ def api_gaeste_add():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/gaeste/update/<int:index>', methods=['PUT'])
-def api_gaeste_update(index):
+@app.route('/api/gaeste/update/<int:guest_id>', methods=['PUT'])
+def api_gaeste_update(guest_id):
     try:
         if not data_manager:
             return jsonify({'error': 'DataManager nicht initialisiert'}), 500
         
         gast_data = request.json
         
-        # Prüfe ob Index gültig ist
-        if index >= len(data_manager.gaesteliste_df):
-            return jsonify({'error': 'Ungültiger Gast-Index'}), 400
+        # Numerische Felder sicherstellen
+        numeric_fields = ['Kind', 'Anzahl_Personen', 'Optional', 'Weisser_Saal', 'Anzahl_Essen', 'Anzahl_Party']
+        for field in numeric_fields:
+            if field in gast_data:
+                try:
+                    gast_data[field] = int(gast_data.get(field, 0))
+                except (ValueError, TypeError):
+                    gast_data[field] = 0
         
-        # Aktualisiere die Daten im DataFrame
-        for key, value in gast_data.items():
-            if key in data_manager.gaesteliste_df.columns:
-                data_manager.gaesteliste_df.loc[index, key] = value
+        # Automatische Generierung der Teilnahme-Felder basierend auf Anzahlen
+        if 'Weisser_Saal' in gast_data or 'Anzahl_Essen' in gast_data or 'Anzahl_Party' in gast_data:
+            weisser_saal_count = gast_data.get('Weisser_Saal', 0)
+            essen_count = gast_data.get('Anzahl_Essen', 0)
+            party_count = gast_data.get('Anzahl_Party', 0)
+            
+            gast_data['Zum_Weisser_Saal'] = 'Ja' if weisser_saal_count > 0 else 'Nein'
+            gast_data['Zum_Essen'] = 'Ja' if essen_count > 0 else 'Nein'
+            gast_data['Zur_Party'] = 'Ja' if party_count > 0 else 'Nein'
         
-        # Speichere die Änderungen
-        success = data_manager.save_gaesteliste()
+        # Aktualisiere den Gast in SQLite
+        success = data_manager.update_guest(guest_id, gast_data)
         
         if success:
             return jsonify({'success': True, 'message': 'Gast aktualisiert'})
@@ -2515,52 +2492,81 @@ def api_gaeste_update(index):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/gaeste/delete/<int:index>', methods=['DELETE'])
-def api_gaeste_delete(index):
+@app.route('/api/gaeste/delete/<int:guest_id>', methods=['DELETE'])
+def api_gaeste_delete(guest_id):
     try:
         if not data_manager:
             return jsonify({'error': 'DataManager nicht initialisiert'}), 500
         
-        # Prüfe ob Index gültig ist
-        if index >= len(data_manager.gaesteliste_df):
-            return jsonify({'error': 'Ungültiger Gast-Index'}), 400
-        
-        # Lösche den Gast
-        data_manager.gaesteliste_df = data_manager.gaesteliste_df.drop(index).reset_index(drop=True)
-        
-        # Speichere die Änderungen
-        success = data_manager.save_gaesteliste()
+        # Lösche den Gast aus SQLite
+        success = data_manager.delete_guest(guest_id)
         
         if success:
             return jsonify({'success': True, 'message': 'Gast gelöscht'})
         else:
+            return jsonify({'error': 'Fehler beim Löschen'}), 500
             return jsonify({'error': 'Fehler beim Speichern'}), 500
             
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route("/api/settings/get")
+@require_auth
+@require_role(['admin', 'user', 'guest'])
 def api_settings_get():
     try:
         if not data_manager:
             return jsonify({"error": "DataManager nicht initialisiert"}), 500
         
-        # Lade aus config statt settings
-        config = data_manager.load_config()
-        settings = config.get('settings', {})
+        # Verwende die strukturierte load_settings Methode
+        settings = data_manager.load_settings()
         
-        # Füge Locations aus der config hinzu
-        if 'locations' in config:
-            settings['locations'] = config['locations']
+        # Zusätzlich noch die alten Einzelfelder für Kompatibilität laden
+        basic_settings = [
+            'braut_name', 'braeutigam_name', 'hochzeitsdatum', 'hochzeitszeit', 
+            'hochzeitsort', 'budget_gesamt', 'email_enabled', 'guest_login_enabled',
+            'first_login_image', 'first_login_image_data', 'first_login_text'
+        ]
         
-        # Legacy-Support: Hochzeitsort aus config übernehmen
-        if 'hochzeitsort' in config:
-            settings['hochzeitsort'] = config['hochzeitsort']
+        for setting_key in basic_settings:
+            value = data_manager.get_setting(setting_key, '')
+            if value and setting_key not in settings:
+                settings[setting_key] = value
+        
+        # Location-Daten aus SQLite-Einstellungen laden und strukturieren
+        locations = {}
+        
+        # Standesamt-Daten laden
+        standesamt_name = data_manager.get_setting('standesamt_name', '')
+        if standesamt_name:
+            locations['standesamt'] = {
+                'name': standesamt_name,
+                'adresse': data_manager.get_setting('standesamt_adresse', ''),
+                'beschreibung': data_manager.get_setting('standesamt_beschreibung', '')
+            }
+        
+        # Hochzeitslocation-Daten laden
+        hochzeitslocation_name = data_manager.get_setting('hochzeitslocation_name', '')
+        if hochzeitslocation_name:
+            locations['hochzeitslocation'] = {
+                'name': hochzeitslocation_name,
+                'adresse': data_manager.get_setting('hochzeitslocation_adresse', ''),
+                'beschreibung': data_manager.get_setting('hochzeitslocation_beschreibung', '')
+            }
+        
+        # Locations zu Settings hinzufügen wenn vorhanden
+        if locations:
+            settings['locations'] = locations
+        
+        # Legacy-Support: hochzeitsort für alte Kompatibilität
+        if hochzeitslocation_name:
+            settings['hochzeitsort'] = locations.get('hochzeitslocation', {})
         
         cleaned_settings = clean_json_data(settings)
         
         return jsonify({"success": True, "settings": cleaned_settings})
     except Exception as e:
+        logger.error(f"Fehler beim Laden der Einstellungen aus SQLite: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/zeitplan/list')
@@ -2570,16 +2576,16 @@ def api_zeitplan_list():
         if not data_manager:
             return jsonify({'error': 'DataManager nicht initialisiert'}), 500
             
-        data_manager.load_zeitplan()
-        zeitplan = data_manager.zeitplan_df
+        # SQLite-DatenManager verwenden
+        zeitplan = data_manager.get_zeitplan()
         
-        if zeitplan.empty:
+        if not zeitplan:
             return jsonify({
                 'success': True,
                 'zeitplan': []
             })
         
-        zeitplan_data = clean_json_data(zeitplan.to_dict('records'))
+        zeitplan_data = clean_json_data(zeitplan)
         
         return jsonify({
             'success': True,
@@ -2602,35 +2608,41 @@ def api_zeitplan_add():
         if not event_data.get('Uhrzeit') or not event_data.get('Programmpunkt'):
             return jsonify({'error': 'Uhrzeit und Programmpunkt sind erforderlich'}), 400
         
-        # Zeitplan laden
-        data_manager.load_zeitplan()
-        
-        # Neuen Eintrag erstellen
+        # Eventteile verarbeiten
         eventteile = event_data.get('eventteile', [])
-        eventteile_json = json.dumps(eventteile) if isinstance(eventteile, list) else json.dumps([])
         
+        # Zeit-Felder konvertieren
+        start_time = f"2025-09-01 {event_data.get('Uhrzeit', '00:00')}:00"
+        end_time = None
+        if event_data.get('EndZeit'):
+            end_time = f"2025-09-01 {event_data.get('EndZeit')}:00"
+        
+        # Neuen Eintrag für SQLite vorbereiten
         new_event = {
-            'Uhrzeit': event_data.get('Uhrzeit'),
-            'Programmpunkt': event_data.get('Programmpunkt'),
-            'Dauer': event_data.get('Dauer', ''),
-            'EndZeit': event_data.get('EndZeit', ''),
-            'Verantwortlich': event_data.get('Verantwortlich', ''),
-            'Status': event_data.get('Status', 'Geplant'),
-            'public': event_data.get('public', False),
-            'eventteile': eventteile_json
+            'titel': event_data.get('Programmpunkt'),
+            'beschreibung': event_data.get('Verantwortlich', ''),
+            'start_zeit': start_time,
+            'end_zeit': end_time,
+            'ort': '',
+            'kategorie': event_data.get('Status', 'Geplant'),
+            'farbe': '#007bff',
+            'wichtig': False,
+            'nur_brautpaar': not bool(event_data.get('public', False)),
+            'eventteile': eventteile
         }
         
-        # Zu DataFrame hinzufügen
-        new_df = pd.DataFrame([new_event])
-        data_manager.zeitplan_df = pd.concat([data_manager.zeitplan_df, new_df], ignore_index=True)
+        # In Datenbank einfügen
+        entry_id = data_manager.add_zeitplan_entry(new_event)
         
-        # Speichern
-        data_manager.save_zeitplan()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Programmpunkt erfolgreich hinzugefügt'
-        })
+        if entry_id:
+            return jsonify({
+                'success': True,
+                'message': 'Programmpunkt erfolgreich hinzugefügt',
+                'id': entry_id
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Fehler beim Speichern'}), 500
+            
     except Exception as e:
         logger.error(f"Fehler beim Hinzufügen des Programmpunkts: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -2643,46 +2655,48 @@ def api_zeitplan_update():
             return jsonify({'error': 'DataManager nicht initialisiert'}), 500
         
         update_data = request.json
-        index = update_data.get('index')
+        
+        entry_id = update_data.get('id')  # SQLite verwendet IDs statt Indizes
         event_data = update_data.get('data')
         
         # Validierung
-        if index is None or not event_data:
-            return jsonify({'error': 'Index und Daten sind erforderlich'}), 400
+        if entry_id is None or not event_data:
+            return jsonify({'error': 'ID und Daten sind erforderlich'}), 400
         
         if not event_data.get('Uhrzeit') or not event_data.get('Programmpunkt'):
             return jsonify({'error': 'Uhrzeit und Programmpunkt sind erforderlich'}), 400
         
-        # Zeitplan laden
-        data_manager.load_zeitplan()
+        # Zeit-Felder konvertieren
+        start_time = f"2025-09-01 {event_data.get('Uhrzeit', '00:00')}:00"
+        end_time = None
+        if event_data.get('EndZeit'):
+            end_time = f"2025-09-01 {event_data.get('EndZeit')}:00"
         
-        # Index prüfen
-        if index < 0 or index >= len(data_manager.zeitplan_df):
-            return jsonify({'error': 'Ungültiger Index'}), 400
+        # Update-Daten für SQLite vorbereiten
+        update_event = {
+            'titel': event_data.get('Programmpunkt'),
+            'beschreibung': event_data.get('Verantwortlich', ''),
+            'start_zeit': start_time,
+            'end_zeit': end_time,
+            'ort': '',
+            'kategorie': event_data.get('Status', 'Geplant'),
+            'farbe': '#007bff',
+            'wichtig': False,
+            'nur_brautpaar': not bool(event_data.get('public', False)),
+            'eventteile': event_data.get('eventteile', [])
+        }
         
-        # Eintrag aktualisieren
-        data_manager.zeitplan_df.loc[index, 'Uhrzeit'] = event_data.get('Uhrzeit')
-        data_manager.zeitplan_df.loc[index, 'Programmpunkt'] = event_data.get('Programmpunkt')
-        data_manager.zeitplan_df.loc[index, 'Dauer'] = event_data.get('Dauer', '')
-        data_manager.zeitplan_df.loc[index, 'EndZeit'] = event_data.get('EndZeit', '')
-        data_manager.zeitplan_df.loc[index, 'Verantwortlich'] = event_data.get('Verantwortlich', '')
-        data_manager.zeitplan_df.loc[index, 'Status'] = event_data.get('Status', 'Geplant')
-        data_manager.zeitplan_df.loc[index, 'public'] = event_data.get('public', False)
+        # In Datenbank aktualisieren
+        success = data_manager.update_zeitplan_entry(entry_id, update_event)
         
-        # Eventteile als JSON-String speichern
-        eventteile = event_data.get('eventteile', [])
-        if isinstance(eventteile, list):
-            data_manager.zeitplan_df.loc[index, 'eventteile'] = json.dumps(eventteile)
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Programmpunkt erfolgreich aktualisiert'
+            })
         else:
-            data_manager.zeitplan_df.loc[index, 'eventteile'] = json.dumps([])
-        
-        # Speichern
-        data_manager.save_zeitplan()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Programmpunkt erfolgreich aktualisiert'
-        })
+            return jsonify({'success': False, 'error': 'Fehler beim Aktualisieren'}), 500
+            
     except Exception as e:
         logger.error(f"Fehler beim Aktualisieren des Programmpunkts: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -2695,29 +2709,23 @@ def api_zeitplan_delete():
             return jsonify({'error': 'DataManager nicht initialisiert'}), 500
         
         delete_data = request.json
-        index = delete_data.get('index')
+        entry_id = delete_data.get('id')  # SQLite verwendet IDs statt Indizes
         
         # Validierung
-        if index is None:
-            return jsonify({'error': 'Index ist erforderlich'}), 400
+        if entry_id is None:
+            return jsonify({'error': 'ID ist erforderlich'}), 400
         
-        # Zeitplan laden
-        data_manager.load_zeitplan()
+        # Aus Datenbank löschen
+        success = data_manager.delete_zeitplan_entry(entry_id)
         
-        # Index prüfen
-        if index < 0 or index >= len(data_manager.zeitplan_df):
-            return jsonify({'error': 'Ungültiger Index'}), 400
-        
-        # Eintrag löschen
-        data_manager.zeitplan_df = data_manager.zeitplan_df.drop(index).reset_index(drop=True)
-        
-        # Speichern
-        data_manager.save_zeitplan()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Programmpunkt erfolgreich gelöscht'
-        })
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Programmpunkt erfolgreich gelöscht'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Fehler beim Löschen'}), 500
+            
     except Exception as e:
         logger.error(f"Fehler beim Löschen des Programmpunkts: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -2731,29 +2739,57 @@ def api_settings_save():
         
         settings_data = request.json
         
-        # Aktuelle Config laden
-        current_config = data_manager.load_config()
+        # Konvertiere die Frontend-Settings in die strukturierte Form für save_settings
+        structured_settings = {
+            'hochzeit': {
+                'datum': settings_data.get('hochzeitsdatum', ''),
+                'location': settings_data.get('hochzeitsort', ''),
+                'brautpaar': {
+                    'braut': settings_data.get('braut_name', ''),
+                    'braeutigam': settings_data.get('braeutigam_name', '')
+                }
+            },
+            'ui': {},
+            'features': {}
+        }
         
-        # Speichere jede Einstellung 
+        # Locations-Daten hinzufügen falls vorhanden
+        if 'locations' in settings_data:
+            locations = settings_data['locations']
+            if isinstance(locations, dict):
+                # Standesamt-Daten speichern
+                if 'standesamt' in locations and isinstance(locations['standesamt'], dict):
+                    standesamt = locations['standesamt']
+                    data_manager.set_setting('standesamt_name', standesamt.get('name', ''))
+                    data_manager.set_setting('standesamt_adresse', standesamt.get('adresse', ''))
+                    data_manager.set_setting('standesamt_beschreibung', standesamt.get('beschreibung', ''))
+                
+                # Hochzeitslocation-Daten speichern
+                if 'hochzeitslocation' in locations and isinstance(locations['hochzeitslocation'], dict):
+                    hochzeitslocation = locations['hochzeitslocation']
+                    data_manager.set_setting('hochzeitslocation_name', hochzeitslocation.get('name', ''))
+                    data_manager.set_setting('hochzeitslocation_adresse', hochzeitslocation.get('adresse', ''))
+                    data_manager.set_setting('hochzeitslocation_beschreibung', hochzeitslocation.get('beschreibung', ''))
+        
+        # First Login Modal Einstellungen
+        for key in ['first_login_image', 'first_login_image_data', 'first_login_text']:
+            if key in settings_data and settings_data[key]:
+                data_manager.set_setting(key, settings_data[key])
+        
+        # Alle anderen direkten Settings
         for key, value in settings_data.items():
-            if value is not None and value != '':  # Nur nicht-leere Werte speichern
-                if key == 'locations':
-                    # Locations direkt in die Config speichern
-                    current_config['locations'] = value
-                elif key == 'hochzeitsort':
-                    # Legacy hochzeitsort in Config speichern
-                    current_config['hochzeitsort'] = value
-                else:
-                    # Normale Settings über set_setting
+            if key not in ['bride_name', 'groom_name', 'hochzeitsdatum', 'hochzeitsort', 'locations', 'first_login_image', 'first_login_image_data', 'first_login_text']:
+                if value is not None and value != '':
                     data_manager.set_setting(key, value)
         
-        # Config speichern wenn Locations oder Legacy-Daten geändert wurden
-        if 'locations' in settings_data or 'hochzeitsort' in settings_data:
-            success = data_manager.save_config(current_config)
-            if not success:
-                return jsonify({'error': 'Fehler beim Speichern der Location-Daten'}), 500
+        # Verwende die strukturierte save_settings Funktion für Hauptdaten
+        success = data_manager.save_settings(structured_settings)
         
-        return jsonify({'success': True, 'message': 'Einstellungen gespeichert'})
+        if success:
+            return jsonify({'success': True, 'message': 'Einstellungen gespeichert'})
+        else:
+            return jsonify({'error': 'Fehler beim Speichern der Einstellungen'}), 500
+            
     except Exception as e:
         logger.error(f"Fehler beim Speichern der Einstellungen: {str(e)}")
         return jsonify({'error': str(e)}), 500
@@ -2783,7 +2819,7 @@ def api_geocode():
         query_lower = query.lower().strip()
         for known_address, coords in aachen_coordinates.items():
             if query_lower in known_address or known_address in query_lower:
-                logger.info(f"✅ Lokaler Cache-Hit für: {query} -> {coords}")
+                # Cache-Hit
                 return jsonify({
                     'success': True,
                     'lat': coords['lat'],
@@ -2820,7 +2856,7 @@ def api_geocode():
                     'lng': float(result['lon']),
                     'display_name': result.get('display_name', query)
                 }
-                logger.info(f"✅ Nominatim API erfolg für: {query} -> {coords}")
+                # API Erfolg
                 return jsonify({
                     'success': True,
                     'lat': coords['lat'],
@@ -2876,6 +2912,82 @@ def api_export_excel():
             return jsonify({'error': 'Excel-Export fehlgeschlagen'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import/excel', methods=['POST'])
+def api_import_excel():
+    """Importiert eine Gästeliste aus einer Excel-Datei"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        # Prüfe ob eine Datei hochgeladen wurde
+        if 'file' not in request.files:
+            return jsonify({'error': 'Keine Datei ausgewählt'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'Keine Datei ausgewählt'}), 400
+        
+        # Prüfe Dateierweiterung
+        if not file.filename.lower().endswith(('.xlsx', '.xls')):
+            return jsonify({'error': 'Nur Excel-Dateien (.xlsx, .xls) sind erlaubt'}), 400
+        
+        # Optionale Parameter
+        sheet_name = request.form.get('sheet_name', 0)
+        replace_existing = request.form.get('replace_existing', 'false').lower() == 'true'
+        
+        # Konvertiere sheet_name zu int falls es eine Zahl ist
+        try:
+            sheet_name = int(sheet_name)
+        except (ValueError, TypeError):
+            pass  # Bleibt als String
+        
+        # Backup der aktuellen Gästeliste erstellen (falls vorhanden)
+        current_guests_backup = None
+        if not replace_existing and hasattr(data_manager, 'gaesteliste_df') and not data_manager.gaesteliste_df.empty:
+            current_guests_backup = data_manager.gaesteliste_df.copy()
+        
+        # Temporäre Datei speichern
+        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as temp_file:
+            file.save(temp_file.name)
+            temp_path = temp_file.name
+        
+        try:
+            # Excel-Import durchführen
+            success = data_manager.import_excel_gaesteliste(temp_path, sheet_name)
+            
+            if success:
+                # Falls nicht ersetzen und Backup vorhanden, kombiniere die Listen
+                if not replace_existing and current_guests_backup is not None:
+                    # Neue Gäste zu bestehenden hinzufügen
+                    combined_df = pd.concat([current_guests_backup, data_manager.gaesteliste_df], ignore_index=True)
+                    
+                    # Duplikate entfernen (basierend auf Vorname + Nachname)
+                    combined_df = combined_df.drop_duplicates(subset=['Vorname', 'Nachname'], keep='last')
+                    
+                    data_manager.gaesteliste_df = combined_df
+                    data_manager.save_gaesteliste()
+                
+                # Statistiken berechnen
+                imported_count = len(data_manager.gaesteliste_df)
+                
+                return jsonify({
+                    'success': True,
+                    'message': f'Excel-Import erfolgreich: {imported_count} Gäste importiert',
+                    'imported_count': imported_count,
+                    'replaced': replace_existing
+                })
+            else:
+                return jsonify({'error': 'Excel-Import fehlgeschlagen. Bitte prüfen Sie das Dateiformat.'}), 400
+                
+        finally:
+            # Temporäre Datei löschen
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+    
+    except Exception as e:
+        logger.error(f"Fehler beim Excel-Import: {e}")
+        return jsonify({'error': f'Import-Fehler: {str(e)}'}), 500
 
 @app.route('/api/backup/create', methods=['POST'])
 def api_backup_create():
@@ -2962,26 +3074,39 @@ def api_gaeste_mass_update():
     """Mehrere Gäste gleichzeitig bearbeiten"""
     try:
         request_data = request.get_json()
-        indices = request_data.get('indices', [])
+        guest_ids = request_data.get('guest_ids', [])
         updates = request_data.get('updates', {})
         
-        if not indices or not updates:
-            return jsonify({'success': False, 'error': 'Indices und Updates sind erforderlich'}), 400
+        if not guest_ids or not updates:
+            return jsonify({'success': False, 'error': 'Guest IDs und Updates sind erforderlich'}), 400
         
-        # Gästeliste laden
-        data_manager.load_gaesteliste()
-        
-        # Updates anwenden
-        for index in indices:
-            if 0 <= index < len(data_manager.gaesteliste_df):
-                for key, value in updates.items():
-                    if key in data_manager.gaesteliste_df.columns:
-                        data_manager.gaesteliste_df.iloc[index, data_manager.gaesteliste_df.columns.get_loc(key)] = value
-        
-        # Speichern
-        data_manager.save_gaesteliste()
-        
-        return jsonify({'success': True, 'message': f'{len(indices)} Gäste aktualisiert'})
+        # SQLite DataManager verwenden wenn verfügbar
+        if hasattr(data_manager, 'update_guest'):
+            updated_count = 0
+            for guest_id in guest_ids:
+                if data_manager.update_guest(guest_id, updates):
+                    updated_count += 1
+            
+            return jsonify({'success': True, 'message': f'{updated_count} Gäste aktualisiert'})
+        else:
+            # Fallback zu pandas DataManager
+            # Gästeliste laden
+            data_manager.load_gaesteliste()
+            
+            # Guest IDs zu Indizes konvertieren (falls notwendig)
+            for guest_id in guest_ids:
+                # Gast in DataFrame finden
+                guest_mask = data_manager.gaesteliste_df['id'] == guest_id if 'id' in data_manager.gaesteliste_df.columns else False
+                if hasattr(guest_mask, 'any') and guest_mask.any():
+                    index = data_manager.gaesteliste_df[guest_mask].index[0]
+                    for key, value in updates.items():
+                        if key in data_manager.gaesteliste_df.columns:
+                            data_manager.gaesteliste_df.iloc[index, data_manager.gaesteliste_df.columns.get_loc(key)] = value
+            
+            # Speichern
+            data_manager.save_gaesteliste()
+            
+            return jsonify({'success': True, 'message': f'{len(guest_ids)} Gäste aktualisiert'})
     except Exception as e:
         logger.error(f"Fehler bei der Masseneditierung: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -2999,11 +3124,6 @@ if __name__ == '__main__':
     print("=" * 50)
     print(f"✅ DataManager bereits initialisiert: {data_manager.data_dir}")
     print(f"🌐 URL: http://localhost:{port}")
-    
-    # Debug: Zeige alle registrierten Routen
-    print("\n📋 Registrierte Routen:")
-    for rule in app.url_map.iter_rules():
-        print(f"  - {rule.rule} ({rule.methods})")
     
     print("⚠️  Zum Beenden: Strg+C")
     print("=" * 50)
@@ -3043,7 +3163,8 @@ def api_aufgaben_list():
         if not data_manager:
             return jsonify({'error': 'DataManager nicht initialisiert'}), 500
         
-        aufgaben = data_manager.load_aufgaben()
+        # Verwende get_aufgaben für korrektes Field-Mapping
+        aufgaben = data_manager.get_aufgaben()
         
         return jsonify({
             'success': True,
@@ -3062,7 +3183,8 @@ def api_aufgaben_get(aufgabe_id):
         if not data_manager:
             return jsonify({'error': 'DataManager nicht initialisiert'}), 500
         
-        aufgaben = data_manager.load_aufgaben()
+        # Verwende get_aufgaben für korrektes Field-Mapping
+        aufgaben = data_manager.get_aufgaben()
         aufgabe = next((a for a in aufgaben if a.get('id') == aufgabe_id), None)
         
         if not aufgabe:
@@ -3102,7 +3224,8 @@ def api_aufgaben_add():
             'prioritaet': data.get('prioritaet', 'Mittel'),
             'faelligkeitsdatum': data.get('faelligkeitsdatum', ''),
             'kategorie': data.get('kategorie', '').strip(),
-            'notizen': data.get('notizen', '').strip()
+            'notizen': data.get('notizen', '').strip(),
+            'erstellt_von': session.get('display_name', session.get('username', 'Unbekannt'))
         }
         
         # Aufgabe hinzufügen
@@ -3882,6 +4005,5 @@ if __name__ == '__main__':
         # E-Mail-Checking stoppen beim Beenden
         if email_manager and EMAIL_AVAILABLE:
             email_manager.stop_email_checking()
-            print("📧 E-Mail-Checking gestoppt")
         print("👋 Auf Wiedersehen!")
 

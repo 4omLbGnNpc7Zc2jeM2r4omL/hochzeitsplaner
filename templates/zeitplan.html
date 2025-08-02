@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Zeitplan - {{ brautpaar_namen or "Brautpaar" }} Heiraten 💕{% endblock %}
+{% block title %}Zeitplan - {{ brautpaar_namen or "Brautpaar heiratet" }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
@@ -210,6 +210,7 @@
             <div class="modal-body">
                 <form id="editEventForm">
                     <input type="hidden" id="editEventIndex">
+                    <input type="hidden" id="editEventId">
                     <div class="row">
                         <div class="col-md-6">
                             <label for="editEventStartTime" class="form-label">Beginn</label>

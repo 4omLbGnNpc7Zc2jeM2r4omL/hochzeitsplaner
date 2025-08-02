@@ -1,17 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}{{ brautpaar_namen or "Brautpaar" }} Heiraten 💕 - Gäste-Dashboard{% endblock %}
+{% block title %}{{ brautpaar_namen or "Brautpaar heiratet" }} - Gäste-Dashboard{% endblock %}
 
 {% block content %}
+<!-- Willkommensnachricht über volle Breite -->
 <div class="row">
     <div class="col-12">
-        <h1 class="mb-4">
+        <h1 class="mb-2">
             <i class="bi bi-person-heart me-2"></i>
             Willkommen, {{ session.display_name }}!
         </h1>
         
         <!-- Personalisierte Begrüßungsnachricht -->
-        <div class="alert alert-info border-0 shadow-sm mb-4" id="welcomeMessage">
+        <div class="alert alert-info border-0 shadow-sm mb-3" id="welcomeMessage">
             <div class="d-flex align-items-center">
                 <i class="bi bi-heart-fill text-primary me-3" style="font-size: 1.5rem;"></i>
                 <div id="personalizedWelcome">
@@ -24,148 +25,133 @@
     </div>
 </div>
 
+<!-- Hauptinhalt in zwei Spalten -->
 <div class="row">
-    <!-- RSVP Card -->
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">
-                    <i class="bi bi-calendar-check me-2"></i>
-                    <span id="teilnahmeTitle">Deine Teilnahme</span>
-                </h5>
-            </div>
-            <div class="card-body">
-                <div id="rsvpForm">
-                    <div class="mb-3">
-                        <label class="form-label">Status</label>
-                        <select class="form-select" id="guestStatus">
-                            <option value="Offen" id="statusOpen">Noch nicht entschieden</option>
-                            <option value="Zugesagt" id="statusConfirmed">Ich komme gerne!</option>
-                            <option value="Abgesagt" id="statusDeclined">Kann leider nicht kommen</option>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3" id="personenDiv">
-                        <label for="personenAnzahl" class="form-label">Anzahl Personen</label>
-                        <input type="number" class="form-control" id="personenAnzahl" min="1" max="1" value="1">
-                        <div class="form-text">
-                            Maximum: <span id="maxPersonen">1</span> Person(en)
+        <!-- Linke Spalte -->
+        <div class="col-md-6">
+            <!-- RSVP Card -->
+            <div class="card mb-2">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-calendar-check me-2"></i>
+                        <span id="teilnahmeTitle">Deine Teilnahme</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="rsvpForm">
+                        <div class="mb-2">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="guestStatus">
+                                <option value="Offen" id="statusOpen">Noch nicht entschieden</option>
+                                <option value="Zugesagt" id="statusConfirmed">Ich komme gerne!</option>
+                                <option value="Abgesagt" id="statusDeclined">Kann leider nicht kommen</option>
+                            </select>
                         </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="guestNotiz" class="form-label">Nachricht (optional)</label>
-                        <textarea class="form-control" id="guestNotiz" rows="3" placeholder="Allergien, Wünsche, Grüße..."></textarea>
-                    </div>
-                    
-                    <button type="button" class="btn btn-success w-100" id="saveRsvp">
-                        <i class="bi bi-check-circle me-2"></i>
-                        <span id="saveRsvpText">Teilnahme speichern</span>
-                    </button>
-                </div>
-                
-                <div id="rsvpSuccess" class="text-center d-none">
-                    <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
-                    <h5 class="mt-3">Vielen Dank!</h5>
-                    <p class="text-muted" id="rsvpSuccessText">Deine Teilnahme wurde gespeichert.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Zeitplan Card -->
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0">
-                    <i class="bi bi-clock me-2"></i>
-                    Hochzeitsablauf
-                </h5>
-            </div>
-            <div class="card-body">
-                <p>Hier kannst du den Ablauf unserer Hochzeit einsehen.</p>
-                
-                <div class="d-grid">
-                    <a href="{{ url_for('guest_zeitplan') }}" class="btn btn-info">
-                        <i class="bi bi-calendar-event me-2"></i>
-                        Zeitplan ansehen
-                    </a>
-                </div>
-                
-                <hr>
-                
-                <h6>Kurzer Überblick:</h6>
-                <div id="zeitplanPreview">
-                    <!-- Wird via JavaScript geladen -->
-                    <div class="text-center">
-                        <div class="spinner-border spinner-border-sm" role="status">
-                            <span class="visually-hidden">Lädt...</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row mt-4">
-    <!-- Location Card -->
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0">
-                    <i class="bi bi-geo-alt me-2"></i>
-                    Locations
-                </h5>
-            </div>
-            <div class="card-body">
-                <div id="locationInfo">
-                    <!-- Wird via JavaScript geladen -->
-                    <div class="text-center">
-                        <div class="spinner-border spinner-border-sm" role="status">
-                            <span class="visually-hidden">Lädt Location...</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Kartenvorschauen für Guest Dashboard -->
-                <div id="guestMapPreviewsSection" class="mt-4">
-                    <h6 class="text-primary mb-3">
-                        <i class="bi bi-map me-2"></i>
-                        Kartenvorschauen (OpenStreetMap)
-                    </h6>
-                    
-                    <div class="row">
-                        <!-- Standesamt Kartenvorschau -->
-                        <div class="col-12 mb-3">
-                            <div id="guestStandesamtMapPreview">
-                                <div class="card border-primary">
-                                    <div class="card-header bg-primary text-white">
-                                        <h6 class="mb-0">
-                                            <i class="bi bi-building me-2"></i>Standesamt
-                                        </h6>
-                                    </div>
-                                    <div class="card-body p-0">
-                                        <div style="height: 250px; width: 100%; position: relative; overflow: hidden;">
-                                            <div id="guestStandesamtMap" style="height: 100%; width: 100%; position: absolute; top: 0; left: 0;"></div>
-                                        </div>
-                                    </div>
-                                </div>
+                        
+                        <div class="mb-2" id="personenDiv">
+                            <label for="personenAnzahl" class="form-label">Anzahl Personen</label>
+                            <input type="number" class="form-control" id="personenAnzahl" min="1" max="1" value="1">
+                            <div class="form-text">
+                                Maximum: <span id="maxPersonen">1</span> Person(en)
                             </div>
                         </div>
                         
-                        <!-- Hochzeitslocation Kartenvorschau -->
-                        <div class="col-12 mb-3">
-                            <div id="guestHochzeitslocationMapPreview">
-                                <div class="card border-success">
-                                    <div class="card-header bg-success text-white">
-                                        <h6 class="mb-0">
-                                            <i class="bi bi-heart-fill me-2"></i>Hochzeitslocation
-                                        </h6>
+                        <div class="mb-2">
+                            <label for="guestNotiz" class="form-label">Nachricht (optional)</label>
+                            <textarea class="form-control" id="guestNotiz" rows="3" placeholder="Allergien, Wünsche, Grüße..."></textarea>
+                        </div>
+                        
+                        <button type="button" class="btn btn-success w-100" id="saveRsvp">
+                            <i class="bi bi-check-circle me-2"></i>
+                            <span id="saveRsvpText">Teilnahme speichern</span>
+                        </button>
+                    </div>
+                    
+                    <div id="rsvpSuccess" class="text-center d-none">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">Vielen Dank!</h5>
+                        <p class="text-muted" id="rsvpSuccessText">Deine Teilnahme wurde gespeichert.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Locations Card -->
+            <div class="card mb-2">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-geo-alt me-2"></i>
+                        Locations
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="locationInfo">
+                        <!-- Wird via JavaScript geladen -->
+                        <div class="text-center">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Lädt Location...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Kartenvorschauen für Guest Dashboard -->
+                    <div id="guestMapPreviewsSection" class="mt-4">
+                        <h6 class="text-primary mb-2">
+                            <i class="bi bi-map me-2"></i>
+                            Kartenvorschauen (OpenStreetMap)
+                        </h6>
+                        
+                        <div class="row">
+                            <!-- Standesamt Kartenvorschau -->
+                            <div class="col-12 mb-2">
+                                <div id="guestStandesamtMapPreview">
+                                    <div class="card border-primary">
+                                        <div class="card-header bg-primary text-white">
+                                            <h6 class="mb-0">
+                                                <i class="bi bi-building me-2"></i>Standesamt
+                                            </h6>
+                                        </div>
+                                        <!-- Adresse oberhalb der Karte -->
+                                        <div class="card-body pb-2">
+                                            <div class="d-flex align-items-start">
+                                                <i class="bi bi-geo-alt-fill text-primary me-2 mt-1"></i>
+                                                <div>
+                                                    <strong id="standesamtName">Standesamt</strong><br>
+                                                    <span id="standesamtAdresse" class="text-muted">Adresse wird geladen...</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="card-body p-0 pt-0">
+                                            <div style="height: 250px; width: 100%; position: relative; overflow: hidden;">
+                                                <div id="guestStandesamtMap" style="height: 100%; width: 100%; position: absolute; top: 0; left: 0;"></div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="card-body p-0">
-                                        <div style="height: 250px; width: 100%; position: relative; overflow: hidden;">
-                                            <div id="guestHochzeitslocationMap" style="height: 100%; width: 100%; position: absolute; top: 0; left: 0;"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Hochzeitslocation Kartenvorschau -->
+                            <div class="col-12 mb-2">
+                                <div id="guestHochzeitslocationMapPreview">
+                                    <div class="card border-success">
+                                        <div class="card-header bg-success text-white">
+                                            <h6 class="mb-0">
+                                                <i class="bi bi-heart-fill me-2"></i>Hochzeitslocation
+                                            </h6>
+                                        </div>
+                                        <!-- Adresse oberhalb der Karte -->
+                                        <div class="card-body pb-2">
+                                            <div class="d-flex align-items-start">
+                                                <i class="bi bi-geo-alt-fill text-success me-2 mt-1"></i>
+                                                <div>
+                                                    <strong id="hochzeitslocationName">Hochzeitslocation</strong><br>
+                                                    <span id="hochzeitslocationAdresse" class="text-muted">Adresse wird geladen...</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="card-body p-0 pt-0">
+                                            <div style="height: 250px; width: 100%; position: relative; overflow: hidden;">
+                                                <div id="guestHochzeitslocationMap" style="height: 100%; width: 100%; position: absolute; top: 0; left: 0;"></div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -175,51 +161,220 @@
                 </div>
             </div>
         </div>
-    </div>
-    
-    <!-- Informationen Card -->
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-info-circle me-2"></i>
-                    Informationen
-                </h5>
+        
+        <!-- Rechte Spalte: Alle Cards untereinander -->
+        <div class="col-md-6">
+            <!-- Einladung Card -->
+            <div class="card mb-2">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="bi bi-envelope-heart me-2"></i>
+                        Einladung
+                    </h5>
+                </div>
+                <div class="card-body py-3">
+                    <p class="text-muted mb-2" id="invitationText">
+                        Deine persönliche Einladung nochmal ansehen?
+                    </p>
+                    
+                    <div class="d-grid">
+                        <button type="button" class="btn btn-warning" id="showInvitationBtn">
+                            <i class="bi bi-envelope-open-heart me-2"></i>
+                            Einladung anzeigen
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-12 mb-3">
-                        <h6>Kontakt</h6>
-                        <p class="text-muted" id="kontaktText">
-                            Bei Fragen könnt ihr euch gerne an uns wenden.
-                        </p>
-                        <div class="mt-2" id="whatsappContainer">
-                            <a href="https://wa.me/4915140737042" id="whatsappLink" class="btn btn-success btn-sm" target="_blank">
-                                <i class="bi bi-whatsapp me-2"></i>
-                                WhatsApp
-                            </a>
+            
+            <!-- Hochzeitsablauf Card -->
+            <div class="card mb-2">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock me-2"></i>
+                        Hochzeitsablauf
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p>Hier kannst du den Ablauf unserer Hochzeit einsehen.</p>
+                    
+                    <div class="d-grid">
+                        <a href="{{ url_for('guest_zeitplan') }}" class="btn btn-info">
+                            <i class="bi bi-calendar-event me-2"></i>
+                            Zeitplan ansehen
+                        </a>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h6>Kurzer Überblick:</h6>
+                    <div id="zeitplanPreview">
+                        <!-- Wird via JavaScript geladen -->
+                        <div class="text-center">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Lädt...</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-12 mb-3">
-                        <h6>Geschenke</h6>
-                        <p class="text-muted" id="geschenkeText">
-                            Über euer Kommen freuen wir uns am meisten!
-                        </p>
+                </div>
+            </div>
+            
+            <!-- Informationen Card -->
+            <div class="card mb-2">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Informationen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12 mb-2">
+                            <h6>Kontakt</h6>
+                            <p class="text-muted" id="kontaktText">
+                                Bei Fragen könnt ihr euch gerne an uns wenden.
+                            </p>
+                            <div class="mt-2" id="whatsappContainer">
+                                <a href="https://wa.me/4915140737042" id="whatsappLink" class="btn btn-success btn-sm" target="_blank">
+                                    <i class="bi bi-whatsapp me-2"></i>
+                                    WhatsApp
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-12 mb-2">
+                            <h6>Geschenke</h6>
+                            <p class="text-muted" id="geschenkeText">
+                                Über euer Kommen freuen wir uns am meisten!
+                            </p>
+                        </div>
+                        <div class="col-12">
+                            <h6>Dresscode</h6>
+                            <p class="text-muted" id="dresscodeText">
+                                Festliche Kleidung erwünscht.
+                            </p>
+                        </div>
                     </div>
-                    <div class="col-12">
-                        <h6>Dresscode</h6>
-                        <p class="text-muted" id="dresscodeText">
-                            Festliche Kleidung erwünscht.
-                        </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- First Login Welcome Modal - Einladungskarten Design -->
+<div class="modal fade" id="firstLoginModal" tabindex="-1" aria-labelledby="firstLoginModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);">
+            <div class="modal-body p-0">
+                <!-- Einladungskarte Design -->
+                <div class="invitation-card text-center p-5" style="background: #ffffff; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+                    
+                    <!-- Hochzeitsdatum oben -->
+                    <div class="wedding-date mb-4">
+                        <h3 id="weddingDateDisplay" class="text-elegant mb-3" style="font-family: 'Playfair Display', serif; font-weight: 300; color: #8b7355; letter-spacing: 2px;">
+                            25. Juli 2026
+                        </h3>
+                        <hr class="elegant-divider mx-auto" style="width: 150px; height: 2px; background: linear-gradient(90deg, transparent, #d4af37, transparent); border: none;">
+                    </div>
+                    
+                    <!-- Foto Bereich -->
+                    <div class="wedding-photo mb-4">
+                        <div id="welcomeImageContainer" class="d-none">
+                            <img id="welcomeImage" src="" alt="Hochzeitsfoto" class="img-fluid shadow-lg" 
+                                 style="max-height: 300px; max-width: 100%; object-fit: cover; border-radius: 10px; border: 3px solid #f8f9fa;">
+                        </div>
+                        <div id="welcomeImagePlaceholder" class="photo-placeholder p-4" 
+                             style="background: linear-gradient(45deg, #f8f9fa, #e9ecef); border-radius: 10px; border: 2px dashed #d4af37;">
+                            <i class="bi bi-heart-fill text-muted opacity-50" style="font-size: 4rem;"></i>
+                            <p class="text-muted mt-2 mb-0">Hochzeitsfoto</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Trennstrich unter dem Foto -->
+                    <hr class="elegant-divider mx-auto mb-4" style="width: 150px; height: 2px; background: linear-gradient(90deg, transparent, #d4af37, transparent); border: none;">
+                    
+                    <!-- Ring Emoji -->
+                    <div class="rings-emoji mb-4">
+                        <span style="font-size: 2.5rem;">💍💍</span>
+                    </div>
+                    
+                    <!-- Einladungstext -->
+                    <div class="invitation-text">
+                        <h4 class="text-elegant mb-3" style="font-family: 'Playfair Display', serif; font-weight: 400; color: #8b7355;">
+                            💕 Persönliche Einladung 💒
+                        </h4>
+                        <div id="welcomeText" class="text-content mx-auto" 
+                             style="font-family: 'Crimson Text', serif; font-size: 1.1rem; line-height: 1.8; color: #5a5a5a; max-width: 400px;">
+                            Liebe Familie,<br>
+                            liebe Freunde,<br><br>
+                            schön, dass ihr bis hier her gefunden habt und unsere Hochzeit am 25.07.2026 mit uns feiern möchtest.<br><br>
+                            Auf dieser Website habt ihr die Möglichkeit....
+                        </div>
+                    </div>
+                    
+                    <!-- Weiter Button -->
+                    <div class="mt-5">
+                        <button type="button" class="btn btn-elegant btn-lg px-5 py-3 rounded-pill shadow-sm" 
+                                data-bs-dismiss="modal"
+                                style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border: none; color: #8b7355; font-weight: 500; letter-spacing: 1px; transition: all 0.3s ease;">
+                            ✨ Zur Hochzeitswebsite ✨
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Zusätzliche Schriftarten -->
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@300;400;500;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+    
+    .text-elegant {
+        font-family: 'Playfair Display', serif !important;
+    }
+    
+    .btn-elegant:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(212, 175, 55, 0.3) !important;
+    }
+    
+    .invitation-card {
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .invitation-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="1" fill="%23f0f0f0" opacity="0.3"/></svg>') repeat;
+        pointer-events: none;
+        z-index: 0;
+    }
+    
+    .invitation-card > * {
+        position: relative;
+        z-index: 1;
+    }
+    
+    /* Kompakte Layout-Optimierungen */
+    .row {
+        margin-bottom: 0.5rem;
+    }
+    
+    .card {
+        margin-bottom: 0.75rem !important;
+    }
+    
+    .container-fluid {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+</style>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/openstreetmap.js') }}"></script>
+<script src="{{ url_for('static', filename='js/first_login_modal.js') }}"></script>
 <script src="{{ url_for('static', filename='js/guest_dashboard.js') }}"></script>
 {% endblock %}

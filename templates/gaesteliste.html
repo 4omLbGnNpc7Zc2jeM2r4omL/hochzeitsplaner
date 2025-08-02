@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Gästeliste - {{ brautpaar_namen or "Brautpaar" }} Heiraten 💕{% endblock %}
+{% block title %}Gästeliste - {{ brautpaar_namen or "Brautpaar heiratet" }}{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -30,9 +30,14 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1><i class="bi bi-people"></i> Gästeliste</h1>
-                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGuestModal">
-                    <i class="bi bi-person-plus"></i> Gast hinzufügen
-                </button>
+                <div class="d-flex gap-2">
+                    <a href="/gaeste/import" class="btn btn-outline-success">
+                        <i class="bi bi-cloud-upload"></i> Import
+                    </a>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGuestModal">
+                        <i class="bi bi-person-plus"></i> Gast hinzufügen
+                    </button>
+                </div>
             </div>
             
             <!-- Statistiken -->
@@ -136,9 +141,6 @@
                             <div class="d-flex gap-2">
                                 <button type="button" class="btn btn-outline-primary" id="selectAllGuests">
                                     Alle auswählen
-                                </button>
-                                <button type="button" class="btn btn-outline-success" id="syncTeilnahmeBtn">
-                                    <i class="bi bi-arrow-repeat"></i> Sync
                                 </button>
                                 <button type="button" class="btn btn-warning" id="massEditBtn" disabled>
                                     <i class="bi bi-pencil-square"></i> Ausgewählte bearbeiten (0)
@@ -287,11 +289,6 @@
 
                     <!-- Teilnahme Anzahlen -->
                     <h6 class="mb-3 mt-4">Teilnahme (Anzahl Personen)</h6>
-                    <div class="alert alert-info">
-                        <small><i class="bi bi-info-circle"></i> <strong>Automatische Logik:</strong> 
-                        Gäste beim Weißen Saal sind automatisch auch beim Essen. 
-                        Gäste beim Essen sind automatisch auch bei der Party.</small>
-                    </div>
                     <div class="row">
                         <div class="col-md-4 mb-3">
                             <label for="guestWeisserSaal" class="form-label">Weißer Saal</label>
@@ -307,31 +304,7 @@
                         </div>
                     </div>
 
-                    <!-- Teilnahme Ja/Nein (wird automatisch basierend auf Anzahlen gesetzt) -->
-                    <h6 class="mb-3 mt-4">Teilnahme (Ja/Nein) - wird automatisch gesetzt</h6>
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label for="guestZumWeisserSaal" class="form-label">Zum Weißen Saal</label>
-                            <select class="form-select" id="guestZumWeisserSaal" disabled>
-                                <option value="Nein">Nein</option>
-                                <option value="Ja">Ja</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="guestZumEssen" class="form-label">Zum Essen</label>
-                            <select class="form-select" id="guestZumEssen" disabled>
-                                <option value="Nein">Nein</option>
-                                <option value="Ja">Ja</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="guestZurParty" class="form-label">Zur Party</label>
-                            <select class="form-select" id="guestZurParty" disabled>
-                                <option value="Nein">Nein</option>
-                                <option value="Ja">Ja</option>
-                            </select>
-                        </div>
-                    </div>
+
 
                     <div class="mb-3">
                         <label for="guestBemerkungen" class="form-label">Bemerkungen</label>
@@ -414,50 +387,24 @@
                             <input type="number" class="form-control" id="editBegleitung" min="0" value="0">
                         </div>
                         <div class="col-md-3 mb-3">
+                            <label for="editOptional" class="form-label">Optional</label>
+                            <input type="number" class="form-control" id="editOptional" min="0" value="0">
+                        </div>
+                    </div>
+
+                    <!-- Teilnahme Anzahlen -->
+                    <h6 class="mb-3 mt-4">Teilnahme (Anzahl Personen)</h6>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
                             <label for="editWeisserSaal" class="form-label">Weißer Saal</label>
                             <input type="number" class="form-control" id="editWeisserSaal" min="0" value="0">
                         </div>
-                    </div>
-
-                    <!-- Event-Teilnahme -->
-                    <h6 class="mb-3">Event-Teilnahme</h6>
-                    <div class="row">
                         <div class="col-md-4 mb-3">
-                            <label for="editTeilnahmeWeisserSaal" class="form-label">Zum Weißen Saal</label>
-                            <select class="form-select" id="editTeilnahmeWeisserSaal">
-                                <option value="Nein">Nein</option>
-                                <option value="Ja">Ja</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="editTeilnahmeEssen" class="form-label">Zum Essen</label>
-                            <select class="form-select" id="editTeilnahmeEssen">
-                                <option value="Nein">Nein</option>
-                                <option value="Ja">Ja</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="editTeilnahmeParty" class="form-label">Zur Party</label>
-                            <select class="form-select" id="editTeilnahmeParty">
-                                <option value="Nein">Nein</option>
-                                <option value="Ja">Ja</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Anzahl pro Event -->
-                    <h6 class="mb-3">Anzahl pro Event</h6>
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label for="editAnzahlWeisserSaal" class="form-label">Anzahl Weißer Saal</label>
-                            <input type="number" class="form-control" id="editAnzahlWeisserSaal" min="0" value="0">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="editAnzahlEssen" class="form-label">Anzahl Essen</label>
+                            <label for="editAnzahlEssen" class="form-label">Essen <small class="text-muted">(inkl. Weißer Saal)</small></label>
                             <input type="number" class="form-control" id="editAnzahlEssen" min="0" value="0">
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label for="editAnzahlParty" class="form-label">Anzahl Party</label>
+                            <label for="editAnzahlParty" class="form-label">Party <small class="text-muted">(inkl. Essen)</small></label>
                             <input type="number" class="form-control" id="editAnzahlParty" min="0" value="0">
                         </div>
                     </div>

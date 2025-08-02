@@ -88,6 +88,10 @@ async function loadKostenConfig() {
             currentFixkosten = config.fixed_costs || {};
             updateFixkostenDisplay();
             
+            // Manuelle Gästeanzahlen
+            const manualGuestCounts = config.manual_guest_counts || {};
+            document.getElementById('mitternachtssnackGaeste').value = manualGuestCounts.mitternachtssnack || 80;
+            
             console.log('✅ Kostenkonfiguration geladen');
         } else {
             throw new Error(response.error || 'Unbekannter Fehler');
@@ -181,7 +185,10 @@ async function saveKostenConfig() {
                     Mitternachtssnack: parseFloat(document.getElementById('partyMitternachtssnack').value) || 0
                 }
             },
-            fixed_costs: currentFixkosten
+            fixed_costs: currentFixkosten,
+            manual_guest_counts: {
+                mitternachtssnack: parseInt(document.getElementById('mitternachtssnackGaeste').value) || 80
+            }
         };
         
         // Debug: Log das Objekt vor dem Senden

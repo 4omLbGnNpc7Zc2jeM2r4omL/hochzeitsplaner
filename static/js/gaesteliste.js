@@ -46,7 +46,7 @@ function setupEventListeners() {
     if (addGuestModal) {
         addGuestModal.addEventListener('show.bs.modal', function() {
             document.getElementById('addGuestForm').reset();
-            // Auto-Update für Ja/Nein Felder aktivieren
+            // Auto-Update für Ja/Nein Felder aktivieren (unsichtbar)
             setupAutoUpdateFields();
         });
     }
@@ -73,11 +73,8 @@ function setupEventListeners() {
         saveMassEditBtn.addEventListener('click', handleSaveMassEdit);
     }
     
-    // Sync-Button für Teilnahme
-    const syncTeilnahmeBtn = document.getElementById('syncTeilnahmeBtn');
-    if (syncTeilnahmeBtn) {
-        syncTeilnahmeBtn.addEventListener('click', handleSyncTeilnahme);
-    }
+    // Synchronisation der automatischen Anzahl-Anpassung für neue Gäste
+    syncParticipationLogic();
 }
 
 async function loadAndDisplayGuests() {
@@ -158,7 +155,7 @@ function displayGuests(guests) {
     }
     
     tbody.innerHTML = guests.map((guest, index) => {
-        const isSelected = selectedGuests.has(index);
+        const isSelected = selectedGuests.has(guest.id); // Verwende echte ID statt Index
         
         // Korrekte Mapping für die JSON-Struktur
         const vorname = guest.Vorname || '';
@@ -171,6 +168,7 @@ function displayGuests(guests) {
         const anzahlParty = guest.Anzahl_Party || 0;
         const kinder = guest.Kind || 0;
         const status = guest.Status || 'Offen';
+        const guestId = guest.id || index; // Fallback auf Index falls ID fehlt
         
         // Status-Badge-Klasse
         const statusClass = status === 'Zugesagt' ? 'bg-success' : 
@@ -180,8 +178,8 @@ function displayGuests(guests) {
             <tr class="${isSelected ? 'table-active' : ''}">
                 <td>
                     <input type="checkbox" class="form-check-input guest-checkbox" 
-                           data-index="${index}" ${isSelected ? 'checked' : ''}
-                           onchange="handleGuestSelection(${index}, this.checked)">
+                           data-id="${guestId}" ${isSelected ? 'checked' : ''}
+                           onchange="handleGuestSelection(${guestId}, this.checked)">
                 </td>
                 <td>${escapeHtml(vorname)}</td>
                 <td>${escapeHtml(nachname)}</td>
@@ -225,12 +223,12 @@ function displayGuests(guests) {
                 </td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary me-1" 
-                            onclick="editGuest(${index})" 
+                            onclick="editGuest(${guestId})" 
                             title="Bearbeiten">
                         <i class="bi bi-pencil"></i>
                     </button>
                     <button class="btn btn-sm btn-outline-danger" 
-                            onclick="deleteGuest(${index})" 
+                            onclick="deleteGuest(${guestId})" 
                             title="Löschen">
                         <i class="bi bi-trash"></i>
                     </button>
@@ -259,16 +257,16 @@ function updateGuestStats(guests) {
     if (partyElement) partyElement.textContent = partyGuests;
 }
 
-function handleGuestSelection(index, selected) {
+function handleGuestSelection(guestId, selected) {
     if (selected) {
-        selectedGuests.add(index);
+        selectedGuests.add(guestId);
     } else {
-        selectedGuests.delete(index);
+        selectedGuests.delete(guestId);
     }
     updateMassEditButton();
     
     // Zeile hervorheben
-    const row = document.querySelector(`input[data-index="${index}"]`).closest('tr');
+    const row = document.querySelector(`input[data-guest-id="${guestId}"]`).closest('tr');
     if (selected) {
         row.classList.add('table-active');
     } else {
@@ -294,8 +292,9 @@ function handleSelectAll() {
     } else {
         // Alle auswählen
         selectedGuests.clear();
-        checkboxes.forEach((cb, index) => {
-            selectedGuests.add(index);
+        checkboxes.forEach(cb => {
+            const guestId = parseInt(cb.getAttribute('data-guest-id'));
+            selectedGuests.add(guestId);
             cb.checked = true;
             cb.closest('tr').classList.add('table-active');
         });
@@ -314,8 +313,9 @@ function handleSelectAllCheckbox() {
     if (selectAllCheckbox.checked) {
         // Alle auswählen
         selectedGuests.clear();
-        checkboxes.forEach((cb, index) => {
-            selectedGuests.add(index);
+        checkboxes.forEach(cb => {
+            const guestId = parseInt(cb.getAttribute('data-guest-id'));
+            selectedGuests.add(guestId);
             cb.checked = true;
             cb.closest('tr').classList.add('table-active');
         });
@@ -378,7 +378,7 @@ async function handleSaveMassEdit() {
         if (essen) updates.Zum_Essen = essen;
         if (party) updates.Zur_Party = party;
         
-        const indices = Array.from(selectedGuests);
+        const guestIds = Array.from(selectedGuests);
         
         const response = await fetch('/api/gaeste/mass-update', {
             method: 'PUT',
@@ -386,7 +386,7 @@ async function handleSaveMassEdit() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                indices: indices,
+                guest_ids: guestIds,
                 updates: updates
             })
         });
@@ -394,7 +394,7 @@ async function handleSaveMassEdit() {
         const result = await response.json();
         
         if (result.success) {
-            HochzeitsplanerApp.showAlert(`${indices.length} Gäste erfolgreich aktualisiert!`);
+            HochzeitsplanerApp.showAlert(`${guestIds.length} Gäste erfolgreich aktualisiert!`);
             
             // Modal schließen
             const modal = bootstrap.Modal.getInstance(document.getElementById('massEditModal'));
@@ -417,33 +417,36 @@ async function handleSaveMassEdit() {
 }
 
 // Synchronisation der Teilnahme-Logik
-async function handleSyncTeilnahme() {
-    try {
-        HochzeitsplanerApp.showLoading();
+function syncParticipationLogic() {
+    const weisserSaalInput = document.getElementById('guestWeisserSaal');
+    const anzahlEssenInput = document.getElementById('guestAnzahlEssen');
+    const anzahlPartyInput = document.getElementById('guestAnzahlParty');
+    
+    function updateCascadingCounts() {
+        const weisserSaalCount = parseInt(weisserSaalInput.value) || 0;
+        const essenCount = parseInt(anzahlEssenInput.value) || 0;
+        const partyCount = parseInt(anzahlPartyInput.value) || 0;
         
-        const response = await fetch('/api/gaeste/sync-teilnahme', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
+        // Logik: Weißer Saal → automatisch Essen, Essen → automatisch Party
+        let finalEssenCount = Math.max(essenCount, weisserSaalCount);
+        let finalPartyCount = Math.max(partyCount, finalEssenCount);
         
-        const result = await response.json();
-        
-        if (result.success) {
-            HochzeitsplanerApp.showAlert(`Synchronisation erfolgreich! ${result.updates_count} Gäste aktualisiert.`, 'success');
-            
-            // Gästeliste neu laden
-            await loadAndDisplayGuests();
-        } else {
-            throw new Error(result.error);
+        // Aktualisiere die Eingabefelder automatisch
+        if (weisserSaalCount > 0 && finalEssenCount !== essenCount) {
+            anzahlEssenInput.value = finalEssenCount;
         }
-    } catch (error) {
-        console.error('Fehler bei der Synchronisation:', error);
-        HochzeitsplanerApp.showAlert('Fehler bei der Synchronisation: ' + error.message, 'danger');
-    } finally {
-        HochzeitsplanerApp.hideLoading();
+        if (finalEssenCount > 0 && finalPartyCount !== partyCount) {
+            anzahlPartyInput.value = finalPartyCount;
+        }
     }
+    
+    // Event Listeners für die automatische Aktualisierung
+    if (weisserSaalInput) weisserSaalInput.addEventListener('input', updateCascadingCounts);
+    if (anzahlEssenInput) anzahlEssenInput.addEventListener('input', updateCascadingCounts);
+    if (anzahlPartyInput) anzahlPartyInput.addEventListener('input', updateCascadingCounts);
+    
+    // Initial einmal ausführen
+    updateCascadingCounts();
 }
 
 function handleSearch() {
@@ -508,9 +511,6 @@ async function handleAddGuest() {
         Weisser_Saal: parseInt(document.getElementById('guestWeisserSaal').value) || 0,
         Anzahl_Essen: parseInt(document.getElementById('guestAnzahlEssen').value) || 0,
         Anzahl_Party: parseInt(document.getElementById('guestAnzahlParty').value) || 0,
-        Zum_Weisser_Saal: document.getElementById('guestZumWeisserSaal').value,
-        Zum_Essen: document.getElementById('guestZumEssen').value,
-        Zur_Party: document.getElementById('guestZurParty').value,
         Bemerkungen: document.getElementById('guestBemerkungen').value.trim()
     };
     
@@ -554,52 +554,16 @@ async function handleAddGuest() {
 
 // Funktion zum automatischen Aktualisieren der Ja/Nein-Felder basierend auf Anzahl-Feldern
 function setupAutoUpdateFields() {
-    const weisserSaalInput = document.getElementById('guestWeisserSaal');
-    const anzahlEssenInput = document.getElementById('guestAnzahlEssen');
-    const anzahlPartyInput = document.getElementById('guestAnzahlParty');
-    
-    const zumWeisserSaalSelect = document.getElementById('guestZumWeisserSaal');
-    const zumEssenSelect = document.getElementById('guestZumEssen');
-    const zurPartySelect = document.getElementById('guestZurParty');
-    
-    function updateYesNoFields() {
-        const weisserSaalCount = parseInt(weisserSaalInput.value) || 0;
-        const essenCount = parseInt(anzahlEssenInput.value) || 0;
-        const partyCount = parseInt(anzahlPartyInput.value) || 0;
-        
-        // Logik: Weißer Saal → automatisch Essen, Essen → automatisch Party
-        let finalEssenCount = Math.max(essenCount, weisserSaalCount);
-        let finalPartyCount = Math.max(partyCount, finalEssenCount);
-        
-        // Aktualisiere die Eingabefelder automatisch
-        if (weisserSaalCount > 0 && finalEssenCount !== essenCount) {
-            anzahlEssenInput.value = finalEssenCount;
-        }
-        if (finalEssenCount > 0 && finalPartyCount !== partyCount) {
-            anzahlPartyInput.value = finalPartyCount;
-        }
-        
-        // Setze Ja/Nein basierend auf finalen Zahlen
-        zumWeisserSaalSelect.value = weisserSaalCount > 0 ? 'Ja' : 'Nein';
-        zumEssenSelect.value = finalEssenCount > 0 ? 'Ja' : 'Nein';
-        zurPartySelect.value = finalPartyCount > 0 ? 'Ja' : 'Nein';
-    }
-    
-    // Event Listeners für die automatische Aktualisierung
-    if (weisserSaalInput) weisserSaalInput.addEventListener('input', updateYesNoFields);
-    if (anzahlEssenInput) anzahlEssenInput.addEventListener('input', updateYesNoFields);
-    if (anzahlPartyInput) anzahlPartyInput.addEventListener('input', updateYesNoFields);
-    
-    // Initial einmal ausführen
-    updateYesNoFields();
+    // Keine sichtbaren Auto-Updates mehr - Logik wird nur auf Server-Seite angewendet
+    // Funktion bleibt für Kompatibilität, aber macht nichts sichtbares
 }
 
-function editGuest(index) {
-    const guest = currentGuests[index];
+function editGuest(guestId) {
+    const guest = currentGuests.find(g => g.id === guestId);
     if (!guest) return;
     
     // Modal Felder befüllen - vollständige JSON-Struktur
-    document.getElementById('editGuestIndex').value = index;
+    document.getElementById('editGuestIndex').value = guestId;
     
     // Grunddaten
     document.getElementById('editGuestVorname').value = guest.Vorname || '';
@@ -612,15 +576,10 @@ function editGuest(index) {
     document.getElementById('editAnzahlPersonen').value = guest.Anzahl_Personen || 1;
     document.getElementById('editAnzahlKinder').value = guest.Kind || 0;
     document.getElementById('editBegleitung').value = guest.Begleitung || 0;
+    document.getElementById('editOptional').value = guest.Optional || 0;
+    
+    // Teilnahme Anzahlen (vereinheitlicht)
     document.getElementById('editWeisserSaal').value = guest.Weisser_Saal || 0;
-    
-    // Event-Teilnahme
-    document.getElementById('editTeilnahmeWeisserSaal').value = guest.Zum_Weisser_Saal || 'Nein';
-    document.getElementById('editTeilnahmeEssen').value = guest.Zum_Essen || 'Nein';
-    document.getElementById('editTeilnahmeParty').value = guest.Zur_Party || 'Nein';
-    
-    // Anzahl pro Event
-    document.getElementById('editAnzahlWeisserSaal').value = guest.Weisser_Saal || 0;
     document.getElementById('editAnzahlEssen').value = guest.Anzahl_Essen || 0;
     document.getElementById('editAnzahlParty').value = guest.Anzahl_Party || 0;
     
@@ -642,7 +601,7 @@ async function handleUpdateGuest() {
         return;
     }
     
-    const index = parseInt(document.getElementById('editGuestIndex').value);
+    const guestId = parseInt(document.getElementById('editGuestIndex').value);
     
     // Vollständige Gästedaten sammeln
     const guestData = {
@@ -657,15 +616,10 @@ async function handleUpdateGuest() {
         Anzahl_Personen: parseInt(document.getElementById('editAnzahlPersonen').value) || 1,
         Kind: parseInt(document.getElementById('editAnzahlKinder').value) || 0,
         Begleitung: parseInt(document.getElementById('editBegleitung').value) || 0,
+        Optional: parseInt(document.getElementById('editOptional').value) || 0,
+        
+        // Teilnahme Anzahlen (vereinheitlicht)
         Weisser_Saal: parseInt(document.getElementById('editWeisserSaal').value) || 0,
-        
-        // Event-Teilnahme
-        Zum_Weisser_Saal: document.getElementById('editTeilnahmeWeisserSaal').value,
-        Zum_Essen: document.getElementById('editTeilnahmeEssen').value,
-        Zur_Party: document.getElementById('editTeilnahmeParty').value,
-        
-        // Anzahl pro Event
-        Weisser_Saal: parseInt(document.getElementById('editAnzahlWeisserSaal').value) || 0,
         Anzahl_Essen: parseInt(document.getElementById('editAnzahlEssen').value) || 0,
         Anzahl_Party: parseInt(document.getElementById('editAnzahlParty').value) || 0,
         
@@ -676,7 +630,7 @@ async function handleUpdateGuest() {
         Bemerkungen: document.getElementById('editGuestBemerkungen').value.trim(),
         
         // Pflichtfelder die nicht im Form sind
-        Optional: currentGuests[index]?.Optional || 0
+        Optional: currentGuests.find(g => g.id === guestId)?.Optional || 0
     };
     
     try {
@@ -704,7 +658,7 @@ async function handleUpdateGuest() {
         
         showLoading();
         
-        const response = await fetch(`/api/gaeste/update/${index}`, {
+        const response = await fetch(`/api/gaeste/update/${guestId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -754,8 +708,8 @@ async function handleUpdateGuest() {
     }
 }
 
-async function deleteGuest(index) {
-    const guest = currentGuests[index];
+async function deleteGuest(guestId) {
+    const guest = currentGuests.find(g => g.id === guestId);
     if (!guest) return;
     
     if (!confirm(`Möchten Sie ${guest.Vorname} ${guest.Nachname} wirklich löschen?`)) {
@@ -765,7 +719,7 @@ async function deleteGuest(index) {
     try {
         HochzeitsplanerApp.showLoading();
         
-        const response = await fetch(`/api/gaeste/delete/${index}`, {
+        const response = await fetch(`/api/gaeste/delete/${guestId}`, {
             method: 'DELETE'
         });
         

@@ -57,6 +57,41 @@ document.addEventListener('DOMContentLoaded', function() {
         backupButton.addEventListener('click', createBackup);
     }
     
+    // First Login Modal Event Listeners
+    const firstLoginImage = document.getElementById('firstLoginImage');
+    const firstLoginImageFile = document.getElementById('firstLoginImageFile');
+    const clearUploadedImageBtn = document.getElementById('clearUploadedImage');
+    const convertToBlackWhiteBtn = document.getElementById('convertToBlackWhite');
+    
+    if (firstLoginImage) {
+        firstLoginImage.addEventListener('input', updateFirstLoginImagePreview);
+        firstLoginImage.addEventListener('blur', updateFirstLoginImagePreview);
+    }
+    
+    if (firstLoginImageFile) {
+        firstLoginImageFile.addEventListener('change', handleImageFileUpload);
+    }
+    
+    if (clearUploadedImageBtn) {
+        clearUploadedImageBtn.addEventListener('click', clearUploadedImage);
+    }
+    
+    if (convertToBlackWhiteBtn) {
+        convertToBlackWhiteBtn.addEventListener('click', convertCurrentImageToBlackWhite);
+    }
+    
+    // First Login Modal Buttons
+    const previewFirstLoginModalBtn = document.getElementById('previewFirstLoginModal');
+    const resetFirstLoginBtn = document.getElementById('resetFirstLoginForAllGuests');
+    
+    if (previewFirstLoginModalBtn) {
+        previewFirstLoginModalBtn.addEventListener('click', showFirstLoginModalPreview);
+    }
+    
+    if (resetFirstLoginBtn) {
+        resetFirstLoginBtn.addEventListener('click', resetFirstLoginForAllGuests);
+    }
+    
     // System Info laden
     loadSystemInfo();
 });
@@ -81,11 +116,11 @@ async function loadSettings() {
 
 function populateSettingsForm(settings) {
     // Allgemeine Einstellungen
-    if (settings.bride_name) {
-        document.getElementById('brautName').value = settings.bride_name;
+    if (settings.braut_name) {
+        document.getElementById('brautName').value = settings.braut_name;
     }
-    if (settings.groom_name) {
-        document.getElementById('braeutigamName').value = settings.groom_name;
+    if (settings.braeutigam_name) {
+        document.getElementById('braeutigamName').value = settings.braeutigam_name;
     }
     if (settings.hochzeitsdatum) {
         document.getElementById('hochzeitsdatum').value = settings.hochzeitsdatum;
@@ -113,6 +148,23 @@ function populateSettingsForm(settings) {
         setInputValue('hochzeitsort', settings.hochzeitsort);
         // Kartenvorschau aktualisieren wenn Hochzeitsort vorhanden
         setTimeout(() => updateMapPreview(), 500);
+    }
+    
+    // First Login Modal Einstellungen
+    if (settings.first_login_image) {
+        setInputValue('firstLoginImage', settings.first_login_image);
+        updateFirstLoginImagePreview(); // Bildvorschau aktualisieren
+    }
+    
+    // First Login Modal Base64 Daten
+    if (settings.first_login_image_data) {
+        document.getElementById('firstLoginImageData').value = settings.first_login_image_data;
+        // Zeige Upload-Tab und Preview für hochgeladenes Bild
+        showUploadedImagePreview(settings.first_login_image_data);
+    }
+    
+    if (settings.first_login_text) {
+        setInputValue('firstLoginText', settings.first_login_text);
     }
     
     // Kartenvorschauen für neue Locations aktualisieren wenn Adressen vorhanden
@@ -148,8 +200,8 @@ async function handleSaveSettings(event) {
     }
     
     const formData = {
-        bride_name: getInputValue('brautName'),
-        groom_name: getInputValue('braeutigamName'),
+        braut_name: getInputValue('brautName'),
+        braeutigam_name: getInputValue('braeutigamName'),
         hochzeitsdatum: getInputValue('hochzeitsdatum'),
         
         // Neue Locations-Struktur
@@ -166,8 +218,17 @@ async function handleSaveSettings(event) {
             }
         },
         
-        // Legacy Hochzeitsort für Kompatibilität
-        hochzeitsort: getInputValue('hochzeitsort')
+        // First Login Modal Einstellungen
+        first_login_image: getInputValue('firstLoginImage'),
+        first_login_image_data: getInputValue('firstLoginImageData'),
+        first_login_text: getInputValue('firstLoginText'),
+        
+        // Legacy Hochzeitsort für Kompatibilität - verwende hochzeitslocation-Daten
+        hochzeitsort: {
+            name: getInputValue('hochzeitslocationName'),
+            adresse: getInputValue('hochzeitslocationAdresse'),
+            beschreibung: getInputValue('hochzeitslocationBeschreibung')
+        }
     };
     
     try {
@@ -555,8 +616,464 @@ async function createBackup() {
         console.error('Fehler beim Erstellen des Backups:', error);
         showAlert('Fehler beim Erstellen des Backups', 'danger');
     } finally {
-        // Button zurücksetzen
+                // Button zurücksetzen
         document.getElementById('backupData').innerHTML = '<i class="bi bi-shield-check me-2"></i>Backup erstellen';
-        document.getElementById('backupData').disabled = false;
     }
+}
+
+// First Login Modal Bildvorschau-Funktionen
+function updateFirstLoginImagePreview() {
+    const imageInput = document.getElementById('firstLoginImage');
+    const imagePreview = document.getElementById('firstLoginImagePreview');
+    const imagePlaceholder = document.getElementById('firstLoginImagePlaceholder');
+    const imageData = document.getElementById('firstLoginImageData');
+    
+    if (!imageInput || !imagePreview || !imagePlaceholder) {
+        return;
+    }
+    
+    // Prüfe zuerst auf hochgeladene Base64-Daten
+    if (imageData && imageData.value.trim()) {
+        imagePreview.src = imageData.value;
+        imagePreview.style.display = 'block';
+        imagePlaceholder.style.display = 'none';
+        return;
+    }
+    
+    const imageUrl = imageInput.value.trim();
+    
+    if (imageUrl) {
+        // Versuche das Bild zu laden
+        const tempImg = new Image();
+        tempImg.onload = function() {
+            // Bild erfolgreich geladen - konvertiere zu Schwarz-Weiß und zeige Vorschau
+            convertImageToBlackAndWhite(imageUrl, function(bwBase64Data) {
+                // Schwarz-Weiß Version in imageData speichern für das Speichern der Einstellungen
+                document.getElementById('firstLoginImageData').value = bwBase64Data;
+                
+                // Zeige Schwarz-Weiß Vorschau
+                imagePreview.src = bwBase64Data;
+                imagePreview.style.display = 'block';
+                imagePlaceholder.style.display = 'none';
+                
+                // Zeige Buttons
+                document.getElementById('clearUploadedImage').style.display = 'inline-block';
+                document.getElementById('convertToBlackWhite').style.display = 'inline-block';
+            });
+        };
+        tempImg.onerror = function() {
+            // Bild konnte nicht geladen werden - zeige Placeholder
+            imagePreview.style.display = 'none';
+            imagePlaceholder.innerHTML = '<i class="bi bi-exclamation-triangle text-warning" style="font-size: 2rem;"></i><br>Bild konnte nicht geladen werden';
+            imagePlaceholder.style.display = 'block';
+            
+            // Verstecke Buttons
+            document.getElementById('clearUploadedImage').style.display = 'none';
+            document.getElementById('convertToBlackWhite').style.display = 'none';
+        };
+        // CORS-Probleme vermeiden - versuche direkt zu laden
+        tempImg.crossOrigin = 'anonymous';
+        tempImg.src = imageUrl;
+    } else {
+        // Keine URL - zeige Standard-Placeholder
+        imagePreview.style.display = 'none';
+        imagePlaceholder.innerHTML = '<i class="bi bi-image" style="font-size: 2rem;"></i><br>Keine Bildvorschau verfügbar';
+        imagePlaceholder.style.display = 'block';
+        
+        // Verstecke Buttons wenn kein Bild vorhanden
+        document.getElementById('clearUploadedImage').style.display = 'none';
+        document.getElementById('convertToBlackWhite').style.display = 'none';
+    }
+}
+
+// Datei-Upload für Willkommensbild
+function handleImageFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        return;
+    }
+    
+    // Dateigröße prüfen (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        showToast('Fehler: Die Datei ist zu groß. Maximal 5MB sind erlaubt.', 'error');
+        event.target.value = '';
+        return;
+    }
+    
+    // Dateityp prüfen
+    if (!file.type.startsWith('image/')) {
+        showToast('Fehler: Nur Bilddateien sind erlaubt.', 'error');
+        event.target.value = '';
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const originalBase64 = e.target.result;
+        
+        // Bild in Schwarz-Weiß umwandeln
+        convertImageToBlackAndWhite(originalBase64, function(bwBase64Data) {
+            // Schwarz-Weiß Base64-Daten in Hidden Field speichern
+            document.getElementById('firstLoginImageData').value = bwBase64Data;
+            
+            // URL-Field leeren wenn Datei hochgeladen wird
+            document.getElementById('firstLoginImage').value = '';
+            
+            // Vorschau aktualisieren
+            updateFirstLoginImagePreview();
+            
+            // Buttons zeigen
+            document.getElementById('clearUploadedImage').style.display = 'inline-block';
+            document.getElementById('convertToBlackWhite').style.display = 'inline-block';
+            
+            showToast('Bild erfolgreich hochgeladen und in Schwarz-Weiß umgewandelt!', 'success');
+        });
+    };
+    
+    reader.onerror = function() {
+        showToast('Fehler beim Lesen der Datei.', 'error');
+        event.target.value = '';
+    };
+    
+    reader.readAsDataURL(file);
+}
+
+// Hochgeladenes Bild löschen
+function clearUploadedImage() {
+    // Hidden Field leeren
+    document.getElementById('firstLoginImageData').value = '';
+    
+    // File Input leeren
+    document.getElementById('firstLoginImageFile').value = '';
+    
+    // Buttons verstecken
+    document.getElementById('clearUploadedImage').style.display = 'none';
+    document.getElementById('convertToBlackWhite').style.display = 'none';
+    
+    // Vorschau aktualisieren
+    updateFirstLoginImagePreview();
+    
+    showToast('Hochgeladenes Bild entfernt.', 'info');
+}
+
+// Zeige Vorschau für hochgeladenes Bild (beim Laden der Settings)
+function showUploadedImagePreview(base64Data) {
+    if (base64Data) {
+        // Wechsle zum Upload-Tab
+        const uploadTab = document.getElementById('upload-tab');
+        const uploadPane = document.getElementById('upload-pane');
+        const urlTab = document.getElementById('url-tab');
+        const urlPane = document.getElementById('url-pane');
+        
+        if (uploadTab && uploadPane && urlTab && urlPane) {
+            // Aktiviere Upload-Tab
+            uploadTab.classList.add('active');
+            uploadPane.classList.add('show', 'active');
+            
+            // Deaktiviere URL-Tab
+            urlTab.classList.remove('active');
+            urlPane.classList.remove('show', 'active');
+        }
+        
+        // Zeige Buttons
+        const clearBtn = document.getElementById('clearUploadedImage');
+        const convertBtn = document.getElementById('convertToBlackWhite');
+        if (clearBtn) {
+            clearBtn.style.display = 'inline-block';
+        }
+        if (convertBtn) {
+            convertBtn.style.display = 'inline-block';
+        }
+        
+        // Aktualisiere Vorschau
+        updateFirstLoginImagePreview();
+    }
+}
+
+/**
+ * Zeigt eine Vorschau des First-Login-Modals mit den aktuell konfigurierten Werten
+ */
+function showFirstLoginModalPreview() {
+    console.log('🔍 Zeige First-Login-Modal Vorschau');
+    
+    // Aktuelle Werte aus den Einstellungen holen
+    const imageUrl = document.getElementById('firstLoginImage').value.trim();
+    const imageData = document.getElementById('firstLoginImageData').value.trim();
+    const text = document.getElementById('firstLoginText').value.trim();
+    const weddingDate = document.getElementById('hochzeitsdatum').value.trim();
+    
+    // Vorschau-Modal Elemente
+    const previewImage = document.getElementById('previewImage');
+    const previewImagePlaceholder = document.getElementById('previewImagePlaceholder');
+    const previewText = document.getElementById('previewText');
+    const previewWeddingDate = document.getElementById('previewWeddingDate');
+    
+    // Hochzeitsdatum in der Vorschau anzeigen
+    if (weddingDate && previewWeddingDate) {
+        const formattedDate = formatWeddingDateForPreview(weddingDate);
+        previewWeddingDate.textContent = formattedDate;
+    }
+    
+    // Bild-Vorschau - Priorisiere hochgeladene Bilder über URLs
+    if (imageData) {
+        // Base64-Bild direkt verwenden
+        previewImage.src = imageData;
+        previewImage.style.display = 'block';
+        previewImagePlaceholder.style.display = 'none';
+    } else if (imageUrl) {
+        // URL-Bild laden
+        const tempImg = new Image();
+        tempImg.onload = function() {
+            previewImage.src = imageUrl;
+            previewImage.style.display = 'block';
+            previewImagePlaceholder.style.display = 'none';
+        };
+        tempImg.onerror = function() {
+            previewImage.style.display = 'none';
+            previewImagePlaceholder.innerHTML = '<i class="bi bi-exclamation-triangle text-warning" style="font-size: 3rem;"></i><br>Bild konnte nicht geladen werden';
+            previewImagePlaceholder.style.display = 'block';
+        };
+        tempImg.src = imageUrl;
+    } else {
+        previewImage.style.display = 'none';
+        previewImagePlaceholder.innerHTML = '<i class="bi bi-heart-fill text-muted opacity-50" style="font-size: 4rem;"></i><p class="text-muted mt-2 mb-0">Hochzeitsfoto nicht konfiguriert</p>';
+        previewImagePlaceholder.style.display = 'block';
+    }
+    
+    // Text-Vorschau
+    if (text) {
+        // Text mit Zeilenumbrüchen korrekt anzeigen
+        previewText.innerHTML = text.replace(/\n/g, '<br>');
+        previewText.classList.remove('text-muted');
+    } else {
+        previewText.innerHTML = '<em class="text-muted">Text nicht konfiguriert</em>';
+        previewText.classList.add('text-muted');
+    }
+    
+    // Modal anzeigen
+    const modal = new bootstrap.Modal(document.getElementById('firstLoginModalPreview'));
+    modal.show();
+}
+
+function formatWeddingDateForPreview(dateString) {
+    try {
+        const date = new Date(dateString);
+        const months = [
+            'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+            'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
+        ];
+        
+        const day = date.getDate();
+        const month = months[date.getMonth()];
+        const year = date.getFullYear();
+        
+        return `${day}. ${month} ${year}`;
+    } catch (error) {
+        console.log('⚠️ Fehler beim Formatieren des Datums:', error);
+        return dateString || '25. Juli 2026'; // Fallback
+    }
+}
+
+/**
+ * Setzt den First-Login-Status für alle Gäste zurück
+ */
+async function resetFirstLoginForAllGuests() {
+    console.log('🔄 Reset First-Login für alle Gäste');
+    
+    // Bestätigung vom Benutzer einholen
+    if (!confirm('Möchten Sie wirklich den First-Login-Status für ALLE Gäste zurücksetzen?\n\nDadurch wird beim nächsten Login aller Gäste wieder das Willkommens-Modal angezeigt.')) {
+        return;
+    }
+    
+    try {
+        // Loading-Anzeige
+        const button = document.getElementById('resetFirstLoginForAllGuests');
+        const originalText = button.innerHTML;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Wird zurückgesetzt...';
+        button.disabled = true;
+        
+        const response = await fetch('/api/admin/reset-first-login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            // Success-Toast
+            showToast('Erfolg', `First-Login-Status für ${result.count} Gäste erfolgreich zurückgesetzt!`, 'success');
+        } else {
+            throw new Error(result.message || 'Unbekannter Fehler');
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Zurücksetzen des First-Login-Status:', error);
+        showToast('Fehler', 'Fehler beim Zurücksetzen: ' + error.message, 'danger');
+    } finally {
+        // Button zurücksetzen
+        const button = document.getElementById('resetFirstLoginForAllGuests');
+        button.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i>First-Login für alle zurücksetzen';
+        button.disabled = false;
+    }
+}
+
+/**
+ * Zeigt ein Toast-Notification
+ */
+function showToast(title, message, type = 'info') {
+    // Erstelle Toast-Element falls nicht vorhanden
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+    
+    const toastId = 'toast-' + Date.now();
+    const iconClass = type === 'success' ? 'bi-check-circle' : 
+                     type === 'danger' ? 'bi-exclamation-triangle' : 
+                     type === 'warning' ? 'bi-exclamation-circle' : 'bi-info-circle';
+    
+    const bgClass = `bg-${type}`;
+    
+    const toastHtml = `
+        <div id="${toastId}" class="toast ${bgClass} text-white" role="alert">
+            <div class="toast-header ${bgClass} text-white">
+                <i class="${iconClass} me-2"></i>
+                <strong class="me-auto">${title}</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">${message}</div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    
+    // Toast anzeigen
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 5000 });
+    toast.show();
+    
+    // Toast nach dem Ausblenden entfernen
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+
+/**
+ * Konvertiert ein Bild zu Schwarz-Weiß
+ * @param {string} imageSource - Base64-kodierte Bilddaten oder Image-URL
+ * @param {function} callback - Callback-Funktion die mit den SW-Daten aufgerufen wird
+ */
+function convertImageToBlackAndWhite(imageSource, callback) {
+    const img = new Image();
+    
+    img.onload = function() {
+        // Canvas erstellen
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Canvas-Größe auf Bildgröße setzen
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        // Bild auf Canvas zeichnen
+        ctx.drawImage(img, 0, 0);
+        
+        // Bilddaten abrufen
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        
+        // Jedes Pixel zu Graustufen konvertieren
+        for (let i = 0; i < data.length; i += 4) {
+            const red = data[i];
+            const green = data[i + 1];
+            const blue = data[i + 2];
+            
+            // Graustufen-Wert mit gewichteter Formel berechnen
+            // Diese Formel berücksichtigt die Hellempfindlichkeit des Auges
+            const gray = Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
+            
+            // Alle RGB-Kanäle auf den Graustufen-Wert setzen
+            data[i] = gray;     // Rot
+            data[i + 1] = gray; // Grün
+            data[i + 2] = gray; // Blau
+            // Alpha-Kanal (data[i + 3]) bleibt unverändert
+        }
+        
+        // Geänderte Bilddaten zurück auf Canvas setzen
+        ctx.putImageData(imageData, 0, 0);
+        
+        // Canvas zu Base64 konvertieren
+        const blackAndWhiteBase64 = canvas.toDataURL('image/jpeg', 0.9);
+        
+        // Callback mit den Schwarz-Weiß-Daten aufrufen
+        callback(blackAndWhiteBase64);
+    };
+    
+    img.onerror = function() {
+        console.error('Fehler beim Laden des Bildes für Schwarz-Weiß-Konvertierung');
+        showToast('Fehler bei der Bildverarbeitung.', 'error');
+        // Fallback: Originalbild verwenden
+        callback(imageSource);
+    };
+    
+    // Setze CORS für externe URLs
+    if (!imageSource.startsWith('data:')) {
+        img.crossOrigin = 'anonymous';
+    }
+    
+    // Bild laden
+    img.src = imageSource;
+}
+
+/**
+ * Konvertiert das aktuell angezeigte Bild zu Schwarz-Weiß
+ */
+function convertCurrentImageToBlackWhite() {
+    const imageData = document.getElementById('firstLoginImageData');
+    const imagePreview = document.getElementById('firstLoginImagePreview');
+    const imageUrl = document.getElementById('firstLoginImage').value.trim();
+    
+    let currentImageSource = null;
+    
+    // Bestimme die aktuelle Bildquelle
+    if (imageData && imageData.value.trim()) {
+        // Bereits hochgeladenes Bild
+        currentImageSource = imageData.value;
+    } else if (imageUrl) {
+        // URL-Bild
+        currentImageSource = imageUrl;
+    } else {
+        showToast('Kein Bild zum Konvertieren gefunden.', 'warning');
+        return;
+    }
+    
+    // Zeige Loading-Zustand
+    const convertBtn = document.getElementById('convertToBlackWhite');
+    const originalText = convertBtn.innerHTML;
+    convertBtn.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i>Konvertiert...';
+    convertBtn.disabled = true;
+    
+    // Konvertiere zu Schwarz-Weiß
+    convertImageToBlackAndWhite(currentImageSource, function(bwBase64Data) {
+        // Speichere das Schwarz-Weiß-Bild
+        document.getElementById('firstLoginImageData').value = bwBase64Data;
+        
+        // Leere URL-Feld falls es ein URL-Bild war
+        if (imageUrl) {
+            document.getElementById('firstLoginImage').value = '';
+        }
+        
+        // Aktualisiere Vorschau
+        imagePreview.src = bwBase64Data;
+        
+        // Button zurücksetzen
+        convertBtn.innerHTML = originalText;
+        convertBtn.disabled = false;
+        
+        showToast('Bild erfolgreich zu Schwarz-Weiß konvertiert!', 'success');
+    });
 }

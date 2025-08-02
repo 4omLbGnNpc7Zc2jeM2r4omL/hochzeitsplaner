@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{{ brautpaar_namen or "Brautpaar" }} Heiraten 💕{% endblock %}</title>
+    <title>{% block title %}{{ brautpaar_namen or "Brautpaar heiratet" }}{% endblock %}</title>
     
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💕</text></svg>">
@@ -29,14 +29,12 @@
             {% if session.user_role == 'guest' %}
                 <!-- Gäste-spezifische Navigation mit Brautpaar-Namen -->
                 <a class="navbar-brand" href="{{ url_for('guest_dashboard') }}">
-                    <i class="bi bi-heart-fill text-danger me-2"></i>
-                    {{ brautpaar_namen or "Hochzeit" }} 💕
+                    💕 {{ brautpaar_namen or "Brautpaar heiratet" }} 💕
                 </a>
             {% else %}
-                <!-- Standard-Navigation für Admin/User -->
+                <!-- Admin-Navigation mit Hochzeitsplaner-Header -->
                 <a class="navbar-brand" href="{{ url_for('index') }}">
-                    <i class="bi bi-heart-fill text-danger me-2"></i>
-                    Hochzeitsplaner
+                    {{ admin_header or "💕 Hochzeitsplaner 💒" }}
                 </a>
             {% endif %}
             
