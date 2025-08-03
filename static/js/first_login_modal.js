@@ -144,7 +144,7 @@ async function loadPersonalizedMessage() {
             if (result.success && result.message) {
                 const welcomeText = document.getElementById('welcomeText');
                 if (welcomeText) {
-                    welcomeText.innerHTML = result.message.replace(/\n/g, '<br>');
+                    welcomeText.innerHTML = result.message;
                     welcomeText.dataset.personalized = 'true';
                     console.log('✅ Personalisierte Nachricht geladen');
                 }

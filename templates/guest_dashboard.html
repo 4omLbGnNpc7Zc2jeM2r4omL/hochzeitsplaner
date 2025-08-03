@@ -114,9 +114,21 @@
                                         <div class="card-body pb-2">
                                             <div class="d-flex align-items-start">
                                                 <i class="bi bi-geo-alt-fill text-primary me-2 mt-1"></i>
-                                                <div>
+                                                <div class="flex-grow-1">
                                                     <strong id="standesamtName">Standesamt</strong><br>
                                                     <span id="standesamtAdresse" class="text-muted">Adresse wird geladen...</span>
+                                                    
+                                                    <!-- Navigation Buttons -->
+                                                    <div class="mt-2">
+                                                        <div class="btn-group btn-group-sm" role="group">
+                                                            <button type="button" class="btn btn-outline-primary" onclick="openInAppleMaps('standesamt')">
+                                                                <i class="bi bi-compass me-1"></i>Apple Maps
+                                                            </button>
+                                                            <button type="button" class="btn btn-outline-primary" onclick="openInGoogleMaps('standesamt')">
+                                                                <i class="bi bi-globe me-1"></i>Google Maps
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -142,9 +154,21 @@
                                         <div class="card-body pb-2">
                                             <div class="d-flex align-items-start">
                                                 <i class="bi bi-geo-alt-fill text-success me-2 mt-1"></i>
-                                                <div>
+                                                <div class="flex-grow-1">
                                                     <strong id="hochzeitslocationName">Hochzeitslocation</strong><br>
                                                     <span id="hochzeitslocationAdresse" class="text-muted">Adresse wird geladen...</span>
+                                                    
+                                                    <!-- Navigation Buttons -->
+                                                    <div class="mt-2">
+                                                        <div class="btn-group btn-group-sm" role="group">
+                                                            <button type="button" class="btn btn-outline-success" onclick="openInAppleMaps('hochzeitslocation')">
+                                                                <i class="bi bi-compass me-1"></i>Apple Maps
+                                                            </button>
+                                                            <button type="button" class="btn btn-outline-success" onclick="openInGoogleMaps('hochzeitslocation')">
+                                                                <i class="bi bi-globe me-1"></i>Google Maps
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

@@ -1258,9 +1258,10 @@ async function testInvitationGeneration() {
     button.disabled = true;
     
     try {
-        // Beispiel-Testdaten für verschiedene Szenarien
+        // Einfache Testdaten - nur Singular und Plural mit Vollprogramm
         const testCases = [
             {
+                category: "👤 Einzelgast (wie Gäste es sehen würden)",
                 name: "Max Mustermann",
                 anzahl_personen: 1,
                 weisser_saal: 1,
@@ -1268,18 +1269,12 @@ async function testInvitationGeneration() {
                 anzahl_party: 1
             },
             {
+                category: "👥 Mehrere Gäste (wie Gäste es sehen würden)",
                 name: "Familie Müller", 
                 anzahl_personen: 3,
                 weisser_saal: 3,
                 anzahl_essen: 3,
                 anzahl_party: 3
-            },
-            {
-                name: "Anna Schmidt",
-                anzahl_personen: 1,
-                weisser_saal: 0,
-                anzahl_essen: 1,
-                anzahl_party: 1
             }
         ];
         
@@ -1322,42 +1317,163 @@ async function testInvitationGeneration() {
 }
 
 /**
+ * Lädt das aktuelle Hochzeitsdatum aus den Einstellungen
+ */
+function getCurrentWeddingDate() {
+    try {
+        // Versuche das Datum aus dem DOM zu lesen (falls bereits geladen)
+        const dateInput = document.getElementById('hochzeitsdatum');
+        if (dateInput && dateInput.value) {
+            const date = new Date(dateInput.value);
+            return date.toLocaleDateString('de-DE', {
+                day: '2-digit',
+                month: '2-digit', 
+                year: 'numeric'
+            });
+        }
+        
+        // Fallback auf Standarddatum
+        return '25. Juli 2026';
+    } catch (error) {
+        console.warn('Fehler beim Laden des Hochzeitsdatums:', error);
+        return '25. Juli 2026';
+    }
+}
+
+/**
+ * Generiert das HTML für das Hochzeitsfoto (exakt wie im Gäste-Dashboard)
+ */
+function generateWeddingPhotoHtml(photoData, photoUrl, index) {
+    // Priorisiere Base64-Daten über URL (genau wie im echten Modal)
+    if (photoData && photoData.trim()) {
+        return `
+            <div id="welcomeImageContainer_${index}">
+                <img src="${photoData.trim()}" alt="Hochzeitsfoto" class="img-fluid shadow-lg" 
+                     style="max-height: 200px; max-width: 100%; object-fit: cover; border-radius: 10px; border: 3px solid #f8f9fa;">
+            </div>
+        `;
+    } else if (photoUrl && photoUrl.trim()) {
+        return `
+            <div id="welcomeImageContainer_${index}">
+                <img src="${photoUrl.trim()}" alt="Hochzeitsfoto" class="img-fluid shadow-lg" 
+                     style="max-height: 200px; max-width: 100%; object-fit: cover; border-radius: 10px; border: 3px solid #f8f9fa;">
+            </div>
+        `;
+    } else {
+        // Kein Bild - zeige Placeholder (wie im echten Modal)
+        return `
+            <div class="photo-placeholder p-2" style="background: linear-gradient(45deg, #f8f9fa, #e9ecef); border-radius: 10px; border: 2px dashed #d4af37;">
+                <i class="bi bi-heart-fill text-muted opacity-50" style="font-size: 2rem;"></i>
+                <p class="text-muted mt-1 mb-0 small">Hochzeitsfoto</p>
+            </div>
+        `;
+    }
+}
+
+/**
  * Zeigt die Test-Ergebnisse in einem Modal an
  */
 function showTestResults(results) {
+    // Lade das echte Hochzeitsfoto aus den Einstellungen
+    const weddingPhotoDataElement = document.getElementById('firstLoginImageData');
+    const weddingPhotoUrlElement = document.getElementById('firstLoginImage');
+    
+    const weddingPhotoData = weddingPhotoDataElement ? weddingPhotoDataElement.value.trim() : '';
+    const weddingPhotoUrl = weddingPhotoUrlElement ? weddingPhotoUrlElement.value.trim() : '';
+    
     let modalContent = `
         <div class="modal fade" id="testResultsModal" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-xl">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">
-                            <i class="bi bi-gear me-2"></i>
-                            Template-Test Ergebnisse
+                            <i class="bi bi-envelope-heart me-2"></i>
+                            Einladungsvorschau - Genauso wie Gäste sie sehen
                         </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
+                        <div class="row">
     `;
+    
+    // Hochzeitsdatum für die Vorschau laden
+    const weddingDate = getCurrentWeddingDate();
     
     results.forEach((item, index) => {
         const testCase = item.testCase;
+        const isPrimary = index === 0;
+        const colClass = results.length > 1 ? 'col-lg-6' : 'col-12';
+        
         modalContent += `
-            <div class="mb-4">
-                <h6 class="text-primary">
-                    Test ${index + 1}: ${testCase.name} 
-                    (${testCase.anzahl_personen} Person${testCase.anzahl_personen > 1 ? 'en' : ''})
-                </h6>
-                <small class="text-muted">
-                    Trauung: ${testCase.weisser_saal}, Essen: ${testCase.anzahl_essen}, Party: ${testCase.anzahl_party}
-                </small>
-                <div class="border rounded p-3 bg-light mt-2">
-                    <pre style="white-space: pre-wrap; font-family: inherit; font-size: 0.9em;">${item.result}</pre>
+            <div class="${colClass} mb-4">
+                <div class="card border-0 shadow-lg h-100">
+                    <div class="card-header text-center py-2" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border: none;">
+                        <small class="text-dark fw-bold">
+                            <i class="bi bi-${isPrimary ? 'person' : 'people'} me-1"></i>
+                            ${testCase.category}
+                        </small>
+                    </div>
+                    <div class="card-body p-0">
+                        <!-- EXAKTE NACHBILDUNG DES GUEST DASHBOARD MODALS -->
+                        <div class="modal-content border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);">
+                            <div class="modal-body p-0">
+                                <div class="invitation-card text-center p-4" style="background: #ffffff; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+                                    
+                                    <!-- Hochzeitsdatum oben -->
+                                    <div class="wedding-date mb-3">
+                                        <h5 class="text-elegant mb-2" style="font-family: 'Playfair Display', serif; font-weight: 300; color: #8b7355; letter-spacing: 2px;">
+                                            ${weddingDate}
+                                        </h5>
+                                        <hr class="elegant-divider mx-auto" style="width: 120px; height: 2px; background: linear-gradient(90deg, transparent, #d4af37, transparent); border: none;">
+                                    </div>
+                                    
+                                    <!-- Foto Bereich (exakt wie im Gäste-Dashboard) -->
+                                    <div class="wedding-photo mb-3">
+                                        ${generateWeddingPhotoHtml(weddingPhotoData, weddingPhotoUrl, index)}
+                                    </div>
+                                    
+                                    <!-- Trennstrich unter dem Foto -->
+                                    <hr class="elegant-divider mx-auto mb-3" style="width: 120px; height: 2px; background: linear-gradient(90deg, transparent, #d4af37, transparent); border: none;">
+                                    
+                                    <!-- Ring Emoji -->
+                                    <div class="rings-emoji mb-3">
+                                        <span style="font-size: 2rem;">💍💍</span>
+                                    </div>
+                                    
+                                    <!-- Einladungstext -->
+                                    <div class="invitation-text">
+                                        <h6 class="text-elegant mb-3" style="font-family: 'Playfair Display', serif; font-weight: 400; color: #8b7355;">
+                                            💕 Persönliche Einladung 💒
+                                        </h6>
+                                        <div class="text-content mx-auto" 
+                                             style="font-family: 'Crimson Text', serif; font-size: 0.95rem; line-height: 1.6; color: #5a5a5a; max-width: 300px;">
+                                            ${item.result}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Weiter Button (kleiner für Vorschau) -->
+                                    <div class="mt-4">
+                                        <button type="button" class="btn btn-elegant btn-sm px-4 py-2 rounded-pill shadow-sm" 
+                                                style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border: none; color: #8b7355; font-weight: 500; letter-spacing: 1px; font-size: 0.8rem;">
+                                            ✨ Zur Hochzeitswebsite ✨
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
     });
     
     modalContent += `
+                        </div>
+                        <div class="alert alert-success mt-3">
+                            <i class="bi bi-check-circle me-2"></i>
+                            <strong>Perfekt!</strong> Diese Vorschau zeigt die Einladungen <strong>exakt so</strong>, wie sie Gäste im Dashboard sehen - 
+                            mit dem gleichen Design, der gleichen Formatierung und den gleichen Farben.
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>

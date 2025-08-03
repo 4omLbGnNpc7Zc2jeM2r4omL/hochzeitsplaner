@@ -1601,9 +1601,12 @@ def get_first_login_message():
         anzahl_party = guest_data.get('anzahl_party', 0) or guest_data.get('Anzahl_Party', 0)
         anzahl_personen = guest_data.get('anzahl_personen', 1) or guest_data.get('Anzahl_Personen', 1)
         
+        # Gästename für Template
+        guest_name = f"{guest_data.get('vorname', '')} {guest_data.get('nachname', '')}".strip()
+        
         # Personalisierte Nachricht generieren
         message = generate_personalized_welcome_message(
-            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, formatted_date
+            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, formatted_date, guest_name
         )
         
         return jsonify({
@@ -1625,7 +1628,7 @@ def format_wedding_date_for_message(date_string):
     except:
         return date_string
 
-def generate_personalized_welcome_message(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date):
+def generate_personalized_welcome_message(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date, guest_name=""):
     """Generiert eine personalisierte Willkommensnachricht basierend auf den Event-Teilnahmen"""
     
     # Lade die konfigurierten Einladungstexte aus den Einstellungen
@@ -1635,13 +1638,13 @@ def generate_personalized_welcome_message(anzahl_personen, weisser_saal, anzahl_
     # Prüfe ob personalisierte Texte konfiguriert sind
     if invitation_texts and (invitation_texts.get('singular') or invitation_texts.get('plural')):
         return generate_personalized_message_from_settings(
-            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date, invitation_texts
+            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date, invitation_texts, guest_name
         )
     
     # Fallback auf die ursprüngliche hart kodierte Logik
     return generate_legacy_welcome_message(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date)
 
-def generate_personalized_message_from_settings(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date, invitation_texts):
+def generate_personalized_message_from_settings(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date, invitation_texts, guest_name=""):
     """Generiert die Nachricht basierend auf den konfigurierten Settings"""
     
     # Bestimme ob Singular oder Plural
@@ -1687,9 +1690,13 @@ def generate_personalized_message_from_settings(anzahl_personen, weisser_saal, a
     
     # Template-Variablen ersetzen
     message = base_template
+    message = message.replace('{{guest_name}}', guest_name)
     message = message.replace('{{wedding_date}}', wedding_date)
     message = message.replace('{{event_parts}}', '\n'.join(event_parts))
     message = message.replace('{{special_notes}}', special_notes_text)
+    
+    # Markdown-Formatierung anwenden
+    message = apply_markdown_formatting(message)
     
     return message
 
@@ -1732,7 +1739,24 @@ def generate_legacy_welcome_message(anzahl_personen, weisser_saal, anzahl_essen,
     if special_notes:
         full_message += "\n\n" + special_notes[0]
     
+    # Markdown-Formatierung anwenden
+    full_message = apply_markdown_formatting(full_message)
+    
     return full_message
+
+def apply_markdown_formatting(text):
+    """Konvertiert einfache Markdown-Formatierung zu HTML"""
+    if not text:
+        return text
+    
+    # Fettschrift: **text** -> <strong>text</strong>
+    import re
+    text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+    
+    # Zeilumbrüche zu <br> für HTML-Anzeige
+    text = text.replace('\n', '<br>')
+    
+    return text
 
 @app.route('/api/guest/wedding-photo')
 @require_auth
@@ -2177,6 +2201,7 @@ def test_invitation_generation():
         weisser_saal = test_data.get('weisser_saal', 0)
         anzahl_essen = test_data.get('anzahl_essen', 0)
         anzahl_party = test_data.get('anzahl_party', 0)
+        guest_name = test_data.get('name', 'Max Mustermann')  # Der Parameter heißt 'name' im Frontend
         
         # Hochzeitsdatum aus Settings laden
         settings = data_manager.load_settings()
@@ -2185,7 +2210,7 @@ def test_invitation_generation():
         
         # Personalisierte Nachricht generieren
         message = generate_personalized_welcome_message(
-            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, formatted_date
+            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, formatted_date, guest_name
         )
         
         return jsonify({

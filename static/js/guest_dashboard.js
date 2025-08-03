@@ -1153,7 +1153,7 @@ async function loadPersonalizedMessage() {
             if (result.success && result.message) {
                 const welcomeText = document.getElementById("welcomeText");
                 if (welcomeText) {
-                    welcomeText.innerHTML = result.message.replace(/\n/g, "<br>");
+                    welcomeText.innerHTML = result.message;
                     welcomeText.dataset.personalized = "true";
                     debugLog("✅ Personalisierte Nachricht geladen");
                 }
@@ -1221,4 +1221,56 @@ async function loadWeddingPhoto() {
         debugLog("⚠️ Fehler beim Laden des Hochzeitsfotos:", error);
         throw error;
     }
+}
+
+// Map Navigation Functions
+function openInAppleMaps(locationType) {
+    debugLog(`🗺️ Opening Apple Maps for ${locationType}`);
+    
+    if (!locationsData || !locationsData.success) {
+        alert('Location-Daten sind noch nicht geladen. Bitte versuche es in einem Moment erneut.');
+        return;
+    }
+    
+    const location = locationsData.locations[locationType];
+    if (!location || !location.adresse) {
+        alert('Adresse für diese Location ist nicht verfügbar.');
+        return;
+    }
+    
+    // Apple Maps URL erstellen
+    const encodedAddress = encodeURIComponent(location.adresse);
+    const appleMapsUrl = `maps://?address=${encodedAddress}`;
+    
+    // Fallback für Systeme, die Apple Maps nicht unterstützen
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isMac = /Mac/.test(navigator.userAgent);
+    
+    if (isIOS || isMac) {
+        window.open(appleMapsUrl, '_blank');
+    } else {
+        // Fallback zu Google Maps auf anderen Systemen
+        openInGoogleMaps(locationType);
+    }
+}
+
+function openInGoogleMaps(locationType) {
+    debugLog(`🗺️ Opening Google Maps for ${locationType}`);
+    
+    if (!locationsData || !locationsData.success) {
+        alert('Location-Daten sind noch nicht geladen. Bitte versuche es in einem Moment erneut.');
+        return;
+    }
+    
+    const location = locationsData.locations[locationType];
+    if (!location || !location.adresse) {
+        alert('Adresse für diese Location ist nicht verfügbar.');
+        return;
+    }
+    
+    // Google Maps URL erstellen
+    const encodedAddress = encodeURIComponent(location.adresse);
+    const googleMapsUrl = `https://maps.google.com/maps?q=${encodedAddress}`;
+    
+    window.open(googleMapsUrl, '_blank');
 }
