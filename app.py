@@ -13,6 +13,7 @@ import tempfile
 import zipfile
 import time
 import requests
+import re
 from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for, flash
 from flask_cors import CORS
 from datetime import datetime, timedelta
@@ -1463,6 +1464,21 @@ def guest_credentials_page():
     """Gast-Login-Credentials Verwaltung (nur für Admins)"""
     return render_template('guest_credentials.html')
 
+@app.route('/database-admin')
+@require_auth
+@require_role(['admin'])
+def database_admin():
+    """SQLite Datenbank-Verwaltung (nur für Admins)"""
+    try:
+        # Lade aktuelle Einstellungen für Brautpaar-Namen
+        settings = data_manager.get_settings() if data_manager else {}
+        brautpaar_namen = settings.get('brautpaar_namen', 'Käthe & Pascal')
+        
+        return render_template('database_admin.html', brautpaar_namen=brautpaar_namen)
+    except Exception as e:
+        app.logger.error(f"Fehler in database_admin(): {e}")
+        return render_template('error.html', error_message=f"Fehler beim Laden der Datenbank-Verwaltung: {str(e)}")
+
 # =============================================================================
 @app.route('/zeitplan')
 @require_auth
@@ -2180,6 +2196,246 @@ def reset_first_login_for_all_guests():
     except Exception as e:
         logger.error(f"Fehler beim Zurücksetzen des First-Login-Status: {e}")
         return jsonify({'success': False, 'message': 'Serverfehler'})
+
+# ADMIN-ONLY: Datenbank-Verwaltung
+@app.route('/api/admin/database/tables', methods=['GET'])
+@require_auth
+@require_role(['admin'])
+def get_database_tables():
+    """API-Endpunkt zum Abrufen aller Tabellen in der SQLite-Datenbank"""
+    try:
+        if not data_manager:
+            return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
+        
+        import sqlite3
+        
+        tables = []
+        with sqlite3.connect(data_manager.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Hole alle Tabellen
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            table_names = cursor.fetchall()
+            
+            for (table_name,) in table_names:
+                # Hole Spalten-Informationen
+                cursor.execute(f"PRAGMA table_info({table_name})")
+                columns = cursor.fetchall()
+                
+                # Hole Anzahl der Zeilen
+                cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                row_count = cursor.fetchone()[0]
+                
+                tables.append({
+                    'name': table_name,
+                    'columns': [{'name': col[1], 'type': col[2], 'nullable': not col[3], 'primary_key': bool(col[5])} for col in columns],
+                    'row_count': row_count
+                })
+        
+        return jsonify({
+            'success': True,
+            'tables': tables
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Abrufen der Datenbank-Tabellen: {e}")
+        return jsonify({'success': False, 'message': f'Serverfehler: {str(e)}'})
+
+@app.route('/api/admin/database/query', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def execute_database_query():
+    """API-Endpunkt zum Ausführen von SQL-Queries"""
+    try:
+        if not data_manager:
+            return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
+        
+        data = request.get_json()
+        if not data or 'query' not in data:
+            return jsonify({'success': False, 'message': 'Keine SQL-Query übertragen'})
+        
+        query = data['query'].strip()
+        
+        # Sicherheitscheck: Nur bestimmte Operationen erlauben
+        allowed_statements = ['SELECT', 'PRAGMA', 'EXPLAIN']
+        query_upper = query.upper()
+        
+        is_allowed = any(query_upper.startswith(stmt) for stmt in allowed_statements)
+        
+        if not is_allowed:
+            return jsonify({
+                'success': False, 
+                'message': 'Nur SELECT, PRAGMA und EXPLAIN Statements sind erlaubt'
+            })
+        
+        import sqlite3
+        
+        result = {
+            'success': True,
+            'columns': [],
+            'rows': [],
+            'row_count': 0,
+            'query': query
+        }
+        
+        with sqlite3.connect(data_manager.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(query)
+            
+            # Hole Spalten-Namen
+            if cursor.description:
+                result['columns'] = [desc[0] for desc in cursor.description]
+                
+                # Hole alle Zeilen
+                rows = cursor.fetchall()
+                result['rows'] = rows
+                result['row_count'] = len(rows)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Ausführen der SQL-Query: {e}")
+        return jsonify({'success': False, 'message': f'SQL-Fehler: {str(e)}'})
+
+@app.route('/api/admin/database/table/<table_name>', methods=['GET'])
+@require_auth
+@require_role(['admin'])
+def get_table_data(table_name):
+    """API-Endpunkt zum Abrufen der Daten einer spezifischen Tabelle"""
+    try:
+        if not data_manager:
+            return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
+        
+        # Parameter für Paginierung
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 50))
+        offset = (page - 1) * per_page
+        
+        import sqlite3
+        
+        with sqlite3.connect(data_manager.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Prüfe ob Tabelle existiert
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+            if not cursor.fetchone():
+                return jsonify({'success': False, 'message': f'Tabelle {table_name} nicht gefunden'})
+            
+            # Hole Spalten-Informationen
+            cursor.execute(f"PRAGMA table_info({table_name})")
+            columns_info = cursor.fetchall()
+            columns = [{'name': col[1], 'type': col[2], 'nullable': not col[3], 'primary_key': bool(col[5])} for col in columns_info]
+            
+            # Hole Gesamtanzahl der Zeilen
+            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+            total_rows = cursor.fetchone()[0]
+            
+            # Hole Daten mit Paginierung
+            cursor.execute(f"SELECT * FROM {table_name} LIMIT ? OFFSET ?", (per_page, offset))
+            rows = cursor.fetchall()
+            
+            return jsonify({
+                'success': True,
+                'table_name': table_name,
+                'columns': columns,
+                'rows': rows,
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total_rows': total_rows,
+                    'total_pages': (total_rows + per_page - 1) // per_page
+                }
+            })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Abrufen der Tabellendaten: {e}")
+        return jsonify({'success': False, 'message': f'Serverfehler: {str(e)}'})
+
+@app.route('/api/admin/database/backup', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def backup_database():
+    """API-Endpunkt zum Erstellen eines Datenbank-Backups"""
+    try:
+        if not data_manager:
+            return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
+        
+        import shutil
+        from datetime import datetime
+        
+        # Backup-Dateiname mit Zeitstempel
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_filename = f'hochzeit_backup_{timestamp}.db'
+        backup_path = os.path.join(data_manager.data_directory, backup_filename)
+        
+        # Kopiere Datenbank
+        shutil.copy2(data_manager.db_path, backup_path)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Backup erfolgreich erstellt: {backup_filename}',
+            'backup_file': backup_filename,
+            'backup_path': backup_path
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Erstellen des Datenbank-Backups: {e}")
+        return jsonify({'success': False, 'message': f'Backup-Fehler: {str(e)}'})
+
+@app.route('/api/admin/database/info', methods=['GET'])
+@require_auth
+@require_role(['admin'])
+def get_database_info():
+    """API-Endpunkt für allgemeine Datenbank-Informationen"""
+    try:
+        if not data_manager:
+            return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
+        
+        import sqlite3
+        import os
+        
+        db_info = {
+            'database_path': data_manager.db_path,
+            'database_size': 0,
+            'sqlite_version': '',
+            'tables_count': 0,
+            'total_rows': 0
+        }
+        
+        # Dateigröße
+        if os.path.exists(data_manager.db_path):
+            db_info['database_size'] = os.path.getsize(data_manager.db_path)
+        
+        with sqlite3.connect(data_manager.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # SQLite Version
+            cursor.execute("SELECT sqlite_version()")
+            db_info['sqlite_version'] = cursor.fetchone()[0]
+            
+            # Anzahl Tabellen
+            cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'")
+            db_info['tables_count'] = cursor.fetchone()[0]
+            
+            # Gesamtanzahl Zeilen in allen Tabellen
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = cursor.fetchall()
+            
+            total_rows = 0
+            for (table_name,) in tables:
+                cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                total_rows += cursor.fetchone()[0]
+            
+            db_info['total_rows'] = total_rows
+        
+        return jsonify({
+            'success': True,
+            'database_info': db_info
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Abrufen der Datenbank-Informationen: {e}")
+        return jsonify({'success': False, 'message': f'Serverfehler: {str(e)}'})
 
 @app.route('/api/admin/test-invitation-generation', methods=['POST'])
 @require_auth
@@ -2920,9 +3176,13 @@ def api_settings_save():
             if key in settings_data and settings_data[key]:
                 data_manager.set_setting(key, settings_data[key])
         
+        # Invitation Texts Einstellungen (als JSON speichern)
+        if 'invitation_texts' in settings_data and settings_data['invitation_texts']:
+            data_manager.set_setting('invitation_texts', settings_data['invitation_texts'])
+        
         # Alle anderen direkten Settings
         for key, value in settings_data.items():
-            if key not in ['bride_name', 'groom_name', 'hochzeitsdatum', 'hochzeitsort', 'locations', 'first_login_image', 'first_login_image_data', 'first_login_text']:
+            if key not in ['bride_name', 'groom_name', 'hochzeitsdatum', 'hochzeitsort', 'locations', 'first_login_image', 'first_login_image_data', 'first_login_text', 'invitation_texts']:
                 if value is not None and value != '':
                     data_manager.set_setting(key, value)
         

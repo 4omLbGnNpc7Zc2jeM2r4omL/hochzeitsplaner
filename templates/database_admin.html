@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}SQLite Datenbank-Verwaltung - {{ brautpaar_namen }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="bi bi-database me-2"></i>
+                        SQLite Datenbank-Verwaltung
+                    </h1>
+                    <p class="text-muted mb-0">Einsicht und Verwaltung der Hochzeitsplaner-Datenbank</p>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-success me-2" id="createBackupBtn">
+                        <i class="bi bi-download me-2"></i>Backup erstellen
+                    </button>
+                    <button type="button" class="btn btn-info" id="refreshDataBtn">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Aktualisieren
+                    </button>
+                </div>
+            </div>
+
+            <!-- Datenbank-Informationen Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Datenbank-Informationen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="databaseInfo">
+                        <div class="d-flex justify-content-center">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Lädt...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs für verschiedene Ansichten -->
+            <ul class="nav nav-tabs mb-4" id="databaseTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tables-tab" data-bs-toggle="tab" data-bs-target="#tables" type="button" role="tab">
+                        <i class="bi bi-table me-2"></i>Tabellen-Übersicht
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="query-tab" data-bs-toggle="tab" data-bs-target="#query" type="button" role="tab">
+                        <i class="bi bi-terminal me-2"></i>SQL-Abfragen
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="table-data-tab" data-bs-toggle="tab" data-bs-target="#table-data" type="button" role="tab">
+                        <i class="bi bi-list-ul me-2"></i>Tabellen-Daten
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="databaseTabContent">
+                <!-- Tabellen-Übersicht Tab -->
+                <div class="tab-pane fade show active" id="tables" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">
+                                <i class="bi bi-table me-2"></i>
+                                Datenbank-Tabellen
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="tablesOverview">
+                                <div class="d-flex justify-content-center">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Lädt...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SQL-Abfragen Tab -->
+                <div class="tab-pane fade" id="query" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0">
+                                <i class="bi bi-terminal me-2"></i>
+                                SQL-Abfragen (Nur SELECT, PRAGMA, EXPLAIN)
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="sqlQuery" class="form-label">SQL-Query:</label>
+                                <textarea class="form-control" id="sqlQuery" rows="4" placeholder="SELECT * FROM gaeste LIMIT 10;"></textarea>
+                                <div class="form-text">
+                                    <i class="bi bi-shield-check me-1"></i>
+                                    Aus Sicherheitsgründen sind nur SELECT, PRAGMA und EXPLAIN Statements erlaubt.
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <button type="button" class="btn btn-primary" id="executeQueryBtn">
+                                    <i class="bi bi-play-fill me-2"></i>Query ausführen
+                                </button>
+                                <button type="button" class="btn btn-secondary ms-2" id="clearQueryBtn">
+                                    <i class="bi bi-x-lg me-2"></i>Leeren
+                                </button>
+                            </div>
+                            
+                            <!-- Beispiel-Queries -->
+                            <div class="mb-3">
+                                <h6>Beispiel-Queries:</h6>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button type="button" class="btn btn-outline-info btn-sm example-query" data-query="SELECT * FROM gaeste LIMIT 10;">
+                                        Gäste anzeigen
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info btn-sm example-query" data-query="SELECT COUNT(*) as anzahl_gaeste FROM gaeste;">
+                                        Gäste zählen
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info btn-sm example-query" data-query="SELECT status, COUNT(*) as anzahl FROM gaeste GROUP BY status;">
+                                        Status-Statistik
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info btn-sm example-query" data-query="PRAGMA table_info(gaeste);">
+                                        Gaeste Struktur
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Query-Ergebnisse -->
+                            <div id="queryResults"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabellen-Daten Tab -->
+                <div class="tab-pane fade" id="table-data" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">
+                                <i class="bi bi-list-ul me-2"></i>
+                                Tabellen-Daten
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="tableSelect" class="form-label">Tabelle auswählen:</label>
+                                <select class="form-select" id="tableSelect">
+                                    <option value="">-- Tabelle auswählen --</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Tabellen-Daten Container -->
+                            <div id="tableDataContainer"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success/Error Toast Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="successToast" class="toast align-items-center text-bg-success border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="successToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+    <div id="errorToast" class="toast align-items-center text-bg-danger border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="errorToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/database_admin.js') }}"></script>
+{% endblock %}

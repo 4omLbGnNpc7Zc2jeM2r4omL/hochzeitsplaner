@@ -106,6 +106,12 @@
                                     <i class="bi bi-key me-1"></i>Gästezugänge
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'database_admin' %}active{% endif %}" 
+                                   href="/database-admin">
+                                    <i class="bi bi-database me-1"></i>Datenbank
+                                </a>
+                            </li>
                         {% endif %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'einstellungen' %}active{% endif %}" 

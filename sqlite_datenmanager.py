@@ -1053,6 +1053,12 @@ class SQLiteHochzeitsDatenManager:
                         return float(value)
                     elif typ == 'bool' or typ == 'boolean':
                         return value.lower() in ('true', '1', 'yes', 'on')
+                    elif typ == 'json':
+                        try:
+                            return json.loads(value)
+                        except json.JSONDecodeError:
+                            logger.warning(f"Konnte JSON für Einstellung '{key}' nicht parsen: {value}")
+                            return default
                     else:
                         return value
                 
@@ -1068,6 +1074,9 @@ class SQLiteHochzeitsDatenManager:
             typ = type(value).__name__
             if typ == 'bool':
                 typ = 'boolean'
+            elif typ in ['dict', 'list']:
+                typ = 'json'
+                value = json.dumps(value, ensure_ascii=False)
             
             with self._lock:
                 conn = sqlite3.connect(self.db_path)
@@ -2028,6 +2037,13 @@ class SQLiteHochzeitsDatenManager:
                         settings[key] = float(value) if value else 0.0
                     elif typ == 'bool' or typ == 'boolean':
                         settings[key] = value.lower() in ('true', '1', 'yes', 'on') if value else False
+                    elif typ == 'json' and value:
+                        # JSON-String parsen
+                        try:
+                            settings[key] = json.loads(value)
+                        except json.JSONDecodeError:
+                            logger.warning(f"Konnte JSON für Einstellung '{key}' nicht parsen: {value}")
+                            settings[key] = value
                     elif typ == 'dict' and value:
                         # JSON-String parsen mit Fallback für Python-Dict-Format
                         try:
@@ -2781,30 +2797,6 @@ class SQLiteHochzeitsDatenManager:
     def get_settings(self) -> dict:
         """Lädt Einstellungen (Kompatibilität - gleich wie load_settings)"""
         return self.load_settings()
-    
-    def set_setting(self, key: str, value) -> bool:
-        """Setzt eine einzelne Einstellung"""
-        try:
-            settings = self.load_settings()
-            
-            # Nested keys unterstützen (z.B. "ui.theme")
-            if '.' in key:
-                keys = key.split('.')
-                current = settings
-                for k in keys[:-1]:
-                    if k not in current:
-                        current[k] = {}
-                    current = current[k]
-                current[keys[-1]] = value
-            else:
-                settings[key] = value
-            
-            return self.save_settings(settings)
-            
-        except Exception as e:
-            logger.error(f"Fehler beim Setzen der Einstellung {key}: {e}")
-            return False
-    
     def get_setting(self, key: str, default=None):
         """Gibt eine einzelne Einstellung zurück"""
         try:
