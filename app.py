@@ -3298,6 +3298,14 @@ def api_settings_save():
         
         if upload_settings:
             success = data_manager.save_upload_settings(upload_settings)
+        
+        # E-Mail Adressen für Aufgaben-Benachrichtigungen speichern
+        email_keys = ['braut_email', 'braeutigam_email']
+        for key in email_keys:
+            if key in settings_data:
+                value = settings_data[key] if settings_data[key] is not None else ''
+                success = data_manager.set_setting(key, value)
+                logger.info(f"E-Mail Setting '{key}' saved: {success}")
             logger.info(f"Upload-Einstellungen saved: {success}")
         
         # Grunddaten speichern (Hochzeitsdatum, Brautpaar-Namen)
@@ -3772,6 +3780,9 @@ def api_aufgaben_add():
         aufgabe_id = data_manager.add_aufgabe(aufgabe_data)
         
         if aufgabe_id > 0:
+            # E-Mail-Benachrichtigung senden, wenn eine Aufgabe zugewiesen wurde
+            send_task_assignment_notification(aufgabe_data, aufgabe_id, is_new=True)
+            
             return jsonify({
                 'success': True,
                 'message': 'Aufgabe erfolgreich hinzugefügt',
@@ -3813,10 +3824,18 @@ def api_aufgaben_update(aufgabe_id):
             'notizen': data.get('notizen', '').strip()
         }
         
+        # Hole die alte Aufgabe um Änderungen zu erkennen
+        alte_aufgaben = data_manager.get_aufgaben()
+        alte_aufgabe = next((a for a in alte_aufgaben if a.get('id') == aufgabe_id), None)
+        
         # Aufgabe aktualisieren
         success = data_manager.update_aufgabe(aufgabe_id, aufgabe_data)
         
         if success:
+            # E-Mail-Benachrichtigung senden, wenn sich die Zuweisung geändert hat
+            if alte_aufgabe and alte_aufgabe.get('zustaendig') != aufgabe_data.get('zustaendig'):
+                send_task_assignment_notification(aufgabe_data, aufgabe_id, is_new=False)
+            
             return jsonify({
                 'success': True,
                 'message': 'Aufgabe erfolgreich aktualisiert'
@@ -3870,6 +3889,134 @@ def api_aufgaben_statistics():
     except Exception as e:
         logger.error(f"Fehler beim Laden der Aufgaben-Statistiken: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# =============================================================================
+# HILFSFUNKTIONEN FÜR AUFGABEN-BENACHRICHTIGUNGEN
+# =============================================================================
+
+def send_task_assignment_notification(aufgabe_data, aufgabe_id, is_new=True):
+    """
+    Sendet eine E-Mail-Benachrichtigung bei Aufgabenzuweisung
+    
+    Args:
+        aufgabe_data (dict): Die Aufgabendaten
+        aufgabe_id (int): Die ID der Aufgabe
+        is_new (bool): True für neue Aufgabe, False für Änderung der Zuweisung
+    """
+    try:
+        # Prüfe ob E-Mail-Manager verfügbar und aktiviert ist
+        if not EMAIL_AVAILABLE or not email_manager or not email_manager.is_enabled():
+            logger.info("E-Mail-Benachrichtigung übersprungen: E-Mail-Manager nicht verfügbar oder deaktiviert")
+            return
+        
+        # Lade Einstellungen für E-Mail-Adressen
+        settings = data_manager.get_settings() if data_manager else {}
+        
+        zustaendig = aufgabe_data.get('zustaendig', '').lower()
+        email_address = None
+        empfaenger_name = aufgabe_data.get('zustaendig', 'Unbekannt')
+        
+        # Bestimme E-Mail-Adresse basierend auf Zuständigkeit
+        if 'braut' in zustaendig:
+            email_address = settings.get('braut_email', '')
+            empfaenger_name = settings.get('braut_name', 'Braut')
+        elif 'bräutigam' in zustaendig or 'braeutigam' in zustaendig:
+            email_address = settings.get('braeutigam_email', '')
+            empfaenger_name = settings.get('braeutigam_name', 'Bräutigam')
+        
+        # Prüfe ob E-Mail-Adresse vorhanden ist
+        if not email_address or not email_address.strip():
+            logger.info(f"E-Mail-Benachrichtigung übersprungen: Keine E-Mail-Adresse für {empfaenger_name} hinterlegt")
+            return
+        
+        # Erstelle direkten Link zum Hochzeitsplaner
+        hochzeitsplaner_url = "https://pascalundkäthe-heiraten.de:8443/aufgabenplaner"
+        
+        # E-Mail-Betreff
+        if is_new:
+            betreff = f"Neue Aufgabe zugeteilt: {aufgabe_data.get('titel', 'Unbenannte Aufgabe')}"
+        else:
+            betreff = f"Aufgabe zugeteilt: {aufgabe_data.get('titel', 'Unbenannte Aufgabe')}"
+        
+        # E-Mail-Text erstellen
+        prioritaet = aufgabe_data.get('prioritaet', 'Mittel')
+        faelligkeitsdatum = aufgabe_data.get('faelligkeitsdatum', '')
+        beschreibung = aufgabe_data.get('beschreibung', '').strip()
+        kategorie = aufgabe_data.get('kategorie', '').strip()
+        
+        # Formatiere Fälligkeitsdatum
+        faelligkeits_text = ""
+        if faelligkeitsdatum:
+            try:
+                from datetime import datetime
+                datum = datetime.strptime(faelligkeitsdatum, '%Y-%m-%d')
+                faelligkeits_text = f"\n📅 Fälligkeitsdatum: {datum.strftime('%d.%m.%Y')}"
+            except:
+                faelligkeits_text = f"\n📅 Fälligkeitsdatum: {faelligkeitsdatum}"
+        
+        email_text = f"""Hallo {empfaenger_name},
+
+eine Aufgabe wurde dir zugeteilt:
+
+📋 Aufgabe: {aufgabe_data.get('titel', 'Unbenannte Aufgabe')}
+⚡ Priorität: {prioritaet}{faelligkeits_text}"""
+
+        if kategorie:
+            email_text += f"\n🏷️ Kategorie: {kategorie}"
+        
+        if beschreibung:
+            email_text += f"\n\n📝 Beschreibung:\n{beschreibung}"
+        
+        email_text += f"""
+
+🔗 Direkt zum Hochzeitsplaner:
+{hochzeitsplaner_url}
+
+Viel Erfolg bei der Umsetzung! 💪"""
+        
+        # HTML-Version für bessere Darstellung
+        html_text = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #d63384;">Neue Aufgabe zugeteilt</h2>
+            
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="margin-top: 0; color: #495057;">📋 {aufgabe_data.get('titel', 'Unbenannte Aufgabe')}</h3>
+                <p><strong>⚡ Priorität:</strong> {prioritaet}</p>
+                {f'<p><strong>📅 Fälligkeitsdatum:</strong> {faelligkeitsdatum}</p>' if faelligkeitsdatum else ''}
+                {f'<p><strong>🏷️ Kategorie:</strong> {kategorie}</p>' if kategorie else ''}
+                {f'<div style="margin-top: 15px;"><strong>📝 Beschreibung:</strong><br>{beschreibung.replace(chr(10), "<br>")}</div>' if beschreibung else ''}
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{hochzeitsplaner_url}" 
+                   style="background: #d63384; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                   🔗 Zum Hochzeitsplaner
+                </a>
+            </div>
+            
+            <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
+                Viel Erfolg bei der Umsetzung! 💪
+            </p>
+        </div>
+        """
+        
+        # Verwende send_task_email für bessere Integration
+        result = email_manager.send_task_email(
+            task_id=aufgabe_id,
+            task_title=aufgabe_data.get('titel', 'Unbenannte Aufgabe'),
+            to_emails=[email_address],
+            subject=betreff,
+            body=email_text,
+            html_body=html_text
+        )
+        
+        if result.get('success'):
+            logger.info(f"E-Mail-Benachrichtigung erfolgreich gesendet an {empfaenger_name} ({email_address}) für Aufgabe: {aufgabe_data.get('titel')}")
+        else:
+            logger.warning(f"E-Mail-Benachrichtigung fehlgeschlagen an {empfaenger_name} ({email_address}): {result.get('message', 'Unbekannter Fehler')}")
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Senden der Aufgaben-E-Mail-Benachrichtigung: {str(e)}")
 
 # =============================================================================
 # Hauptprogramm

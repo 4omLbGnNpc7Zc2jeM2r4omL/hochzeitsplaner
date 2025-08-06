@@ -74,6 +74,469 @@
     }
 }
 
+/* ===== MOBILE DEVICE OPTIMIZATIONS ===== */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .btn {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+    }
+    
+    h1 {
+        font-size: 1.75rem;
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+    
+    h3 {
+        font-size: 1.25rem;
+    }
+    
+    h4 {
+        font-size: 1.1rem;
+    }
+    
+    h5 {
+        font-size: 1rem;
+    }
+    
+    .navbar-brand {
+        font-size: 1.15rem !important;
+    }
+}
+
+/* iPhone specific optimizations */
+@media (max-width: 414px) {
+    .container-fluid {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+    
+    .card {
+        margin-bottom: 0.75rem;
+        border-radius: 0.5rem;
+    }
+    
+    .card-body {
+        padding: 0.75rem;
+    }
+    
+    .card-header {
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .btn {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .btn-sm {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.6rem;
+    }
+    
+    h1 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    h2 {
+        font-size: 1.3rem;
+    }
+    
+    h3 {
+        font-size: 1.15rem;
+    }
+    
+    h4 {
+        font-size: 1rem;
+    }
+    
+    h5 {
+        font-size: 0.9rem;
+    }
+    
+    h6 {
+        font-size: 0.85rem;
+    }
+    
+    .navbar-brand {
+        font-size: 1.1rem !important;
+    }
+    
+    .nav-link {
+        font-size: 0.85rem !important;
+        padding: 0.5rem 0.6rem !important;
+    }
+    
+    /* Table responsiveness */
+    .table-responsive {
+        font-size: 0.8rem;
+    }
+    
+    .table th,
+    .table td {
+        padding: 0.4rem;
+        font-size: 0.75rem;
+    }
+    
+    /* Form controls */
+    .form-control,
+    .form-select {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.6rem;
+    }
+    
+    .form-label {
+        font-size: 0.8rem;
+        margin-bottom: 0.3rem;
+    }
+    
+    /* Modal adjustments */
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+    
+    .modal-body {
+        padding: 1rem;
+    }
+    
+    .modal-header {
+        padding: 0.75rem 1rem;
+    }
+    
+    .modal-footer {
+        padding: 0.75rem 1rem;
+    }
+}
+
+/* Very small screens (iPhone SE, etc.) */
+@media (max-width: 375px) {
+    .container-fluid {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    
+    .card-body {
+        padding: 0.6rem;
+    }
+    
+    .card-header {
+        padding: 0.4rem 0.6rem;
+    }
+    
+    h1 {
+        font-size: 1.3rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .btn {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.7rem;
+    }
+    
+    .form-control,
+    .form-select {
+        font-size: 0.8rem;
+        padding: 0.35rem 0.5rem;
+    }
+    
+    .navbar-brand {
+        font-size: 1rem !important;
+    }
+    
+    .nav-link {
+        font-size: 0.8rem !important;
+        padding: 0.4rem 0.5rem !important;
+    }
+}
+
+/* ===== TABLE MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 768px) {
+    .table-responsive {
+        border: none;
+        font-size: 0.85rem;
+    }
+    
+    .table {
+        margin-bottom: 0;
+    }
+    
+    .table thead th {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.3rem;
+        border-bottom-width: 1px;
+    }
+    
+    .table tbody td {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.3rem;
+        border-top-width: 1px;
+    }
+}
+
+@media (max-width: 414px) {
+    /* Stack table columns vertically on very small screens */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .table thead th {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.2rem;
+        white-space: nowrap;
+    }
+    
+    .table tbody td {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.2rem;
+        white-space: nowrap;
+    }
+    
+    /* Action buttons in tables */
+    .table .btn {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+    
+    .table .btn-sm {
+        font-size: 0.65rem;
+        padding: 0.15rem 0.3rem;
+    }
+}
+
+/* ===== ALERT AND NOTIFICATION MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 414px) {
+    .alert {
+        font-size: 0.8rem;
+        padding: 0.6rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .alert .alert-heading {
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .alert .bi {
+        font-size: 0.9rem;
+    }
+    
+    /* Toast notifications */
+    .toast {
+        font-size: 0.8rem;
+        max-width: calc(100vw - 1rem);
+    }
+    
+    .toast .toast-header {
+        padding: 0.4rem 0.6rem;
+    }
+    
+    .toast .toast-body {
+        padding: 0.5rem 0.6rem;
+    }
+}
+
+/* ===== DROPDOWN AND SELECT MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 414px) {
+    .dropdown-menu {
+        font-size: 0.8rem;
+        min-width: 10rem;
+        max-width: calc(100vw - 1rem);
+    }
+    
+    .dropdown-item {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+    
+    .form-select {
+        background-size: 12px 12px;
+    }
+}
+
+/* ===== BADGE AND TAG MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 414px) {
+    .badge {
+        font-size: 0.65rem;
+        padding: 0.25rem 0.4rem;
+    }
+    
+    .badge-lg {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.5rem;
+    }
+}
+
+/* ===== BREADCRUMB AND PAGINATION MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 414px) {
+    .breadcrumb {
+        font-size: 0.75rem;
+        padding: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .breadcrumb-item {
+        font-size: 0.75rem;
+    }
+    
+    .pagination {
+        font-size: 0.8rem;
+    }
+    
+    .page-link {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+    }
+}
+
+/* ===== PROGRESS BAR MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 414px) {
+    .progress {
+        height: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .progress-bar {
+        font-size: 0.65rem;
+        line-height: 0.75rem;
+    }
+}
+
+/* ===== INPUT GROUP MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 414px) {
+    .input-group-text {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.6rem;
+    }
+    
+    .input-group .btn {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.6rem;
+    }
+    
+    .input-group .form-control {
+        font-size: 0.8rem;
+    }
+}
+
+/* ===== SETTINGS PAGE MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 414px) {
+    /* Settings form optimizations */
+    .settings-form .card {
+        margin-bottom: 0.75rem;
+    }
+    
+    .settings-form .card-header {
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .settings-form .card-header h5,
+    .settings-form .card-header h6 {
+        font-size: 0.9rem;
+        margin-bottom: 0;
+    }
+    
+    .settings-form .form-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    
+    .settings-form .form-text {
+        font-size: 0.65rem;
+        margin-top: 0.15rem;
+    }
+    
+    .settings-form .row {
+        margin-bottom: 0.5rem;
+    }
+    
+    .settings-form .mb-3 {
+        margin-bottom: 0.75rem !important;
+    }
+    
+    /* Tab navigation on mobile */
+    .nav-tabs {
+        font-size: 0.75rem;
+    }
+    
+    .nav-tabs .nav-link {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
+    }
+    
+    /* Location card optimizations */
+    .location-card .card-header {
+        padding: 0.4rem 0.6rem;
+    }
+    
+    .location-card .card-body {
+        padding: 0.6rem;
+    }
+    
+    /* Map preview optimizations */
+    .map-preview {
+        height: 150px !important;
+    }
+    
+    /* System info card */
+    .system-info-card {
+        font-size: 0.75rem;
+    }
+    
+    .system-info-card .card-body {
+        padding: 0.6rem;
+    }
+}
+
+/* ===== AUFGABENPLANER MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 414px) {
+    .task-list .card {
+        margin-bottom: 0.5rem;
+    }
+    
+    .task-item {
+        padding: 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    .task-item .task-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .task-item .task-meta {
+        font-size: 0.7rem;
+        color: #6c757d;
+    }
+    
+    .task-priority {
+        font-size: 0.65rem;
+        padding: 0.15rem 0.3rem;
+    }
+    
+    .task-status {
+        font-size: 0.65rem;
+        padding: 0.15rem 0.3rem;
+    }
+}
+
 /* ===== GRADIENT BACKGROUNDS ===== */
 .bg-gradient-primary {
     background: linear-gradient(135deg, #0d6efd 0%, #6610f2 100%);

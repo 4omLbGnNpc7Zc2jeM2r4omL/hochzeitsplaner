@@ -178,6 +178,15 @@ function populateSettingsForm(settings) {
     if (settings.braeutigam_name) {
         document.getElementById('braeutigamName').value = settings.braeutigam_name;
     }
+    
+    // E-Mail Adressen für Aufgaben-Benachrichtigungen
+    if (settings.braut_email) {
+        document.getElementById('brautEmail').value = settings.braut_email;
+    }
+    if (settings.braeutigam_email) {
+        document.getElementById('braeutigamEmail').value = settings.braeutigam_email;
+    }
+    
     if (settings.hochzeitsdatum) {
         document.getElementById('hochzeitsdatum').value = settings.hochzeitsdatum;
     }
@@ -347,6 +356,8 @@ async function handleSaveSettings(event) {
     const formData = {
         braut_name: getInputValue('brautName'),
         braeutigam_name: getInputValue('braeutigamName'),
+        braut_email: getInputValue('brautEmail'),
+        braeutigam_email: getInputValue('braeutigamEmail'),
         hochzeitsdatum: getInputValue('hochzeitsdatum'),
         
         // Neue Locations-Struktur

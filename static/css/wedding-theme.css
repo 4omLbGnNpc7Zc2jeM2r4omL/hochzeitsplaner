@@ -639,6 +639,96 @@
     font-size: clamp(1.5rem, 3.5vw, 2rem); /* Statt 10cqw → 3.5vw */
 }
 
+/* ===== MOBILE DASHBOARD OPTIMIZATIONS ===== */
+/* Specific optimizations for dashboard elements on mobile */
+@media (max-width: 414px) {
+    /* Dashboard title optimizations */
+    .dashboard-card .card-title {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+        line-height: 1.3;
+    }
+    
+    /* Number formatting improvements */
+    .dashboard-card .fs-1,
+    .dashboard-card h3 {
+        letter-spacing: -0.5px;
+        word-spacing: -1px;
+    }
+    
+    /* Icon size adjustments */
+    .dashboard-card .bi {
+        font-size: clamp(1rem, 2.5vw, 1.5rem) !important;
+    }
+    
+    /* Budget status improvements */
+    .budget-status-card {
+        margin-bottom: 0.75rem;
+    }
+    
+    .budget-status-card .progress {
+        height: 0.4rem;
+    }
+    
+    /* Task/Aufgaben specific optimizations */
+    .task-card,
+    .aufgabe-card {
+        margin-bottom: 0.5rem;
+        padding: 0.5rem;
+    }
+    
+    .task-card .card-body,
+    .aufgabe-card .card-body {
+        padding: 0.6rem;
+    }
+    
+    /* Guest list optimizations */
+    .guest-card {
+        margin-bottom: 0.5rem;
+    }
+    
+    .guest-card .card-body {
+        padding: 0.6rem;
+    }
+    
+    /* Timeline/Zeitplan optimizations */
+    .timeline-item {
+        padding: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .timeline-item .time {
+        font-size: 0.75rem;
+    }
+    
+    .timeline-item .title {
+        font-size: 0.85rem;
+        line-height: 1.2;
+    }
+}
+
+/* Extra small screens - ultra compact mode */
+@media (max-width: 375px) {
+    .dashboard-card .card-title {
+        font-size: clamp(0.6rem, 1.8vw, 0.7rem);
+        margin-bottom: 0.1rem;
+    }
+    
+    .dashboard-card h3 {
+        font-size: clamp(0.75rem, 2.2vw, 1.1rem);
+        margin-bottom: 0.1rem;
+    }
+    
+    .dashboard-card .fs-1 {
+        font-size: clamp(0.9rem, 2.2vw, 1.3rem) !important;
+    }
+    
+    .dashboard-card small {
+        font-size: clamp(0.5rem, 1.4vw, 0.6rem);
+    }
+}
+
 /* Event Cards */
 .event-card {
     transition: all 0.3s ease;
@@ -704,6 +794,8 @@
 }
 
 /* ===== RESPONSIVE ANPASSUNGEN ===== */
+
+/* Tablets and small screens */
 @media (max-width: 768px) {
     .dashboard-card {
         min-height: 100px;
@@ -735,16 +827,134 @@
     }
 }
 
+/* Mobile phones and small devices */
 @media (max-width: 576px) {
+    .dashboard-card {
+        min-height: 85px;
+    }
+    
+    .dashboard-card .card-body {
+        padding: 0.75rem;
+    }
+    
     .dashboard-card h3 {
-        font-size: clamp(1.25rem, 3.5vw, 2rem);
+        font-size: clamp(1rem, 3vw, 1.5rem);
+        margin-bottom: 0.25rem;
     }
     
     .dashboard-card .fs-1 {
-        font-size: clamp(1.5rem, 3.5vw, 2.5rem) !important;
+        font-size: clamp(1.25rem, 3vw, 1.75rem) !important;
+    }
+    
+    .dashboard-card .card-title {
+        font-size: clamp(0.75rem, 2.5vw, 0.875rem);
+        margin-bottom: 0.25rem;
+    }
+    
+    .dashboard-card small {
+        font-size: clamp(0.65rem, 1.8vw, 0.75rem);
     }
     
     .event-card h4 {
-        font-size: clamp(1rem, 5vw, 1.5rem);
+        font-size: clamp(0.9rem, 3vw, 1.25rem);
+    }
+}
+
+/* iPhone specific optimizations */
+@media (max-width: 414px) {
+    .dashboard-card {
+        min-height: 75px;
+        margin-bottom: 0.75rem;
+    }
+    
+    .dashboard-card .card-body {
+        padding: 0.6rem;
+        flex-direction: row;
+        text-align: left;
+    }
+    
+    .dashboard-card h3 {
+        font-size: clamp(0.9rem, 2.8vw, 1.3rem);
+        line-height: 1.1;
+    }
+    
+    .dashboard-card .fs-1 {
+        font-size: clamp(1.1rem, 2.8vw, 1.5rem) !important;
+        line-height: 1.1;
+    }
+    
+    .dashboard-card .card-title {
+        font-size: clamp(0.7rem, 2.2vw, 0.8rem);
+        margin-bottom: 0.15rem;
+        line-height: 1.2;
+    }
+    
+    .dashboard-card small {
+        font-size: clamp(0.6rem, 1.6vw, 0.7rem);
+        line-height: 1.2;
+    }
+    
+    .dashboard-card .align-self-center {
+        margin-top: 0;
+        margin-left: 0.5rem;
+    }
+    
+    /* Card content optimization for iPhone */
+    .dashboard-card .card-content {
+        flex: 1;
+        min-width: 0; /* Allow flex child to shrink */
+    }
+    
+    /* Budget status cards on iPhone */
+    .budget-status-card .card-body {
+        padding: 0.6rem;
+    }
+    
+    .budget-status-card h3 {
+        font-size: clamp(0.9rem, 2.5vw, 1.2rem);
+    }
+}
+
+/* Very small screens (iPhone SE, etc.) */
+@media (max-width: 375px) {
+    .dashboard-card {
+        min-height: 70px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .dashboard-card .card-body {
+        padding: 0.5rem;
+    }
+    
+    .dashboard-card h3 {
+        font-size: clamp(0.8rem, 2.5vw, 1.2rem);
+    }
+    
+    .dashboard-card .fs-1 {
+        font-size: clamp(1rem, 2.5vw, 1.4rem) !important;
+    }
+    
+    .dashboard-card .card-title {
+        font-size: clamp(0.65rem, 2vw, 0.75rem);
+        margin-bottom: 0.1rem;
+    }
+    
+    .dashboard-card small {
+        font-size: clamp(0.55rem, 1.5vw, 0.65rem);
+    }
+    
+    .container-fluid {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+    
+    /* Navigation optimizations for very small screens */
+    .navbar-brand {
+        font-size: 1.1rem !important;
+    }
+    
+    .nav-link {
+        font-size: 0.85rem !important;
+        padding: 0.5rem 0.6rem !important;
     }
 }

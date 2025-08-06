@@ -186,15 +186,8 @@ class EmailManager:
                 msg['Cc'] = ', '.join(cc_emails)
             
             # Schöne sichtbare Signatur hinzufügen
-            signature = f"""
-
----
-
-Mit freundlichen Grüßen
-Pascal Schumacher & Katharina Schaffrath
-
-
-❤️ Powered by Hochzeitsplaner"""
+            # Bestimme personalisierte Signatur basierend auf Empfänger
+            signature = self._get_personalized_signature(to_emails)
             
             body_with_signature = body + signature
             
@@ -205,17 +198,7 @@ Pascal Schumacher & Katharina Schaffrath
             # HTML-Teil hinzufügen (falls vorhanden)
             if html_body:
                 # Schöne HTML-Signatur
-                html_signature = """
-                <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
-                <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.5;">
-                    <p style="margin: 0; margin-bottom: 10px;"><strong>Mit freundlichen Grüßen</strong></p>
-                    <p style="margin: 0; margin-bottom: 20px;">Pascal Schumacher & Katharina Schaffrath</p>
-                    
-                    <p style="margin: 0; font-size: 12px; color: #888; font-style: italic;">
-                        ❤️ <em>Powered by Hochzeitsplaner</em>
-                    </p>
-                </div>
-                """
+                html_signature = self._get_personalized_html_signature(to_emails)
                 
                 html_with_signature = html_body + html_signature
                 html_part = MIMEText(html_with_signature, 'html', 'utf-8')
@@ -467,15 +450,8 @@ Pascal & Käthe"""
             # Aufgaben-Kontext für automatische Zuordnung (diskret am Ende der E-Mail)
             task_context = f"\n\n[Intern: Task #{task_id} | {task_title} | {thread_id}]"
             
-            # Verbesserte professionelle Signatur
-            signature = f"""
-
----
-
-Mit freundlichen Grüßen
-Pascal Schumacher & Katharina Schaffrath
-
-❤️ Powered by Hochzeitsplaner"""
+            # Verwende personalisierte Signatur
+            signature = self._get_personalized_signature(to_emails)
             
             body_with_context = body + signature + task_context
             
@@ -485,18 +461,8 @@ Pascal Schumacher & Katharina Schaffrath
             
             # HTML-Teil hinzufügen (falls vorhanden)
             if html_body:
-                # Verbesserte HTML-Signatur mit kursivem, kleinerem "Powered by"
-                html_signature = """
-                <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
-                <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.5;">
-                    <p style="margin: 0; margin-bottom: 10px;"><strong>Mit freundlichen Grüßen</strong></p>
-                    <p style="margin: 0; margin-bottom: 20px;">Pascal Schumacher & Katharina Schaffrath</p>
-                    
-                    <p style="margin: 0; font-size: 11px; color: #888; font-style: italic;">
-                        ❤️ <em>Powered by Hochzeitsplaner</em>
-                    </p>
-                </div>
-                """
+                # Verwende personalisierte HTML-Signatur
+                html_signature = self._get_personalized_html_signature(to_emails)
                 
                 # Diskrete Task-Informationen für automatische Zuordnung (sehr klein und unauffällig)
                 html_context = f"""
@@ -1101,6 +1067,153 @@ Pascal Schumacher & Katharina Schaffrath
         except Exception as e:
             self.logger.error(f"Fehler beim Laden der Ignored-Liste aus SQLite: {e}")
             return []
+
+    def _get_personalized_signature(self, to_emails):
+        """
+        Erstellt eine personalisierte Signatur basierend auf den Empfängern
+        
+        Args:
+            to_emails: Liste der Empfänger-E-Mail-Adressen
+            
+        Returns:
+            str: Personalisierte Signatur
+        """
+        try:
+            if not self.data_manager:
+                # Fallback zur Standard-Signatur - verwende allgemeine Namen
+                return f"""
+
+---
+
+Mit freundlichen Grüßen
+Braut & Bräutigam
+
+
+❤️ Powered by Hochzeitsplaner"""
+            
+            # Lade Einstellungen für E-Mail-Adressen
+            settings = self.data_manager.get_settings()
+            braut_email = settings.get('braut_email', '').lower()
+            braeutigam_email = settings.get('braeutigam_email', '').lower()
+            braut_name = settings.get('braut_name', 'Katharina Schaffrath')
+            braeutigam_name = settings.get('braeutigam_name', 'Pascal Schumacher')
+            
+            # Prüfe ob einer der Empfänger Braut oder Bräutigam ist
+            recipient_emails = [email.lower() for email in to_emails]
+            
+            if braut_email in recipient_emails:
+                # E-Mail geht an die Braut -> Grüße vom Bräutigam
+                return f"""
+
+---
+
+In Liebe, dein Verlobter
+
+
+❤️ Powered by Hochzeitsplaner"""
+            elif braeutigam_email in recipient_emails:
+                # E-Mail geht an den Bräutigam -> Grüße von der Braut
+                return f"""
+
+---
+
+In Liebe, deine Verlobte
+
+
+❤️ Powered by Hochzeitsplaner"""
+            else:
+                # Standard-Signatur für andere Empfänger
+                return f"""
+
+---
+
+Mit freundlichen Grüßen
+{braut_name} & {braeutigam_name}
+
+
+❤️ Powered by Hochzeitsplaner"""
+                
+        except Exception as e:
+            # Fallback bei Fehlern
+            return f"""
+
+---
+
+Mit freundlichen Grüßen
+Braut & Bräutigam
+
+
+❤️ Powered by Hochzeitsplaner"""
+
+    def _get_personalized_html_signature(self, to_emails):
+        """
+        Erstellt eine personalisierte HTML-Signatur basierend auf den Empfängern
+        
+        Args:
+            to_emails: Liste der Empfänger-E-Mail-Adressen
+            
+        Returns:
+            str: Personalisierte HTML-Signatur
+        """
+        try:
+            if not self.data_manager:
+                # Fallback zur Standard-HTML-Signatur - verwende allgemeine Namen
+                return """
+                <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+                <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.5;">
+                    <p style="margin: 0; margin-bottom: 10px;"><strong>Mit freundlichen Grüßen</strong></p>
+                    <p style="margin: 0; margin-bottom: 20px;">Braut & Bräutigam</p>
+                    
+                    <p style="margin: 0; font-size: 12px; color: #888; font-style: italic;">
+                        ❤️ <em>Powered by Hochzeitsplaner</em>
+                    </p>
+                </div>
+                """
+            
+            # Lade Einstellungen für E-Mail-Adressen
+            settings = self.data_manager.get_settings()
+            braut_email = settings.get('braut_email', '').lower()
+            braeutigam_email = settings.get('braeutigam_email', '').lower()
+            braut_name = settings.get('braut_name', 'Katharina Schaffrath')
+            braeutigam_name = settings.get('braeutigam_name', 'Pascal Schumacher')
+            
+            # Prüfe ob einer der Empfänger Braut oder Bräutigam ist
+            recipient_emails = [email.lower() for email in to_emails]
+            
+            if braut_email in recipient_emails:
+                # E-Mail geht an die Braut -> Grüße vom Bräutigam
+                greeting = "In Liebe, dein Verlobter"
+            elif braeutigam_email in recipient_emails:
+                # E-Mail geht an den Bräutigam -> Grüße von der Braut
+                greeting = "In Liebe, deine Verlobte"
+            else:
+                # Standard-Grußformel für andere Empfänger
+                greeting = f"Mit freundlichen Grüßen<br>{braut_name} & {braeutigam_name}"
+                
+            return f"""
+                <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+                <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.5;">
+                    <p style="margin: 0; margin-bottom: 20px;"><strong>{greeting}</strong></p>
+                    
+                    <p style="margin: 0; font-size: 12px; color: #888; font-style: italic;">
+                        ❤️ <em>Powered by Hochzeitsplaner</em>
+                    </p>
+                </div>
+                """
+                
+        except Exception as e:
+            # Fallback bei Fehlern
+            return """
+                <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+                <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.5;">
+                    <p style="margin: 0; margin-bottom: 10px;"><strong>Mit freundlichen Grüßen</strong></p>
+                    <p style="margin: 0; margin-bottom: 20px;">Braut & Bräutigam</p>
+                    
+                    <p style="margin: 0; font-size: 12px; color: #888; font-style: italic;">
+                        ❤️ <em>Powered by Hochzeitsplaner</em>
+                    </p>
+                </div>
+                """
 
 def get_email_manager() -> EmailManager:
     """Factory-Funktion für den E-Mail Manager"""
