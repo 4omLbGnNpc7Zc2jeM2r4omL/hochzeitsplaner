@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+
+{% block title %}Gäste-Uploads - {{ brautpaar_namen or "Brautpaar heiratet" }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="mb-0">
+                <i class="bi bi-cloud-upload me-2"></i>
+                Gäste-Uploads
+            </h1>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-wedding-primary" onclick="refreshUploads()">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Aktualisieren
+                </button>
+                <button type="button" class="btn btn-wedding-success" onclick="downloadAllUploads()">
+                    <i class="bi bi-download me-2"></i>Alle herunterladen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card card-wedding-stat-gold">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title mb-0" id="totalUploads">0</h5>
+                        <p class="card-text">Gesamt Uploads</p>
+                    </div>
+                    <div class="ms-3">
+                        <i class="bi bi-files" style="font-size: 2rem; color: var(--wedding-text);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-wedding-stat-gold">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title mb-0" id="totalImages">0</h5>
+                        <p class="card-text">Bilder</p>
+                    </div>
+                    <div class="ms-3">
+                        <i class="bi bi-image" style="font-size: 2rem; color: var(--wedding-text);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-wedding-stat-gold">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title mb-0" id="totalVideos">0</h5>
+                        <p class="card-text">Videos</p>
+                    </div>
+                    <div class="ms-3">
+                        <i class="bi bi-play-circle" style="font-size: 2rem; color: var(--wedding-text);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-wedding-stat-gold">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title mb-0" id="totalSize">0 MB</h5>
+                        <p class="card-text">Gesamtgröße</p>
+                    </div>
+                    <div class="ms-3">
+                        <i class="bi bi-hdd" style="font-size: 2rem; color: var(--wedding-text);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter and Search -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card card-wedding">
+            <div class="card-header card-wedding-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-funnel me-2"></i>Filter & Suche
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="filterGuest" class="form-label">Nach Gast filtern</label>
+                        <select class="form-select" id="filterGuest">
+                            <option value="">Alle Gäste</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filterType" class="form-label">Nach Typ filtern</label>
+                        <select class="form-select" id="filterType">
+                            <option value="">Alle Dateitypen</option>
+                            <option value="image">Bilder</option>
+                            <option value="video">Videos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filterDate" class="form-label">Nach Datum filtern</label>
+                        <input type="date" class="form-control" id="filterDate">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="searchFiles" class="form-label">Suchen</label>
+                        <input type="text" class="form-control" id="searchFiles" placeholder="Dateiname oder Beschreibung...">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Uploads List -->
+<div class="row">
+    <div class="col-12">
+        <div class="card card-wedding">
+            <div class="card-header card-wedding-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-collection me-2"></i>
+                    Alle Uploads
+                    <span class="badge badge-wedding ms-2" id="uploadCount">0</span>
+                </h5>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-wedding-secondary" id="viewGrid" onclick="setView('grid')">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                    </button>
+                    <button type="button" class="btn btn-wedding-secondary active" id="viewList" onclick="setView('list')">
+                        <i class="bi bi-list-ul"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- List View -->
+                <div id="uploadsListView">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="uploadsTable">
+                            <thead>
+                                <tr>
+                                    <th>Vorschau</th>
+                                    <th>Dateiname</th>
+                                    <th>Gast</th>
+                                    <th>Typ</th>
+                                    <th>Größe</th>
+                                    <th>Upload-Datum</th>
+                                    <th>Beschreibung</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="uploadsTableBody">
+                                <!-- Wird via JavaScript geladen -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Grid View -->
+                <div id="uploadsGridView" style="display: none;">
+                    <div class="row" id="uploadsGrid">
+                        <!-- Wird via JavaScript geladen -->
+                    </div>
+                </div>
+                
+                <!-- Empty State -->
+                <div id="emptyState" class="text-center py-5" style="display: none;">
+                    <i class="bi bi-cloud-upload text-muted" style="font-size: 4rem;"></i>
+                    <h4 class="text-muted mt-3">Keine Uploads gefunden</h4>
+                    <p class="text-muted">Es wurden noch keine Dateien von Gästen hochgeladen.</p>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="loadingState" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Lädt...</span>
+                    </div>
+                    <p class="text-muted mt-3">Uploads werden geladen...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Details Modal -->
+<div class="modal fade" id="uploadDetailsModal" tabindex="-1" aria-labelledby="uploadDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadDetailsModalLabel">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Upload Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <!-- File Preview -->
+                        <div id="filePreviewContainer" class="text-center">
+                            <!-- Preview wird hier geladen -->
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <!-- File Info -->
+                        <div class="card card-wedding">
+                            <div class="card-header card-wedding-header">
+                                <h6 class="mb-0">Datei-Informationen</h6>
+                            </div>
+                            <div class="card-body">
+                                <dl class="row">
+                                    <dt class="col-sm-6">Dateiname:</dt>
+                                    <dd class="col-sm-6" id="modalFileName">-</dd>
+                                    
+                                    <dt class="col-sm-6">Gast:</dt>
+                                    <dd class="col-sm-6" id="modalGuestName">-</dd>
+                                    
+                                    <dt class="col-sm-6">Typ:</dt>
+                                    <dd class="col-sm-6" id="modalFileType">-</dd>
+                                    
+                                    <dt class="col-sm-6">Größe:</dt>
+                                    <dd class="col-sm-6" id="modalFileSize">-</dd>
+                                    
+                                    <dt class="col-sm-6">Upload-Datum:</dt>
+                                    <dd class="col-sm-6" id="modalUploadDate">-</dd>
+                                </dl>
+                                
+                                <div class="mb-3">
+                                    <label for="modalDescription" class="form-label">Beschreibung:</label>
+                                    <textarea class="form-control" id="modalDescription" rows="3" readonly></textarea>
+                                </div>
+                                
+                                <div class="d-grid gap-2">
+                                    <button type="button" class="btn btn-primary" id="downloadFile">
+                                        <i class="bi bi-download me-2"></i>Herunterladen
+                                    </button>
+                                    <button type="button" class="btn btn-danger" id="deleteFile">
+                                        <i class="bi bi-trash me-2"></i>Löschen
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Actions Modal -->
+<div class="modal fade" id="bulkActionsModal" tabindex="-1" aria-labelledby="bulkActionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkActionsModalLabel">
+                    <i class="bi bi-gear me-2"></i>
+                    Massenaktionen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Wählen Sie eine Aktion für die ausgewählten Uploads:</p>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-wedding-success" onclick="bulkDownload()">
+                        <i class="bi bi-download me-2"></i>Alle herunterladen
+                    </button>
+                    <button type="button" class="btn btn-wedding-danger" onclick="bulkDelete()">
+                        <i class="bi bi-trash me-2"></i>Alle löschen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteConfirmModalLabel">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Upload löschen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="bi bi-trash text-danger" style="font-size: 3rem;"></i>
+                </div>
+                <h6 class="text-center mb-3">Möchten Sie diese Datei wirklich löschen?</h6>
+                
+                <!-- Upload Info -->
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <div id="deletePreview" class="upload-preview" style="width: 60px; height: 60px;">
+                                    <!-- Preview wird hier eingefügt -->
+                                </div>
+                            </div>
+                            <div class="col">
+                                <h6 class="mb-1" id="deleteFilename">Dateiname</h6>
+                                <small class="text-muted">
+                                    Von: <span id="deleteGuestName">Gast</span><br>
+                                    Größe: <span id="deleteFileSize">0 MB</span>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning mt-3 mb-0">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Achtung:</strong> Dieser Vorgang kann nicht rückgängig gemacht werden!
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-wedding-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-wedding-danger" id="confirmDeleteBtn">
+                    <i class="bi bi-trash me-2"></i>Endgültig löschen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container for Notifications -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="successToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="successToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+    <div id="errorToast" class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="errorToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+    <div id="infoToast" class="toast align-items-center text-bg-info border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="infoToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/admin_uploads.js') }}"></script>
+{% endblock %}

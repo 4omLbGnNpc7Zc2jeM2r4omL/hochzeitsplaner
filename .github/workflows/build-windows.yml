@@ -1,0 +1,300 @@
+name: Build Windows Release
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller==6.14.2
+
+    - name: List project structure
+      run: |
+        Write-Host "=== Projekt-Struktur ==="
+        Get-ChildItem -Recurse -Name | Select-Object -First 50
+        Write-Host "=== Python-Dateien ==="
+        Get-ChildItem -Name "*.py"
+        
+    - name: Verify main application file
+      run: |
+        if (Test-Path start_hochzeitsplaner.py) {
+          Write-Host "✅ start_hochzeitsplaner.py gefunden"
+        } else {
+          Write-Host "❌ start_hochzeitsplaner.py nicht gefunden"
+          exit 1
+        }
+    
+    - name: Create PyInstaller spec file
+      run: |
+        @"
+        # -*- mode: python ; coding: utf-8 -*-
+        
+        block_cipher = None
+        
+        a = Analysis(
+            ['start_hochzeitsplaner.py'],
+            pathex=[],
+            binaries=[],
+            datas=[
+                ('templates', 'templates'),
+                ('static', 'static'),
+                ('fonts', 'fonts'),
+                ('auth_config.json', '.'),
+                ('dyndns_config.json', '.'),
+                ('app_config.json', '.'),
+                ('hochzeitsplaner_config.json', '.'),
+                ('requirements.txt', '.'),
+                ('database/schema.sql', 'database'),
+                ('database/tischplanung_schema.sql', 'database'),
+                ('gunicorn.conf.py', '.'),
+            ],
+            hiddenimports=[
+                'flask',
+                'flask_cors',
+                'sqlite3',
+                'json',
+                'datetime',
+                'os',
+                'sys',
+                'logging',
+                'functools',
+                'werkzeug',
+                'jinja2',
+                'markupsafe',
+                'itsdangerous',
+                'click',
+                'blinker',
+                'email_manager',
+                'sqlite_datenmanager',
+                'dyndns_manager',
+                'config_manager',
+                'generate_qr_code',
+                'generate_guest_qr_cards',
+                'pandas',
+                'openpyxl',
+                'requests',
+                'gunicorn',
+                'threading',
+                'pathlib',
+                'zipfile',
+                'tempfile',
+                'shutil',
+                'socket',
+                'time',
+                'PIL',
+                'PIL.Image',
+                'PIL.ImageDraw',
+                'PIL.ImageFont',
+                'qrcode',
+                'qrcode.image.pil',
+                're',
+                'base64',
+                'io',
+                'hashlib',
+                'urllib',
+                'urllib.parse',
+                'smtplib',
+                'email',
+                'email.mime',
+                'email.mime.text',
+                'email.mime.multipart',
+                'email.mime.base',
+                'email.mime.application',
+            ],
+            hookspath=[],
+            hooksconfig={},
+            runtime_hooks=[],
+            excludes=[],
+            win_no_prefer_redirects=False,
+            win_private_assemblies=False,
+            cipher=block_cipher,
+            noarchive=False,
+        )
+        
+        pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+        
+        exe = EXE(
+            pyz,
+            a.scripts,
+            a.binaries,
+            a.zipfiles,
+            a.datas,
+            [],
+            name='hochzeitsplaner',
+            debug=False,
+            bootloader_ignore_signals=False,
+            strip=False,
+            upx=True,
+            upx_exclude=[],
+            runtime_tmpdir=None,
+            console=True,
+            disable_windowed_traceback=False,
+            argv_emulation=False,
+            target_arch=None,
+            codesign_identity=None,
+            entitlements_file=None,
+        )
+        "@ | Out-File -FilePath "hochzeitsplaner.spec" -Encoding utf8
+    
+    - name: Build with PyInstaller
+      run: |
+        Write-Host "=== Starte PyInstaller Build ==="
+        pyinstaller hochzeitsplaner.spec --clean --noconfirm
+        Write-Host "=== Build abgeschlossen ==="
+        Get-ChildItem -Path dist -Recurse
+    
+    - name: Test built executable
+      run: |
+        Write-Host "=== Teste die erstellte .exe ==="
+        if (Test-Path "dist/hochzeitsplaner.exe") {
+          Write-Host "✅ hochzeitsplaner.exe erfolgreich erstellt"
+          Get-ChildItem "dist/hochzeitsplaner.exe" | Format-List
+        } else {
+          Write-Host "❌ hochzeitsplaner.exe nicht gefunden"
+          Get-ChildItem -Path dist
+          exit 1
+        }
+    
+    - name: Create distribution package
+      run: |
+        Write-Host "=== Erstelle Distributions-Paket ==="
+        New-Item -ItemType Directory -Path "package" -Force
+        Copy-Item "dist/hochzeitsplaner.exe" "package/"
+        
+        # Kopiere Konfigurationsdateien falls vorhanden
+        $configFiles = @("auth_config.json", "dyndns_config.json", "app_config.json", "hochzeitsplaner_config.json")
+        foreach ($file in $configFiles) {
+          if (Test-Path $file) {
+            Copy-Item $file "package/" -ErrorAction SilentlyContinue
+            Write-Host "📄 $file kopiert"
+          }
+        }
+        
+        # Kopiere database-Verzeichnis
+        if (Test-Path "database") {
+          Copy-Item "database" "package/" -Recurse -ErrorAction SilentlyContinue
+          Write-Host "📁 database-Verzeichnis kopiert"
+        }
+        
+        # Erstelle README für das Package
+        @"
+        # Hochzeitsplaner - Windows Release
+        
+        ## Installation
+        1. Entpacken Sie das ZIP-Archiv
+        2. Starten Sie hochzeitsplaner.exe
+        3. Beim ersten Start wird eine interaktive Konfiguration durchgeführt
+        
+        ## Verwendung
+        - HTTP: http://localhost:8080
+        - Die Anwendung läuft auf Port 8080 mit IPv4/IPv6 Support
+        - Zum Beenden: Strg+C im Terminal
+        
+        ## Datenverzeichnis
+        Beim ersten Start können Sie das Datenverzeichnis konfigurieren:
+        - Standard: Erstellt 'data/' Verzeichnis neben der .exe
+        - Benutzerdefiniert: Eigenen Pfad angeben
+        - Vorhandenes Verzeichnis: Bestehende Daten verwenden
+        
+        Entwickelt für Hochzeitsplanung und Gästemanagement.
+        "@ | Out-File -FilePath "package/README.txt" -Encoding utf8
+        
+        Write-Host "=== Paket-Inhalt ==="
+        Get-ChildItem -Path package -Recurse
+        
+        Write-Host "=== Erstelle ZIP-Archiv ==="
+        Compress-Archive -Path "package/*" -DestinationPath "hochzeitsplaner-windows.zip" -Force
+        Get-ChildItem "hochzeitsplaner-windows.zip" | Format-List
+    
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: hochzeitsplaner-windows
+        path: hochzeitsplaner-windows.zip
+        retention-days: 30
+
+  create-release:
+    needs: [build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Download Windows artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: hochzeitsplaner-windows
+        
+    - name: Get release version
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.get_version.outputs.VERSION }}
+        release_name: Hochzeitsplaner ${{ steps.get_version.outputs.VERSION }}
+        body: |
+          ## 🎉 Hochzeitsplaner Release ${{ steps.get_version.outputs.VERSION }}
+          
+          ### ✨ Features
+          - 🎪 Interaktive Datenbank-Pfad-Konfiguration beim ersten Start
+          - 🌐 IPv4/IPv6 Dual-Stack Support auf Port 8080
+          - 📱 Optimierte Benutzeroberfläche mit kompaktem Layout
+          - 🗃️ SQLite-Datenbank für lokale Datenspeicherung
+          - 🎯 Gästemanagement und RSVP-System
+          - 📧 E-Mail-Integration für Benachrichtigungen
+          - 🗺️ Google Maps Integration für Standorte
+          - 💰 Budget- und Kostenverwaltung
+          - 📋 Aufgabenplaner für Hochzeitsvorbereitungen
+          
+          ### 🚀 Installation
+          1. `hochzeitsplaner-windows.zip` herunterladen
+          2. ZIP-Archiv entpacken
+          3. `hochzeitsplaner.exe` starten
+          4. Beim ersten Start: Datenverzeichnis konfigurieren
+          5. Browser öffnen: http://localhost:8080
+          
+          ### 🔧 Systemanforderungen
+          - Windows 10/11 (x64)
+          - Keine zusätzliche Software erforderlich
+          - Internetverbindung für E-Mail und Maps (optional)
+          
+          ### 🆕 Neue Features in dieser Version
+          - Interaktive Erstkonfiguration
+          - Benutzerfreundliches Startup-Script  
+          - Aufgeräumte Codebase ohne Debug-Logs
+          - Optimierte UI-Layouts
+          
+          **Hinweis**: Alle Daten werden lokal gespeichert. Keine Cloud-Abhängigkeiten.
+        draft: false
+        prerelease: false
+    
+    - name: Upload Windows Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./hochzeitsplaner-windows.zip
+        asset_name: hochzeitsplaner-windows-${{ steps.get_version.outputs.VERSION }}.zip
+        asset_content_type: application/zip

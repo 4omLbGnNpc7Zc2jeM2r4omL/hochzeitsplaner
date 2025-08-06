@@ -1,0 +1,578 @@
+{% extends "base.html" %}
+
+{% block title %}Aufgabenplaner - {{ brautpaar_namen or "Brautpaar heiratet" }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <!-- Fixed Alert Container -->
+    <div id="aufgabenAlertContainer" class="alert-container-fixed"></div>
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-check2-square me-2"></i>Aufgabenplaner</h2>
+        <div class="btn-group">
+            <button class="btn btn-wedding-secondary" onclick="openEmailAssignment()">
+                <i class="bi bi-envelope me-2"></i>E-Mail-Zuordnung
+                <span id="unassignedEmailBadge" class="badge ms-1" style="background: linear-gradient(135deg, #dc3545, #e85a5a); color: white; display: none;">0</span>
+            </button>
+            <button class="btn btn-wedding-primary" data-bs-toggle="modal" data-bs-target="#aufgabeModal">
+                <i class="bi bi-plus-circle me-2"></i>Neue Aufgabe
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistik Karten -->
+    <div class="row mb-4">
+        <div class="col-md-2 col-6 mb-3">
+            <div class="card-wedding-stat-gold">
+                <div class="card-body">
+                    <div class="card-content">
+                        <h6 class="card-title">Gesamt</h6>
+                        <h3 id="aufgabenGesamt">-</h3>
+                        <small>Aufgaben</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-list-task fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2 col-6 mb-3">
+            <div class="card-wedding-stat-gold">
+                <div class="card-body">
+                    <div class="card-content">
+                        <h6 class="card-title">Offen</h6>
+                        <h3 id="aufgabenOffen">-</h3>
+                        <small>Aufgaben</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-hourglass-split fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2 col-6 mb-3">
+            <div class="card-wedding-stat-gold">
+                <div class="card-body">
+                    <div class="card-content">
+                        <h6 class="card-title">In Bearbeitung</h6>
+                        <h3 id="aufgabenInBearbeitung">-</h3>
+                        <small>Aufgaben</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-gear fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2 col-6 mb-3">
+            <div class="card-wedding-stat-gold">
+                <div class="card-body">
+                    <div class="card-content">
+                        <h6 class="card-title">Abgeschlossen</h6>
+                        <h3 id="aufgabenAbgeschlossen">-</h3>
+                        <small>Aufgaben</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-check-circle fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2 col-6 mb-3">
+            <div class="card-wedding-stat-gold">
+                <div class="card-body">
+                    <div class="card-content">
+                        <h6 class="card-title">Überfällig</h6>
+                        <h3 id="aufgabenUeberfaellig">-</h3>
+                        <small>Aufgaben</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-exclamation-triangle fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2 col-6 mb-3">
+            <div class="card-wedding-stat-gold">
+                <div class="card-body">
+                    <div class="card-content">
+                        <h6 class="card-title">Fortschritt</h6>
+                        <h3 id="aufgabenFortschritt">-</h3>
+                        <small>Prozent</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-graph-up fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter und Suche -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="filterStatus" class="form-label">Status</label>
+                            <select id="filterStatus" class="form-select">
+                                <option value="">Alle Status</option>
+                                <option value="Offen">Offen</option>
+                                <option value="In Bearbeitung">In Bearbeitung</option>
+                                <option value="Abgeschlossen">Abgeschlossen</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filterZustaendig" class="form-label">Zuständig</label>
+                            <select id="filterZustaendig" class="form-select">
+                                <option value="">Alle</option>
+                                <option value="Braut">{{ bride_name or 'Braut' }}</option>
+                                <option value="Bräutigam">{{ groom_name or 'Bräutigam' }}</option>
+                                <option value="Beide">Beide</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filterPrioritaet" class="form-label">Priorität</label>
+                            <select id="filterPrioritaet" class="form-select">
+                                <option value="">Alle Prioritäten</option>
+                                <option value="Hoch">Hoch</option>
+                                <option value="Mittel">Mittel</option>
+                                <option value="Niedrig">Niedrig</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="searchAufgaben" class="form-label">Suche</label>
+                            <input type="text" id="searchAufgaben" class="form-control" placeholder="Titel oder Beschreibung...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aufgabenliste -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Aufgaben</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="aufgabenTable">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Titel</th>
+                                    <th>Zuständig</th>
+                                    <th>Priorität</th>
+                                    <th>Fällig</th>
+                                    <th>Kategorie</th>
+                                    <th>E-Mails</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="aufgabenTableBody">
+                                <!-- Wird dynamisch gefüllt -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Aufgabe Modal -->
+<div class="modal fade" id="aufgabeModal" tabindex="-1" aria-labelledby="aufgabeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="aufgabeModalLabel">Neue Aufgabe</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="aufgabeForm">
+                    <input type="hidden" id="aufgabeId" value="">
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="aufgabeTitel" class="form-label">Titel <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="aufgabeTitel" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="aufgabePrioritaet" class="form-label">Priorität</label>
+                                <select class="form-select" id="aufgabePrioritaet">
+                                    <option value="Niedrig">Niedrig</option>
+                                    <option value="Mittel" selected>Mittel</option>
+                                    <option value="Hoch">Hoch</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="aufgabeBeschreibung" class="form-label">Beschreibung</label>
+                        <textarea class="form-control" id="aufgabeBeschreibung" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="aufgabeZustaendig" class="form-label">Zuständig</label>
+                                <select class="form-select" id="aufgabeZustaendig">
+                                    <option value="Braut">{{ bride_name or 'Braut' }}</option>
+                                    <option value="Bräutigam">{{ groom_name or 'Bräutigam' }}</option>
+                                    <option value="Beide">Beide</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="aufgabeStatus" class="form-label">Status</label>
+                                <select class="form-select" id="aufgabeStatus">
+                                    <option value="Offen" selected>Offen</option>
+                                    <option value="In Bearbeitung">In Bearbeitung</option>
+                                    <option value="Abgeschlossen">Abgeschlossen</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="aufgabeFaelligkeitsdatum" class="form-label">Fälligkeitsdatum</label>
+                                <input type="date" class="form-control" id="aufgabeFaelligkeitsdatum">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="aufgabeKategorie" class="form-label">Kategorie</label>
+                        <input type="text" class="form-control" id="aufgabeKategorie" 
+                               placeholder="z.B. Dekoration, Catering, Unterhaltung...">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="aufgabeNotizen" class="form-label">Notizen</label>
+                        <textarea class="form-control" id="aufgabeNotizen" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-danger" id="deleteAufgabeBtn" style="display: none;">Löschen</button>
+                <button type="button" class="btn btn-primary" id="saveAufgabeBtn">Speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bestätigung Modal -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmDeleteModalLabel">Aufgabe löschen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Sind Sie sicher, dass Sie diese Aufgabe löschen möchten?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Löschen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- E-Mail Modal -->
+<div class="modal fade" id="emailModal" tabindex="-1" aria-labelledby="emailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="emailModalLabel">
+                    <i class="bi bi-envelope me-2"></i>E-Mail zu Aufgabe senden
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- E-Mail-Status-Alert -->
+                <div id="emailStatusAlert" style="display: none;"></div>
+                
+                <!-- Aufgaben-Info -->
+                <div class="alert alert-info mb-3">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <strong>📝 Aufgabe:</strong> <span id="emailTaskTitle">-</span><br>
+                            <strong>🔗 ID:</strong> #<span id="emailTaskId">-</span>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="viewEmailHistoryBtn">
+                                <i class="bi bi-clock-history me-1"></i>E-Mail-Verlauf (<span id="emailCount">0</span>)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- E-Mail-Form -->
+                <form id="emailForm">
+                    <input type="hidden" id="emailTaskIdHidden" value="">
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="emailTo" class="form-label">An <span class="text-danger">*</span></label>
+                                <input type="email" class="form-control" id="emailTo" multiple 
+                                       placeholder="email@example.com (mehrere durch Komma getrennt)">
+                                <div class="form-text">Mehrere E-Mail-Adressen durch Komma trennen</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="emailCc" class="form-label">CC (optional)</label>
+                                <input type="email" class="form-control" id="emailCc" multiple 
+                                       placeholder="cc@example.com">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="emailSubject" class="form-label">Betreff <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="emailSubject" 
+                               placeholder="Betreff der E-Mail">
+                        <div class="form-text">Hinweis: "[Aufgabe #X]" wird automatisch vorangestellt</div>
+                    </div>
+                    
+                    <!-- E-Mail Body Tabs -->
+                    <ul class="nav nav-tabs mb-3" id="emailBodyTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="plaintext-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#plaintext-pane" type="button" role="tab">
+                                <i class="bi bi-file-text me-1"></i>Text
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="html-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#html-pane" type="button" role="tab">
+                                <i class="bi bi-code me-1"></i>HTML (optional)
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content" id="emailBodyTabsContent">
+                        <div class="tab-pane fade show active" id="plaintext-pane" role="tabpanel">
+                            <div class="mb-3">
+                                <label for="emailBody" class="form-label">Nachricht <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="emailBody" rows="8" 
+                                          placeholder="Ihre Nachricht..."></textarea>
+                                <div class="form-text">Aufgaben-Informationen werden automatisch am Ende hinzugefügt</div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="html-pane" role="tabpanel">
+                            <div class="mb-3">
+                                <label for="emailHtmlBody" class="form-label">HTML-Nachricht (optional)</label>
+                                <textarea class="form-control" id="emailHtmlBody" rows="8" 
+                                          placeholder="<p>HTML-Version Ihrer Nachricht...</p>"></textarea>
+                                <div class="form-text">Wenn leer, wird nur die Text-Version verwendet</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- E-Mail-Vorlagen -->
+                    <div class="mb-3">
+                        <label class="form-label">📋 Schnelle Vorlagen</label>
+                        <div class="btn-group d-block" role="group">
+                            <button type="button" class="btn btn-outline-secondary btn-sm me-2 mb-1" 
+                                    onclick="insertEmailTemplate('follow_up')">
+                                Nachfrage Template
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm me-2 mb-1" 
+                                    onclick="insertEmailTemplate('meeting_request')">
+                                Termin anfragen
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm me-2 mb-1" 
+                                    onclick="insertEmailTemplate('status_update')">
+                                Status-Update
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm me-2 mb-1" 
+                                    onclick="insertEmailTemplate('reminder')">
+                                Erinnerung
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-primary" id="sendEmailBtn">
+                    <i class="bi bi-send me-1"></i>E-Mail senden
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- E-Mail-Verlauf Modal -->
+<div class="modal fade" id="emailHistoryModal" tabindex="-1" aria-labelledby="emailHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="emailHistoryModalLabel">
+                    <i class="bi bi-clock-history me-2"></i>E-Mail-Verlauf
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info mb-3">
+                    <strong>📝 Aufgabe:</strong> <span id="historyTaskTitle">-</span><br>
+                    <strong>🔗 ID:</strong> #<span id="historyTaskId">-</span>
+                </div>
+                
+                <div id="emailHistoryContent">
+                    <div class="text-center text-muted">
+                        <i class="bi bi-hourglass-split fs-1"></i>
+                        <p>Lade E-Mail-Verlauf...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- E-Mail-Zuordnung Modal -->
+<div class="modal fade" id="emailAssignmentModal" tabindex="-1" aria-labelledby="emailAssignmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="emailAssignmentModalLabel">
+                    <i class="bi bi-envelope-plus me-2"></i>E-Mail-Zuordnung
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Filter-Optionen -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="btn-group" role="group" aria-label="E-Mail Filter">
+                            <input type="radio" class="btn-check" name="emailFilter" id="filterUnassigned" value="unassigned" checked>
+                            <label class="btn btn-outline-primary" for="filterUnassigned">
+                                <i class="bi bi-envelope me-1"></i>Nicht zugeordnet
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="emailFilter" id="filterAll" value="all">
+                            <label class="btn btn-outline-secondary" for="filterAll">
+                                <i class="bi bi-list me-1"></i>Alle
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="emailFilter" id="filterIgnored" value="ignored">
+                            <label class="btn btn-outline-warning" for="filterIgnored">
+                                <i class="bi bi-eye-slash me-1"></i>Ignorierte
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <!-- E-Mails -->
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-envelope me-2"></i>E-Mails <span id="emailListTitle">(nicht zugeordnet)</span></h6>
+                        <div id="unassignedEmailsList" class="border rounded p-3" style="max-height: 500px; overflow-y: auto;">
+                            <div class="text-center text-muted">
+                                <i class="bi bi-hourglass-split fs-1"></i>
+                                <p>Lade E-Mails...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Aufgaben Liste -->
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-check2-square me-2"></i>Aufgaben</h6>
+                        <div id="taskAssignmentList" class="border rounded p-3" style="max-height: 500px; overflow-y: auto;">
+                            <div class="text-center text-muted">
+                                <p>Wählen Sie eine E-Mail aus, um sie einer Aufgabe zuzuordnen</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <button type="button" class="btn btn-primary" onclick="refreshEmailAssignment()">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Aktualisieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- E-Mail-Antworten Modal -->
+<div class="modal fade" id="emailReplyModal" tabindex="-1" aria-labelledby="emailReplyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="emailReplyModalLabel">
+                    <i class="bi bi-reply me-2"></i>E-Mail-Antwort senden
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="emailReplyForm">
+                    <div class="alert alert-info mb-3">
+                        <strong>📝 Aufgabe:</strong> <span id="replyTaskTitle">-</span><br>
+                        <strong>🔗 ID:</strong> #<span id="replyTaskId">-</span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="replyToEmails" class="form-label">An *</label>
+                        <input type="email" class="form-control" id="replyToEmails" required readonly>
+                        <div class="form-text">Empfänger-E-Mail-Adresse</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="replyCcEmails" class="form-label">CC (optional)</label>
+                        <input type="text" class="form-control" id="replyCcEmails" placeholder="E-Mail-Adressen durch Komma getrennt">
+                        <div class="form-text">Zusätzliche Empfänger in Kopie</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="replySubject" class="form-label">Betreff *</label>
+                        <input type="text" class="form-control" id="replySubject" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="replyBody" class="form-label">Nachricht *</label>
+                        <textarea class="form-control" id="replyBody" rows="8" required placeholder="Ihre Antwort..."></textarea>
+                    </div>
+                    
+                    <input type="hidden" id="replyInReplyTo" value="">
+                    <input type="hidden" id="replyTaskIdHidden" value="">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="sendEmailReply()">
+                    <i class="bi bi-send me-2"></i>Antwort senden
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/aufgabenplaner.js') }}"></script>
+{% endblock %}

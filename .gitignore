@@ -1,0 +1,98 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+.env
+
+# PyInstaller
+*.manifest
+*.spec
+build/
+dist/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Application specific
+data/
+qr_cards/
+*.db
+*.db-shm
+*.db-wal
+Uploads/
+uploads/
+
+# macOS artifacts
+__MACOSX/
+
+# SSL certificates (if generated locally)
+ssl_certificate.crt
+ssl_private_key.key
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Config files with sensitive data (keep templates)
+# auth_config.json
+# dyndns_config.json
+# app_config.json
+
+# Documentation artifacts
+*.md.backup
+WEDDING_THEME_*.md
+UPLOAD_CARDS_*.md
+
+# Test files
+test_*.py
+tests/

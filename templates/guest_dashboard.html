@@ -1,0 +1,663 @@
+{% extends "base.html" %}
+
+{% block title %}{{ brautpaar_namen or "Brautpaar heiratet" }} - Gäste-Dashboard{% endblock %}
+
+{# Überschreibe die Navigation für Gäste - ohne Burger-Menü #}
+{% block navigation %}
+<nav class="navbar navbar-expand-lg navbar-light border-bottom" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{ url_for('guest_dashboard') }}" style="color: #8b7355; font-weight: 500;">
+            <i class="bi bi-heart-fill me-2" style="color: #d4af37;"></i>
+            {{ brautpaar_namen or "Hochzeitsplaner" }}
+        </a>
+        
+        <!-- Direkte Navigation ohne Burger-Menü -->
+        <div class="navbar-nav ms-auto">
+            <span class="navbar-text me-3" style="color: #8b7355;">
+                <i class="bi bi-person-heart me-1"></i>
+                Willkommen, {{ session.display_name }}!
+            </span>
+            <a class="nav-link btn btn-outline-secondary btn-sm d-flex align-items-center" 
+               href="{{ url_for('logout') }}" title="Abmelden"
+               style="border-color: #d4af37; color: #8b7355;">
+                <i class="bi bi-box-arrow-right me-1"></i>
+                <span class="d-none d-md-inline">Abmelden</span>
+            </a>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<!-- Mobile-optimierte Navigation -->
+<div class="container-fluid p-0">
+    <!-- Willkommensnachricht -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="alert border-0 shadow-sm mb-3" id="welcomeMessage" 
+                 style="background: linear-gradient(135deg, #e8d5a3, #f4e4bc); border-radius: 12px;">
+                <div class="d-flex align-items-center">
+                    <div id="personalizedWelcome">
+                        <h5 class="mb-1" style="color: #8b7355; font-weight: 500;">
+                            <i class="bi bi-person-heart me-2"></i>
+                            Willkommen, {{ session.display_name }}!
+                        </h5>
+                        <p class="mb-0 small" style="color: #8b7355;">
+                            {{ brautpaar_namen or "Hochzeit" }} - Dein Dashboard
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Mobile Tab-Navigation -->
+    <div class="row">
+        <div class="col-12">
+            <ul class="nav nav-pills nav-fill mb-3" id="guestDashboardTabs" role="tablist" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); padding: 0.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="rsvp-tab" data-bs-toggle="pill" data-bs-target="#rsvp-pane" type="button" role="tab">
+                        <i class="bi bi-calendar-check d-block d-md-inline me-md-1"></i>
+                        <span class="d-none d-md-inline">RSVP</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="zeitplan-tab" data-bs-toggle="pill" data-bs-target="#zeitplan-pane" type="button" role="tab">
+                        <i class="bi bi-clock d-block d-md-inline me-md-1"></i>
+                        <span class="d-none d-md-inline">Ablauf</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="locations-tab" data-bs-toggle="pill" data-bs-target="#locations-pane" type="button" role="tab">
+                        <i class="bi bi-geo-alt d-block d-md-inline me-md-1"></i>
+                        <span class="d-none d-md-inline">Orte</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="uploads-tab" data-bs-toggle="pill" data-bs-target="#uploads-pane" type="button" role="tab">
+                        <i class="bi bi-cloud-upload d-block d-md-inline me-md-1"></i>
+                        <span class="d-none d-md-inline">Uploads</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="info-tab" data-bs-toggle="pill" data-bs-target="#info-pane" type="button" role="tab">
+                        <i class="bi bi-info-circle d-block d-md-inline me-md-1"></i>
+                        <span class="d-none d-md-inline">Info</span>
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Tab Content -->
+    <div class="tab-content" id="guestDashboardTabContent">
+        <!-- RSVP Tab -->
+        <div class="tab-pane fade show active" id="rsvp-pane" role="tabpanel">
+            <div class="row justify-content-center">
+                <div class="col-12 col-md-8 col-lg-6">
+                    <!-- Deine Einladung Card über dem RSVP -->
+                    <div class="card mb-3 border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 15px;">
+                        <div class="card-header text-dark border-0" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border-radius: 15px 15px 0 0;">
+                            <h5 class="mb-0" style="color: #8b7355; font-weight: 500;">
+                                <i class="bi bi-envelope-heart me-2"></i>
+                                Einladung
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-3" style="color: #5a5a5a;">
+                                Möchtest du deine persönliche Einladung nochmal ansehen?
+                            </p>
+                            
+                            <div class="d-grid">
+                                <button type="button" class="btn btn-lg rounded-pill shadow-sm" id="showInvitationBtn"
+                                        style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border: none; color: #8b7355; font-weight: 500; transition: all 0.3s ease;">
+                                    <i class="bi bi-envelope-open-heart me-2"></i>
+                                    Einladung anzeigen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- RSVP Card -->
+                    <div class="card border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 15px;">
+                        <div class="card-header text-white border-0" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border-radius: 15px 15px 0 0;">
+                            <h5 class="mb-0" style="color: #8b7355; font-weight: 500;">
+                                <i class="bi bi-calendar-check me-2"></i>
+                                <span id="teilnahmeTitle">Teilnahme</span>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="rsvpForm">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold" style="color: #8b7355;">Status</label>
+                                    <select class="form-select" id="guestStatus" style="border: 2px solid #d4af37; border-radius: 8px;">
+                                        <option value="Offen" id="statusOpen">Noch nicht entschieden</option>
+                                        <option value="Zugesagt" id="statusConfirmed">Ich komme gerne!</option>
+                                        <option value="Abgesagt" id="statusDeclined">Kann leider nicht kommen</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3" id="personenDiv">
+                                    <label for="personenAnzahl" class="form-label fw-bold" style="color: #8b7355;">Anzahl Personen</label>
+                                    <input type="number" class="form-control" id="personenAnzahl" min="1" max="1" value="1" 
+                                           style="border: 2px solid #d4af37; border-radius: 8px;">
+                                    <div class="form-text">
+                                        Maximum: <span id="maxPersonen">1</span> Person(en)
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="guestNotiz" class="form-label fw-bold" style="color: #8b7355;">Nachricht (optional)</label>
+                                    <textarea class="form-control" id="guestNotiz" rows="3" placeholder="Allergien, Wünsche, Grüße..."
+                                              style="border: 2px solid #d4af37; border-radius: 8px;"></textarea>
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button type="button" class="btn btn-lg rounded-pill shadow-sm" id="saveRsvp"
+                                            style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border: none; color: #8b7355; font-weight: 500; transition: all 0.3s ease;">
+                                        <i class="bi bi-check-circle me-2"></i>
+                                        <span id="saveRsvpText">Teilnahme speichern</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div id="rsvpSuccess" class="text-center d-none">
+                                <i class="bi bi-check-circle-fill" style="font-size: 3rem; color: #d4af37;"></i>
+                                <h5 class="mt-3" style="color: #8b7355;">Vielen Dank!</h5>
+                                <p class="text-muted" id="rsvpSuccessText">Deine Teilnahme wurde gespeichert.</p>
+                                
+                                <!-- Einladung Button in RSVP Success -->
+                                <div class="mt-3">
+                                    <button type="button" class="btn btn-outline-warning rounded-pill" id="showInvitationBtnInRsvp"
+                                            style="border: 2px solid #d4af37; color: #8b7355; font-weight: 500;">
+                                        <i class="bi bi-envelope-open-heart me-2"></i>
+                                        Einladung nochmal ansehen
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Zeitplan Tab -->
+        <div class="tab-pane fade" id="zeitplan-pane" role="tabpanel">
+            <div class="row justify-content-center">
+                <div class="col-12">
+                    <div class="card border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 15px;">
+                        <div class="card-header text-white border-0" style="background: linear-gradient(135deg, #8b7355, #d4af37); border-radius: 15px 15px 0 0;">
+                            <h5 class="mb-0" style="color: #ffffff; font-weight: 500;">
+                                <i class="bi bi-clock me-2"></i>
+                                Hochzeitsablauf
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="zeitplanComplete">
+                                <!-- Vollständiger Zeitplan wird via JavaScript geladen -->
+                                <div class="text-center">
+                                    <div class="spinner-border spinner-border-sm" role="status" style="color: #d4af37;">
+                                        <span class="visually-hidden">Lädt...</span>
+                                    </div>
+                                    <p class="mt-2 text-muted">Lade Zeitplan...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Locations Tab -->
+        <div class="tab-pane fade" id="locations-pane" role="tabpanel">
+            <div class="row justify-content-center">
+                <div class="col-12">
+                    <div class="card border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 15px;">
+                        <div class="card-header text-white border-0" style="background: linear-gradient(135deg, #d4af37, #8b7355); border-radius: 15px 15px 0 0;">
+                            <h5 class="mb-0" style="color: #ffffff; font-weight: 500;">
+                                <i class="bi bi-geo-alt me-2"></i>
+                                Locations & Anfahrt
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- Kompakte Kartenvorschauen -->
+                            <div id="guestMapPreviewsSection">
+                                <!-- Standesamt -->
+                                <div id="guestStandesamtMapPreview" class="mb-3">
+                                    <div class="card border-0 shadow-sm" style="border: 2px solid #d4af37 !important; border-radius: 12px;">
+                                        <div class="card-header text-white py-2 border-0" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border-radius: 12px 12px 0 0;">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0" style="color: #8b7355; font-weight: 500;">
+                                                    <i class="bi bi-building me-2"></i>
+                                                    <span id="standesamtName">Standesamt</span>
+                                                </h6>
+                                                <div class="btn-group btn-group-sm">
+                                                    <button type="button" class="btn btn-sm rounded-pill me-1 btn-maps btn-apple-maps" onclick="openInAppleMaps('standesamt')"
+                                                            style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: #8b7355;"
+                                                            title="In Apple Karten öffnen" data-bs-toggle="tooltip">
+                                                        <img src="/static/icons/apple-maps-16.png" alt="Apple Karten" style="width: 16px; height: 16px;"><span class="d-none d-md-inline ms-1">Karten</span>
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm rounded-pill btn-maps btn-google-maps" onclick="openInGoogleMaps('standesamt')"
+                                                            style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: #8b7355;"
+                                                            title="In Google Maps öffnen" data-bs-toggle="tooltip">
+                                                        <img src="/static/icons/google-maps-16.png" alt="Google Maps" style="width: 16px; height: 16px;"><span class="d-none d-md-inline ms-1">Maps</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="card-body p-3">
+                                            <div class="d-flex align-items-start mb-2">
+                                                <i class="bi bi-geo-alt-fill me-2 mt-1" style="color: #d4af37;"></i>
+                                                <span id="standesamtAdresse" class="text-muted small">Adresse wird geladen...</span>
+                                            </div>
+                                            
+                                            <!-- Beschreibung -->
+                                            <div id="standesamtBeschreibung" class="mb-3 small text-muted" style="line-height: 1.4;"></div>
+                                            
+                                            <!-- Kompakte Karte -->
+                                            <div style="height: 200px; width: 100%; position: relative; overflow: hidden; border-radius: 8px; border: 2px solid #f8f9fa;">
+                                                <div id="guestStandesamtMap" style="height: 100%; width: 100%;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Hochzeitslocation -->
+                                <div id="guestHochzeitslocationMapPreview" class="mb-3">
+                                    <div class="card border-0 shadow-sm" style="border: 2px solid #8b7355 !important; border-radius: 12px;">
+                                        <div class="card-header text-white py-2 border-0" style="background: linear-gradient(135deg, #8b7355, #d4af37); border-radius: 12px 12px 0 0;">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0" style="color: #ffffff; font-weight: 500;">
+                                                    <i class="bi bi-heart-fill me-2"></i>
+                                                    <span id="hochzeitslocationName">Hochzeitslocation</span>
+                                                </h6>
+                                                <div class="btn-group btn-group-sm">
+                                                    <button type="button" class="btn btn-sm rounded-pill me-1 btn-maps btn-apple-maps" onclick="openInAppleMaps('hochzeitslocation')"
+                                                            style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: #ffffff;"
+                                                            title="In Apple Karten öffnen" data-bs-toggle="tooltip">
+                                                        <img src="/static/icons/apple-maps-16.png" alt="Apple Karten" style="width: 16px; height: 16px;"><span class="d-none d-md-inline ms-1">Karten</span>
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm rounded-pill btn-maps btn-google-maps" onclick="openInGoogleMaps('hochzeitslocation')"
+                                                            style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: #ffffff;"
+                                                            title="In Google Maps öffnen" data-bs-toggle="tooltip">
+                                                        <img src="/static/icons/google-maps-16.png" alt="Google Maps" style="width: 16px; height: 16px;"><span class="d-none d-md-inline ms-1">Maps</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="card-body p-3">
+                                            <div class="d-flex align-items-start mb-2">
+                                                <i class="bi bi-geo-alt-fill me-2 mt-1" style="color: #8b7355;"></i>
+                                                <span id="hochzeitslocationAdresse" class="text-muted small">Adresse wird geladen...</span>
+                                            </div>
+                                            
+                                            <!-- Beschreibung -->
+                                            <div id="hochzeitslocationBeschreibung" class="mb-3 small text-muted" style="line-height: 1.4;"></div>
+                                            
+                                            <!-- Kompakte Karte -->
+                                            <div style="height: 200px; width: 100%; position: relative; overflow: hidden; border-radius: 8px; border: 2px solid #f8f9fa;">
+                                                <div id="guestHochzeitslocationMap" style="height: 100%; width: 100%;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Uploads Tab -->
+        <div class="tab-pane fade" id="uploads-pane" role="tabpanel">
+            <div class="row justify-content-center">
+                <div class="col-12 col-md-10 col-lg-8">
+                    <!-- Upload Form Card -->
+                    <div class="card mb-4 border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 15px;">
+                        <div class="card-header border-0" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border-radius: 15px 15px 0 0;">
+                            <h5 class="mb-0" style="color: #8b7355; font-weight: 500;">
+                                <i class="bi bi-cloud-upload me-2"></i>
+                                Fotos & Videos hochladen
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="upload-area border-2 border-dashed rounded-3 p-4 text-center mb-4" 
+                                 id="uploadArea" 
+                                 style="border-color: #d4af37 !important; background: linear-gradient(135deg, #faf8f0 0%, #f8f6f0 100%); transition: all 0.3s ease;"
+                                 onclick="document.getElementById('fileInput').click()">
+                                <div class="upload-icon mb-3">
+                                    <i class="bi bi-cloud-upload" style="font-size: 3rem; color: #d4af37;"></i>
+                                </div>
+                                <h6 style="color: #8b7355;">Dateien hier hinziehen oder klicken zum Auswählen</h6>
+                                <p class="text-muted small mb-3">
+                                    Erlaubte Formate: JPG, PNG, GIF, MP4, MOV, AVI<br>
+                                    Maximale Größe: <span id="maxFileSize">50</span> MB pro Datei
+                                </p>
+                                <input type="file" id="fileInput" multiple accept="image/*,video/*" style="display: none;">
+                                <button type="button" class="btn btn-outline-primary" onclick="event.stopPropagation(); document.getElementById('fileInput').click()" 
+                                        style="border-color: #d4af37; color: #8b7355;">
+                                    <i class="bi bi-folder2-open me-2"></i>
+                                    Dateien auswählen
+                                </button>
+                            </div>
+                            
+                            <!-- Upload Progress -->
+                            <div id="uploadProgress" style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="small fw-bold" style="color: #8b7355;">Upload läuft...</span>
+                                    <span class="small" id="uploadPercent">0%</span>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar" id="uploadProgressBar" 
+                                         style="background: linear-gradient(135deg, #d4af37, #f4e4bc);" 
+                                         role="progressbar" 
+                                         aria-valuenow="0" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Selected Files List -->
+                            <div id="selectedFiles" class="mt-3" style="display: none;">
+                                <h6 style="color: #8b7355;">
+                                    <i class="bi bi-files me-2"></i>
+                                    Ausgewählte Dateien
+                                </h6>
+                                <div id="filesList" class="list-group mb-3"></div>
+                                <div class="d-grid">
+                                    <button type="button" class="btn btn-success btn-lg" id="uploadBtn" disabled 
+                                            style="background: linear-gradient(135deg, #28a745, #20c997); border: none; color: white; font-weight: 500;">
+                                        <i class="bi bi-cloud-upload me-2"></i>
+                                        Jetzt hochladen
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- My Uploads Card -->
+                    <div class="card border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 15px;">
+                        <div class="card-header border-0" style="background: linear-gradient(135deg, #8b7355, #d4af37); border-radius: 15px 15px 0 0;">
+                            <h5 class="mb-0" style="color: #ffffff; font-weight: 500;">
+                                <i class="bi bi-collection me-2"></i>
+                                Meine Uploads
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="myUploadsContainer">
+                                <!-- Wird via JavaScript geladen -->
+                                <div class="text-center">
+                                    <div class="spinner-border spinner-border-sm" role="status" style="color: #d4af37;">
+                                        <span class="visually-hidden">Lädt...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Informationen Tab -->
+        <div class="tab-pane fade" id="info-pane" role="tabpanel">
+            <div class="row justify-content-center">
+                <div class="col-12 col-md-8 col-lg-6">
+                    <div class="card mb-3 border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 15px;">
+                        <div class="card-header border-0" style="background: linear-gradient(135deg, #8b7355, #d4af37); border-radius: 15px 15px 0 0;">
+                            <h5 class="mb-0" style="color: #ffffff; font-weight: 500;">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Wichtige Informationen
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="guestInformationenContainer">
+                                <!-- Wird via JavaScript geladen -->
+                                <div class="text-center">
+                                    <div class="spinner-border spinner-border-sm" role="status" style="color: #d4af37;">
+                                        <span class="visually-hidden">Lädt...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- First Login Welcome Modal - Einladungskarten Design -->
+<div class="modal fade" id="firstLoginModal" tabindex="-1" aria-labelledby="firstLoginModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);">
+            <div class="modal-body p-0">
+                <!-- Einladungskarte Design -->
+                <div class="invitation-card text-center p-5" style="background: #ffffff; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+                    
+                    <!-- Hochzeitsdatum oben -->
+                    <div class="wedding-date mb-4">
+                        <h3 id="weddingDateDisplay" class="text-elegant mb-3" style="font-family: 'Playfair Display', serif; font-weight: 300; color: #8b7355; letter-spacing: 2px;">
+                            25. Juli 2026
+                        </h3>
+                        <hr class="elegant-divider mx-auto" style="width: 150px; height: 2px; background: linear-gradient(90deg, transparent, #d4af37, transparent); border: none;">
+                    </div>
+                    
+                    <!-- Foto Bereich -->
+                    <div class="wedding-photo mb-4">
+                        <div id="welcomeImageContainer" class="d-none">
+                            <img id="welcomeImage" src="" alt="Hochzeitsfoto" class="img-fluid shadow-lg" 
+                                 style="max-height: 300px; max-width: 100%; object-fit: cover; border-radius: 10px; border: 3px solid #f8f9fa;">
+                        </div>
+                        <div id="welcomeImagePlaceholder" class="photo-placeholder p-4" 
+                             style="background: linear-gradient(45deg, #f8f9fa, #e9ecef); border-radius: 10px; border: 2px dashed #d4af37;">
+                            <i class="bi bi-heart-fill text-muted opacity-50" style="font-size: 4rem;"></i>
+                            <p class="text-muted mt-2 mb-0">Hochzeitsfoto</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Trennstrich unter dem Foto -->
+                    <hr class="elegant-divider mx-auto mb-4" style="width: 150px; height: 2px; background: linear-gradient(90deg, transparent, #d4af37, transparent); border: none;">
+                    
+                    <!-- Header Emojis -->
+                    <div class="rings-emoji mb-4">
+                        <span id="invitationRings" style="font-size: 2.5rem; display: none;"></span>
+                    </div>
+                    
+                    <!-- Einladungstext -->
+                    <div class="invitation-text">
+                        <h4 id="invitationHeader" class="text-elegant mb-3" style="font-family: 'Playfair Display', serif; font-weight: 400; color: #8b7355; display: none;">
+                        </h4>
+                        <div id="welcomeText" class="text-content mx-auto" 
+                             style="font-family: 'Crimson Text', serif; font-size: 1.1rem; line-height: 1.8; color: #5a5a5a; max-width: 400px;">
+                            Liebe Familie,<br>
+                            liebe Freunde,<br><br>
+                            schön, dass ihr bis hier her gefunden habt und unsere Hochzeit am 25.07.2026 mit uns feiern möchtest.<br><br>
+                            Auf dieser Website habt ihr die Möglichkeit....
+                        </div>
+                    </div>
+                    
+                    <!-- Weiter Button -->
+                    <div class="mt-5">
+                        <button type="button" class="btn btn-elegant btn-lg px-5 py-3 rounded-pill shadow-sm" 
+                                data-bs-dismiss="modal"
+                                style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border: none; color: #8b7355; font-weight: 500; letter-spacing: 1px; transition: all 0.3s ease;">
+                            ✨ Zur Hochzeitswebsite ✨
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Zusätzliche Schriftarten -->
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@300;400;500;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+    
+    .text-elegant {
+        font-family: 'Playfair Display', serif !important;
+    }
+    
+    .btn-elegant:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(212, 175, 55, 0.3) !important;
+    }
+    
+    /* Button hover effects for all elegant wedding buttons */
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4) !important;
+        transition: all 0.3s ease;
+    }
+
+    /* Card hover effects */
+    .card:hover {
+        transform: translateY(-3px);
+        transition: all 0.3s ease;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15) !important;
+    }
+    
+    /* Enhanced Tab Navigation Styles */
+    .nav-pills .nav-link {
+        transition: all 0.3s ease;
+        border-radius: 8px !important;
+        margin: 0.25rem;
+        font-weight: 500;
+    }
+    
+    /* Inactive Tab Style */
+    .nav-pills .nav-link:not(.active) {
+        background: transparent !important;
+        border: 1px solid #d4af37 !important;
+        color: #8b7355 !important;
+    }
+    
+    /* Active Tab Style */
+    .nav-pills .nav-link.active {
+        background: linear-gradient(135deg, #d4af37, #f4e4bc) !important;
+        border: none !important;
+        color: #8b7355 !important;
+        box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4) !important;
+        transform: translateY(-1px);
+    }
+    
+    /* Hover Effects for Tabs */
+    .nav-pills .nav-link:hover:not(.active) {
+        background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(244, 228, 188, 0.2)) !important;
+        border-color: #d4af37 !important;
+        color: #8b7355 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(212, 175, 55, 0.3);
+    }
+    
+    .nav-pills .nav-link:hover.active {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(212, 175, 55, 0.5) !important;
+    }
+    
+    /* Navigation Hover Effects */
+    .navbar-brand:hover {
+        transform: translateY(-1px);
+        transition: all 0.3s ease;
+    }
+    
+    .btn-outline-secondary:hover {
+        background: linear-gradient(135deg, #d4af37, #f4e4bc) !important;
+        border-color: #d4af37 !important;
+        color: #8b7355 !important;
+        transform: translateY(-1px);
+        transition: all 0.3s ease;
+    }
+    
+    .invitation-card {
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .invitation-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="1" fill="%23f0f0f0" opacity="0.3"/></svg>') repeat;
+        pointer-events: none;
+        z-index: 0;
+    }
+    
+    .invitation-card > * {
+        position: relative;
+        z-index: 1;
+    }
+    
+    /* Kompakte Layout-Optimierungen */
+    .row {
+        margin-bottom: 0.5rem;
+    }
+    
+    .card {
+        margin-bottom: 0.75rem !important;
+    }
+    
+    .container-fluid {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+    
+    /* Karten-Buttons für Apple Maps und Google Maps */
+    .btn-maps {
+        transition: all 0.3s ease;
+        font-weight: 500;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .btn-maps:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    /* Apple Maps Button */
+    .btn-apple-maps:hover {
+        background: rgba(0, 122, 255, 0.15) !important;
+        border-color: rgba(0, 122, 255, 0.3) !important;
+    }
+    
+    /* Google Maps Button */  
+    .btn-google-maps:hover {
+        background: rgba(234, 67, 53, 0.15) !important;
+        border-color: rgba(234, 67, 53, 0.3) !important;
+    }
+    
+    /* Map Icons Styling */
+    .btn-maps img {
+        transition: all 0.3s ease;
+        filter: brightness(1);
+    }
+    
+    .btn-maps:hover img {
+        filter: brightness(1.2);
+        transform: scale(1.1);
+    }
+    
+    /* Icon fallbacks für bessere Browser-Kompatibilität */
+    .bi-apple:before {
+        content: "🍎";
+        font-style: normal;
+        font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    }
+    
+    .bi-google:before {
+        content: "🔍";
+        font-style: normal;  
+        font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/first_login_modal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/guest_dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/guest_uploads.js') }}"></script>
+{% endblock %}

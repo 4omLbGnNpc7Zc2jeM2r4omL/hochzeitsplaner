@@ -1,0 +1,903 @@
+{% extends "base.html" %}
+
+{% block title %}Einstellungen - {{ brautpaar_namen or "Brautpaar heiratet" }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Einstellungen</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>Allgemeine Einstellungen</h5>
+            </div>
+            <div class="card-body">
+                <form id="settingsForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="brautName" class="form-label">Name der Braut</label>
+                                <input type="text" class="form-control" id="brautName" placeholder="Käthe">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="braeutigamName" class="form-label">Name des Bräutigams</label>
+                                <input type="text" class="form-control" id="braeutigamName" placeholder="Pascal">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="hochzeitsdatum" class="form-label">Hochzeitsdatum</label>
+                                <input type="date" class="form-control" id="hochzeitsdatum">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Locations Section -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="bi bi-geo-alt me-2"></i>
+                                Locations
+                            </h6>
+                        </div>
+                    </div>
+                    
+                    <!-- Standesamt -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-building me-2"></i>
+                                        Standesamt
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="standesamtName" class="form-label">Name</label>
+                                                <input type="text" class="form-control" id="standesamtName" placeholder="Standesamt Aachen">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="standesamtAdresse" class="form-label">Adresse</label>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control" id="standesamtAdresse" placeholder="Rathaus, Markt 39, 52062 Aachen">
+                                                    <button class="btn btn-outline-primary" type="button" onclick="showLocationOnMap('standesamt', 'standesamtAdresse')" title="Kartenvorschau anzeigen">
+                                                        <i class="bi bi-geo-alt-fill"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="standesamtBeschreibung" class="form-label">Beschreibung</label>
+                                        <textarea class="form-control" id="standesamtBeschreibung" rows="2" placeholder="Hier findet die standesamtliche Trauung statt"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Hochzeitslocation -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-heart-fill me-2"></i>
+                                        Hochzeitslocation
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="hochzeitslocationName" class="form-label">Name</label>
+                                                <input type="text" class="form-control" id="hochzeitslocationName" placeholder="Hotel Kastanienhof">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="hochzeitslocationAdresse" class="form-label">Adresse</label>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control" id="hochzeitslocationAdresse" placeholder="Kastanienallee 15, 52074 Aachen">
+                                                    <button class="btn btn-outline-primary" type="button" onclick="showLocationOnMap('hochzeitslocation', 'hochzeitslocationAdresse')" title="Kartenvorschau anzeigen">
+                                                        <i class="bi bi-geo-alt-fill"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="hochzeitslocationBeschreibung" class="form-label">Beschreibung</label>
+                                        <textarea class="form-control" id="hochzeitslocationBeschreibung" rows="2" placeholder="Hier feiern wir unsere Hochzeit"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Kartenvorschauen nebeneinander (nur in der linken Spalte) -->
+                    <div class="row" id="mapPreviewsSection">
+                        <div class="col-12">
+                            <h6 class="text-success mb-3">
+                                <i class="bi bi-map me-2"></i>
+                                Kartenvorschauen (OpenStreetMap)
+                            </h6>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <!-- Standesamt Kartenvorschau -->
+                            <div class="mb-3">
+                                <div class="card" id="standesamtMapPreview">
+                                    <div class="card-header d-flex justify-content-between align-items-center py-1">
+                                        <small class="fw-bold text-muted">Standesamt</small>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" onclick="hideMapPreview('standesamt')" title="Vorschau schließen">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div style="height: 200px; width: 100%; position: relative; overflow: hidden;">
+                                            <div id="standesamtMap" style="height: 100%; width: 100%; position: absolute; top: 0; left: 0;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Hochzeitslocation Kartenvorschau -->
+                            <div class="mb-3">
+                                <div class="card" id="hochzeitslocationMapPreview">
+                                    <div class="card-header d-flex justify-content-between align-items-center py-1">
+                                        <small class="fw-bold text-muted">Hochzeitslocation</small>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" onclick="hideMapPreview('hochzeitslocation')" title="Vorschau schließen">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div style="height: 200px; width: 100%; position: relative; overflow: hidden;">
+                                            <div id="hochzeitslocationMap" style="height: 100%; width: 100%; position: absolute; top: 0; left: 0;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- First Login Modal Configuration -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="bi bi-person-check me-2"></i>
+                                Gäste Willkommensnachricht
+                            </h6>
+                            
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-card-text me-2"></i>
+                                        Willkommensnachricht (wird beim ersten Login angezeigt)
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <!-- Bild Upload/URL Eingabe -->
+                                            <div class="mb-3">
+                                                <label class="form-label">Willkommensbild</label>
+                                                
+                                                <!-- Tab Navigation -->
+                                                <ul class="nav nav-tabs nav-fill mb-3" id="imageInputTabs" role="tablist">
+                                                    <li class="nav-item" role="presentation">
+                                                        <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-pane" type="button" role="tab">
+                                                            <i class="bi bi-upload me-1"></i>Upload
+                                                        </button>
+                                                    </li>
+                                                    <li class="nav-item" role="presentation">
+                                                        <button class="nav-link" id="url-tab" data-bs-toggle="tab" data-bs-target="#url-pane" type="button" role="tab">
+                                                            <i class="bi bi-link-45deg me-1"></i>URL
+                                                        </button>
+                                                    </li>
+                                                </ul>
+                                                
+                                                <!-- Tab Content -->
+                                                <div class="tab-content" id="imageInputTabContent">
+                                                    <!-- Upload Tab -->
+                                                    <div class="tab-pane fade show active" id="upload-pane" role="tabpanel">
+                                                        <div class="mb-3">
+                                                            <input type="file" class="form-control" id="firstLoginImageFile" accept="image/*">
+                                                            <div class="form-text">JPG, PNG oder GIF (max. 5MB)</div>
+                                                        </div>
+                                                        <div class="d-flex gap-2">
+                                                            <button type="button" class="btn btn-outline-secondary btn-sm" id="convertToBlackWhite" style="display: none;">
+                                                                <i class="bi bi-palette me-1"></i>Zu Schwarz-Weiß
+                                                            </button>
+                                                            <button type="button" class="btn btn-outline-danger btn-sm" id="clearUploadedImage" style="display: none;">
+                                                                <i class="bi bi-trash me-1"></i>Bild löschen
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <!-- URL Tab -->
+                                                    <div class="tab-pane fade" id="url-pane" role="tabpanel">
+                                                        <div class="mb-3">
+                                                            <input type="url" class="form-control" id="firstLoginImage" placeholder="https://example.com/hochzeitsbild.jpg">
+                                                            <div class="form-text">URL zu einem Bild, das im Willkommens-Modal angezeigt wird</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Hidden field für Base64 Daten -->
+                                                <input type="hidden" id="firstLoginImageData" name="firstLoginImageData">
+                                            </div>
+                                            
+                                            <!-- Bild-Vorschau -->
+                                            <div class="mb-3">
+                                                <label class="form-label">Bildvorschau</label>
+                                                <div class="border rounded p-3 text-center bg-light" style="min-height: 150px;">
+                                                    <img id="firstLoginImagePreview" src="" alt="Bildvorschau" style="max-width: 100%; max-height: 140px; display: none;" class="rounded">
+                                                    <div id="firstLoginImagePlaceholder" class="text-muted">
+                                                        <i class="bi bi-image" style="font-size: 2rem;"></i>
+                                                        <br>Keine Bildvorschau verfügbar
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="firstLoginText" class="form-label">Willkommenstext</label>
+                                                <textarea class="form-control" id="firstLoginText" rows="6" placeholder="Liebe Gäste,&#10;&#10;herzlich willkommen auf unserer Hochzeitswebseite!&#10;&#10;Hier findet ihr alle wichtigen Informationen zu unserem besonderen Tag..."></textarea>
+                                                <div class="form-text">Dieser Text wird neben dem Bild im Willkommens-Modal angezeigt</div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="invitationHeader" class="form-label">Einladungs-Überschrift</label>
+                                                <input type="text" class="form-control" id="invitationHeader" placeholder="z.B. 💕 Persönliche Einladung 💒 (leer lassen für keine Überschrift)">
+                                                <div class="form-text">Überschrift für die personalisierte Einladung (optional)</div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="invitationRings" class="form-label">Header Emojis</label>
+                                                <input type="text" class="form-control" id="invitationRings" placeholder="z.B. 💍💍 (leer lassen für keine Emojis)">
+                                                <div class="form-text">Emojis die über der Einladungsüberschrift angezeigt werden (optional)</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <div class="alert alert-info">
+                                                <i class="bi bi-info-circle me-2"></i>
+                                                <strong>Hinweis:</strong> Dieses Modal wird nur beim ersten Login eines Gastes angezeigt. Danach können Gäste die Informationen über den Bereich "Informationen" einsehen.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Modal Vorschau und Reset-Funktionen -->
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <button type="button" class="btn btn-outline-primary w-100" id="previewFirstLoginModal">
+                                                <i class="bi bi-eye me-2"></i>
+                                                Vorschau anzeigen
+                                            </button>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <button type="button" class="btn btn-outline-warning w-100" id="resetFirstLoginForAllGuests">
+                                                <i class="bi bi-arrow-clockwise me-2"></i>
+                                                First-Login für alle zurücksetzen
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Personalisierte Einladungstexte Configuration -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="text-warning mb-3">
+                                <i class="bi bi-envelope-heart me-2"></i>
+                                Personalisierte Einladungstexte
+                            </h6>
+                            
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-person me-2"></i>
+                                        Individuell konfigurierbare Einladungsnachrichten
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-info mb-4">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <strong>Hinweis:</strong> Diese Texte ersetzen die hart programmierten Einladungsnachrichten und werden dynamisch basierend auf der Anzahl der Gäste verwendet.
+                                    </div>
+                                    
+                                    <!-- Markdown-Formatierung Info -->
+                                    <div class="alert alert-success mb-4">
+                                        <i class="bi bi-brush me-2"></i>
+                                        <strong>Neu: Textformatierung!</strong> Sie können jetzt <code>**Text**</code> verwenden um <strong>fetten Text</strong> zu erstellen.<br>
+                                        <small>Beispiel: <code>**wichtige Information**</code> wird zu <strong>wichtige Information</strong></small>
+                                    </div>
+                                    
+                                    <!-- Template-Variablen Hilfe -->
+                                    <div class="row mb-4">
+                                        <div class="col-12">
+                                            <div class="card border-secondary">
+                                                <div class="card-header bg-secondary text-white">
+                                                    <h6 class="mb-0">
+                                                        <i class="bi bi-code me-2"></i>
+                                                        Verfügbare Template-Variablen
+                                                    </h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <small>
+                                                        <strong>{{wedding_date}}</strong> = Hochzeitsdatum (z.B. "25.07.2026")<br>
+                                                        <strong>{{guest_name}}</strong> = Name des/der Gäste (automatisch eingefügt)<br>
+                                                        <strong>{{event_parts}}</strong> = Dynamische Event-Teile (Trauung, Essen, Party)<br>
+                                                        <strong>{{special_notes}}</strong> = Spezielle Hinweise (z.B. Weißer Saal Plätze)
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <!-- Singular Text (Einzelperson) -->
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="invitationTextSingular" class="form-label">
+                                                    <i class="bi bi-person me-1"></i>
+                                                    Einladungstext für Einzelpersonen
+                                                </label>
+                                                <textarea class="form-control" id="invitationTextSingular" rows="12" 
+                                                    placeholder="💍💍&#10;💕 Persönliche Einladung 💒&#10;Hallo {{guest_name}},&#10;&#10;du gehörst zu den Menschen, die uns am wichtigsten sind - deshalb laden wir dich zu unserem kompletten Hochzeitstag am {{wedding_date}} ein:&#10;&#10;{{event_parts}}&#10;&#10;{{special_notes}}"></textarea>
+                                                <div class="form-text">Text für Gäste mit nur einer Person (du/dich/dir)</div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Plural Text (Mehrere Personen) -->
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="invitationTextPlural" class="form-label">
+                                                    <i class="bi bi-people me-1"></i>
+                                                    Einladungstext für Gruppen
+                                                </label>
+                                                <textarea class="form-control" id="invitationTextPlural" rows="12" 
+                                                    placeholder="💍💍&#10;💕 Persönliche Einladung 💒&#10;Hallo {{guest_name}},&#10;&#10;ihr gehört zu den Menschen, die uns am wichtigsten sind - deshalb laden wir euch zu unserem kompletten Hochzeitstag am {{wedding_date}} ein:&#10;&#10;{{event_parts}}&#10;&#10;{{special_notes}}"></textarea>
+                                                <div class="form-text">Text für Gäste mit mehreren Personen (ihr/euch/euer)</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Event-spezifische Texte -->
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <h6 class="text-secondary mb-3">
+                                                <i class="bi bi-calendar-event me-2"></i>
+                                                Event-spezifische Texte
+                                            </h6>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <!-- Trauung Texte -->
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="eventTextTrauungSingular" class="form-label">
+                                                    🤵👰 Trauung (Singular)
+                                                </label>
+                                                <textarea class="form-control" id="eventTextTrauungSingular" rows="3" 
+                                                    placeholder="🤵👰 Sei dabei, wenn wir uns das Ja-Wort geben (Weißer Saal)"></textarea>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="eventTextTrauungPlural" class="form-label">
+                                                    🤵👰 Trauung (Plural)
+                                                </label>
+                                                <textarea class="form-control" id="eventTextTrauungPlural" rows="3" 
+                                                    placeholder="🤵👰 Seid dabei, wenn wir uns das Ja-Wort geben (Weißer Saal)"></textarea>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Essen Texte -->
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="eventTextEssenSingular" class="form-label">
+                                                    🥂 Essen (Singular)
+                                                </label>
+                                                <textarea class="form-control" id="eventTextEssenSingular" rows="3" 
+                                                    placeholder="🥂 Genieße mit uns das Hochzeitsessen"></textarea>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="eventTextEssenPlural" class="form-label">
+                                                    🥂 Essen (Plural)
+                                                </label>
+                                                <textarea class="form-control" id="eventTextEssenPlural" rows="3" 
+                                                    placeholder="🥂 Genießt mit uns das Hochzeitsessen"></textarea>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Party Texte -->
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="eventTextPartySingular" class="form-label">
+                                                    💃🕺 Party (Singular)
+                                                </label>
+                                                <textarea class="form-control" id="eventTextPartySingular" rows="3" 
+                                                    placeholder="💃🕺 Feiere und tanze mit uns bis in die frühen Morgenstunden"></textarea>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="eventTextPartyPlural" class="form-label">
+                                                    💃🕺 Party (Plural)
+                                                </label>
+                                                <textarea class="form-control" id="eventTextPartyPlural" rows="3" 
+                                                    placeholder="💃🕺 Feiert und tanzt mit uns bis in die frühen Morgenstunden"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Spezielle Hinweise -->
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <h6 class="text-secondary mb-3">
+                                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                                Spezielle Hinweise
+                                            </h6>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="specialNotesWeisserSaalSingular" class="form-label">
+                                                    Weißer Saal Hinweis (Singular)
+                                                </label>
+                                                <textarea class="form-control" id="specialNotesWeisserSaalSingular" rows="4" 
+                                                    placeholder="Für die Trauung im Weißen Saal haben wir nur 42 Plätze - einige davon werden reserviert sein, schau bitte vor Ort ob noch Platz für dich ist. Ansonsten laden wir dich herzlich ein mit der restlichen Gesellschaft vor dem Rathaus auf uns zu warten, auch dort wird es für niemanden langweilig werden."></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="specialNotesWeisserSaalPlural" class="form-label">
+                                                    Weißer Saal Hinweis (Plural)
+                                                </label>
+                                                <textarea class="form-control" id="specialNotesWeisserSaalPlural" rows="4" 
+                                                    placeholder="Für die Trauung im Weißen Saal haben wir nur 42 Plätze - einige davon werden reserviert sein, schaut bitte vor Ort ob noch Platz für euch ist. Ansonsten laden wir euch herzlich ein mit der restlichen Gesellschaft vor dem Rathaus auf uns zu warten, auch dort wird es für niemanden langweilig werden."></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Test & Vorschau Buttons -->
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <button type="button" class="btn btn-outline-info w-100" id="previewInvitationTexts">
+                                                <i class="bi bi-eye me-2"></i>
+                                                Texte Vorschau
+                                            </button>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <button type="button" class="btn btn-outline-success w-100" id="testInvitationGeneration">
+                                                <i class="bi bi-gear me-2"></i>
+                                                Template-Test
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Gäste-Informationen Configuration -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="text-info mb-3">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Gäste-Informationen (Infos-Bereich)
+                            </h6>
+                            
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-clipboard-text me-2"></i>
+                                        Konfigurierbare Informationen für Gäste
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-info mb-4">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <strong>Info:</strong> Diese Texte werden im "Infos"-Bereich des Gästedashboards angezeigt und automatisch an die Anzahl der Personen angepasst (Singular/Plural).
+                                    </div>
+                                    
+                                    <!-- Kontakt-Informationen -->
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <h6 class="text-secondary mb-3">
+                                                <i class="bi bi-envelope me-2"></i>
+                                                Kontakt-Informationen
+                                            </h6>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="guestInfoKontaktSingular" class="form-label">
+                                                    <i class="bi bi-person me-1"></i>
+                                                    Kontakt (Einzelperson)
+                                                </label>
+                                                <textarea class="form-control" id="guestInfoKontaktSingular" rows="3" 
+                                                    placeholder="Bei Fragen kannst du dich gerne an uns wenden."></textarea>
+                                                <div class="form-text">Text für Gäste mit einer Person (du/dich/dir)</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="guestInfoKontaktPlural" class="form-label">
+                                                    <i class="bi bi-people me-1"></i>
+                                                    Kontakt (Mehrere Personen)
+                                                </label>
+                                                <textarea class="form-control" id="guestInfoKontaktPlural" rows="3" 
+                                                    placeholder="Bei Fragen könnt ihr euch gerne an uns wenden."></textarea>
+                                                <div class="form-text">Text für Gäste mit mehreren Personen (ihr/euch/euer)</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- WhatsApp-Nummer für Kontakt -->
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="guestInfoWhatsappNummer" class="form-label">
+                                                    <i class="bi bi-whatsapp me-1"></i>
+                                                    WhatsApp-Nummer (optional)
+                                                </label>
+                                                <input type="tel" class="form-control" id="guestInfoWhatsappNummer" 
+                                                    placeholder="+49 123 456789">
+                                                <div class="form-text">Wird für den WhatsApp-Button verwendet (Format: +49 123 456789)</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Geschenke-Informationen -->
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <h6 class="text-secondary mb-3">
+                                                <i class="bi bi-gift me-2"></i>
+                                                Geschenke-Informationen
+                                            </h6>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="guestInfoGeschenkeSingular" class="form-label">
+                                                    <i class="bi bi-person me-1"></i>
+                                                    Geschenke (Einzelperson)
+                                                </label>
+                                                <textarea class="form-control" id="guestInfoGeschenkeSingular" rows="3" 
+                                                    placeholder="Über dein Kommen freuen wir uns am meisten!"></textarea>
+                                                <div class="form-text">Text für Gäste mit einer Person</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="guestInfoGeschenkeePlural" class="form-label">
+                                                    <i class="bi bi-people me-1"></i>
+                                                    Geschenke (Mehrere Personen)
+                                                </label>
+                                                <textarea class="form-control" id="guestInfoGeschenkeePlural" rows="3" 
+                                                    placeholder="Über euer Kommen freuen wir uns am meisten!"></textarea>
+                                                <div class="form-text">Text für Gäste mit mehreren Personen</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Dresscode-Informationen -->
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <h6 class="text-secondary mb-3">
+                                                <i class="bi bi-person-check me-2"></i>
+                                                Dresscode-Informationen
+                                            </h6>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="guestInfoDresscodeSingular" class="form-label">
+                                                    <i class="bi bi-person me-1"></i>
+                                                    Dresscode (Einzelperson)
+                                                </label>
+                                                <textarea class="form-control" id="guestInfoDresscodeSingular" rows="3" 
+                                                    placeholder="Festliche Kleidung erwünscht."></textarea>
+                                                <div class="form-text">Text für Gäste mit einer Person</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="guestInfoDresscodeePlural" class="form-label">
+                                                    <i class="bi bi-people me-1"></i>
+                                                    Dresscode (Mehrere Personen)
+                                                </label>
+                                                <textarea class="form-control" id="guestInfoDresscodeePlural" rows="3" 
+                                                    placeholder="Festliche Kleidung erwünscht."></textarea>
+                                                <div class="form-text">Text für Gäste mit mehreren Personen</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Vorschau Button -->
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <button type="button" class="btn btn-outline-info w-100" id="previewGuestInformationen">
+                                                <i class="bi bi-eye me-2"></i>
+                                                Vorschau anzeigen
+                                            </button>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <button type="button" class="btn btn-outline-secondary w-100" id="resetGuestInformationen">
+                                                <i class="bi bi-arrow-clockwise me-2"></i>
+                                                Auf Standard zurücksetzen
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Legacy Hochzeitsort (wird ausgeblendet, aber für Kompatibilität beibehalten) -->
+                    <div class="row d-none">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="hochzeitsort" class="form-label">Hochzeitsort (Legacy)</label>
+                                <input type="text" class="form-control" id="hochzeitsort" placeholder="Location eingeben...">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-end">
+                        <button type="button" class="btn btn-wedding-secondary me-2" id="resetSettings">Zurücksetzen</button>
+                        <button type="submit" class="btn btn-wedding-primary">Speichern</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Aktionen</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="/api/export/excel" class="btn btn-wedding-success">
+                        <i class="bi bi-file-earmark-excel me-2"></i>Excel Export
+                    </a>
+                    
+                    <button class="btn btn-wedding-warning" id="backupData">
+                        <i class="bi bi-shield-check me-2"></i>Backup erstellen
+                    </button>
+                    
+                    <button class="btn btn-wedding-info" id="importData">
+                        <i class="bi bi-upload me-2"></i>Daten importieren
+                    </button>
+                    
+                    <!-- Upload-Einstellungen -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="bi bi-cloud-upload me-2"></i>
+                                Gäste-Upload Einstellungen
+                            </h6>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-folder me-2"></i>
+                                        Upload-Konfiguration
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="uploadPath" class="form-label">Upload-Pfad</label>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control" id="uploadPath" name="upload_path"
+                                                           placeholder="Pfad wo Uploads gespeichert werden">
+                                                    <button class="btn btn-outline-secondary" type="button" id="selectUploadFolder">
+                                                        <i class="bi bi-folder-open"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-primary" type="button" id="testUploadPath">
+                                                        <i class="bi bi-check-circle"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="form-text">Absoluter Pfad zum Upload-Verzeichnis</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="mb-3">
+                                                <label for="uploadMaxSize" class="form-label">Max. Dateigröße (MB)</label>
+                                                <input type="number" class="form-control" id="uploadMaxSize" name="upload_max_size_mb"
+                                                       min="1" max="1000" value="50">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="mb-3">
+                                                <label for="uploadEnabled" class="form-label">Upload aktiviert</label>
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="uploadEnabled" name="upload_enabled" checked>
+                                                    <label class="form-check-label" for="uploadEnabled">
+                                                        Upload-System aktiviert
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <div class="mb-3">
+                                                <label for="uploadAllowedExtensions" class="form-label">Erlaubte Dateierweiterungen</label>
+                                                <input type="text" class="form-control" id="uploadAllowedExtensions" name="upload_allowed_extensions"
+                                                       value="jpg,jpeg,png,gif,mp4,mov,avi"
+                                                       placeholder="Komma-getrennte Liste, z.B.: jpg,png,mp4">
+                                                <div class="form-text">
+                                                    Erlaubte Dateierweiterungen (ohne Punkt). 
+                                                    Empfohlen für Bilder: jpg, jpeg, png, gif - für Videos: mp4, mov, avi
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label class="form-label">Aktionen</label>
+                                                <div class="d-grid">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="resetUploadSettings">
+                                                        <i class="bi bi-arrow-counterclockwise me-1"></i>
+                                                        Zurücksetzen
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <strong>Hinweis:</strong> Stelle sicher, dass der Upload-Pfad existiert und beschreibbar ist. 
+                                        Gäste können nur ihre eigenen Uploads sehen, Admins sehen alle Uploads.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <button class="btn btn-wedding-danger" id="resetAllData">`
+                        <i class="bi bi-exclamation-triangle me-2"></i>Alle Daten löschen
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5>System Info</h5>
+            </div>
+            <div class="card-body">
+                <small class="text-muted">
+                    <strong>Version:</strong> 2.0.0 Web<br>
+                    <strong>Letztes Update:</strong> <span id="lastUpdate">-</span><br>
+                    <strong>Gäste:</strong> <span id="totalGuests">-</span><br>
+                    <strong>Budget Positionen:</strong> <span id="totalBudgetItems">-</span>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- First Login Modal Vorschau - Einladungskarten Design -->
+<div class="modal fade" id="firstLoginModalPreview" tabindex="-1" aria-labelledby="firstLoginModalPreviewLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);">
+            <div class="modal-header bg-gradient-primary text-white border-0">
+                <h4 class="modal-title fw-bold" id="firstLoginModalPreviewLabel">
+                    <i class="bi bi-eye-fill me-2"></i>
+                    Vorschau: Einladungskarte
+                </h4>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <!-- Einladungskarte Design -->
+                <div class="invitation-card text-center p-5" style="background: #ffffff; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+                    
+                    <!-- Hochzeitsdatum oben -->
+                    <div class="wedding-date mb-4">
+                        <h3 id="previewWeddingDate" class="text-elegant mb-3" style="font-family: 'Playfair Display', serif; font-weight: 300; color: #8b7355; letter-spacing: 2px;">
+                            25. Juli 2026
+                        </h3>
+                        <hr class="elegant-divider mx-auto" style="width: 150px; height: 2px; background: linear-gradient(90deg, transparent, #d4af37, transparent); border: none;">
+                    </div>
+                    
+                    <!-- Foto Bereich -->
+                    <div class="wedding-photo mb-4">
+                        <div id="previewImageContainer">
+                            <img id="previewImage" src="" alt="Hochzeitsfoto" class="img-fluid shadow-lg" 
+                                 style="max-height: 300px; max-width: 100%; object-fit: cover; border-radius: 10px; border: 3px solid #f8f9fa; display: none;">
+                            <div id="previewImagePlaceholder" class="photo-placeholder p-4" 
+                                 style="background: linear-gradient(45deg, #f8f9fa, #e9ecef); border-radius: 10px; border: 2px dashed #d4af37;">
+                                <i class="bi bi-heart-fill text-muted opacity-50" style="font-size: 4rem;"></i>
+                                <p class="text-muted mt-2 mb-0">Hochzeitsfoto nicht konfiguriert</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Trennstrich unter dem Foto -->
+                    <hr class="elegant-divider mx-auto mb-4" style="width: 150px; height: 2px; background: linear-gradient(90deg, transparent, #d4af37, transparent); border: none;">
+                    
+                    <!-- Header Emojis -->
+                    <div class="rings-emoji mb-4">
+                        <span id="previewInvitationRings" style="font-size: 2.5rem; display: none;"></span>
+                    </div>
+                    
+                    <!-- Einladungstext -->
+                    <div class="invitation-text">
+                        <h4 id="previewInvitationHeader" class="text-elegant mb-3" style="font-family: 'Playfair Display', serif; font-weight: 400; color: #8b7355; display: none;">
+                        </h4>
+                        <div id="previewText" class="text-content mx-auto" 
+                             style="font-family: 'Crimson Text', serif; font-size: 1.1rem; line-height: 1.8; color: #5a5a5a; max-width: 400px;">
+                            <em class="text-muted">Text nicht konfiguriert</em>
+                        </div>
+                    </div>
+                    
+                    <!-- Hinweis für Admin -->
+                    <div class="mt-4 p-3 bg-light rounded" style="border-left: 4px solid #d4af37;">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Vorschau der Einladungskarte, die Gäste beim ersten Login sehen
+                        </small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-0 pt-4">
+                <div class="d-flex justify-content-between align-items-center w-100">
+                    <small class="text-muted">
+                        <i class="bi bi-palette me-1"></i>
+                        Design wird automatisch an Ihre Hochzeitsdaten angepasst
+                    </small>
+                    <button type="button" class="btn btn-elegant rounded-pill px-4" data-bs-dismiss="modal"
+                            style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border: none; color: #8b7355;">
+                        <i class="bi bi-x-lg me-2"></i>
+                        Schließen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/einstellungen.js') }}"></script>
+{% endblock %}

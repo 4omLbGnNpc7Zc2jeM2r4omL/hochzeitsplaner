@@ -1,0 +1,13 @@
+{
+  "dyndns": {
+    "enabled": false,
+    "update_url": "https://ipv4.api.hosting.ionos.com/dns/v1/dyndns?q=NDFjZmM3YmVjYjQzNDRhMTkxMzliZDAwYzA2OGU3NzEuU2FvNlhuR2U4UmtxNGdiQzlMN19TLWpZanM4LWZBdGsxX2Ixa2FFUmRFWUp4Z1pmR3NWOVFpUjZYZGQ5TTZ5QjBIZkxSRFAyN2lzeHhCRWNuNVpSU0E",
+    "domain": "xn--pascalundkthe-heiraten-94b.de",
+    "actual_ipv6": "2a02:908:1000:2::126c",
+    "fritz_box_ipv6": "2a02:908:1022:1f80:7845:dca9:a1de:dbd7",
+    "client_ipv6": "2a01:599:302:69:2d43:80da:b275:b0e3",
+    "interval_minutes": 30,
+    "external_port": 8443,
+    "description": "⚠️ Server im alten Netzwerk - Client im neuen Netzwerk (2a01:599:302:69:2d43:80da:b275:b0e3). Fritz!Box muss neue IPv6 an IONOS übertragen. AAAA-Record: 2a02:908:1000:2::126c"
+  }
+}

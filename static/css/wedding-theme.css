@@ -1,0 +1,750 @@
+/* Hochzeitsplaner Web - Einheitliches Farbschema */
+
+/* ===== HOCHZEITSTHEMA FARBPALETTE ===== */
+:root {
+    --wedding-gold: #d4af37;
+    --wedding-light-gold: #f4e4bc;
+    --wedding-cream: #e8d5a3;
+    --wedding-text: #8b7355;
+    --wedding-text-dark: #6b5a47;
+    --wedding-shadow: rgba(212, 175, 55, 0.2);
+    --wedding-white: #f8f9fa;
+}
+
+/* ===== BUTTONS UND AKTIONEN ===== */
+.btn-wedding-primary {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
+    border: none;
+    color: var(--wedding-text);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px var(--wedding-shadow);
+    transition: all 0.3s ease;
+}
+
+.btn-wedding-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px var(--wedding-shadow);
+    color: var(--wedding-text-dark);
+}
+
+.btn-wedding-secondary {
+    background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold));
+    border: none;
+    color: var(--wedding-text);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px var(--wedding-shadow);
+    transition: all 0.3s ease;
+}
+
+.btn-wedding-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px var(--wedding-shadow);
+    color: var(--wedding-text-dark);
+}
+
+/* Erweiterte Hochzeit-Button Varianten */
+.btn-wedding-success {
+    background: linear-gradient(135deg, #d4af37, #e8d5a3);
+    border: none;
+    color: #6b5a47;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-wedding-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+    color: #4a3c2a;
+}
+
+.btn-wedding-danger {
+    background: linear-gradient(135deg, #dc3545, #f8d7da);
+    border: none;
+    color: #721c24;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-wedding-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+    color: #4a1117;
+}
+
+.btn-wedding-warning {
+    background: linear-gradient(135deg, #f4e4bc, #d4af37);
+    border: none;
+    color: #8b7355;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(244, 228, 188, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-wedding-warning:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(244, 228, 188, 0.4);
+    color: #6b5a47;
+}
+
+/* ===== BADGES UND LABELS ===== */
+.badge-wedding-primary {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border-radius: 12px !important;
+    padding: 6px 12px !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(212, 175, 55, 0.3) !important;
+}
+
+.badge-wedding-secondary {
+    background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border-radius: 12px !important;
+    padding: 6px 12px !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(232, 213, 163, 0.3) !important;
+}
+
+.badge-wedding-success {
+    background: linear-gradient(135deg, #d4af37, #e8d5a3) !important;
+    color: #6b5a47 !important;
+    border-radius: 12px !important;
+    padding: 6px 12px !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(212, 175, 55, 0.3) !important;
+}
+
+.badge-wedding-warning {
+    background: linear-gradient(135deg, #f4e4bc, #d4af37) !important;
+    color: #8b7355 !important;
+    border-radius: 12px !important;
+    padding: 6px 12px !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(212, 175, 55, 0.3) !important;
+}
+
+.badge-wedding-danger {
+    background: linear-gradient(135deg, #dc3545, #f8d7da) !important;
+    color: #721c24 !important;
+    border-radius: 12px !important;
+    padding: 6px 12px !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(220, 53, 69, 0.3) !important;
+}
+
+.badge-wedding-info {
+    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-cream)) !important;
+    color: var(--wedding-text) !important;
+    border-radius: 12px !important;
+    padding: 6px 12px !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(244, 228, 188, 0.3) !important;
+}
+
+.badge-wedding-light {
+    background: linear-gradient(135deg, var(--wedding-white), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text) !important;
+    border-radius: 12px !important;
+    padding: 6px 12px !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(244, 228, 188, 0.3) !important;
+}
+
+.badge-wedding-dark {
+    background: linear-gradient(135deg, var(--wedding-text-dark), var(--wedding-text)) !important;
+    color: var(--wedding-light-gold) !important;
+    border-radius: 12px !important;
+    padding: 6px 12px !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(107, 90, 71, 0.3) !important;
+}
+
+/* Spezielle Farb-Badges für Seiten (Käthe/Pascal) */
+.badge-wedding-pink {
+    background: linear-gradient(135deg, #e91e63, #fce4ec) !important;
+    color: #880e4f !important;
+    border-radius: 12px !important;
+    padding: 6px 12px !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(233, 30, 99, 0.3) !important;
+}
+
+.badge-wedding-blue {
+    background: linear-gradient(135deg, #2196f3, #e3f2fd) !important;
+    color: #0d47a1 !important;
+    border-radius: 12px !important;
+    padding: 6px 12px !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(33, 150, 243, 0.3) !important;
+}
+
+.badge-wedding-purple {
+    background: linear-gradient(135deg, #6f42c1, #5a31a1);
+    color: white;
+    border-radius: 12px;
+    padding: 6px 12px;
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== LEGACY BADGE SUPPORT ===== */
+.badge-success {
+    background: linear-gradient(135deg, var(--wedding-success), #198754);
+    color: white;
+    border-radius: 12px;
+    padding: 6px 12px;
+    font-weight: 500;
+}
+
+.badge-warning {
+    background: linear-gradient(135deg, var(--wedding-warning), #f0ad4e);
+    color: var(--wedding-text-dark);
+    border-radius: 12px;
+    padding: 6px 12px;
+    font-weight: 500;
+}
+
+.badge-wedding {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
+    color: var(--wedding-text-dark);
+    border-radius: 12px;
+    padding: 6px 12px;
+    font-weight: 500;
+}
+
+/* ===== CARDS UND CONTAINER ===== */
+.card-wedding {
+    border: 10px;
+    border-radius: 15px;
+    background: linear-gradient(135deg, var(--wedding-white) 0%, #ffffff 100%);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+}
+
+.card-wedding:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.12);
+}
+
+.card-wedding-header {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
+    border-radius: 15px 15px 0 0;
+    border: none;
+    color: var(--wedding-text);
+}
+
+.card-wedding-stat {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+}
+
+.card-wedding-stat:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+}
+
+/* ===== STATISTIK CARDS - GOLD THEME ===== */
+.card-wedding-stat-gold {
+    border: none !important;
+    border-radius: 15px !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08) !important;
+    transition: all 0.3s ease !important;
+}
+
+.card-wedding-stat-gold .card-body {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border-radius: 15px !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    text-align: center !important;
+    padding: 20px !important;
+}
+
+.card-wedding-stat-gold .card-content {
+    flex: 1 !important;
+    text-align: center !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
+.card-wedding-stat-gold .card-content .card-title {
+    text-align: center !important;
+    color: var(--wedding-text-dark) !important;
+    font-weight: 600 !important;
+    margin-bottom: 8px !important;
+    display: block !important;
+    width: 100% !important;
+}
+
+.card-wedding-stat-gold .card-content h6 {
+    text-align: center !important;
+    color: var(--wedding-text-dark) !important;
+    font-weight: 600 !important;
+    margin-bottom: 8px !important;
+    display: block !important;
+    width: 100% !important;
+}
+
+.card-wedding-stat-gold .card-content h3 {
+    text-align: center !important;
+    color: var(--wedding-text-dark) !important;
+    font-weight: bold !important;
+    margin-bottom: 4px !important;
+    display: block !important;
+    width: 100% !important;
+}
+
+.card-wedding-stat-gold .card-content small {
+    text-align: center !important;
+    color: var(--wedding-text) !important;
+    display: block !important;
+    width: 100% !important;
+}
+
+.card-wedding-stat-gold .align-self-center {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-left: 15px !important;
+}
+
+.card-wedding-stat-gold .align-self-center i {
+    color: var(--wedding-text) !important;
+    opacity: 0.8 !important;
+}
+
+.card-wedding-stat-gold:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* ===== DASHBOARD CARDS - REMOVED - Use card-wedding-stat-gold instead ===== */
+
+/* ===== CHARTS UND DIAGRAMME ===== */
+.chart-wedding-colors {
+    --chart-primary: #d4af37;
+    --chart-secondary: #f4e4bc;
+    --chart-tertiary: #e8d5a3;
+    --chart-accent: #8b7355;
+}
+
+/* ===== BUDGET-TABELLE STYLING ===== */
+#budgetTable tbody tr {
+    transition: all 0.2s ease;
+}
+
+#budgetTable tbody tr:hover {
+    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-cream)) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px var(--wedding-shadow);
+}
+
+#budgetTable .btn-wedding-secondary {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    border-radius: 8px;
+}
+
+#budgetTable .btn-outline-danger {
+    border-radius: 8px;
+}
+
+/* ===== NAVIGATION ANPASSUNGEN ===== */
+.navbar-wedding {
+    background: linear-gradient(135deg, var(--wedding-white) 0%, #ffffff 100%);
+    border-bottom: 1px solid var(--wedding-light-gold);
+}
+
+.navbar-wedding .navbar-brand {
+    color: var(--wedding-text) !important;
+    font-weight: 500;
+}
+
+.navbar-wedding .nav-link {
+    color: var(--wedding-text) !important;
+    transition: all 0.3s ease;
+}
+
+.navbar-wedding .nav-link:hover {
+    color: var(--wedding-gold) !important;
+}
+
+/* ===== DROPDOWN MENÜS ===== */
+.dropdown-menu {
+    background: linear-gradient(135deg, var(--wedding-white) 0%, #ffffff 100%);
+    border: 2px solid var(--wedding-light-gold);
+    border-radius: 12px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    padding: 8px 0;
+}
+
+.dropdown-item {
+    color: var(--wedding-text) !important;
+    padding: 10px 20px;
+    transition: all 0.3s ease;
+    border-radius: 8px;
+    margin: 2px 8px;
+    font-weight: 500;
+}
+
+.dropdown-item:hover {
+    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-cream)) !important;
+    color: var(--wedding-text-dark) !important;
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px var(--wedding-shadow);
+}
+
+.dropdown-item:focus {
+    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-cream)) !important;
+    color: var(--wedding-text-dark) !important;
+}
+
+.dropdown-item.active {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    font-weight: 600;
+    box-shadow: 0 4px 12px var(--wedding-shadow);
+}
+
+.dropdown-divider {
+    border-color: var(--wedding-light-gold);
+    margin: 8px 16px;
+}
+
+/* Mobile Navigation Dropdown Anpassungen */
+@media (max-width: 991.98px) {
+    .navbar-nav .dropdown-menu {
+        background: linear-gradient(135deg, var(--wedding-light-gold) 0%, var(--wedding-cream) 100%);
+        border: 1px solid var(--wedding-gold);
+        margin-top: 4px;
+    }
+    
+    .navbar-nav .dropdown-item {
+        color: var(--wedding-text-dark) !important;
+        font-weight: 500;
+    }
+    
+    .navbar-nav .dropdown-item:hover {
+        background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+        color: var(--wedding-text-dark) !important;
+    }
+    
+    .navbar-nav .dropdown-item.active {
+        background: linear-gradient(135deg, var(--wedding-text), var(--wedding-text-dark)) !important;
+        color: white !important;
+    }
+}
+
+/* ===== FORMULARE ===== */
+.form-control-wedding {
+    border: 2px solid var(--wedding-light-gold);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.form-control-wedding:focus {
+    border-color: var(--wedding-gold);
+    box-shadow: 0 0 0 0.2rem var(--wedding-shadow);
+}
+
+/* ===== TABELLEN ===== */
+.table-wedding thead th {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
+    color: var(--wedding-text);
+    border: none;
+    font-weight: 500;
+}
+
+.table-wedding tbody tr:hover {
+    background-color: var(--wedding-light-gold);
+}
+
+/* ===== BADGES UND LABELS ===== */
+.badge-wedding {
+    background: linear-gradient(135deg, var(--wedding-text), #a68660);
+    color: white;
+    border-radius: 8px;
+}
+
+.badge-wedding-light {
+    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-cream));
+    color: var(--wedding-text);
+    border-radius: 8px;
+}
+
+.badge-danger {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    color: white;
+    border-radius: 8px;
+}
+
+.badge-success {
+    background: linear-gradient(135deg, #28a745, #218838);
+    color: white;
+    border-radius: 8px;
+}
+
+.badge-info {
+    background: linear-gradient(135deg, #17a2b8, #138496);
+    color: white;
+    border-radius: 8px;
+}
+
+.badge-secondary {
+    background: linear-gradient(135deg, #6c757d, #5a6268);
+    color: white;
+    border-radius: 8px;
+}
+
+.badge-pink {
+    background: linear-gradient(135deg, #e83e8c, #d91a72);
+    color: white;
+    border-radius: 8px;
+}
+
+.badge-light {
+    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-cream));
+    color: var(--wedding-text);
+    border-radius: 8px;
+}
+
+/* ===== MODALS ===== */
+.modal-wedding .modal-header {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
+    color: var(--wedding-text);
+    border-bottom: none;
+    border-radius: 15px 15px 0 0;
+}
+
+.modal-wedding .modal-content {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== PROGRESS BARS ===== */
+.progress-wedding {
+    background-color: var(--wedding-light-gold);
+    border-radius: 10px;
+    height: 20px;
+}
+
+.progress-wedding .progress-bar {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
+    border-radius: 10px;
+}
+
+/* ===== ALERTS ===== */
+.alert-wedding {
+    background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold));
+    border: none;
+    color: var(--wedding-text);
+    border-radius: 12px;
+    border-left: 4px solid var(--wedding-gold);
+}
+
+/* ===== UTILITIES ===== */
+.text-wedding {
+    color: var(--wedding-text) !important;
+}
+
+.text-wedding-gold {
+    color: var(--wedding-gold) !important;
+}
+
+.bg-wedding-gradient {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+}
+
+.bg-wedding-light {
+    background: linear-gradient(135deg, var(--wedding-white) 0%, #ffffff 100%) !important;
+}
+
+.border-wedding {
+    border-color: var(--wedding-gold) !important;
+}
+
+.shadow-wedding {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08) !important;
+}
+
+.shadow-wedding-lg {
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* ===== RESPONSIVE DESIGN FÜR DASHBOARD CARDS ===== */
+.dashboard-card {
+    transition: all 0.3s ease;
+    min-height: 120px;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+}
+
+.dashboard-card .card-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+}
+
+.dashboard-card .card-content {
+    flex: 1;
+}
+
+.dashboard-card .card-title {
+    font-size: clamp(0.875rem, 2.5vw, 1rem);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+/*
+.dashboard-card h3 {
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.2;
+}*/
+
+.dashboard-card h3 {
+    font-size: clamp(1rem, 2.5vw, 1.75rem);
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.2;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    text-overflow: ellipsis;
+}
+
+.dashboard-card small {
+    font-size: clamp(0.75rem, 2vw, 0.875rem);
+    opacity: 0.8;
+}
+
+/*.dashboard-card .fs-1 {
+    font-size: clamp(2rem, 5vw, 3rem) !important;
+}*/
+
+/*Test*/
+.dashboard-card .fs-1 {
+    font-size: clamp(1.5rem, 3.5vw, 2rem); /* Statt 10cqw → 3.5vw */
+}
+
+/* Event Cards */
+.event-card {
+    transition: all 0.3s ease;
+    min-height: 100px;
+}
+
+.event-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.event-card .card-title {
+    font-size: clamp(0.875rem, 2.5vw, 1rem);
+    font-weight: 500;
+}
+
+.event-card h4 {
+    font-size: clamp(1.25rem, 3.5vw, 2rem);
+    font-weight: 600;
+    margin: 0.25rem 0;
+}
+
+.event-card small {
+    font-size: clamp(0.7rem, 1.8vw, 0.8rem);
+}
+
+/* Budget Status Card */
+.budget-status-card {
+  background: linear-gradient(135deg, #d4af37, #f4e4bc) !important;
+  border: none !important;
+  border-radius: 15px !important;
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175) !important; /* optional wie shadow-lg */
+}
+
+.budget-status-card .card-title {
+    font-size: clamp(0.875rem, 2.5vw, 1rem);
+    font-weight: 500;
+}
+
+.budget-status-card h3 {
+    font-size: clamp(1.25rem, 3.5vw, 2rem);
+    font-weight: 600;
+    margin: 0.25rem 0;
+}
+
+.budget-status-card small {
+    font-size: clamp(0.75rem, 2vw, 0.875rem);
+}
+
+.budget-status-card .progress-text {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: clamp(0.7rem, 1.8vw, 0.8rem);
+    font-weight: 500;
+    color: #8b7355 !important;
+    z-index: 10;
+}
+
+.budget-status-card .bi-graph-up-arrow {
+    font-size: clamp(1.5rem, 4vw, 2.5rem) !important;
+}
+
+/* ===== RESPONSIVE ANPASSUNGEN ===== */
+@media (max-width: 768px) {
+    .dashboard-card {
+        min-height: 100px;
+    }
+    
+    .dashboard-card .card-body {
+        padding: 1rem;
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .dashboard-card .align-self-center {
+        margin-top: 0.5rem;
+    }
+    
+    .event-card {
+        min-height: 80px;
+    }
+    
+    .budget-status-card .row {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .budget-status-card .col-8,
+    .budget-status-card .col-4 {
+        flex: none;
+        width: 100%;
+    }
+}
+
+@media (max-width: 576px) {
+    .dashboard-card h3 {
+        font-size: clamp(1.25rem, 3.5vw, 2rem);
+    }
+    
+    .dashboard-card .fs-1 {
+        font-size: clamp(1.5rem, 3.5vw, 2.5rem) !important;
+    }
+    
+    .event-card h4 {
+        font-size: clamp(1rem, 5vw, 1.5rem);
+    }
+}

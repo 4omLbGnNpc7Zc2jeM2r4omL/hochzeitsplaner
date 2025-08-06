@@ -1,0 +1,1570 @@
+{% extends "base.html" %}
+
+{% block title %}Tischplanung - {{ super() }}{% endblock %}
+
+{% block extra_head %}
+<!-- Modulare Tischplanung CSS - Optimiert für Performance -->
+<style>
+    /* Grundlegende Performance-Optimierungen */
+    .seating-chart {
+        border: 2px solid #dee2e6;
+        border-radius: 15px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        position: relative;
+        overflow: hidden;
+        min-height: 600px;
+        cursor: move;
+        user-select: none;
+        /* Performance-Optimierungen */
+        contain: layout style paint;
+        will-change: transform;
+        transform: translateZ(0);
+    }
+    
+    .table-element {
+        position: absolute;
+        width: 160px;
+        height: 160px;
+        border: 3px solid #007bff;
+        border-radius: 50%;
+        background: #ffffff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        font-size: 13px;
+        text-align: center;
+        z-index: 5;
+        user-select: none;
+        /* Performance-Optimierungen */
+        contain: layout style paint;
+        will-change: transform;
+        backface-visibility: hidden;
+        transform: translateZ(0);
+        padding: 8px;
+        box-sizing: border-box;
+    }
+    
+    .table-element:hover {
+        transform: scale(1.05) translateZ(0);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        z-index: 10;
+        cursor: grab;
+    }
+    
+    .table-element:active {
+        cursor: grabbing;
+    }
+    
+    .table-element.selected {
+        border-color: #ffc107;
+        background: #fff3cd;
+        transform: scale(1.1) translateZ(0);
+        z-index: 20;
+        box-shadow: 0 8px 16px rgba(255, 193, 7, 0.3);
+    }
+    
+    .table-element.full {
+        border-color: #dc3545;
+        background: #f8d7da;
+    }
+    
+    .table-element.empty {
+        border-color: #28a745;
+        background: #d4edda;
+    }
+    
+    .table-element.moving {
+        z-index: 1000;
+        transform: scale(1.1) translateZ(0);
+        box-shadow: 0 12px 24px rgba(0,0,0,0.3);
+        transition: none;
+        cursor: grabbing !important;
+        border-color: #ffc107 !important;
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%) !important;
+    }
+    
+    .table-name {
+        font-weight: bold;
+        color: #495057;
+        margin-bottom: 3px;
+        font-size: 14px;
+        line-height: 1.2;
+    }
+    
+    .table-occupancy {
+        font-size: 12px;
+        color: #6c757d;
+        margin-bottom: 2px;
+    }
+    
+    .guest-list-item {
+        cursor: grab;
+        transition: all 0.2s ease;
+        border-left: 4px solid transparent;
+    }
+    
+    .guest-list-item:hover {
+        background-color: #f8f9fa;
+        border-left-color: #007bff;
+    }
+    
+    .guest-list-item.dragging {
+        opacity: 0.5;
+        cursor: grabbing;
+    }
+    
+    .guest-list-item.assigned {
+        background-color: #e8f5e8;
+        border-left-color: #28a745;
+    }
+    
+    .guest-list-item.conflict {
+        background-color: #ffeaa7;
+        border-left-color: #fdcb6e;
+    }
+    
+    .relationship-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-left: 5px;
+    }
+    
+    .rel-positive { background-color: #28a745; }
+    .rel-neutral { background-color: #6c757d; }
+    .rel-negative { background-color: #dc3545; }
+    
+    .seating-controls {
+        background: #ffffff;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .relationship-form {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .table-info-panel {
+        background: #ffffff;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 20px;
+        height: fit-content;
+        position: sticky;
+        top: 20px;
+    }
+    
+    .zoom-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 100;
+    }
+    
+    .minimap {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        width: 150px;
+        height: 100px;
+        background: rgba(255,255,255,0.9);
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        z-index: 100;
+    }
+    
+    .statistics-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .btn-relationship {
+        border-radius: 20px;
+        margin: 2px;
+        font-size: 12px;
+        padding: 4px 12px;
+    }
+    
+    .conflict-alert {
+        background: linear-gradient(45deg, #ff6b6b, #feca57);
+        color: white;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+        100% { transform: scale(1); }
+    }
+    
+    .guest-avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 12px;
+        margin-right: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Benachrichtigungssystem -->
+<div class="row">
+    <div class="col-12">
+        <!-- Erfolgs-Benachrichtigung -->
+        <div id="success-alert" class="alert alert-success alert-dismissible fade show d-none" role="alert">
+            <i class="fas fa-check-circle"></i>
+            <span id="success-message"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        
+        <!-- Fehler-Benachrichtigung -->
+        <div id="error-alert" class="alert alert-danger alert-dismissible fade show d-none" role="alert">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="error-message"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-diagram-3 me-2"></i>Tischplanung</h1>
+            
+            <!-- Moderne, platzsparende Navigation -->
+            <div class="d-flex gap-2">
+                <!-- Hauptaktionen -->
+                <button type="button" class="btn border-0 shadow-sm" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); color: #8b7355; border-radius: 12px;" onclick="saveSeatingPlan()">
+                    <i class="bi bi-save me-1"></i>Speichern
+                </button>
+                
+                <!-- Zuordnungs-Dropdown -->
+                <div class="dropdown">
+                    <button class="btn border-0 shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" style="background: linear-gradient(135deg, #e8d5a3, #f4e4bc); color: #8b7355; border-radius: 12px;">
+                        <i class="bi bi-magic me-1"></i>Zuordnung
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="#" onclick="autoAssignGuests()" id="autoAssignBtn">
+                                <i class="bi bi-magic me-2"></i>Auto-Zuordnung starten
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="#" onclick="showTableOverview()">
+                                <i class="bi bi-table me-2"></i>Tischzuordnungs-Übersicht
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="#" onclick="showRelationshipsOverview()">
+                                <i class="bi bi-heart me-2"></i>Beziehungen verwalten
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <div class="dropdown-item-text">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="onlyConfirmedGuests" checked>
+                                    <label class="form-check-label" for="onlyConfirmedGuests">
+                                        Nur zugesagte Gäste
+                                    </label>
+                                </div>
+                                <small class="text-muted">Wenn deaktiviert: Alle Gäste mit anzahl_essen > 0</small>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Verwaltung-Dropdown -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-gear me-1"></i>Verwaltung
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="#" onclick="clearAllTables()">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Alle Zuordnungen zurücksetzen
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item text-danger" href="#" onclick="clearAllTablesConfirm()">
+                                <i class="bi bi-trash me-2"></i>Alle Tische löschen
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="#" onclick="centerTables()">
+                                <i class="bi bi-bullseye me-2"></i>Tische zentrieren
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Analyse-Dropdown -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-graph-up me-1"></i>Analyse
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="#" onclick="showStatistics()">
+                                <i class="bi bi-graph-up me-2"></i>Statistiken anzeigen
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiken und Konflikte -->
+<div class="row" id="statisticsRow" style="display: none;">
+    <div class="col-12">
+        <div class="statistics-card">
+            <h4><i class="bi bi-graph-up me-2"></i>Tischplanung Statistiken</h4>
+            <div class="row" id="statisticsContent">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tisch-Übersicht nach Auto-Zuordnung -->
+<div class="row" id="tableOverviewRow" style="display: none;">
+    <div class="col-12">
+        <div class="card shadow-lg border-0" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 15px;">
+            <div class="card-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border-radius: 15px 15px 0 0;">
+                <h5 class="mb-0" style="color: #8b7355;">
+                    <i class="bi bi-table me-2"></i>Tischzuordnungs-Übersicht
+                </h5>
+                <div>
+                    <button class="btn btn-light btn-sm me-2" onclick="printTableOverview()">
+                        <i class="bi bi-printer me-1"></i>Drucken
+                    </button>
+                    <button class="btn btn-outline-light btn-sm" onclick="hideTableOverview()">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <div id="tableOverviewContent">
+                    <!-- Wird dynamisch nach Auto-Zuordnung gefüllt -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="conflictAlerts"></div>
+
+<!-- Hauptbereich -->
+<div class="row">
+    <!-- Gästeliste und Steuerung -->
+    <div class="col-md-4">
+        <!-- Steuerung -->
+        <div class="seating-controls">
+            <h5><i class="bi bi-gear me-2"></i>Steuerung</h5>
+            
+            <!-- Tisch hinzufügen -->
+            <div class="mb-3">
+                <label class="form-label">Neuer Tisch</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="newTableName" placeholder="Tischname">
+                    <input type="number" class="form-control" id="newTableSize" placeholder="Plätze" value="8" min="2" max="16">
+                    <button class="btn btn-outline-primary" onclick="addNewTable()">
+                        <i class="bi bi-plus"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Tischkonfiguration -->
+            <div class="mb-3">
+                <label class="form-label">Standard Tischgröße</label>
+                <select class="form-select" id="defaultTableSize" onchange="updateTableSizes()">
+                    <option value="6">6 Personen</option>
+                    <option value="8" selected>8 Personen</option>
+                    <option value="10">10 Personen</option>
+                    <option value="12">12 Personen</option>
+                </select>
+            </div>
+            
+            <!-- Filter -->
+            <div class="mb-3">
+                <label class="form-label">Gäste filtern</label>
+                <div class="row">
+                    <div class="col-6">
+                        <select class="form-select form-select-sm" id="filterSeite" onchange="filterGuests()">
+                            <option value="">Alle Seiten</option>
+                            <option value="Käthe">Käthe</option>
+                            <option value="Pascal">Pascal</option>
+                            <option value="Beide">Beide</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <select class="form-select form-select-sm" id="filterStatus" onchange="filterGuests()">
+                            <option value="">Alle Status</option>
+                            <option value="Zugesagt">Zugesagt</option>
+                            <option value="Offen">Offen</option>
+                            <option value="Abgesagt">Abgesagt</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Gästeliste -->
+        <div class="table-info-panel">
+            <h5><i class="bi bi-people me-2"></i>Gäste <span id="guestCount" class="badge badge-wedding">0</span></h5>
+            <div class="mb-3">
+                <input type="search" class="form-control" id="guestSearch" placeholder="Gast suchen..." onkeyup="searchGuests()">
+            </div>
+            <div id="guestList" class="list-group" style="max-height: 400px; overflow-y: auto;">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            
+            <!-- Beziehungen verwalten -->
+            <div class="relationship-form" id="relationshipForm" style="display: none;">
+                <h6><i class="bi bi-heart me-2"></i>Beziehung verwalten</h6>
+                <div id="relationshipContent">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sitzplan -->
+    <div class="col-md-8">
+        <div class="position-relative">
+            <!-- Zoom-Steuerung -->
+            <div class="zoom-controls btn-group-vertical">
+                <button class="btn btn-sm btn-outline-secondary" onclick="zoomIn()">
+                    <i class="bi bi-zoom-in"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="resetZoom()">
+                    <i class="bi bi-arrows-fullscreen"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="zoomOut()">
+                    <i class="bi bi-zoom-out"></i>
+                </button>
+            </div>
+            
+            <!-- Sitzplan-Bereich -->
+            <div id="seatingChart" class="seating-chart">
+                <!-- Tische werden hier dynamisch eingefügt -->
+            </div>
+            
+            <!-- Minimap -->
+            <div class="minimap" id="minimap">
+                <!-- Übersicht-Element entfernt -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+
+<!-- Tisch-Details Modal -->
+<div class="modal fade" id="tableDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-table me-2"></i>Tisch Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="tableDetailsContent">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <button type="button" class="btn btn-primary" onclick="saveTableDetails()">
+                    <i class="bi bi-pencil me-1"></i>Bearbeiten
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Beziehungs-Editor Modal -->
+<div class="modal fade" id="relationshipModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-heart me-2"></i>Beziehung bearbeiten</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="relationshipModalContent">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" onclick="deleteRelationship()">
+                    <i class="bi bi-trash me-1"></i>Löschen
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="saveRelationship()">
+                    <i class="bi bi-save me-1"></i>Speichern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Modulare Tischplanung JavaScript - Optimiert für bessere Performance -->
+<!-- WICHTIG: Globals zuerst laden für korrekte Initialisierung der Brautpaar-Namen -->
+<!-- Benachrichtigungssystem aus app.js -->
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+<!-- Tischplanung Module -->
+<script src="{{ url_for('static', filename='js/tischplanung-globals.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tischplanung-api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tischplanung-events.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tischplanung-renderer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tischplanung-core.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tischplanung-relationships.js') }}"></script>
+<!-- Fix für Beziehungsmanagement - lädt korrigierte Funktionen nach den ursprünglichen -->
+<script src="{{ url_for('static', filename='js/tischplanung-relationships-fix.js') }}"></script>
+
+<!-- Legacy-Fallback für bestehende Funktionen -->
+<script>
+// 💑 WICHTIGE GLOBALE VARIABLEN FÜR BRAUTPAAR-NAMEN
+// Diese Variablen werden von tischplanung-relationships.js und anderen Modulen benötigt
+
+// Braut- und Bräutigam-Namen aus den Einstellungen für JavaScript verfügbar machen
+// Verwendet nur die deutschen Variablen braut_name und braeutigam_name
+window.BRIDE_NAME = "{{ braut_name }}";
+window.GROOM_NAME = "{{ braeutigam_name }}";
+window.WEDDING_COUPLE_NAME = "{{ braut_name }} & {{ braeutigam_name }}";
+// Deutsche Variablen-Namen für Fallback
+window.BRAUT_NAME = "{{ braut_name }}";
+window.BRAEUTIGAM_NAME = "{{ braeutigam_name }}";
+
+// ✅ LÖSUNG FÜR "weddingCoupleName is not defined": 
+// Diese Variable wird von tischplanung-relationships.js erwartet
+window.weddingCoupleName = "{{ braut_name }} & {{ braeutigam_name }}";
+
+
+// Die Tischplanung wird automatisch durch tischplanung-core.js initialisiert
+// Hier nur zusätzliche Template-spezifische Initialisierung
+document.addEventListener('DOMContentLoaded', function() {
+
+    
+    // Warten bis die Core-Initialisierung abgeschlossen ist
+    const waitForInit = () => {
+        if (window.tischplanung && window.tischplanung.isInitialized) {
+
+        } else if (window.tischplanung) {
+
+            setTimeout(waitForInit, 100);
+        } else {
+            console.error('❌ Tischplanung-Core nicht gefunden');
+        }
+    };
+    
+    waitForInit();
+});
+
+// Globale Funktionen für Backward-Kompatibilität
+function clearTable(tableId) {
+    if (window.tischplanung && window.TischplanungAPI) {
+        window.TischplanungAPI.unassignGuest(tableId).then(() => {
+            // Nur Gäste neu laden
+            window.tischplanung.loadGuests().then(() => {
+                window.tischplanung.render();
+            });
+        });
+    }
+}
+
+function addNewTable() {
+    const name = document.getElementById('newTableName').value.trim();
+    const size = parseInt(document.getElementById('newTableSize').value) || 8;
+    
+    if (!name) {
+        if (window.showWarning) {
+            window.showWarning('Bitte einen Tischnamen eingeben');
+        } else {
+            alert('Bitte einen Tischnamen eingeben');
+        }
+        return;
+    }
+    
+    // Freie Position finden
+    const tables = window.tischplanung?.tables || [];
+    let x = 100 + (tables.length % 5) * 150;
+    let y = 100 + Math.floor(tables.length / 5) * 150;
+    
+    const tableData = {
+        name: name,
+        capacity: size,
+        x: x,
+        y: y,
+        shape: 'round',
+        farbe: '#007bff'
+    };
+    
+    if (window.TischplanungAPI) {
+        window.TischplanungAPI.saveTable(tableData).then((result) => {
+            if (result.id) {
+                // Formular leeren
+                document.getElementById('newTableName').value = '';
+                document.getElementById('newTableSize').value = '8';
+                
+                // Nur Tische neu laden
+                window.tischplanung.loadTables().then(() => {
+                    window.tischplanung.render();
+                });
+                
+                if (window.showSuccess) {
+                    window.showSuccess(`Tisch "${name}" erfolgreich erstellt`);
+                } else {
+                    console.log(`Tisch "${name}" erfolgreich erstellt`);
+                }
+            } else {
+                if (window.showError) {
+                    window.showError('Fehler beim Erstellen des Tisches');
+                } else {
+                    alert('Fehler beim Erstellen des Tisches');
+                }
+            }
+        }).catch(error => {
+            console.error('Fehler beim Erstellen des Tisches:', error);
+            if (window.showError) {
+                window.showError('Fehler beim Erstellen des Tisches: ' + error.message);
+            } else {
+                alert('Fehler beim Erstellen des Tisches: ' + error.message);
+            }
+        });
+    }
+}
+
+function saveSeatingPlan() {
+    if (window.showSuccess) {
+        window.showSuccess('Sitzplan wird automatisch gespeichert');
+    } else {
+        alert('Sitzplan wird automatisch gespeichert');
+    }
+}
+
+function filterGuests() {
+    const seite = document.getElementById('filterSeite')?.value || '';
+    const status = document.getElementById('filterStatus')?.value || '';
+    
+    // Implementierung der Filterlogik
+    const guestItems = document.querySelectorAll('.guest-list-item');
+    
+    guestItems.forEach(item => {
+        let show = true;
+        
+        // Hier könnte man die Filterlogik implementieren
+        // Momentan zeigen wir alle Gäste an
+        
+        item.style.display = show ? 'block' : 'none';
+    });
+}
+
+function searchGuests() {
+    const searchTerm = document.getElementById('guestSearch')?.value.toLowerCase() || '';
+    const guestItems = document.querySelectorAll('.guest-list-item');
+    
+    guestItems.forEach(item => {
+        const guestName = item.textContent.toLowerCase();
+        const matches = guestName.includes(searchTerm);
+        item.style.display = matches ? 'block' : 'none';
+    });
+}
+
+function updateTableSizes() {
+    const defaultSize = parseInt(document.getElementById('defaultTableSize')?.value) || 8;
+    console.log('Update default table size to:', defaultSize);
+    // Hier könnte man die Standard-Tischgröße aktualisieren
+}
+
+function zoomIn() {
+    if (window.tischplanung) {
+        window.tischplanung.currentZoom = Math.min(window.tischplanung.currentZoom * 1.2, 3);
+        const chart = document.getElementById('seatingChart');
+        if (chart) {
+            chart.style.transform = `scale(${window.tischplanung.currentZoom})`;
+        }
+    }
+}
+
+function zoomOut() {
+    if (window.tischplanung) {
+        window.tischplanung.currentZoom = Math.max(window.tischplanung.currentZoom / 1.2, 0.3);
+        const chart = document.getElementById('seatingChart');
+        if (chart) {
+            chart.style.transform = `scale(${window.tischplanung.currentZoom})`;
+        }
+    }
+}
+
+function resetZoom() {
+    if (window.tischplanung) {
+        window.tischplanung.currentZoom = 1;
+        const chart = document.getElementById('seatingChart');
+        if (chart) {
+            chart.style.transform = 'scale(1)';
+        }
+    }
+}
+
+// Neue Funktionen für Tischbearbeitung
+function deleteTable() {
+    const selectedTable = window.tischplanung?.selectedTable;
+    if (!selectedTable) {
+        alert('Bitte wählen Sie zuerst einen Tisch aus');
+        return;
+    }
+    
+    if (window.TischplanungRenderer && window.TischplanungRenderer.editTable) {
+        // Modal schließen falls offen
+        const modal = bootstrap.Modal.getInstance(document.getElementById('tableDetailsModal'));
+        if (modal) modal.hide();
+        
+        // Bearbeitungs-Modal öffnen
+        window.TischplanungRenderer.editTable(selectedTable);
+    }
+}
+
+function saveTableDetails() {
+    const selectedTable = window.tischplanung?.selectedTable;
+    if (!selectedTable) {
+        return;
+    }
+    
+    if (window.TischplanungRenderer && window.TischplanungRenderer.editTable) {
+        // Modal schließen
+        const modal = bootstrap.Modal.getInstance(document.getElementById('tableDetailsModal'));
+        if (modal) modal.hide();
+        
+        // Bearbeitungs-Modal öffnen
+        window.TischplanungRenderer.editTable(selectedTable);
+    }
+}
+
+// Hilfsfunktion um Tische zu zentrieren
+function centerTables() {
+    if (!window.tischplanung || !window.tischplanung.tables.length) {
+        alert('Keine Tische vorhanden');
+        return;
+    }
+    
+    const chart = document.getElementById('seatingChart');
+    const tables = window.tischplanung.tables;
+    
+    // Berechne optimale Matrix-Layout mit Kollisionserkennung
+    const tableCount = tables.length;
+    const tablesPerRow = Math.min(Math.ceil(Math.sqrt(tableCount)), 5); // Max 5 Tische pro Reihe
+    const tableSize = 180; // Tischgröße (Breite/Höhe) - größer für weniger Überlappung
+    const minSpacing = 200; // Mindestabstand zwischen Tischen - größer für keine Überlappung
+    
+    // Berechne optimalen Abstand basierend auf verfügbarem Platz
+    const availableWidth = chart.offsetWidth - 100; // 50px Rand links und rechts
+    const availableHeight = chart.offsetHeight - 100; // 50px Rand oben und unten
+    
+    const spacingX = Math.max(minSpacing, Math.floor(availableWidth / tablesPerRow));
+    const rows = Math.ceil(tableCount / tablesPerRow);
+    const spacingY = Math.max(minSpacing, Math.floor(availableHeight / rows));
+    
+    // Berechne Startposition um die Matrix zu zentrieren
+    const totalWidth = (tablesPerRow - 1) * spacingX + tableSize;
+    const totalHeight = (rows - 1) * spacingY + tableSize;
+    const startX = Math.max(50, (chart.offsetWidth - totalWidth) / 2);
+    const startY = Math.max(50, (chart.offsetHeight - totalHeight) / 2);
+    
+    console.log('📐 Matrix-Layout berechnet (Kollisionsfrei):', {
+        tableCount: tableCount,
+        tablesPerRow: tablesPerRow,
+        spacing: { x: spacingX, y: spacingY },
+        tableSize: tableSize,
+        chartSize: { width: chart.offsetWidth, height: chart.offsetHeight },
+        matrixSize: { width: totalWidth, height: totalHeight },
+        startPosition: { x: startX, y: startY }
+    });
+    
+    // Batch-Update: Sammle alle Positionen und update ohne Render zwischen den Updates
+    const updatePromises = [];
+    
+    tables.forEach((table, index) => {
+        const row = Math.floor(index / tablesPerRow);
+        const col = index % tablesPerRow;
+        const x = startX + col * spacingX;
+        const y = startY + row * spacingY;
+        
+        console.log(`📍 Positioniere Tisch ${table.name} (${index + 1}/${tableCount}): Row ${row}, Col ${col} -> (${x}, ${y})`);
+        
+        // Update Position im DOM sofort für bessere UX
+        const tableElement = document.querySelector(`[data-table-id="${table.id}"]`);
+        if (tableElement) {
+            tableElement.style.left = x + 'px';
+            tableElement.style.top = y + 'px';
+        }
+        
+        // API-Update sammeln für Batch-Operation
+        if (window.TischplanungAPI) {
+            updatePromises.push(
+                window.TischplanungAPI.updateTable(table.id, { x: x, y: y })
+            );
+        }
+    });
+    
+    // Alle Updates gleichzeitig ausführen und nur einmal rendern
+    Promise.all(updatePromises).then(() => {
+        // Nur einmal laden und rendern nach allen Updates
+        window.tischplanung.loadTables().then(() => {
+            console.log('✅ Matrix-Zentrierung abgeschlossen (kollisionsfrei)');
+        });
+    }).catch(error => {
+        console.error('❌ Fehler beim Batch-Update der Tischpositionen:', error);
+    });
+}
+
+function autoAssignGuests() {
+    // Prüfe Checkbox-Status
+    const onlyConfirmedCheckbox = document.getElementById('onlyConfirmedGuests');
+    const onlyConfirmed = onlyConfirmedCheckbox ? onlyConfirmedCheckbox.checked : true;
+    
+    console.log('📋 Filter-Einstellungen:', {
+        onlyConfirmed: onlyConfirmed,
+        criteriaText: onlyConfirmed ? 'Nur zugesagte Gäste mit anzahl_essen > 0' : 'Alle Gäste mit anzahl_essen > 0'
+    });
+    
+    try {
+        // API-Aufruf mit Filter-Parameter
+        window.TischplanungAPI.autoAssign({ only_confirmed: onlyConfirmed }).then((result) => {
+            if (result.success) {
+                // Erfolgreiche Nachricht anzeigen (ohne Modal)
+                if (window.showSuccess) {
+                    window.showSuccess(result.message || 'Auto-Zuordnung erfolgreich abgeschlossen!');
+                } else {
+                    console.log('✅ Auto-Zuordnung erfolgreich:', result.message);
+                }
+                
+                // KEIN Modal mehr - nur stille Verarbeitung
+                // showAssignmentOverview(result); // ENTFERNT für bessere UX
+                
+                // Stille Übersicht in Console für Debugging
+                if (result.table_overview && result.table_overview.length > 0) {
+                    console.log('📊 Zuordnungs-Übersicht:', result);
+                }
+                
+                // Tischplanung-Daten neu laden und anzeigen ohne Page-Reload
+                if (window.tischplanung) {
+                    window.tischplanung.loadAllData().then(() => {
+                        // Nach dem Laden automatisch Tische in Matrix zentrieren
+                        console.log('🎯 Auto-Assign abgeschlossen - Zentriere Tische kollisionsfrei in Matrix');
+                        centerTables(); // Direkter Aufruf ohne setTimeout für bessere Performance
+                    }).catch(error => {
+                        console.error('Fehler beim Neu-Laden der Tischplanung:', error);
+                        location.reload();
+                    });
+                } else {
+                    location.reload();
+                }
+            } else {
+                const errorMsg = result.message || 'Unbekannter Fehler bei der automatischen Zuordnung';
+                console.error('Auto-Zuordnung fehlgeschlagen:', errorMsg);
+                
+                if (window.showError) {
+                    window.showError('Fehler bei der automatischen Zuordnung: ' + errorMsg);
+                } else {
+                    alert('Fehler bei der automatischen Zuordnung: ' + errorMsg);
+                }
+            }
+        }).catch(error => {
+            console.error('Auto-Zuordnung API Fehler:', error);
+            const errorMsg = 'Verbindungsfehler bei der automatischen Zuordnung';
+            
+            if (window.showError) {
+                window.showError(errorMsg);
+            } else {
+                alert(errorMsg);
+            }
+        });
+    } catch (error) {
+        console.error('Auto-Zuordnung Ausführungsfehler:', error);
+        const errorMsg = 'Kritischer Fehler bei der automatischen Zuordnung';
+        
+        if (window.showError) {
+            window.showError(errorMsg);
+        } else {
+            alert(errorMsg);
+        }
+    }
+}
+
+function showAssignmentOverview(result) {
+
+    
+    // Modal erstellen oder existierendes verwenden
+    let modal = document.getElementById('assignmentOverviewModal');
+    if (!modal) {
+        modal = createAssignmentOverviewModal();
+        document.body.appendChild(modal);
+    }
+    
+    // Modal-Inhalt erstellen
+    const modalBody = modal.querySelector('.modal-body');
+    let html = '';
+    
+    // Zusammenfassung
+    html += `
+        <div class="alert alert-info">
+            <h6 class="mb-2">📋 Zuordnungs-Zusammenfassung</h6>
+            <div class="row">
+                <div class="col-md-6">
+                    <small><strong>Filter:</strong> ${result.filter_used || 'Nicht spezifiziert'}</small><br>
+                    <small><strong>Zugewiesene Gäste:</strong> ${result.assigned_count || 0} von ${result.total_guests || 0}</small>
+                </div>
+                <div class="col-md-6">
+                    ${result.unassigned_count > 0 ? `<small class="text-warning"><strong>Nicht zugewiesen:</strong> ${result.unassigned_count}</small><br>` : ''}
+                    ${result.created_tables && result.created_tables.length > 0 ? 
+                        `<small class="text-success"><strong>Neue Tische:</strong> ${result.created_tables.join(', ')}</small>` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Tisch-Übersicht
+    if (result.table_overview && result.table_overview.length > 0) {
+        html += '<h6 class="mb-3">🪑 Tischzuordnungen</h6>';
+        
+        result.table_overview.forEach(table => {
+            html += `
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <strong>${table.table_name}</strong>
+                        <span class="badge badge-wedding">${table.total_persons} Personen</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+            `;
+            
+            table.guests.forEach((guest, index) => {
+                const categoryColor = getCategoryColor(guest.category);
+                html += `
+                    <div class="col-md-6 mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-medium">${guest.name}</span>
+                            <div>
+                                <span class="badge ${categoryColor} me-1">${guest.category}</span>
+                                <small class="text-muted">${guest.persons}P</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        html += '<div class="alert alert-warning">Keine Tischzuordnungen vorhanden.</div>';
+    }
+    
+    modalBody.innerHTML = html;
+    
+    // Modal anzeigen
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+}
+
+function getCategoryColor(category) {
+    const colors = {
+        'Brautpaar': 'bg-danger',
+        'Familie': 'badge-wedding',
+        'Freunde': 'bg-success',
+        'Kollegen': 'bg-info',
+        'Bekannte': 'bg-secondary'
+    };
+    return colors[category] || 'bg-secondary';
+}
+
+function createAssignmentOverviewModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.id = 'assignmentOverviewModal';
+    modal.tabIndex = -1;
+    modal.innerHTML = `
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">🪑 Tischzuordnungs-Übersicht</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Inhalt wird dynamisch erstellt -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                    <button type="button" class="btn btn-primary" onclick="printAssignmentOverview()">
+                        <i class="bi bi-printer"></i> Drucken
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    return modal;
+}
+
+function printAssignmentOverview() {
+    const modalBody = document.querySelector('#assignmentOverviewModal .modal-body');
+    if (modalBody) {
+        const printContent = modalBody.innerHTML;
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Tischzuordnungs-Übersicht</title>
+                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+                    <style>
+                        @media print {
+                            .alert { border: 1px solid #dee2e6 !important; }
+                            .card { border: 1px solid #dee2e6 !important; }
+                        }
+                    </style>
+                </head>
+                <body class="p-3">
+                    <h3>🪑 Tischzuordnungs-Übersicht</h3>
+                    ${printContent}
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    }
+}
+
+function clearAllAssignments() {
+    if (confirm('Alle Zuweisungen wirklich löschen?')) {
+        if (window.tischplanung && window.TischplanungAPI) {
+            window.TischplanungAPI.clearAllAssignments().then((result) => {
+                if (result.success) {
+                    window.tischplanung.loadAllData().then(() => {
+                        window.tischplanung.render();
+                    });
+                }
+            });
+        }
+    }
+}
+
+function clearAllTablesConfirm() {
+    if (confirm('⚠️ ACHTUNG: Alle Tische und Zuordnungen werden unwiderruflich gelöscht!\n\nSind Sie sicher, dass Sie fortfahren möchten?')) {
+
+        
+        if (window.TischplanungAPI) {
+            window.TischplanungAPI.clearAllTables().then((result) => {
+                if (result.success) {
+                    if (window.showSuccess) {
+                        window.showSuccess(result.message || 'Alle Tische erfolgreich gelöscht!');
+                    } else {
+                        alert(result.message || 'Alle Tische erfolgreich gelöscht!');
+                    }
+                    
+                    // Tischplanung-Daten neu laden und anzeigen
+                    if (window.tischplanung) {
+                        window.tischplanung.loadAllData().then(() => {
+                            window.tischplanung.render();
+
+                        }).catch(error => {
+                            console.error('Fehler beim Neu-Laden der Tischplanung:', error);
+                        });
+                    }
+                } else {
+                    if (window.showError) {
+                        window.showError(result.error || 'Fehler beim Löschen der Tische');
+                    } else {
+                        alert(result.error || 'Fehler beim Löschen der Tische');
+                    }
+                }
+            }).catch(error => {
+                console.error('Fehler beim Löschen aller Tische:', error);
+                if (window.showError) {
+                    window.showError('Fehler beim Löschen aller Tische: ' + error.message);
+                } else {
+                    alert('Fehler beim Löschen aller Tische: ' + error.message);
+                }
+            });
+        } else {
+            console.error('TischplanungAPI nicht verfügbar');
+            alert('Fehler: TischplanungAPI nicht verfügbar');
+        }
+    }
+}
+
+// Performance-Monitoring
+window.addEventListener('load', function() {
+    console.log('📊 Tischplanung Performance:', {
+        'DOM Ready': performance.timing.domContentLoadedEventEnd - performance.timing.navigationStart,
+        'Page Load': performance.timing.loadEventEnd - performance.timing.navigationStart,
+        'Scripts Loaded': Date.now() - performance.timing.navigationStart
+    });
+});
+
+// Neue Funktionen für die Tischübersicht
+function displayTableOverview(result) {
+
+    
+    const tableOverviewRow = document.getElementById('tableOverviewRow');
+    const tableOverviewContent = document.getElementById('tableOverviewContent');
+    
+    if (!tableOverviewRow || !tableOverviewContent) {
+        console.error('Tischübersicht-Elemente nicht gefunden');
+        return;
+    }
+    
+    let html = '';
+    
+    // Zusammenfassung oben
+    html += `
+        <div class="alert alert-success mb-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h6 class="mb-2">✅ Auto-Zuordnung erfolgreich abgeschlossen!</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small><strong>Zugewiesene Gäste:</strong> ${result.assigned_count || 0} von ${result.total_guests || 0}</small><br>
+                            <small><strong>Filter verwendet:</strong> ${result.filter_used || 'Alle Gäste'}</small>
+                        </div>
+                        <div class="col-md-6">
+                            ${result.unassigned_count > 0 ? `<small class="text-warning"><strong>Nicht zugewiesen:</strong> ${result.unassigned_count}</small><br>` : ''}
+                            ${result.created_tables && result.created_tables.length > 0 ? 
+                                `<small class="text-info"><strong>Neue Tische:</strong> ${result.created_tables.join(', ')}</small>` : ''}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button class="btn btn-outline-success btn-sm" onclick="clearAllAssignments()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Alle Zuweisungen löschen
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Tische nach Tischen sortiert anzeigen
+    if (result.table_overview && result.table_overview.length > 0) {
+        // Tische sortieren: Brauttisch zuerst, dann Tisch 1, Tisch 2, etc.
+        const sortedTables = result.table_overview.sort((a, b) => {
+            if (a.table_name === 'Brauttisch') return -1;
+            if (b.table_name === 'Brauttisch') return 1;
+            
+            // Für Tische mit Nummern: extrahiere die Nummer für korrekte Sortierung
+            const aMatch = a.table_name.match(/Tisch (\d+)/);
+            const bMatch = b.table_name.match(/Tisch (\d+)/);
+            
+            if (aMatch && bMatch) {
+                return parseInt(aMatch[1]) - parseInt(bMatch[1]);
+            }
+            
+            // Fallback auf alphabetische Sortierung
+            return a.table_name.localeCompare(b.table_name);
+        });
+        
+        html += '<div class="row">';
+        
+        sortedTables.forEach((table, index) => {
+            // Bootstrap-Spalten: 2 Tische pro Zeile auf Desktop, 1 auf Mobile
+            const colClass = sortedTables.length > 1 ? 'col-lg-6 col-md-12' : 'col-12';
+            
+            html += `
+                <div class="${colClass} mb-4">
+                    <div class="card border-0 shadow-sm h-100" style="border-radius: 10px;">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center" style="border-radius: 10px 10px 0 0;">
+                            <div>
+                                <h6 class="mb-0 text-primary">
+                                    <i class="bi bi-table me-2"></i>${table.table_name}
+                                </h6>
+                                <small class="text-muted">${table.total_persons} Personen</small>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-outline-warning btn-sm" onclick="clearTableAssignment('${table.table_name}')" title="Tisch leeren">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="deleteTableFromOverview('${table.table_name}')" title="Tisch löschen">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="guest-list">
+            `;
+            
+            // Gäste für diesen Tisch anzeigen
+            table.guests.forEach((guest, guestIndex) => {
+                const categoryColor = getCategoryBadgeClass(guest.category);
+                const sideColor = getSideBadgeClass(guest.side);
+                
+                html += `
+                    <div class="d-flex justify-content-between align-items-center py-2 ${guestIndex > 0 ? 'border-top' : ''}" style="border-color: #f0f0f0;">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-1">
+                                <span class="fw-medium me-2">${guest.name}</span>
+                                <span class="badge ${categoryColor} me-1" style="font-size: 0.7rem;">${guest.category}</span>
+                                ${guest.side ? `<span class="badge ${sideColor}" style="font-size: 0.7rem;">${guest.side}</span>` : ''}
+                            </div>
+                            <small class="text-muted">
+                                <i class="bi bi-people me-1"></i>${guest.persons} Person${guest.persons !== 1 ? 'en' : ''}
+                                ${guest.children > 0 ? ` • <i class="bi bi-emoji-smile me-1"></i>${guest.children} Kind${guest.children !== 1 ? 'er' : ''}` : ''}
+                            </small>
+                        </div>
+                        <button class="btn btn-outline-danger btn-sm" onclick="removeGuestFromTable('${table.table_name}', '${guest.name}', ${guest.guest_id})" title="Gast entfernen">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                `;
+            });
+            
+            html += `
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+    } else {
+        html += '<div class="alert alert-warning">Keine Tischzuordnungen vorhanden.</div>';
+    }
+    
+    // Inhalt setzen und Übersicht anzeigen
+    tableOverviewContent.innerHTML = html;
+    tableOverviewRow.style.display = 'block';
+    
+    // Smooth scroll zur Übersicht
+    tableOverviewRow.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+    });
+    
+
+}
+
+function hideTableOverview() {
+    const tableOverviewRow = document.getElementById('tableOverviewRow');
+    if (tableOverviewRow) {
+        tableOverviewRow.style.display = 'none';
+    }
+}
+
+function showTableOverview() {
+    const tableOverviewRow = document.getElementById('tableOverviewRow');
+    if (tableOverviewRow) {
+        tableOverviewRow.style.display = 'block';
+        tableOverviewRow.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+        });
+    }
+}
+
+function printTableOverview() {
+    const content = document.getElementById('tableOverviewContent');
+    if (content) {
+        const printContent = content.innerHTML;
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Tischzuordnungs-Übersicht</title>
+                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+                    <style>
+                        @media print {
+                            .alert { border: 1px solid #dee2e6 !important; }
+                            .card { border: 1px solid #dee2e6 !important; }
+                            .btn { display: none !important; }
+                        }
+                        body { padding: 20px; }
+                    </style>
+                </head>
+                <body>
+                    <h3 class="mb-4">🪑 Tischzuordnungs-Übersicht</h3>
+                    ${printContent}
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    }
+}
+
+function getCategoryBadgeClass(category) {
+    const colors = {
+        'Brautpaar': 'badge-danger',
+        'Familie': 'badge-wedding',
+        'Freunde': 'badge-success',
+        'Kollegen': 'badge-info',
+        'Bekannte': 'badge-secondary'
+    };
+    return colors[category] || 'badge-secondary';
+}
+
+function getSideBadgeClass(side) {
+    const colors = {
+        'Käthe': 'badge-pink',
+        'Pascal': 'badge-info',
+        'Beide': 'badge-wedding'
+    };
+    return colors[side] || 'badge-light';
+}
+
+function removeGuestFromTable(tableName, guestName, guestId) {
+    if (confirm(`Möchten Sie "${guestName}" wirklich von Tisch "${tableName}" entfernen?`)) {
+        console.log(`🗑️ Entferne Gast ${guestName} (ID: ${guestId}) von Tisch ${tableName}`);
+        
+        if (window.TischplanungAPI) {
+            window.TischplanungAPI.unassignGuest(guestId).then((result) => {
+                if (result.success) {
+                    if (window.showSuccess) {
+                        window.showSuccess(`${guestName} erfolgreich von ${tableName} entfernt`);
+                    }
+                    
+                    // Tischplanung neu laden und Übersicht aktualisieren
+                    window.tischplanung.loadAllData().then(() => {
+                        window.tischplanung.render();
+                        
+                        // Übersicht mit aktuellen Daten neu anzeigen
+                        window.TischplanungAPI.getTableOverview().then((overviewResult) => {
+                            if (overviewResult.table_overview) {
+                                displayTableOverview(overviewResult);
+                            } else {
+                                hideTableOverview();
+                            }
+                        });
+                    });
+                } else {
+                    if (window.showError) {
+                        window.showError(`Fehler beim Entfernen von ${guestName}: ${result.error}`);
+                    } else {
+                        alert(`Fehler beim Entfernen von ${guestName}: ${result.error}`);
+                    }
+                }
+            }).catch(error => {
+                console.error('Fehler beim Entfernen des Gastes:', error);
+                if (window.showError) {
+                    window.showError(`Fehler beim Entfernen von ${guestName}: ${error.message}`);
+                } else {
+                    alert(`Fehler beim Entfernen von ${guestName}: ${error.message}`);
+                }
+            });
+        }
+    }
+}
+
+function clearTableAssignment(tableName) {
+    if (confirm(`Möchten Sie alle Gäste von Tisch "${tableName}" entfernen?`)) {
+        console.log(`🗑️ Leere Tisch ${tableName}`);
+        
+        if (window.TischplanungAPI) {
+            window.TischplanungAPI.clearTable(tableName).then((result) => {
+                if (result.success) {
+                    if (window.showSuccess) {
+                        window.showSuccess(`Tisch "${tableName}" erfolgreich geleert`);
+                    }
+                    
+                    // Tischplanung neu laden und Übersicht aktualisieren
+                    window.tischplanung.loadAllData().then(() => {
+                        window.tischplanung.render();
+                        
+                        // Übersicht mit aktuellen Daten neu anzeigen
+                        window.TischplanungAPI.getTableOverview().then((overviewResult) => {
+                            if (overviewResult.table_overview && overviewResult.table_overview.length > 0) {
+                                displayTableOverview(overviewResult);
+                            } else {
+                                hideTableOverview();
+                            }
+                        });
+                    });
+                } else {
+                    if (window.showError) {
+                        window.showError(`Fehler beim Leeren von Tisch "${tableName}": ${result.error}`);
+                    } else {
+                        alert(`Fehler beim Leeren von Tisch "${tableName}": ${result.error}`);
+                    }
+                }
+            }).catch(error => {
+                console.error('Fehler beim Leeren des Tisches:', error);
+                if (window.showError) {
+                    window.showError(`Fehler beim Leeren von Tisch "${tableName}": ${error.message}`);
+                } else {
+                    alert(`Fehler beim Leeren von Tisch "${tableName}": ${error.message}`);
+                }
+            });
+        }
+    }
+}
+
+function deleteTableFromOverview(tableName) {
+    if (confirm(`⚠️ ACHTUNG: Tisch "${tableName}" wird komplett gelöscht!\n\nAlle Gäste werden dabei abgemeldet.\nSind Sie sicher?`)) {
+        console.log(`🗑️ Lösche Tisch ${tableName}`);
+        
+        if (window.TischplanungAPI) {
+            window.TischplanungAPI.deleteTable(tableName).then((result) => {
+                if (result.success) {
+                    if (window.showSuccess) {
+                        window.showSuccess(`Tisch "${tableName}" erfolgreich gelöscht`);
+                    }
+                    
+                    // Tischplanung neu laden und Übersicht aktualisieren
+                    window.tischplanung.loadAllData().then(() => {
+                        window.tischplanung.render();
+                        
+                        // Übersicht mit aktuellen Daten neu anzeigen
+                        window.TischplanungAPI.getTableOverview().then((overviewResult) => {
+                            if (overviewResult.table_overview && overviewResult.table_overview.length > 0) {
+                                displayTableOverview(overviewResult);
+                            } else {
+                                hideTableOverview();
+                            }
+                        });
+                    });
+                } else {
+                    if (window.showError) {
+                        window.showError(`Fehler beim Löschen von Tisch "${tableName}": ${result.error}`);
+                    } else {
+                        alert(`Fehler beim Löschen von Tisch "${tableName}": ${result.error}`);
+                    }
+                }
+            }).catch(error => {
+                console.error('Fehler beim Löschen des Tisches:', error);
+                if (window.showError) {
+                    window.showError(`Fehler beim Löschen von Tisch "${tableName}": ${error.message}`);
+                } else {
+                    alert(`Fehler beim Löschen von Tisch "${tableName}": ${error.message}`);
+                }
+            });
+        }
+    }
+}
+
+// Fehlende Funktionen implementieren
+function showStatistics() {
+    console.log('📊 Zeige Statistiken');
+    const statisticsRow = document.getElementById('statisticsRow');
+    if (statisticsRow) {
+        statisticsRow.style.display = statisticsRow.style.display === 'none' ? 'block' : 'none';
+        
+        if (statisticsRow.style.display === 'block') {
+            // Statistiken laden und anzeigen
+            if (window.TischplanungAPI) {
+                window.TischplanungAPI.getStatistics().then((stats) => {
+                    const content = document.getElementById('statisticsContent');
+                    if (content && stats) {
+                        content.innerHTML = `
+                            <div class="col-md-3">
+                                <h6>Gesamt Gäste</h6>
+                                <h3>${stats.total_guests || 0}</h3>
+                            </div>
+                            <div class="col-md-3">
+                                <h6>Zugewiesene Gäste</h6>
+                                <h3>${stats.assigned_guests || 0}</h3>
+                            </div>
+                            <div class="col-md-3">
+                                <h6>Tische</h6>
+                                <h3>${stats.total_tables || 0}</h3>
+                            </div>
+                            <div class="col-md-3">
+                                <h6>Auslastung</h6>
+                                <h3>${stats.occupancy_rate || 0}%</h3>
+                            </div>
+                        `;
+                    }
+                }).catch(error => {
+                    console.error('Fehler beim Laden der Statistiken:', error);
+                });
+            }
+        }
+    }
+}
+
+function showRelationshipsOverview() {
+    console.log('💕 Beziehungsübersicht wird von tischplanung-core.js bereitgestellt');
+    if (window.TischplanungRelationships && window.TischplanungRelationships.showOverview) {
+        window.TischplanungRelationships.showOverview();
+    } else {
+        alert('Beziehungsübersicht wird von tischplanung-core.js bereitgestellt');
+    }
+}
+
+function deleteRelationship() {
+    console.log('🗑️ Lösche Beziehung');
+    if (window.TischplanungRelationships && window.TischplanungRelationships.deleteRelationship) {
+        window.TischplanungRelationships.deleteRelationship();
+    } else {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('relationshipModal'));
+        if (modal) modal.hide();
+        alert('Beziehung gelöscht (Placeholder)');
+    }
+}
+
+function saveRelationship() {
+    console.log('💾 Speichere Beziehung');
+    if (window.TischplanungRelationships && window.TischplanungRelationships.saveRelationship) {
+        window.TischplanungRelationships.saveRelationship();
+    } else {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('relationshipModal'));
+        if (modal) modal.hide();
+        if (window.showSuccess) {
+            window.showSuccess('Beziehung gespeichert');
+        } else {
+            alert('Beziehung gespeichert');
+        }
+    }
+}
+
+// Am Ende des Template-Scripts: Globale Funktionsregistrierung für onclick-Handler
+
+window.saveSeatingPlan = saveSeatingPlan;
+window.showStatistics = showStatistics;
+// showRelationshipsOverview wird von tischplanung-core.js bereitgestellt
+window.printTableOverview = printTableOverview;
+window.hideTableOverview = hideTableOverview;
+window.addNewTable = addNewTable;
+window.updateTableSizes = updateTableSizes;
+window.filterGuests = filterGuests;
+window.searchGuests = searchGuests;
+window.zoomIn = zoomIn;
+window.resetZoom = resetZoom;
+window.zoomOut = zoomOut;
+window.saveTableDetails = saveTableDetails;
+window.deleteRelationship = deleteRelationship;
+window.saveRelationship = saveRelationship;
+window.autoAssignGuests = autoAssignGuests;
+window.centerTables = centerTables;
+window.clearAllTablesConfirm = clearAllTablesConfirm;
+window.removeGuestFromTable = removeGuestFromTable;
+
+</script>
+{% endblock %}

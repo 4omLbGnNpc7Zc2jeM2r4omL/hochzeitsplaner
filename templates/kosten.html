@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Kostenkonfiguration - {{ brautpaar_namen or "Brautpaar heiratet" }}{% endblock %}
+
+{% block content %}
+<div class="kosten-page">
+    <!-- Header mit Wedding-Theme -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3" style="color: var(--wedding-text-dark);">
+            <i class="fas fa-calculator me-2" style="color: var(--wedding-gold);"></i>Kostenkonfiguration
+        </h1>
+        <div class="btn-group">
+            <button class="btn btn-wedding-primary" onclick="saveKostenConfig()">
+                <i class="fas fa-save me-2"></i>Speichern
+            </button>
+            <button class="btn btn-wedding-secondary" onclick="resetKostenConfig()">
+                <i class="fas fa-undo me-2"></i>Zurücksetzen
+            </button>
+        </div>
+    </div>
+
+    <!-- Kostenkonfiguration mit Wedding-Theme -->
+    <div class="row">
+        <!-- Standesamt Kosten -->
+        <div class="col-lg-4">
+            <div class="card mb-4" style="background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)); border: 2px solid var(--wedding-gold); border-radius: 15px; box-shadow: 0 8px 32px rgba(212, 175, 55, 0.1);">
+                <div class="card-header" style="background: var(--wedding-gold); color: var(--wedding-text-dark); border-radius: 13px 13px 0 0; border: none;">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-rings-wedding me-2"></i>Standesamt
+                    </h5>
+                </div>
+                <div class="card-body" style="background: rgba(255, 255, 255, 0.9);">
+                    <div class="mb-3">
+                        <label for="standesamtGetraenke" class="form-label" style="color: var(--wedding-text-dark); font-weight: 500;">Getränke pro Person</label>
+                        <div class="input-group">
+                            <span class="input-group-text" style="background: var(--wedding-light-gold); border-color: var(--wedding-gold); color: var(--wedding-text-dark);">€</span>
+                            <input type="number" class="form-control" id="standesamtGetraenke" 
+                                   step="0.50" min="0" value="4.00" style="border-color: var(--wedding-gold);">
+                        </div>
+                        <div class="form-text" style="color: var(--wedding-text);">Kosten für Getränke beim Standesamt</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="standesamtSnacks" class="form-label" style="color: var(--wedding-text-dark); font-weight: 500;">Snacks pro Person</label>
+                        <div class="input-group">
+                            <span class="input-group-text" style="background: var(--wedding-light-gold); border-color: var(--wedding-gold); color: var(--wedding-text-dark);">€</span>
+                            <input type="number" class="form-control" id="standesamtSnacks" 
+                                   step="0.50" min="0" value="0.00" style="border-color: var(--wedding-gold);">
+                        </div>
+                        <div class="form-text" style="color: var(--wedding-text);">Kosten für kleine Snacks</div>
+                    </div>
+                    <hr style="border-color: var(--wedding-gold);">
+                    <div class="d-flex justify-content-between">
+                        <strong style="color: var(--wedding-text-dark);">Gesamtkosten pro Person:</strong>
+                        <strong id="standesamtTotal" style="color: var(--wedding-gold);">€ 4.00</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Essen Kosten -->
+        <div class="col-lg-4">
+            <div class="card mb-4" style="background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)); border: 2px solid var(--wedding-gold); border-radius: 15px; box-shadow: 0 8px 32px rgba(212, 175, 55, 0.1);">
+                <div class="card-header" style="background: var(--wedding-gold); color: var(--wedding-text-dark); border-radius: 13px 13px 0 0; border: none;">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-utensils me-2"></i>Essen
+                    </h5>
+                </div>
+                <div class="card-body" style="background: rgba(255, 255, 255, 0.9);">
+                    <div class="mb-3">
+                        <label for="essenHauptgang" class="form-label" style="color: var(--wedding-text-dark); font-weight: 500;">Hauptgang pro Person</label>
+                        <div class="input-group">
+                            <span class="input-group-text" style="background: var(--wedding-light-gold); border-color: var(--wedding-gold); color: var(--wedding-text-dark);">€</span>
+                            <input type="number" class="form-control" id="essenHauptgang" 
+                                   step="0.50" min="0" value="55.00" style="border-color: var(--wedding-gold);">
+                        </div>
+                        <div class="form-text" style="color: var(--wedding-text);">Kosten für das Hauptmenü</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="essenGetraenke" class="form-label" style="color: var(--wedding-text-dark); font-weight: 500;">Getränke pro Person</label>
+                        <div class="input-group">
+                            <span class="input-group-text" style="background: var(--wedding-light-gold); border-color: var(--wedding-gold); color: var(--wedding-text-dark);">€</span>
+                            <input type="number" class="form-control" id="essenGetraenke" 
+                                   step="0.50" min="0" value="35.00" style="border-color: var(--wedding-gold);">
+                        </div>
+                        <div class="form-text" style="color: var(--wedding-text);">Getränkepaket beim Essen</div>
+                    </div>
+                    <hr style="border-color: var(--wedding-gold);">
+                    <div class="d-flex justify-content-between">
+                        <strong style="color: var(--wedding-text-dark);">Gesamtkosten pro Person:</strong>
+                        <strong id="essenTotal" style="color: var(--wedding-gold);">€ 90.00</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Party Kosten -->
+        <div class="col-lg-4">
+            <div class="card mb-4" style="background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)); border: 2px solid var(--wedding-gold); border-radius: 15px; box-shadow: 0 8px 32px rgba(212, 175, 55, 0.1);">
+                <div class="card-header" style="background: var(--wedding-gold); color: var(--wedding-text-dark); border-radius: 13px 13px 0 0; border: none;">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-music me-2"></i>Party
+                    </h5>
+                </div>
+                <div class="card-body" style="background: rgba(255, 255, 255, 0.9);">
+                    <div class="mb-3">
+                        <label for="partyGetraenke" class="form-label" style="color: var(--wedding-text-dark); font-weight: 500;">Getränke pro Person</label>
+                        <div class="input-group">
+                            <span class="input-group-text" style="background: var(--wedding-light-gold); border-color: var(--wedding-gold); color: var(--wedding-text-dark);">€</span>
+                            <input type="number" class="form-control" id="partyGetraenke" 
+                                   step="0.50" min="0" value="25.00" style="border-color: var(--wedding-gold);">
+                        </div>
+                        <div class="form-text" style="color: var(--wedding-text);">Getränke für Party-Gäste</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="partyMitternachtssnack" class="form-label" style="color: var(--wedding-text-dark); font-weight: 500;">Mitternachtssnack pro Person</label>
+                        <div class="input-group">
+                            <span class="input-group-text" style="background: var(--wedding-light-gold); border-color: var(--wedding-gold); color: var(--wedding-text-dark);">€</span>
+                            <input type="number" class="form-control" id="partyMitternachtssnack" 
+                                   step="0.50" min="0" value="0.00" style="border-color: var(--wedding-gold);">
+                        </div>
+                        <div class="form-text" style="color: var(--wedding-text);">Späte Snacks für die Party</div>
+                        
+                        <!-- Manuelle Gästeanzahl für Mitternachtssnack -->
+                        <div class="mt-2">
+                            <label for="mitternachtssnackGaeste" class="form-label small" style="color: var(--wedding-text);">
+                                <i class="fas fa-users me-1" style="color: var(--wedding-gold);"></i>Anzahl Gäste (manuell)
+                            </label>
+                            <input type="number" class="form-control form-control-sm" id="mitternachtssnackGaeste" 
+                                   min="0" value="80" placeholder="Anzahl Gäste" style="border-color: var(--wedding-gold);">
+                        </div>
+                    </div>
+                    <hr style="border-color: var(--wedding-gold);">
+                    <div class="d-flex justify-content-between">
+                        <strong style="color: var(--wedding-text-dark);">Gesamtkosten pro Person:</strong>
+                        <strong id="partyTotal" style="color: var(--wedding-gold);">€ 25.00</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fixkosten mit Wedding-Theme -->
+    <div class="card mb-4" style="background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)); border: 2px solid var(--wedding-gold); border-radius: 15px; box-shadow: 0 8px 32px rgba(212, 175, 55, 0.1);">
+        <div class="card-header" style="background: var(--wedding-gold); color: var(--wedding-text-dark); border-radius: 13px 13px 0 0; border: none;">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-building me-2"></i>Fixkosten (unabhängig von Gästezahl)
+            </h5>
+        </div>
+        <div class="card-body" style="background: rgba(255, 255, 255, 0.9);">
+            <div class="row" id="fixkostenContainer">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            <hr style="border-color: var(--wedding-gold);">
+            <button class="btn btn-wedding-secondary" onclick="addFixkosten()">
+                <i class="fas fa-plus me-2"></i>Fixkosten hinzufügen
+            </button>
+        </div>
+    </div>
+
+    <!-- Kostenübersicht mit Wedding-Theme -->
+    <div class="card" style="background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)); border: 2px solid var(--wedding-gold); border-radius: 15px; box-shadow: 0 8px 32px rgba(212, 175, 55, 0.1);">
+        <div class="card-header" style="background: var(--wedding-gold); color: var(--wedding-text-dark); border-radius: 13px 13px 0 0; border: none;">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-chart-bar me-2"></i>Kostenübersicht
+            </h5>
+        </div>
+        <div class="card-body" style="background: rgba(255, 255, 255, 0.9);">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 style="color: var(--wedding-text-dark);">Pro Person Kosten:</h6>
+                    <ul class="list-unstyled">
+                        <li style="color: var(--wedding-text-dark);">Standesamt: <span id="overviewStandesamt" style="color: var(--wedding-gold); font-weight: bold;">€ 4.00</span></li>
+                        <li style="color: var(--wedding-text-dark);">Essen: <span id="overviewEssen" style="color: var(--wedding-gold); font-weight: bold;">€ 90.00</span></li>
+                        <li style="color: var(--wedding-text-dark);">Party: <span id="overviewParty" style="color: var(--wedding-gold); font-weight: bold;">€ 25.00</span></li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6 style="color: var(--wedding-text-dark);">Beispielberechnung (50 Gäste):</h6>
+                    <ul class="list-unstyled">
+                        <li style="color: var(--wedding-text-dark);">Standesamt: <span id="beispielStandesamt" style="color: var(--wedding-text);">€ 200.00</span></li>
+                        <li style="color: var(--wedding-text-dark);">Essen: <span id="beispielEssen" style="color: var(--wedding-text);">€ 4,500.00</span></li>
+                        <li style="color: var(--wedding-text-dark);">Party (25 zusätzlich): <span id="beispielParty" style="color: var(--wedding-text);">€ 625.00</span></li>
+                        <li><strong style="color: var(--wedding-text-dark);">Summe pro Person: <span id="beispielGesamt" style="color: var(--wedding-gold); font-weight: bold;">€ 5,325.00</span></strong></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Fixkosten hinzufügen mit Wedding-Theme -->
+<div class="modal fade" id="addFixkostenModal" tabindex="-1" aria-labelledby="addFixkostenModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border: 2px solid var(--wedding-gold); border-radius: 15px; background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold));">
+            <div class="modal-header" style="background: var(--wedding-gold); color: var(--wedding-text-dark); border-radius: 13px 13px 0 0; border: none;">
+                <h5 class="modal-title" id="addFixkostenModalLabel">
+                    <i class="fas fa-plus me-2"></i>Fixkosten hinzufügen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen" style="filter: brightness(0.8);"></button>
+            </div>
+            <form id="addFixkostenForm">
+                <div class="modal-body" style="background: rgba(255, 255, 255, 0.9);">
+                    <div class="mb-3">
+                        <label for="fixkostenName" class="form-label" style="color: var(--wedding-text-dark); font-weight: 500;">Bezeichnung *</label>
+                        <input type="text" class="form-control" id="fixkostenName" name="name" required 
+                               placeholder="z.B. DJ, Fotograf, Location-Miete" style="border-color: var(--wedding-gold);">
+                    </div>
+                    <div class="mb-3">
+                        <label for="fixkostenBetrag" class="form-label" style="color: var(--wedding-text-dark); font-weight: 500;">Betrag *</label>
+                        <div class="input-group">
+                            <span class="input-group-text" style="background: var(--wedding-light-gold); border-color: var(--wedding-gold); color: var(--wedding-text-dark);">€</span>
+                            <input type="number" class="form-control" id="fixkostenBetrag" name="betrag" 
+                                   step="0.01" min="0" required style="border-color: var(--wedding-gold);">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="background: rgba(255, 255, 255, 0.9); border-top: 1px solid var(--wedding-gold);">
+                    <button type="button" class="btn btn-wedding-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-wedding-primary">
+                        <i class="fas fa-save me-2"></i>Hinzufügen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/kosten.js') }}"></script>
+{% endblock %}

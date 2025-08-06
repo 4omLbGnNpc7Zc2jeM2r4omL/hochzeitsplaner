@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Budget - {{ brautpaar_namen or "Brautpaar heiratet" }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 style="color: var(--wedding-text);">💰 Budget</h1>
+            <div>
+                <button class="btn btn-wedding-secondary me-2" id="addBudgetBtn">
+                    <i class="bi bi-plus-circle me-2"></i>Position hinzufügen
+                </button>
+                <button class="btn btn-wedding-primary" id="generateBudgetBtn">
+                    <i class="bi bi-calculator me-2"></i>Budget berechnen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Budget Übersicht -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card-wedding-stat shadow-lg">
+            <div class="card-body" style="background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)); color: var(--wedding-text); border-radius: 15px;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title mb-1" style="color: var(--wedding-text-dark); font-weight: 600;">Geplant</h6>
+                        <h4 id="budgetPlanned" style="color: var(--wedding-text-dark); font-weight: bold;">0,00 €</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-clipboard-check" style="font-size: 2.5rem; color: var(--wedding-text);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card-wedding-stat shadow-lg">
+            <div class="card-body" style="background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)); color: var(--wedding-text); border-radius: 15px;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title mb-1" style="color: var(--wedding-text-dark); font-weight: 600;">Ausgegeben</h6>
+                        <h4 id="budgetSpent" style="color: var(--wedding-text-dark); font-weight: bold;">0,00 €</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-cash-stack" style="font-size: 2.5rem; color: var(--wedding-text);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card-wedding-stat shadow-lg" id="remainingCard">
+            <div class="card-body" style="background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-gold)); color: var(--wedding-text); border-radius: 15px;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title mb-1" style="color: var(--wedding-text-dark); font-weight: 600;">Verbleibend</h6>
+                        <h4 id="budgetRemaining" style="color: var(--wedding-text-dark); font-weight: bold;">0,00 €</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-piggy-bank" style="font-size: 2.5rem; color: var(--wedding-text);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Budget Tabelle -->
+<div class="row">
+    <div class="col-12">
+        <div class="card-wedding shadow-lg">
+            <div class="card-wedding-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold" style="color: var(--wedding-text-dark);">💼 Budget Positionen</h5>
+                <span id="budgetSummary" class="badge" style="background: linear-gradient(135deg, var(--wedding-text), var(--wedding-text-dark)); color: white; font-size: 0.875rem; padding: 8px 16px; border-radius: 20px;">0 Positionen - 0,00 €</span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="budgetTable">
+                        <thead style="background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-cream)); color: var(--wedding-text-dark);">
+                            <tr>
+                                <th style="border: none; font-weight: 600;">Kategorie</th>
+                                <th style="border: none; font-weight: 600;">Beschreibung</th>
+                                <th style="border: none; font-weight: 600;">Details</th>
+                                <th style="border: none; font-weight: 600;" class="text-center">Menge</th>
+                                <th style="border: none; font-weight: 600;" class="text-end">Einzelpreis</th>
+                                <th style="border: none; font-weight: 600;" class="text-end">Geplant</th>
+                                <th style="border: none; font-weight: 600;" class="text-end">Ausgegeben</th>
+                                <th style="border: none; font-weight: 600;" class="text-center">Status</th>
+                                <th style="border: none; font-weight: 600;" class="text-center">Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="budgetTableBody">
+                            <!-- Wird per JavaScript gefüllt -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Budget Item Modal -->
+<div class="modal fade" id="budgetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border: none; border-radius: 15px; overflow: hidden;">
+            <div class="modal-header" style="background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)); border: none; color: var(--wedding-text-dark);">
+                <h5 class="modal-title fw-bold" id="budgetModalTitle">💼 Budget Position hinzufügen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: sepia(1) hue-rotate(20deg);"></button>
+            </div>
+            <div class="modal-body" style="background: linear-gradient(135deg, var(--wedding-white) 0%, #ffffff 100%);">
+                <form id="budgetForm">
+                    <div class="mb-3">
+                        <label for="budgetKategorie" class="form-label fw-semibold" style="color: var(--wedding-text-dark);">Kategorie</label>
+                        <select class="form-select" id="budgetKategorie" required style="border: 2px solid var(--wedding-light-gold); border-radius: 10px;">
+                            <option value="">Bitte wählen...</option>
+                            <option value="Weißer Saal">💒 Weißer Saal</option>
+                            <option value="Essen">🍽️ Essen</option>
+                            <option value="Party">🎉 Party</option>
+                            <option value="Fixkosten">📋 Fixkosten</option>
+                            <option value="Dekoration">🌸 Dekoration</option>
+                            <option value="Fotografie">📸 Fotografie</option>
+                            <option value="Musik">🎵 Musik</option>
+                            <option value="Blumen">💐 Blumen</option>
+                            <option value="Sonstiges">📦 Sonstiges</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="budgetBeschreibung" class="form-label fw-semibold" style="color: var(--wedding-text-dark);">Beschreibung</label>
+                        <input type="text" class="form-control" id="budgetBeschreibung" required style="border: 2px solid var(--wedding-light-gold); border-radius: 10px;">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="budgetDetails" class="form-label fw-semibold" style="color: var(--wedding-text-dark);">Details</label>
+                        <input type="text" class="form-control" id="budgetDetails" placeholder="Zusätzliche Informationen" style="border: 2px solid var(--wedding-light-gold); border-radius: 10px;">
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="budgetMenge" class="form-label fw-semibold" style="color: var(--wedding-text-dark);">Menge</label>
+                                <input type="number" class="form-control" id="budgetMenge" step="1" min="0" required style="border: 2px solid var(--wedding-light-gold); border-radius: 10px;">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="budgetEinzelpreis" class="form-label fw-semibold" style="color: var(--wedding-text-dark);">Einzelpreis</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="budgetEinzelpreis" step="0.01" min="0" required style="border: 2px solid var(--wedding-light-gold); border-radius: 10px 0 0 10px;">
+                                    <span class="input-group-text" style="background: var(--wedding-light-gold); border: 2px solid var(--wedding-light-gold); color: var(--wedding-text-dark); border-radius: 0 10px 10px 0;">€</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold" style="color: var(--wedding-text-dark);">Geplant (Gesamtpreis)</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="budgetGesamtpreis" readonly style="border: 2px solid var(--wedding-light-gold); border-radius: 10px 0 0 10px; background-color: #f8f9fa;">
+                                    <span class="input-group-text" style="background: var(--wedding-light-gold); border: 2px solid var(--wedding-light-gold); color: var(--wedding-text-dark); border-radius: 0 10px 10px 0;">€</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="budgetAusgegeben" class="form-label fw-semibold" style="color: var(--wedding-text-dark);">Ausgegeben</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="budgetAusgegeben" step="0.01" min="0" placeholder="0.00" style="border: 2px solid var(--wedding-light-gold); border-radius: 10px 0 0 10px;">
+                                    <span class="input-group-text" style="background: var(--wedding-light-gold); border: 2px solid var(--wedding-light-gold); color: var(--wedding-text-dark); border-radius: 0 10px 10px 0;">€</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="background: linear-gradient(135deg, var(--wedding-white) 0%, #ffffff 100%); border: none;">
+                <button type="button" class="btn btn-wedding-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-wedding-primary" id="saveBudgetBtn">
+                    <i class="bi bi-check-circle me-2"></i>Speichern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteBudgetModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content" style="border: none; border-radius: 15px; overflow: hidden;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #dc3545, #c82333); border: none; color: white;">
+                <h5 class="modal-title fw-bold">🗑️ Position löschen</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="background: linear-gradient(135deg, var(--wedding-white) 0%, #ffffff 100%);">
+                <p style="color: var(--wedding-text-dark);">Möchten Sie diese Budget-Position wirklich löschen?</p>
+                <p><strong id="deleteItemName" style="color: var(--wedding-text-dark);"></strong></p>
+            </div>
+            <div class="modal-footer" style="background: linear-gradient(135deg, var(--wedding-white) 0%, #ffffff 100%); border: none;">
+                <button type="button" class="btn btn-wedding-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn" style="border-radius: 10px;">
+                    <i class="bi bi-trash me-2"></i>Löschen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/budget.js') }}"></script>
+{% endblock %}
