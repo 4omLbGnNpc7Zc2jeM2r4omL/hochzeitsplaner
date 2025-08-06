@@ -30,9 +30,13 @@ async function initializeTischplanungGlobals() {
                 
                 // App-Einstellungen global verfügbar machen
                 window.appSettings = result.settings;
+                
+                console.log('✅ Globals erfolgreich geladen:', {
                     weddingCoupleName,
                     brautName,
-                    braeutigamName,
+                    braeutigamName
+                });
+                
                 return true;
             } else {
                 console.warn('⚠️ Keine Einstellungen erhalten:', result);

@@ -324,19 +324,10 @@
                     </ul>
                 </div>
 
-                <!-- Analyse-Dropdown -->
-                <div class="dropdown">
-                    <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-graph-up me-1"></i>Analyse
-                    </button>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <a class="dropdown-item" href="#" onclick="showStatistics()">
-                                <i class="bi bi-graph-up me-2"></i>Statistiken anzeigen
-                            </a>
-                        </li>
-                    </ul>
-                </div>
+                <!-- Statistiken (direkt ohne Dropdown) -->
+                <button class="btn btn-outline-primary" type="button" onclick="showStatistics()">
+                    <i class="bi bi-graph-up me-1"></i>Statistiken anzeigen
+                </button>
             </div>
         </div>
     </div>
@@ -540,15 +531,15 @@
 <!-- Benachrichtigungssystem aus app.js -->
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 
-<!-- Tischplanung Module -->
+<!-- Tischplanung Module (Base-Module zuerst) -->
 <script src="{{ url_for('static', filename='js/tischplanung-globals.js') }}"></script>
 <script src="{{ url_for('static', filename='js/tischplanung-api.js') }}"></script>
 <script src="{{ url_for('static', filename='js/tischplanung-events.js') }}"></script>
 <script src="{{ url_for('static', filename='js/tischplanung-renderer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/tischplanung-core.js') }}"></script>
 <script src="{{ url_for('static', filename='js/tischplanung-relationships.js') }}"></script>
-<!-- Fix für Beziehungsmanagement - lädt korrigierte Funktionen nach den ursprünglichen -->
-<script src="{{ url_for('static', filename='js/tischplanung-relationships-fix.js') }}"></script>
+<!-- Haupt-Datei mit allen wichtigen Funktionen als LETZTES laden -->
+<script src="{{ url_for('static', filename='js/tischplanung.js') }}"></script>
 
 <!-- Legacy-Fallback für bestehende Funktionen -->
 <script>
@@ -567,6 +558,18 @@ window.BRAEUTIGAM_NAME = "{{ braeutigam_name }}";
 // ✅ LÖSUNG FÜR "weddingCoupleName is not defined": 
 // Diese Variable wird von tischplanung-relationships.js erwartet
 window.weddingCoupleName = "{{ braut_name }} & {{ braeutigam_name }}";
+
+// Keine Fallback-Funktionen mehr - die echten Funktionen sind in tischplanung.js definiert
+console.log('🎯 Template geladen - Funktionen werden von tischplanung.js bereitgestellt');
+
+// DEBUG: Test nach 3 Sekunden
+setTimeout(function() {
+    console.log('🔍 DEBUG: Prüfe verfügbare Funktionen nach 3 Sekunden...');
+    console.log('showTableOverview auf window:', typeof window.showTableOverview);
+    console.log('showStatistics auf window:', typeof window.showStatistics);
+    console.log('tables Variable:', typeof tables !== 'undefined' ? 'verfügbar (' + tables.length + ' Einträge)' : 'undefined');
+    console.log('guests Variable:', typeof guests !== 'undefined' ? 'verfügbar (' + guests.length + ' Einträge)' : 'undefined');
+}, 3000);
 
 
 // Die Tischplanung wird automatisch durch tischplanung-core.js initialisiert
@@ -1279,16 +1282,8 @@ function hideTableOverview() {
     }
 }
 
-function showTableOverview() {
-    const tableOverviewRow = document.getElementById('tableOverviewRow');
-    if (tableOverviewRow) {
-        tableOverviewRow.style.display = 'block';
-        tableOverviewRow.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start' 
-        });
-    }
-}
+// ENTFERNT: showTableOverview() wird von tischplanung.js bereitgestellt
+// Die vollständige Implementierung befindet sich in der JavaScript-Datei
 
 function printTableOverview() {
     const content = document.getElementById('tableOverviewContent');
@@ -1469,45 +1464,8 @@ function deleteTableFromOverview(tableName) {
     }
 }
 
-// Fehlende Funktionen implementieren
-function showStatistics() {
-    console.log('📊 Zeige Statistiken');
-    const statisticsRow = document.getElementById('statisticsRow');
-    if (statisticsRow) {
-        statisticsRow.style.display = statisticsRow.style.display === 'none' ? 'block' : 'none';
-        
-        if (statisticsRow.style.display === 'block') {
-            // Statistiken laden und anzeigen
-            if (window.TischplanungAPI) {
-                window.TischplanungAPI.getStatistics().then((stats) => {
-                    const content = document.getElementById('statisticsContent');
-                    if (content && stats) {
-                        content.innerHTML = `
-                            <div class="col-md-3">
-                                <h6>Gesamt Gäste</h6>
-                                <h3>${stats.total_guests || 0}</h3>
-                            </div>
-                            <div class="col-md-3">
-                                <h6>Zugewiesene Gäste</h6>
-                                <h3>${stats.assigned_guests || 0}</h3>
-                            </div>
-                            <div class="col-md-3">
-                                <h6>Tische</h6>
-                                <h3>${stats.total_tables || 0}</h3>
-                            </div>
-                            <div class="col-md-3">
-                                <h6>Auslastung</h6>
-                                <h3>${stats.occupancy_rate || 0}%</h3>
-                            </div>
-                        `;
-                    }
-                }).catch(error => {
-                    console.error('Fehler beim Laden der Statistiken:', error);
-                });
-            }
-        }
-    }
-}
+// ENTFERNT: showStatistics() wird von tischplanung.js bereitgestellt
+// Die vollständige Implementierung befindet sich in der JavaScript-Datei
 
 function showRelationshipsOverview() {
     console.log('💕 Beziehungsübersicht wird von tischplanung-core.js bereitgestellt');

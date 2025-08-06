@@ -10,17 +10,71 @@ let currentSettings = {};
 // =============================================================================
 
 /**
- * Zeigt Loading Spinner
+ * Zeigt/Versteckt Loading Spinner
+ * @param {boolean} show - true zum Anzeigen, false zum Verstecken
  */
-function showLoading() {
-    document.getElementById('loading-spinner').classList.remove('d-none');
+function showLoading(show = true) {
+    // Versuche verschiedene Loading-Elemente zu finden
+    let spinner = document.getElementById('loading-spinner') || 
+                  document.getElementById('loadingSpinner') ||
+                  document.querySelector('.loading-spinner') ||
+                  document.querySelector('.spinner');
+    
+    if (spinner) {
+        if (show) {
+            spinner.classList.remove('d-none', 'hidden');
+            spinner.classList.add('d-block');
+        } else {
+            spinner.classList.add('d-none', 'hidden');
+            spinner.classList.remove('d-block');
+        }
+    } else {
+        // Fallback: Dynamisch Loading-Spinner erstellen
+        if (show) {
+            createDynamicSpinner();
+        } else {
+            removeDynamicSpinner();
+        }
+    }
 }
 
 /**
- * Versteckt Loading Spinner
+ * Versteckt Loading Spinner (Legacy-Kompatibilität)
  */
 function hideLoading() {
-    document.getElementById('loading-spinner').classList.add('d-none');
+    showLoading(false);
+}
+
+/**
+ * Erstellt einen dynamischen Loading-Spinner
+ */
+function createDynamicSpinner() {
+    // Prüfen ob bereits vorhanden
+    if (document.getElementById('dynamic-loading-spinner')) return;
+    
+    const spinner = document.createElement('div');
+    spinner.id = 'dynamic-loading-spinner';
+    spinner.className = 'position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center';
+    spinner.style.cssText = 'background: rgba(0,0,0,0.5); z-index: 9999;';
+    spinner.innerHTML = `
+        <div class="text-center text-white">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Lädt...</span>
+            </div>
+            <div class="mt-2">Lädt...</div>
+        </div>
+    `;
+    document.body.appendChild(spinner);
+}
+
+/**
+ * Entfernt den dynamischen Loading-Spinner
+ */
+function removeDynamicSpinner() {
+    const spinner = document.getElementById('dynamic-loading-spinner');
+    if (spinner) {
+        spinner.remove();
+    }
 }
 
 /**

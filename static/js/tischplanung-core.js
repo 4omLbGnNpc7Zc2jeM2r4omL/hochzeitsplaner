@@ -640,7 +640,12 @@ window.showStatistics = function() {
         return;
     }
     
-    // Statistiken berechnen
+    // Statistiken berechnen - basierend auf anzahl_essen, nicht auf Gäste-Einträge
+    const totalPersons = window.tischplanung.guests.reduce((sum, guest) => sum + (guest.anzahl_essen || guest.Anzahl_Essen || 0), 0);
+    const assignedPersons = window.tischplanung.guests.filter(g => g.table_id).reduce((sum, guest) => sum + (guest.anzahl_essen || guest.Anzahl_Essen || 0), 0);
+    const unassignedPersons = totalPersons - assignedPersons;
+    
+    // Zusätzlich Gäste-Einträge für weitere Statistiken
     const totalGuests = window.tischplanung.guests.length;
     const assignedGuests = window.tischplanung.guests.filter(g => g.table_id).length;
     const unassignedGuests = totalGuests - assignedGuests;
@@ -692,22 +697,22 @@ window.showStatistics = function() {
                                     <div class="card-body">
                                         <div class="row text-center">
                                             <div class="col-4">
-                                                <h4 class="text-primary">${totalGuests}</h4>
+                                                <h4 class="text-primary">${totalPersons}</h4>
                                                 <small>Gesamt</small>
                                             </div>
                                             <div class="col-4">
-                                                <h4 class="text-success">${assignedGuests}</h4>
+                                                <h4 class="text-success">${assignedPersons}</h4>
                                                 <small>Zugeordnet</small>
                                             </div>
                                             <div class="col-4">
-                                                <h4 class="text-warning">${unassignedGuests}</h4>
+                                                <h4 class="text-warning">${unassignedPersons}</h4>
                                                 <small>Offen</small>
                                             </div>
                                         </div>
                                         <div class="progress mt-2">
-                                            <div class="progress-bar bg-success" style="width: ${(assignedGuests/totalGuests)*100}%"></div>
+                                            <div class="progress-bar bg-success" style="width: ${totalPersons > 0 ? (assignedPersons/totalPersons)*100 : 0}%"></div>
                                         </div>
-                                        <small class="text-muted">${Math.round((assignedGuests/totalGuests)*100)}% zugeordnet</small>
+                                        <small class="text-muted">${totalPersons > 0 ? Math.round((assignedPersons/totalPersons)*100) : 0}% zugeordnet</small>
                                     </div>
                                 </div>
                                 

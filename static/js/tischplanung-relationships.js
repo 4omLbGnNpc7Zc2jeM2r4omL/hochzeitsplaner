@@ -342,6 +342,11 @@ async function saveNewRelationship() {
     }
 
     try {
+        // API prüfen
+        if (!window.TischplanungAPI) {
+            throw new Error('Tischplanung API nicht verfügbar');
+        }
+        
         // Spezialbehandlung für Brautpaar
         // Im Backend kann "brautpaar" nicht direkt als ID verwendet werden, daher verwenden wir spezielle IDs
         const brautpaarId = -1; // Spezielle ID für das Brautpaar
@@ -614,7 +619,9 @@ async function saveEditedRelationship(relationshipId) {
 // Funktion zum Löschen einer Beziehung
 async function deleteRelationship(relationshipId) {
     try {
-        // Verwende eine bessere Bestätigung anstelle von confirm()
+        console.log('deleteRelationship aufgerufen mit ID:', relationshipId);
+        
+        // Bestätigung anfordern
         if (window.showConfirm) {
             const confirmed = await window.showConfirm(
                 'Beziehung löschen', 
@@ -626,6 +633,11 @@ async function deleteRelationship(relationshipId) {
             if (!confirmed) return;
         }
 
+        // API prüfen
+        if (!window.TischplanungAPI) {
+            throw new Error('Tischplanung API nicht verfügbar');
+        }
+
         // Modal schließen
         const editModalElement = document.getElementById('editRelationshipModal');
         const editModalInstance = bootstrap.Modal.getInstance(editModalElement);
@@ -633,26 +645,29 @@ async function deleteRelationship(relationshipId) {
             editModalInstance.hide();
         }
 
-        // Beziehung löschen
+        console.log('Lösche Beziehung mit ID:', relationshipId);
         const result = await window.TischplanungAPI.deleteRelationship(relationshipId);
+        console.log('Delete-Ergebnis:', result);
 
-        if (result && !result.error) {
-            // Daten neu laden
-            await window.tischplanung.loadRelationships();
-            
+        if (result.success) {
+            // Erfolg melden
             if (window.showSuccess) {
                 window.showSuccess('Beziehung erfolgreich gelöscht!');
             } else {
                 alert('Beziehung erfolgreich gelöscht!');
             }
             
+            // Daten neu laden
+            await window.tischplanung.loadRelationships();
+            
             // Beziehungsübersicht wieder anzeigen
             setTimeout(() => showRelationshipsOverview(), 500);
         } else {
+            console.error('Delete-Fehler:', result);
             if (window.showError) {
-                window.showError('Fehler beim Löschen der Beziehung: ' + (result.error || 'Unbekannter Fehler'));
+                window.showError('Fehler beim Löschen der Beziehung: ' + (result.error || result.message || 'Unbekannter Fehler'));
             } else {
-                alert('Fehler beim Löschen der Beziehung: ' + (result.error || 'Unbekannter Fehler'));
+                alert('Fehler beim Löschen der Beziehung: ' + (result.error || result.message || 'Unbekannter Fehler'));
             }
         }
 
@@ -665,3 +680,26 @@ async function deleteRelationship(relationshipId) {
         }
     }
 }
+
+// Sichere Delete-Funktion für direkte Verwendung (Kompatibilität mit Fixed-Version)
+async function deleteRelationshipSafe(relationshipId) {
+    return await deleteRelationship(relationshipId);
+}
+
+// =============================================================================
+// Globale Funktionen für Abwärtskompatibilität
+// =============================================================================
+
+// Die ursprüngliche showRelationshipsOverview Funktion überschreiben
+window.showRelationshipsOverview = showRelationshipsOverview;
+
+// Delete-Funktionen global verfügbar machen
+window.deleteRelationship = deleteRelationship;
+window.deleteRelationshipSafe = deleteRelationshipSafe;
+
+// Weitere Funktionen exportieren
+window.saveNewRelationship = saveNewRelationship;
+window.editRelationship = editRelationship;
+window.saveEditedRelationship = saveEditedRelationship;
+
+console.log('Tischplanung Relationships - geladen und Funktionen exportiert');

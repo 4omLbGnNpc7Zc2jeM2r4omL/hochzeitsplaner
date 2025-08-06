@@ -214,33 +214,25 @@ async function loadTables() {
         
         // Konvertiere API-Format zu Frontend-Format
         if (Array.isArray(data)) {
-            tables = data.map(table => {
-                const convertedTable = {
-                    id: table.id,
-                    name: table.name,
-                    max_personen: table.capacity || table.max_personen || 8,
-                    x_position: table.x || table.x_position || 100,
-                    y_position: table.y || table.y_position || 100,
-                    farbe: table.farbe || table.color || '#007bff',
-                    form: table.shape || 'round'
-                };
-                console.log('🔧 Tisch konvertiert:', table.name, 'Original ID:', table.id, 'Type:', typeof table.id, 'Konvertiert:', convertedTable);
-                return convertedTable;
-            });
+            tables = data.map(table => ({
+                id: table.id,
+                name: table.name,
+                max_personen: table.capacity || table.max_personen || 8,
+                x_position: table.x || table.x_position || 100,
+                y_position: table.y || table.y_position || 100,
+                farbe: table.farbe || table.color || '#007bff',
+                form: table.shape || 'round'
+            }));
         } else if (data.tables && Array.isArray(data.tables)) {
-            tables = data.tables.map(table => {
-                const convertedTable = {
-                    id: table.id,
-                    name: table.name,
-                    max_personen: table.capacity || table.max_personen || 8,
-                    x_position: table.x || table.x_position || 100,
-                    y_position: table.y || table.y_position || 100,
-                    farbe: table.farbe || table.color || '#007bff',
-                    form: table.shape || 'round'
-                };
-                console.log('🔧 Tisch konvertiert (nested):', table.name, 'Original ID:', table.id, 'Type:', typeof table.id, 'Konvertiert:', convertedTable);
-                return convertedTable;
-            });
+            tables = data.tables.map(table => ({
+                id: table.id,
+                name: table.name,
+                max_personen: table.capacity || table.max_personen || 8,
+                x_position: table.x || table.x_position || 100,
+                y_position: table.y || table.y_position || 100,
+                farbe: table.farbe || table.color || '#007bff',
+                form: table.shape || 'round'
+            }));
         } else {
             console.warn('⚠️ Unerwartetes Datenformat für Tische:', data);
             tables = [];
@@ -340,8 +332,7 @@ function getStandardTableSize() {
 
 // Sitzplan rendern
 function renderSeatingChart() {
-    console.log('🎨 renderSeatingChart() gestartet mit', tables.length, 'Tischen');
-    const currentSelection = selectedTable;
+    const currentSelection = selectedTableId;
     
     // Bestehende Tische merken für Stabilität
     const existingTables = {};
@@ -357,38 +348,13 @@ function renderSeatingChart() {
     
     // Nur neue/geänderte Tische neu rendern
     tables.forEach(table => {
-        console.log('🎨 Verarbeite Tisch:', table.name, 'ID:', table.id);
         const existingElement = existingTables[table.id];
         
-        console.log('🔥 RENDER DEBUG:', {
-            tableName: table.name,
-            tableId: table.id,
-            hasExistingElement: !!existingElement,
-            existingTablesKeys: Object.keys(existingTables),
-            willUpdate: !!existingElement,
-            willCreate: !existingElement
-        });
-        
         if (existingElement) {
-            console.log('🔄 Aktualisiere bestehenden Tisch:', table.name);
-            console.log('🔥 BEFORE UPDATE - Element check:', {
-                elementExists: !!existingElement.element,
-                elementType: existingElement.element?.tagName,
-                elementId: existingElement.element?.id,
-                tableData: table
-            });
-            
-            try {
-                // Bestehenden Tisch aktualisieren statt neu erstellen
-                updateExistingTableElement(existingElement.element, table);
-                console.log('🔥 AFTER UPDATE - Success für:', table.name);
-            } catch (error) {
-                console.error('🔥 ERROR in updateExistingTableElement:', error, 'für Tisch:', table.name);
-            }
-            
+            // Bestehenden Tisch aktualisieren statt neu erstellen
+            updateExistingTableElement(existingElement.element, table);
             delete existingTables[table.id]; // Markieren als verarbeitet
         } else {
-            console.log('🆕 Erstelle neuen Tisch:', table.name);
             // Neuen Tisch erstellen
             const tableElement = createTableElement(table);
             seatingChart.appendChild(tableElement);
@@ -412,8 +378,6 @@ function renderSeatingChart() {
 
 // Bestehenden Tisch aktualisieren ohne Position zu verlieren
 function updateExistingTableElement(element, table) {
-    console.log('🔧 updateExistingTableElement für Tisch:', table.name, 'ID:', table.id);
-    
     // Nur Position aktualisieren wenn sie sich geändert hat
     const currentX = parseInt(element.style.left) || 0;
     const currentY = parseInt(element.style.top) || 0;
@@ -426,21 +390,16 @@ function updateExistingTableElement(element, table) {
     // Farbe aktualisieren
     element.style.borderColor = table.farbe || '#007bff';
     
-    // Zugewiesene Gäste und Belegung berechnen
+    // Zugewiesene Gäste zählen
     const assignedGuests = guests.filter(g => g.assigned_table === table.id);
+    const occupancy = assignedGuests.reduce((sum, guest) => sum + (guest.anzahl_essen || 0), 0);
+    const maxPersons = table.max_personen || getStandardTableSize();
     
-    // EINHEITLICHE BERECHNUNG: Verwende getTableDisplayData wie in Übersicht
-    const tableData = getTableDisplayData(table);
-    const totalPersons = tableData.total_persons;
-    const maxPersons = tableData.max_persons;
-    
-    // Status-Klassen aktualisieren (basierend auf totalPersons aus einheitlicher Logik)
+    // Status-Klassen aktualisieren
     element.classList.remove('empty', 'full');
-    
-    // NORMALE STATUS-BEWERTUNG: Brauttisch wie andere Tische bewerten
-    if (totalPersons === 0) {
+    if (occupancy === 0) {
         element.classList.add('empty');
-    } else if (totalPersons >= maxPersons) { // Vollbelegung
+    } else if (occupancy >= maxPersons) {
         element.classList.add('full');
     }
     
@@ -448,101 +407,25 @@ function updateExistingTableElement(element, table) {
     const tableName = element.querySelector('.table-name');
     const tableOccupancy = element.querySelector('.table-occupancy');
     
-    console.log('🔥 DOM Elements gefunden:', {
-        tableNameExists: !!tableName,
-        tableOccupancyExists: !!tableOccupancy,
-        elementHTML: element.innerHTML.substring(0, 200)
-    });
+    if (tableName) tableName.textContent = table.name || generateTableName(table.id - 1);
+    if (tableOccupancy) tableOccupancy.textContent = `${occupancy}/${maxPersons} Essen`;
     
-    if (tableName) {
-        const displayName = isBrautTisch(table) ? `💐 ${table.name || generateTableName(table.id - 1)} 💐` : (table.name || generateTableName(table.id - 1));
-        tableName.textContent = displayName;
-        console.log('🔥 Table name updated to:', displayName);
-    }
-    if (tableOccupancy) {
-        console.log('🔥 Updating table occupancy for:', table.name, 'isBrautTisch:', isBrautTisch(table));
-        
-        // NORMALE ANZEIGE: Brauttisch wie andere Tische, nur mit anderen Begriffen
-        const finalText = `${totalPersons}/${maxPersons} ${isBrautTisch(table) ? 'Gäste' : 'Personen'}`;
-        tableOccupancy.textContent = finalText;
-        console.log('🔥 Table updated to:', finalText);
-        
-        console.log('🔥 DEBUG Tisch Update:', {
-            tableName: table.name,
-            totalPersons: totalPersons,
-            maxPersons: maxPersons,
-            assignedGuests: assignedGuests.length,
-            displayText: tableData.display_text,
-            isBrautTisch: isBrautTisch(table)
-        });
-    } else {
-        console.error('🔥 ERROR: tableOccupancy element not found! Creating it...');
-        
-        // FEHLENDE DOM-STRUKTUR REPARIEREN: Erstelle das tableOccupancy Element
-        const newTableOccupancy = document.createElement('div');
-        newTableOccupancy.className = 'table-occupancy';
-        
-        // NORMALE ANZEIGE: Brauttisch wie andere Tische, nur mit anderen Begriffen
-        const finalText = `${totalPersons}/${maxPersons} ${isBrautTisch(table) ? 'Gäste' : 'Personen'}`;
-        newTableOccupancy.textContent = finalText;
-        console.log('🔥 DOM REPAIR: tableOccupancy element created with:', finalText);
-        
-        // Element nach tableName einfügen
-        if (tableName && tableName.nextSibling) {
-            element.insertBefore(newTableOccupancy, tableName.nextSibling);
-        } else if (tableName) {
-            tableName.after(newTableOccupancy);
-        } else {
-            element.appendChild(newTableOccupancy);
-        }
-        
-        console.log('🔥 SUCCESS: tableOccupancy element created and added!');
-    }
-    
-    // Namen-Vorschau aktualisieren
+    // Gäste-Vorschau aktualisieren
     const guestPreview = element.children[2]; // Drittes Element
     if (guestPreview) {
-        updateGuestPreview(guestPreview, table, assignedGuests);
-    }
-}
-
-// Gäste-Vorschau für Tisch aktualisieren
-function updateGuestPreview(guestPreview, table, assignedGuests) {
-    const allNames = [];
-    
-    // Beim Brauttisch: Brautpaar zuerst hinzufügen
-    if (isBrautTisch(table)) {
-        const brautpaar = getBrautpaarNames();
-        allNames.push(brautpaar.braut, brautpaar.braeutigam);
-    }
-    
-    // Dann alle zugewiesenen Gäste hinzufügen (aber nicht das Brautpaar doppelt)
-    assignedGuests.forEach(guest => {
-        if (guest.kategorie !== 'Brautpaar') {
-            allNames.push(guest.vorname || 'Unbekannt');
-        }
-    });
-    
-    if (allNames.length > 0) {
-        if (allNames.length <= 4) {
-            // Alle Namen anzeigen wenn wenige
-            guestPreview.innerHTML = allNames.join(', ');
+        if (assignedGuests.length > 0) {
+            const previewNames = assignedGuests.slice(0, 3).map(g => g.vorname || 'Unbekannt');
+            guestPreview.innerHTML = previewNames.join(', ') + 
+                (assignedGuests.length > 3 ? `<br>+${assignedGuests.length - 3} weitere` : '');
+            guestPreview.style.fontSize = '10px';
         } else {
-            // Erste 3 Namen + "weitere" wenn viele
-            guestPreview.innerHTML = allNames.slice(0, 3).join(', ') + 
-                `<br>+${allNames.length - 3} weitere`;
+            guestPreview.innerHTML = '';
         }
-        guestPreview.style.fontSize = '9px';
-        guestPreview.style.lineHeight = '1.1';
-    } else {
-        guestPreview.innerHTML = '';
     }
 }
 
 // Tisch-Element erstellen
 function createTableElement(table) {
-    console.log('🔧 createTableElement für Tisch:', table.name, 'ID:', table.id, 'Type:', typeof table.id);
-    
     const element = document.createElement('div');
     element.className = 'table-element';
     element.id = `table-${table.id}`;
@@ -551,21 +434,16 @@ function createTableElement(table) {
     element.style.top = `${table.y_position || 0}px`;
     element.style.borderColor = table.farbe || '#007bff';
     
-    // Zugewiesene Gäste und Belegung berechnen
+    // Zugewiesene Gäste zählen
     const assignedGuests = guests.filter(g => g.assigned_table === table.id);
+    const occupancy = assignedGuests.reduce((sum, guest) => sum + (guest.anzahl_essen || 0), 0);
+    const maxPersons = table.max_personen || getStandardTableSize();
     
-    // EINHEITLICHE BERECHNUNG: Verwende getTableDisplayData wie in Übersicht
-    const tableData = getTableDisplayData(table);
-    const totalPersons = tableData.total_persons;
-    const maxPersons = tableData.max_persons;
-    
-    // Status-Klassen zurücksetzen und neu setzen (basierend auf totalPersons aus einheitlicher Logik)
+    // Status-Klassen zurücksetzen und neu setzen
     element.classList.remove('empty', 'full', 'selected');
-    
-    // NORMALE STATUS-BEWERTUNG: Brauttisch wie andere Tische bewerten
-    if (totalPersons === 0) {
+    if (occupancy === 0) {
         element.classList.add('empty');
-    } else if (totalPersons >= maxPersons) { // Vollbelegung
+    } else if (occupancy >= maxPersons) {
         element.classList.add('full');
     }
     
@@ -576,27 +454,17 @@ function createTableElement(table) {
     
     const tableOccupancy = document.createElement('div');
     tableOccupancy.className = 'table-occupancy';
-    
-    // NORMALE ANZEIGE: Brauttisch wie andere Tische, nur mit anderen Begriffen
-    const finalText = `${totalPersons}/${maxPersons} ${isBrautTisch(table) ? 'Gäste' : 'Personen'}`;
-    tableOccupancy.textContent = finalText;
-    
-    console.log('🔥 DEBUG Tisch Create:', {
-        tableName: table.name,
-        totalPersons: totalPersons,
-        maxPersons: maxPersons,
-        assignedGuests: assignedGuests.length,
-        displayText: tableData.display_text,
-        isBrautTisch: isBrautTisch(table)
-    });
+    tableOccupancy.textContent = `${occupancy}/${maxPersons} Essen`;
     
     const guestPreview = document.createElement('div');
-    guestPreview.style.fontSize = '9px';
+    guestPreview.style.fontSize = '10px';
     guestPreview.style.marginTop = '2px';
-    guestPreview.style.lineHeight = '1.1';
-    
-    // Namen-Vorschau aktualisieren
-    updateGuestPreview(guestPreview, table, assignedGuests);
+    guestPreview.style.lineHeight = '1.2';
+    if (assignedGuests.length > 0) {
+        const previewNames = assignedGuests.slice(0, 3).map(g => g.vorname || 'Unbekannt');
+        guestPreview.innerHTML = previewNames.join(', ') + 
+            (assignedGuests.length > 3 ? `<br>+${assignedGuests.length - 3} weitere` : '');
+    }
     
     // Element zusammenbauen
     element.innerHTML = '';
@@ -607,12 +475,10 @@ function createTableElement(table) {
     // Event Listeners
     element.addEventListener('click', (e) => {
         e.stopPropagation();
-        console.log('🔥 Tisch-Click:', table.id, typeof table.id, 'Table Object:', table);
         selectTable(table.id);
     });
     element.addEventListener('dblclick', (e) => {
         e.stopPropagation();
-        console.log('🔥 Tisch-Doppelclick:', table.id, typeof table.id);
         showTableDetails(table.id);
     });
     element.addEventListener('dragover', handleTableDragOver);
@@ -910,41 +776,23 @@ async function assignGuestToTable(guestId, tableId) {
 
 // Tisch auswählen
 function selectTable(tableId) {
-    console.log('🎯 selectTable() aufgerufen für Tisch-ID:', tableId);
-    
     // Vorherige Auswahl entfernen
     document.querySelectorAll('.table-element').forEach(el => 
         el.classList.remove('selected')
     );
     
-    // Neue Auswahl - mit Error-Handling
+    // Neue Auswahl
     const element = document.getElementById(`table-${tableId}`);
-    console.log('🎯 Element gefunden:', element, 'für ID:', `table-${tableId}`);
+    element.classList.add('selected');
+    selectedTable = tableId;
     
-    if (element) {
-        element.classList.add('selected');
-        selectedTable = tableId;
-        showTableInfo(tableId);
-    } else {
-        console.error('❌ Tisch-Element nicht gefunden:', `table-${tableId}`);
-        console.log('🔍 Verfügbare Tisch-Elemente:');
-        document.querySelectorAll('.table-element').forEach(el => {
-            console.log('   -', el.id, 'dataset.tableId:', el.dataset.tableId);
-        });
-    }
+    showTableInfo(tableId);
 }
 
 // Tisch-Info anzeigen
 function showTableInfo(tableId) {
     const table = tables.find(t => t.id === tableId);
     const assignedGuests = guests.filter(g => g.assigned_table === tableId);
-    
-    // EINHEITLICHE BERECHNUNG: Verwende getTableDisplayData wie in Übersicht
-    const tableData = getTableDisplayData(table);
-    const totalPersons = tableData.total_persons;
-    
-    // NORMALE ANZEIGE: Brauttisch wie andere Tische, nur mit anderen Begriffen
-    const displayPersons = totalPersons;
     
     // Info-Panel aktualisieren oder erstellen
     let infoPanel = document.getElementById('tableInfoPanel');
@@ -955,41 +803,21 @@ function showTableInfo(tableId) {
         document.querySelector('.col-md-4').appendChild(infoPanel);
     }
     
-    let guestListHtml = '';
-    
-    // Beim Brauttisch: Brautpaar zuerst anzeigen
-    if (isBrautTisch(table)) {
-        const brautpaar = getBrautpaarNames();
-        guestListHtml += `
-            <div class="list-group-item d-flex justify-content-between align-items-center">
-                <span>${brautpaar.braut} <small class="text-muted">(1 Essen) 👑</small></span>
-            </div>
-            <div class="list-group-item d-flex justify-content-between align-items-center">
-                <span>${brautpaar.braeutigam} <small class="text-muted">(1 Essen) 👑</small></span>
-            </div>
-        `;
-    }
-    
-    // Dann normale Gäste hinzufügen (aber nicht das Brautpaar doppelt)
-    guestListHtml += assignedGuests
-        .filter(guest => guest.kategorie !== 'Brautpaar') // Brautpaar nicht doppelt anzeigen
-        .map(guest => `
-            <div class="list-group-item d-flex justify-content-between align-items-center">
-                <span>${guest.vorname} ${guest.nachname || ''} <small class="text-muted">(${guest.anzahl_essen || 0} Essen)</small></span>
-                <button class="btn btn-sm btn-outline-danger" onclick="removeGuestFromTable(${guest.id})">
-                    <i class="bi bi-x"></i>
-                </button>
-            </div>
-        `).join('');
-    
     infoPanel.innerHTML = `
         <div class="card-header">
-            <h6><i class="bi bi-table me-2"></i>${isBrautTisch(table) ? `💐 ${table.name} 💐` : table.name}</h6>
+            <h6><i class="bi bi-table me-2"></i>${table.name}</h6>
         </div>
         <div class="card-body">
-            <p><strong>Belegung:</strong> ${displayPersons}/${table.max_personen} ${isBrautTisch(table) ? 'Gäste' : 'Personen'}</p>
+            <p><strong>Belegung:</strong> ${assignedGuests.reduce((sum, guest) => sum + (guest.anzahl_essen || 0), 0)}/${table.max_personen} Essen (${assignedGuests.length} Gäste)</p>
             <div class="list-group list-group-flush">
-                ${guestListHtml}
+                ${assignedGuests.map(guest => `
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>${guest.vorname} ${guest.nachname || ''} <small class="text-muted">(${guest.anzahl_essen || 0} Essen)</small></span>
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeGuestFromTable(${guest.id})">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                `).join('')}
             </div>
             <div class="mt-3">
                 <button class="btn btn-sm btn-primary me-2" onclick="showTableDetails(${tableId})">
@@ -1105,24 +933,15 @@ async function autoAssignGuests() {
         console.log('📦 Auto-Assignment Ergebnis:', result);
         
         if (result.success) {
-            console.log('🎯 Auto-Zuordnung erfolgreich - Lade Daten neu...');
-            
             // Daten neu laden
             await Promise.all([
                 loadTables(),
                 loadGuests()
             ]);
             
-            console.log('🎯 Daten neu geladen - Aktualisiere UI...');
-            console.log('🏗️ Tables nach Neuladung:', tables.length, 'Tische');
-            console.log('👥 Guests nach Neuladung:', guests.length, 'Gäste');
-            
             // UI aktualisieren
-            console.log('🎨 Rufe renderSeatingChart() auf...');
             renderSeatingChart();
-            console.log('📋 Rufe renderGuestList() auf...');
             renderGuestList();
-            console.log('📊 Rufe updateStatistics() auf...');
             updateStatistics();
             
             let message = result.message || 'Intelligente Zuordnung abgeschlossen';
@@ -1300,7 +1119,7 @@ function findBestTableForGroup(group, groupSize) {
     let bestScore = -1;
     
     for (const table of tables) {
-        const currentOccupancy = calculateTableOccupancy(table);
+        const currentOccupancy = getCurrentTableOccupancy(table.id);
         const remainingSpace = table.max_personen - currentOccupancy;
         
         // Prüfen ob Gruppe passt
@@ -1377,9 +1196,39 @@ function generateTableName(tableIndex = null) {
 function getCorrectTableName(table) {
     console.log('🏷️ getCorrectTableName() für Tisch:', table.id, table.name);
     
-    // Beim Brauttisch Emojis hinzufügen
-    if (isBrautTisch(table)) {
-        return `💐 ${table.name} 💐`;
+    // SPEZIELLE BRAUTTISCH-BEHANDLUNG:
+    // Da das Brautpaar nicht als echte Gäste in der DB existiert,
+    // sondern nur als Namen in den Einstellungen gespeichert ist,
+    // prüfen wir explizit auf "Brauttisch" Namen
+    if (table.name === 'Brauttisch' || table.name?.toLowerCase().includes('braut')) {
+        console.log('💑 Brauttisch erkannt anhand des Namens:', table.name);
+        
+        // Hole Brautpaar-Namen aus den globalen Einstellungen (falls verfügbar)
+        let brautpaarText = 'Brautpaar';
+        if (window.appSettings?.braut_name && window.appSettings?.braeutigam_name) {
+            brautpaarText = `${window.appSettings.braut_name} & ${window.appSettings.braeutigam_name}`;
+            console.log(`💍 Brautpaar-Namen aus Einstellungen: ${brautpaarText}`);
+        } else {
+            console.log('⚠️ Brautpaar-Namen nicht in appSettings gefunden - verwende Standard');
+        }
+        
+        // Zähle andere Gäste am Brauttisch (ohne das virtuelle Brautpaar)
+        const assignedGuests = guests.filter(g => g.assigned_table === table.id);
+        console.log(`👥 Brauttisch: ${assignedGuests.length} echte Gäste zugewiesen`);
+        
+        if (assignedGuests.length > 0) {
+            return `${brautpaarText} + ${assignedGuests.length} weitere`;
+        } else {
+            return brautpaarText;
+        }
+    }
+    
+    // Für alle anderen Tabellen: normale Logik
+    const assignedGuests = guests.filter(g => g.assigned_table === table.id);
+    console.log(`👥 Tisch ${table.id}: ${assignedGuests.length} Gäste zugewiesen`);
+    
+    if (assignedGuests.length > 0) {
+        console.log('👤 Kategorien der Gäste:', assignedGuests.map(g => `${g.vorname} (${g.kategorie})`));
     }
     
     // Verwende bestehenden Namen oder generiere neuen
@@ -1390,89 +1239,6 @@ function getCorrectTableName(table) {
     // Fallback: generiere Name basierend auf Position in der Liste
     const tableIndex = tables.findIndex(t => t.id === table.id);
     return generateTableName(tableIndex);
-}
-
-// Prüfe ob ein Tisch der Brauttisch ist
-function isBrautTisch(table) {
-    return table.name === 'Brauttisch' || table.name?.toLowerCase().includes('braut');
-}
-
-// Hole Brautpaar-Namen für Anzeige
-function getBrautpaarNames() {
-    if (window.appSettings?.braut_name && window.appSettings?.braeutigam_name) {
-        return {
-            braut: window.appSettings.braut_name,
-            braeutigam: window.appSettings.braeutigam_name,
-            combined: `${window.appSettings.braut_name} & ${window.appSettings.braeutigam_name}`
-        };
-    }
-    return {
-        braut: 'Braut',
-        braeutigam: 'Bräutigam', 
-        combined: 'Brautpaar'
-    };
-}
-
-// Zentrale Tischberechnung - EINZIGE Quelle für alle Tisch-Daten
-function getTableDisplayData(table) {
-    // EINHEITLICHE BERECHNUNG: Exakt wie in showTableOverview()
-    const totalPersons = calculateTableOccupancy(table);
-    const essenCount = calculateTableEssenCount(table);
-    const maxPersons = table.max_personen || getStandardTableSize();
-    
-    return {
-        table_name: table.name || `Tisch ${table.id}`,
-        table_id: table.id,
-        total_persons: totalPersons, // Aus calculateTableOccupancy() - EINZIGE Quelle!
-        essen_count: essenCount,     // Für Statistiken (ohne Brautpaar)
-        max_persons: maxPersons,
-        is_brauttisch: isBrautTisch(table),
-        display_text: `${totalPersons}/${maxPersons} ${isBrautTisch(table) ? 'Gäste' : 'Personen'}`
-    };
-}
-
-// Berechne Belegung inklusive Brautpaar - EINHEITLICHE LOGIK
-function calculateTableOccupancy(table) {
-    const assignedGuests = guests.filter(g => g.assigned_table === table.id);
-    
-    // EINHEITLICHE BERECHNUNG: Exakt gleiche Logik wie in der Übersicht
-    const allGuests = [];
-    if (isBrautTisch(table)) {
-        allGuests.push(
-            { persons: 1, isBrautpaar: true }, // Braut
-            { persons: 1, isBrautpaar: true }  // Bräutigam
-        );
-    }
-    
-    // WICHTIG: Gäste mit Kategorie "Brautpaar" NICHT zusätzlich zählen, da bereits oben eingerechnet
-    assignedGuests.forEach(guest => {
-        if (guest.kategorie !== 'Brautpaar') {
-            allGuests.push({ persons: guest.anzahl_essen || 1, isBrautpaar: false });
-        }
-    });
-    
-    const totalPersons = allGuests.reduce((sum, guest) => sum + guest.persons, 0);
-    
-    console.log('🧮 calculateTableOccupancy für Tisch:', table.name, {
-        tableId: table.id,
-        assignedGuests: assignedGuests.length,
-        assignedGuestsExcludingBrautpaar: assignedGuests.filter(g => g.kategorie !== 'Brautpaar').length,
-        totalPersons: totalPersons,
-        isBrautTisch: isBrautTisch(table)
-    });
-    
-    return totalPersons;
-}
-
-// Berechne nur die anzahl_essen (ohne Brautpaar für Statistiken)
-function calculateTableEssenCount(table) {
-    const assignedGuests = guests.filter(g => g.assigned_table === table.id);
-    
-    // WICHTIG: Gäste mit Kategorie "Brautpaar" nicht mitzählen für Statistiken, 
-    // da das Brautpaar separat behandelt wird
-    const relevantGuests = assignedGuests.filter(guest => guest.kategorie !== 'Brautpaar');
-    
-    return relevantGuests.reduce((sum, guest) => sum + (guest.anzahl_essen || 0), 0);
 }
 
 // Neuen Tisch für Gruppe erstellen
@@ -1511,6 +1277,13 @@ async function createNewTableForGroup(group, groupSize) {
     return newTable;
 }
 
+// Aktuelle Tischbelegung berechnen
+function getCurrentTableOccupancy(tableId) {
+    return guests
+        .filter(g => g.assigned_table === tableId)
+        .reduce((sum, g) => sum + (g.anzahl_essen || 0), 0);
+}
+
 // Tischzuordnungs-Übersicht laden und anzeigen
 async function showTableOverview() {
     try {
@@ -1518,36 +1291,23 @@ async function showTableOverview() {
         
         // Erstelle Übersicht aus lokalen Daten statt API-Call
         const tableArray = tables.map(table => {
-            // EINHEITLICHE BERECHNUNG: Verwende getTableDisplayData für Konsistenz
-            return getTableDisplayData(table);
-        }) // Alle Tische anzeigen (auch leere)
-        .sort((a, b) => {
-            // Brauttisch immer zuerst
-            if (a.is_brauttisch && !b.is_brauttisch) return -1;
-            if (!a.is_brauttisch && b.is_brauttisch) return 1;
+            const assignedGuests = guests.filter(g => g.assigned_table === table.id);
+            const totalPersons = assignedGuests.reduce((sum, guest) => sum + (guest.anzahl_essen || 1), 0);
             
-            // Numerische Sortierung für Tische (Tisch 2, Tisch 3, ... Tisch 10)
-            const getTableNumber = (tableName) => {
-                const match = tableName.match(/Tisch (\d+)/);
-                return match ? parseInt(match[1]) : 0;
+            return {
+                table_name: table.name || `Tisch ${table.id}`,
+                total_persons: totalPersons,
+                guests: assignedGuests.map(guest => ({
+                    name: `${guest.vorname} ${guest.nachname || ''}`,
+                    category: guest.kategorie || 'Unbekannt',
+                    side: guest.seite || '',
+                    persons: guest.anzahl_essen || 1
+                }))
             };
-            
-            const aNum = getTableNumber(a.table_name);
-            const bNum = getTableNumber(b.table_name);
-            
-            // Wenn beide Tische nummeriert sind, numerisch sortieren
-            if (aNum > 0 && bNum > 0) {
-                return aNum - bNum;
-            }
-            
-            // Fallback: alphabetisch sortieren
-            return a.table_name.localeCompare(b.table_name);
-        });
+        }).filter(table => table.total_persons > 0); // Nur belegte Tische anzeigen
         
         console.log('📊 Verarbeitete Tischübersicht:', tableArray);
-        
-        // Modal anzeigen
-        displayTableOverviewModal(tableArray);
+        displayTableOverview(tableArray);
         
     } catch (error) {
         console.error('❌ Fehler beim Erstellen der Tischübersicht:', error);
@@ -1555,673 +1315,84 @@ async function showTableOverview() {
     }
 }
 
-// Tischübersicht als Modal anzeigen
-function displayTableOverviewModal(tableOverview) {
-    console.log('🎯 displayTableOverviewModal mit', tableOverview.length, 'Tischen');
+// Tischübersicht anzeigen
+function displayTableOverview(tableOverview) {
+    const modal = document.getElementById('tableOverviewModal');
+    const content = document.getElementById('tableOverviewContent');
     
-    // Modal HTML erstellen
-    let modalHtml = `
-        <div class="modal fade" id="tableOverviewModal" tabindex="-1" aria-labelledby="tableOverviewModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-xl">
-                <div class="modal-content" style="background: linear-gradient(135deg, #f8f4e6 0%, #fff9e6 100%); border: 2px solid #d4af37;">
-                    <div class="modal-header" style="background: linear-gradient(135deg, #d4af37, #b8941f); color: white; border-bottom: none;">
-                        <h5 class="modal-title" id="tableOverviewModalLabel">
-                            <i class="bi bi-table me-2"></i>Tischzuordnungs-Übersicht
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
-                    </div>
-                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-    `;
+    if (!content) {
+        console.error('❌ tableOverviewContent Element nicht gefunden');
+        showAlert('Modal-Element für Tischübersicht nicht gefunden', 'danger');
+        return;
+    }
+    
+    console.log('🎯 displayTableOverview mit', tableOverview.length, 'Tischen');
     
     if (!tableOverview || tableOverview.length === 0) {
-        modalHtml += `
-            <div class="alert alert-info text-center" style="border-color: #d4af37; background-color: #fff9e6;">
-                <i class="bi bi-info-circle me-2" style="color: #d4af37;"></i>
-                <strong>Noch keine Tischzuordnungen vorhanden.</strong><br>
-                Führen Sie zuerst eine Auto-Zuordnung durch.
-            </div>
-        `;
+        content.innerHTML = '<div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Noch keine Tischzuordnungen vorhanden.</div>';
     } else {
-        // Statistiken berechnen
-        const totalTables = tableOverview.length;
-        const totalGuests = tableOverview.reduce((sum, table) => sum + (table.essen_count || 0), 0); // Nur anzahl_essen
-        const unassignedGuests = guests.filter(g => !g.assigned_table).reduce((sum, guest) => sum + (guest.anzahl_essen || 0), 0);
-        
-        // Zusammenfassung
-        modalHtml += `
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card" style="border: 2px solid #d4af37; background: linear-gradient(135deg, #fff9e6, #f8f4e6);">
-                        <div class="card-body text-center">
-                            <h6 class="card-title mb-3" style="color: #b8941f;">
-                                <i class="bi bi-graph-up me-2"></i>Zusammenfassung
-                            </h6>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <div class="h4 mb-0" style="color: #d4af37;">${totalTables}</div>
-                                    <small class="text-muted">Tische</small>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="h4 mb-0" style="color: #20c997;">${totalGuests}</div>
-                                    <small class="text-muted">Gäste</small>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="h4 mb-0" style="color: #dc3545;">${unassignedGuests}</div>
-                                    <small class="text-muted">Noch offen</small>
-                                </div>
-                            </div>
-                        </div>
+        content.innerHTML = tableOverview.map(table => {
+            const tableName = table.table_name || table.name || 'Unbekannter Tisch';
+            const totalPersons = table.total_persons || table.totalPersons || 0;
+            const guests = table.guests || [];
+            
+            console.log(`🏗️ Verarbeite Tisch: ${tableName}, ${totalPersons} Personen, ${guests.length} Gäste`);
+            
+            return `
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-table me-2"></i>
+                            ${tableName}
+                        </h6>
+                        <span class="badge bg-primary">
+                            ${totalPersons} Personen
+                        </span>
                     </div>
-                </div>
-            </div>
-        `;
-        
-        // Nicht-zugeordnete Gäste anzeigen (nur wenn vorhanden)
-        const unassignedGuestsList = guests.filter(g => !g.assigned_table);
-        if (unassignedGuestsList.length > 0) {
-            modalHtml += `
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <div class="card" style="border: 2px solid #dc3545; background: linear-gradient(135deg, #fff5f5, #ffe6e6);">
-                            <div class="card-header" style="background: linear-gradient(135deg, #dc3545, #c82333); color: white;">
-                                <h6 class="mb-0">
-                                    <i class="bi bi-person-x me-2"></i>Nicht zugeordnete Gäste (${unassignedGuestsList.length})
-                                    <small class="ms-2 opacity-75">Ziehen Sie Gäste auf Tische um sie zuzuordnen</small>
-                                </h6>
-                            </div>
-                            <div class="card-body p-3" style="max-height: 200px; overflow-y: auto;">
-                                <div class="row" id="modalUnassignedGuests">
-                                    ${unassignedGuestsList.map(guest => `
-                                        <div class="col-md-4 col-sm-6 mb-2">
-                                            <div class="d-flex align-items-center p-2 rounded border draggable-guest" 
-                                                 style="background: white; cursor: grab; border-color: #dc3545 !important;"
-                                                 data-guest-id="${guest.id}"
-                                                 draggable="true">
-                                                <div class="guest-avatar me-2" style="width: 30px; height: 30px; background: #dc3545; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
-                                                    ${guest.vorname.charAt(0)}${guest.nachname ? guest.nachname.charAt(0) : ''}
-                                                </div>
-                                                <div class="flex-grow-1" style="min-width: 0;">
-                                                    <div class="fw-bold text-truncate" style="font-size: 13px;">${guest.vorname} ${guest.nachname || ''}</div>
-                                                    <small class="text-muted">${guest.anzahl_essen || 0} Essen</small>
-                                                </div>
+                    <div class="card-body">
+                        ${guests.length > 0 ? `
+                            <div class="list-group list-group-flush">
+                                ${guests.map(guest => {
+                                    const guestName = guest.name || 'Unbekannter Gast';
+                                    const category = guest.category || 'Unbekannt';
+                                    const side = guest.side || '';
+                                    const persons = guest.persons || 1;
+                                    
+                                    return `
+                                        <div class="list-group-item d-flex justify-content-between align-items-center py-2">
+                                            <div>
+                                                <strong>${guestName}</strong>
+                                                <small class="text-muted d-block">
+                                                    ${category}${side ? ' • ' + side : ''} • ${persons} Essen
+                                                </small>
                                             </div>
+                                            <span class="badge bg-light text-dark">${persons}</span>
                                         </div>
-                                    `).join('')}
-                                </div>
+                                    `;
+                                }).join('')}
                             </div>
-                        </div>
+                        ` : `
+                            <p class="text-muted mb-0"><i class="bi bi-person-x me-2"></i>Keine Gäste zugeordnet</p>
+                        `}
                     </div>
                 </div>
             `;
-        }
-        
-        // Tische anzeigen
-        modalHtml += '<div class="row">';
-        
-        tableOverview.forEach(table => {
-            modalHtml += `
-                <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="card h-100 table-drop-zone" 
-                         style="border: 2px solid #d4af37; box-shadow: 0 4px 8px rgba(212, 175, 55, 0.2); border-left: 4px solid #d4af37; background: white;"
-                         ondragover="handleModalTableDragOver(event)"
-                         ondrop="handleModalTableDrop(event, ${table.table_id})">
-                        <div class="card-header text-center" style="background: linear-gradient(135deg, #d4af37, #b8941f); color: white; border-bottom: none;">
-                            <h6 class="mb-1 fw-bold">${table.is_brauttisch ? `💐 ${table.table_name} 💐` : table.table_name}</h6>
-                            <small>${table.total_persons}/${table.max_persons} Gäste</small>
-                        </div>
-                        <div class="card-body p-3" style="background: #fff9e6;">
-            `;
-            
-            if (table.total_persons > 0) {
-                // Gäste dieses Tisches finden
-                const tableGuests = guests.filter(g => g.assigned_table === table.table_id);
-                const allGuestNames = [];
-                
-                // Beim Brauttisch: Brautpaar zuerst
-                if (table.is_brauttisch) {
-                    const brautpaar = getBrautpaarNames();
-                    allGuestNames.push(`
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span style="font-size: 13px;">👑 ${brautpaar.braut}</span>
-                            <small class="text-muted">1 Essen</small>
-                        </div>
-                    `);
-                    allGuestNames.push(`
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span style="font-size: 13px;">👑 ${brautpaar.braeutigam}</span>
-                            <small class="text-muted">1 Essen</small>
-                        </div>
-                    `);
-                }
-                
-                // Normale Gäste hinzufügen (nicht das Brautpaar doppelt)
-                tableGuests.forEach(guest => {
-                    if (guest.kategorie !== 'Brautpaar') {
-                        allGuestNames.push(`
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <span style="font-size: 13px;">${guest.vorname} ${guest.nachname || ''}</span>
-                                <div class="d-flex align-items-center">
-                                    <small class="text-muted me-2">${guest.anzahl_essen || 0} Essen</small>
-                                    <button class="btn btn-sm btn-outline-danger py-0 px-1" 
-                                            onclick="removeGuestFromTableModal(${guest.id}, ${table.table_id})"
-                                            title="Gast entfernen">
-                                        <i class="bi bi-x" style="font-size: 12px;"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        `);
-                    }
-                });
-                
-                modalHtml += allGuestNames.join('');
-            } else {
-                modalHtml += '<small class="text-muted">Leer</small>';
-            }
-            
-            modalHtml += `
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        modalHtml += '</div>';
+        }).join('');
     }
-    
-    modalHtml += `
-                    </div>
-                    <div class="modal-footer" style="background: #f8f4e6; border-top: 1px solid #d4af37;">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                            <i class="bi bi-x-circle me-2"></i>Schließen
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Entferne existierendes Modal
-    const existingModal = document.getElementById('tableOverviewModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    // Füge neues Modal hinzu
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
     
     // Modal anzeigen
-    const modal = new bootstrap.Modal(document.getElementById('tableOverviewModal'));
-    modal.show();
-    
-    // Drag & Drop Event Listeners für das Modal hinzufügen
-    setupModalDragAndDrop();
-    
-    console.log('✅ Tischübersicht-Modal erfolgreich angezeigt');
-}
-
-// Modal-Inhalt aktualisieren ohne Modal zu schließen
-function refreshTableOverviewModal() {
-    const modal = document.getElementById('tableOverviewModal');
-    if (!modal || !modal.classList.contains('show')) {
-        console.log('🚫 Modal nicht geöffnet - keine Aktualisierung nötig');
-        return;
-    }
-    
-    // Scroll-Position merken
-    const modalBody = modal.querySelector('.modal-body');
-    const scrollTop = modalBody ? modalBody.scrollTop : 0;
-    
-    console.log('🔄 Aktualisiere Modal-Inhalt...');
-    console.log('📊 Aktuelle Gäste-Zuordnungen:', guests.filter(g => g.assigned_table).map(g => `${g.vorname} -> Tisch ${g.assigned_table}`));
-    
-    // Neue Übersicht erstellen
-    const tableArray = tables.map(table => {
-        return getTableDisplayData(table);
-    }) // Alle Tische anzeigen (auch leere)
-    .sort((a, b) => {
-        if (a.is_brauttisch && !b.is_brauttisch) return -1;
-        if (!a.is_brauttisch && b.is_brauttisch) return 1;
-        
-        const getTableNumber = (tableName) => {
-            const match = tableName.match(/Tisch (\d+)/);
-            return match ? parseInt(match[1]) : 0;
-        };
-        
-        const aNum = getTableNumber(a.table_name);
-        const bNum = getTableNumber(b.table_name);
-        
-        if (aNum > 0 && bNum > 0) {
-            return aNum - bNum;
-        }
-        
-        return a.table_name.localeCompare(b.table_name);
-    });
-    
-    console.log('📊 Neue Tisch-Übersicht nach Update:', tableArray.map(t => `${t.table_name}: ${t.total_persons}/${t.max_persons}`));
-    console.log('🔄 Rufe updateModalContent() mit', tableArray.length, 'Tischen auf');
-    
-    // Modal-Body aktualisieren
-    updateModalContent(tableArray);
-    
-    // Scroll-Position wiederherstellen
-    setTimeout(() => {
-        if (modalBody) {
-            modalBody.scrollTop = scrollTop;
-            console.log('📍 Scroll-Position wiederhergestellt:', scrollTop);
-        }
-    }, 50);
-    
-    console.log('✅ Modal-Inhalt erfolgreich aktualisiert');
-}
-
-// Modal-Inhalt aktualisieren
-function updateModalContent(tableOverview) {
-    const modal = document.getElementById('tableOverviewModal');
-    const modalBody = modal.querySelector('.modal-body');
-    
-    if (!modalBody) {
-        console.error('❌ modalBody nicht gefunden - Modal-Update abgebrochen');
-        return;
-    }
-    
-    console.log('🎯 updateModalContent aufgerufen mit', tableOverview.length, 'Tischen');
-    console.log('🎯 Modal gefunden:', !!modal, 'modalBody gefunden:', !!modalBody);
-    
-    let contentHtml = '';
-    
-    if (!tableOverview || tableOverview.length === 0) {
-        contentHtml = `
-            <div class="alert alert-info text-center" style="border-color: #d4af37; background-color: #fff9e6;">
-                <i class="bi bi-info-circle me-2" style="color: #d4af37;"></i>
-                <strong>Noch keine Tischzuordnungen vorhanden.</strong><br>
-                Führen Sie zuerst eine Auto-Zuordnung durch.
-            </div>
-        `;
-    } else {
-        // Statistiken berechnen
-        const totalTables = tableOverview.length;
-        const totalGuests = tableOverview.reduce((sum, table) => sum + (table.essen_count || 0), 0);
-        const unassignedGuests = guests.filter(g => !g.assigned_table).reduce((sum, guest) => sum + (guest.anzahl_essen || 0), 0);
-        
-        console.log('📊 Modal Statistiken:', { totalTables, totalGuests, unassignedGuests });
-        
-        // Zusammenfassung
-        contentHtml += `
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card" style="border: 2px solid #d4af37; background: linear-gradient(135deg, #fff9e6, #f8f4e6);">
-                        <div class="card-body text-center">
-                            <h6 class="card-title mb-3" style="color: #b8941f;">
-                                <i class="bi bi-graph-up me-2"></i>Zusammenfassung
-                            </h6>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <div class="h4 mb-0" style="color: #d4af37;">${totalTables}</div>
-                                    <small class="text-muted">Tische</small>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="h4 mb-0" style="color: #20c997;">${totalGuests}</div>
-                                    <small class="text-muted">Gäste</small>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="h4 mb-0" style="color: #dc3545;">${unassignedGuests}</div>
-                                    <small class="text-muted">Noch offen</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // Nicht-zugeordnete Gäste anzeigen
-        const unassignedGuestsList = guests.filter(g => !g.assigned_table);
-        console.log('👥 Nicht zugeordnete Gäste:', unassignedGuestsList.map(g => g.vorname));
-        
-        if (unassignedGuestsList.length > 0) {
-            contentHtml += `
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <div class="card" style="border: 2px solid #dc3545; background: linear-gradient(135deg, #fff5f5, #ffe6e6);">
-                            <div class="card-header" style="background: linear-gradient(135deg, #dc3545, #c82333); color: white;">
-                                <h6 class="mb-0">
-                                    <i class="bi bi-person-x me-2"></i>Nicht zugeordnete Gäste (${unassignedGuestsList.length})
-                                    <small class="ms-2 opacity-75">Ziehen Sie Gäste auf Tische um sie zuzuordnen</small>
-                                </h6>
-                            </div>
-                            <div class="card-body p-3" style="max-height: 200px; overflow-y: auto;">
-                                <div class="row" id="modalUnassignedGuests">
-                                    ${unassignedGuestsList.map(guest => `
-                                        <div class="col-md-4 col-sm-6 mb-2">
-                                            <div class="d-flex align-items-center p-2 rounded border draggable-guest" 
-                                                 style="background: white; cursor: grab; border-color: #dc3545 !important;"
-                                                 data-guest-id="${guest.id}"
-                                                 draggable="true">
-                                                <div class="guest-avatar me-2" style="width: 30px; height: 30px; background: #dc3545; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
-                                                    ${guest.vorname.charAt(0)}${guest.nachname ? guest.nachname.charAt(0) : ''}
-                                                </div>
-                                                <div class="flex-grow-1" style="min-width: 0;">
-                                                    <div class="fw-bold text-truncate" style="font-size: 13px;">${guest.vorname} ${guest.nachname || ''}</div>
-                                                    <small class="text-muted">${guest.anzahl_essen || 0} Essen</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        // Tische anzeigen
-        contentHtml += '<div class="row">';
-        
-        tableOverview.forEach(table => {
-            const tableGuests = guests.filter(g => g.assigned_table === table.table_id);
-            console.log(`🏠 Tisch ${table.table_name}: ${tableGuests.length} Gäste zugewiesen:`, tableGuests.map(g => g.vorname));
-            
-            contentHtml += `
-                <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="card h-100 table-drop-zone" 
-                         style="border: 2px solid #d4af37; box-shadow: 0 4px 8px rgba(212, 175, 55, 0.2); border-left: 4px solid #d4af37; background: white;"
-                         ondragover="handleModalTableDragOver(event)"
-                         ondrop="handleModalTableDrop(event, ${table.table_id})">
-                        <div class="card-header text-center" style="background: linear-gradient(135deg, #d4af37, #b8941f); color: white; border-bottom: none;">
-                            <h6 class="mb-1 fw-bold">${table.is_brauttisch ? `💐 ${table.table_name} 💐` : table.table_name}</h6>
-                            <small>${table.total_persons}/${table.max_persons} Gäste</small>
-                        </div>
-                        <div class="card-body p-3" style="background: #fff9e6;">
-            `;
-            
-            if (table.total_persons > 0) {
-                // Gäste dieses Tisches finden
-                const allGuestNames = [];
-                
-                // Beim Brauttisch: Brautpaar zuerst
-                if (table.is_brauttisch) {
-                    const brautpaar = getBrautpaarNames();
-                    allGuestNames.push(`👑 ${brautpaar.braut}`, `👑 ${brautpaar.braeutigam}`);
-                }
-                
-                // Normale Gäste hinzufügen (nicht das Brautpaar doppelt)
-                tableGuests.forEach(guest => {
-                    if (guest.kategorie !== 'Brautpaar') {
-                        allGuestNames.push(`
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <span style="font-size: 13px;">${guest.vorname} ${guest.nachname || ''}</span>
-                                <button class="btn btn-sm btn-outline-danger py-0 px-1" 
-                                        onclick="removeGuestFromTableModal(${guest.id}, ${table.table_id})"
-                                        title="Gast entfernen">
-                                    <i class="bi bi-x" style="font-size: 12px;"></i>
-                                </button>
-                            </div>
-                        `);
-                    }
-                });
-                
-                contentHtml += allGuestNames.join('');
-            } else {
-                contentHtml += '<small class="text-muted">Leer</small>';
-            }
-            
-            contentHtml += `
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        contentHtml += '</div>';
-    }
-    
-    console.log('🎯 Setze neuen Modal-Inhalt (', contentHtml.length, 'Zeichen)');
-    modalBody.innerHTML = contentHtml;
-    console.log('🎯 Modal-Inhalt gesetzt, richte Event Listeners ein...');
-    
-    // Event Listeners neu einrichten
-    setupModalDragAndDrop();
-    
-    console.log('✅ Modal-Inhalt HTML aktualisiert, Event Listeners neu eingerichtet');
-}
-
-// Drag & Drop Event Listeners für das Modal einrichten
-function setupModalDragAndDrop() {
-    // Event Listeners für draggable Gäste im Modal
-    document.querySelectorAll('.draggable-guest').forEach(guestElement => {
-        guestElement.addEventListener('dragstart', handleModalGuestDragStart);
-        guestElement.addEventListener('dragend', handleModalGuestDragEnd);
-    });
-    
-    console.log('🎯 Modal Drag & Drop Event Listeners eingerichtet');
-}
-
-// Modal Drag & Drop Handler
-function handleModalGuestDragStart(e) {
-    const guestId = parseInt(e.target.closest('.draggable-guest').dataset.guestId);
-    draggedGuest = guestId;
-    e.target.closest('.draggable-guest').classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    
-    // Visual feedback für Drop-Zonen
-    document.querySelectorAll('.table-drop-zone').forEach(zone => {
-        zone.style.backgroundColor = '#e8f5e8';
-        zone.style.borderColor = '#28a745';
-        zone.style.borderStyle = 'dashed';
-        zone.style.borderWidth = '2px';
-    });
-    
-    // Auto-Scroll während Drag & Drop aktivieren
-    setupAutoScroll();
-    
-    console.log('🎯 Drag gestartet für Gast ID:', guestId);
-}
-
-function handleModalGuestDragEnd(e) {
-    e.target.closest('.draggable-guest').classList.remove('dragging');
-    
-    // Drop-Zone Styling zurücksetzen
-    document.querySelectorAll('.table-drop-zone').forEach(zone => {
-        zone.style.backgroundColor = 'white';
-        zone.style.borderColor = '#d4af37';
-        zone.style.borderStyle = 'solid';
-        zone.style.borderWidth = '0 0 0 4px';
-    });
-    
-    // Auto-Scroll deaktivieren
-    clearAutoScroll();
-    
-    draggedGuest = null;
-    console.log('🎯 Drag beendet');
-}
-
-// Auto-Scroll System für Modal
-let autoScrollInterval = null;
-let lastMouseY = 0;
-
-function setupAutoScroll() {
-    const modal = document.getElementById('tableOverviewModal');
-    if (!modal) return;
-    
-    const modalBody = modal.querySelector('.modal-body');
-    if (!modalBody) return;
-    
-    // Mouse-Move Listener für Auto-Scroll
-    document.addEventListener('dragover', handleDragOverForScroll);
-    
-    console.log('🔄 Auto-Scroll aktiviert');
-}
-
-function clearAutoScroll() {
-    if (autoScrollInterval) {
-        clearInterval(autoScrollInterval);
-        autoScrollInterval = null;
-    }
-    
-    document.removeEventListener('dragover', handleDragOverForScroll);
-    console.log('🔄 Auto-Scroll deaktiviert');
-}
-
-function handleDragOverForScroll(e) {
-    if (!draggedGuest) return;
-    
-    const modal = document.getElementById('tableOverviewModal');
-    if (!modal) return;
-    
-    const modalBody = modal.querySelector('.modal-body');
-    if (!modalBody) return;
-    
-    lastMouseY = e.clientY;
-    
-    // Scroll-Bereich definieren
-    const modalRect = modalBody.getBoundingClientRect();
-    const scrollZoneHeight = 50; // Pixel vom Rand für Auto-Scroll
-    const scrollSpeed = 5; // Pixel pro Intervall
-    
-    // Scroll nach oben
-    if (e.clientY < modalRect.top + scrollZoneHeight && modalBody.scrollTop > 0) {
-        if (!autoScrollInterval) {
-            autoScrollInterval = setInterval(() => {
-                modalBody.scrollTop = Math.max(0, modalBody.scrollTop - scrollSpeed);
-            }, 16); // ~60fps
-        }
-    }
-    // Scroll nach unten
-    else if (e.clientY > modalRect.bottom - scrollZoneHeight && 
-             modalBody.scrollTop < modalBody.scrollHeight - modalBody.clientHeight) {
-        if (!autoScrollInterval) {
-            autoScrollInterval = setInterval(() => {
-                const maxScroll = modalBody.scrollHeight - modalBody.clientHeight;
-                modalBody.scrollTop = Math.min(maxScroll, modalBody.scrollTop + scrollSpeed);
-            }, 16); // ~60fps
-        }
-    }
-    // Kein Scroll nötig
-    else {
-        if (autoScrollInterval) {
-            clearInterval(autoScrollInterval);
-            autoScrollInterval = null;
-        }
-    }
-}
-
-function handleModalTableDragOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    
-    // Visual feedback für aktuelle Drop-Zone
-    const dropZone = e.currentTarget;
-    dropZone.style.backgroundColor = '#d4edda';
-    dropZone.style.borderColor = '#155724';
-}
-
-async function handleModalTableDrop(e, tableId) {
-    e.preventDefault();
-    
-    // Drop-Zone Styling zurücksetzen
-    const dropZone = e.currentTarget;
-    dropZone.style.backgroundColor = '#e8f5e8';
-    dropZone.style.borderColor = '#28a745';
-    
-    if (draggedGuest) {
-        console.log('🎯 Drop erkannt - Gast', draggedGuest, 'zu Tisch', tableId);
-        
-        // WICHTIG: Gast-ID lokal speichern bevor draggedGuest durch dragEnd zurückgesetzt wird
-        const guestIdToAssign = draggedGuest;
-        
+    if (modal) {
         try {
-            // Gast zu Tisch zuweisen
-            const response = await fetch('/api/tischplanung/assign', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ guest_id: guestIdToAssign, table_id: tableId })
-            });
-            
-            if (response.ok) {
-                const guest = guests.find(g => g.id === guestIdToAssign);
-                if (guest) {
-                    console.log('🎯 API-Aufruf erfolgreich - aktualisiere Gast-Zuordnung');
-                    guest.assigned_table = tableId;
-                    
-                    console.log('🎯 Rufe UI-Update-Funktionen auf...');
-                    
-                    // UI aktualisieren
-                    renderSeatingChart();
-                    renderGuestList();
-                    updateStatistics();
-                    
-                    console.log('🎯 Plane Modal-Refresh in 100ms...');
-                    
-                    // Modal aktualisieren ohne es zu schließen (kurze Verzögerung für UI-Update)
-                    setTimeout(() => {
-                        console.log('🔄 Starte Modal-Refresh jetzt...');
-                        refreshTableOverviewModal();
-                    }, 100);
-                    
-                    showAlert(`${guest.vorname} wurde zu Tisch zugewiesen`, 'success');
-                } else {
-                    console.error('❌ Gast nicht gefunden:', guestIdToAssign);
-                }
-            } else {
-                const error = await response.json();
-                showAlert(error.message || 'Fehler beim Zuweisen des Gastes', 'warning');
-            }
+            const bootstrapModal = new bootstrap.Modal(modal);
+            bootstrapModal.show();
+            console.log('✅ Tischübersicht-Modal angezeigt');
         } catch (error) {
-            console.error('Fehler beim Modal-Drop:', error);
-            showAlert('Fehler beim Zuweisen des Gastes', 'danger');
+            console.error('❌ Fehler beim Anzeigen des Modals:', error);
+            showAlert('Fehler beim Anzeigen der Übersicht', 'danger');
         }
-    }
-}
-
-// Gast aus Modal entfernen
-async function removeGuestFromTableModal(guestId, tableId) {
-    try {
-        const guest = guests.find(g => g.id === guestId);
-        if (!guest) {
-            console.error('❌ Gast nicht gefunden:', guestId);
-            showAlert('Gast nicht gefunden', 'warning');
-            return;
-        }
-        
-        const guestName = `${guest.vorname} ${guest.nachname || ''}`;
-        console.log('🗑️ Entferne Gast', guestName, 'von Tisch', tableId);
-        
-        // API-Call zum Entfernen
-        const response = await fetch(`/api/tischplanung/unassign/${guestId}`, {
-            method: 'DELETE'
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            console.log('🎯 API-Aufruf erfolgreich - entferne Gast-Zuordnung');
-            // Lokale Daten aktualisieren
-            guest.assigned_table = null;
-            
-            console.log('🎯 Rufe UI-Update-Funktionen auf...');
-            
-            // UI aktualisieren
-            renderSeatingChart();
-            renderGuestList();
-            updateStatistics();
-            
-            console.log('🎯 Plane Modal-Refresh in 100ms...');
-            
-            // Modal aktualisieren ohne es zu schließen (kurze Verzögerung für UI-Update)
-            setTimeout(() => {
-                console.log('🔄 Starte Modal-Refresh nach Gast-Entfernung...');
-                refreshTableOverviewModal();
-            }, 100);
-            
-            showAlert(`${guestName} wurde vom Tisch entfernt`, 'info');
-        } else {
-            showAlert(data.error || 'Fehler beim Entfernen des Gastes', 'danger');
-        }
-        
-    } catch (error) {
-        console.error('Fehler beim Entfernen aus Modal:', error);
-        showAlert('Fehler beim Entfernen des Gastes', 'danger');
+    } else {
+        console.error('❌ tableOverviewModal Element nicht gefunden');
+        showAlert('Modal für Tischübersicht nicht gefunden', 'danger');
     }
 }
 
@@ -2230,13 +1401,12 @@ async function updateStatistics() {
     try {
         console.log('📊 Aktualisiere Statistiken...');
         
-        // Berechne Statistiken basierend auf anzahl_essen statt Gäste-Einträge
-        const totalPersons = guests.reduce((sum, guest) => sum + (guest.anzahl_essen || 0), 0);
-        const assignedPersons = guests.filter(g => g.assigned_table).reduce((sum, guest) => sum + (guest.anzahl_essen || 0), 0);
-        const unassignedPersons = totalPersons - assignedPersons;
-        
-        const totalGuests = guests.length; // Anzahl Gäste-Einträge für Referenz
+        // Berechne Statistiken basierend auf lokalen Daten
+        const totalGuests = guests.length;
         const assignedGuests = guests.filter(g => g.assigned_table).length;
+        
+        const totalPersons = guests.reduce((sum, guest) => sum + (guest.anzahl_essen || 1), 0);
+        const assignedPersons = guests.filter(g => g.assigned_table).reduce((sum, guest) => sum + (guest.anzahl_essen || 1), 0);
         
         const totalTables = tables.length;
         const usedTables = new Set(guests.filter(g => g.assigned_table).map(g => g.assigned_table)).size;
@@ -2518,257 +1688,20 @@ function handleZoom(e) {
 
 // Minimap aktualisieren
 function updateMinimap() {
+    // Vereinfachte Minimap-Darstellung
     const minimap = document.getElementById('minimap');
-    if (!minimap) return;
-    
-    // Minimap-Inhalt leeren und neu aufbauen
-    minimap.innerHTML = '';
-    
-    // Minimap-Container erstellen
-    const minimapContainer = document.createElement('div');
-    minimapContainer.style.cssText = `
-        position: relative;
-        width: 100%;
-        height: 100px;
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-        overflow: hidden;
-    `;
-    
-    // Vereinfachte Darstellung der Tische
-    tables.forEach(table => {
-        const tableElement = document.createElement('div');
-        const occupiedGuests = guests.filter(g => g.assigned_table === table.id).length;
-        const isEmpty = occupiedGuests === 0;
-        
-        tableElement.style.cssText = `
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: ${isEmpty ? '#dee2e6' : table.farbe || '#007bff'};
-            left: ${Math.min(90, (table.x_position || 0) / 10)}%;
-            top: ${Math.min(85, (table.y_position || 0) / 10)}%;
-            cursor: pointer;
-        `;
-        
-        tableElement.title = `${table.name}: ${occupiedGuests} Gäste`;
-        tableElement.onclick = () => selectTable(table.id);
-        
-        minimapContainer.appendChild(tableElement);
-    });
-    
-    minimap.appendChild(minimapContainer);
+    // Implementation für Minimap
 }
 
 // Statistiken anzeigen/ausblenden
 function showStatistics() {
-    console.log('� Erstelle Tischplanung-Statistiken...');
-    
-    // Berechne Statistiken
-    const totalGuests = guests.length;
-    const assignedGuests = guests.filter(g => g.assigned_table).length;
-    const unassignedGuests = totalGuests - assignedGuests;
-    const totalEssen = guests.reduce((sum, guest) => sum + (guest.anzahl_essen || 0), 0);
-    const assignedEssen = guests.filter(g => g.assigned_table).reduce((sum, guest) => sum + (guest.anzahl_essen || 0), 0);
-    const unassignedEssen = totalEssen - assignedEssen;
-    
-    const totalTables = tables.length;
-    const usedTables = tables.filter(table => 
-        guests.some(guest => guest.assigned_table === table.id)
-    ).length;
-    const emptyTables = totalTables - usedTables;
-    
-    // Modal anzeigen
-    displayStatisticsModal({
-        totalGuests,
-        assignedGuests,
-        unassignedGuests,
-        totalEssen,
-        assignedEssen,
-        unassignedEssen,
-        totalTables,
-        usedTables,
-        emptyTables
-    });
-}
-
-// Statistiken als Modal anzeigen
-function displayStatisticsModal(stats) {
-    console.log('📊 displayStatisticsModal mit Statistiken:', stats);
-    
-    const modalHtml = `
-        <div class="modal fade" id="statisticsModal" tabindex="-1" aria-labelledby="statisticsModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content" style="background: linear-gradient(135deg, #f8f4e6 0%, #fff9e6 100%); border: 2px solid #d4af37;">
-                    <div class="modal-header" style="background: linear-gradient(135deg, #d4af37, #b8941f); color: white; border-bottom: none;">
-                        <h5 class="modal-title" id="statisticsModalLabel">
-                            <i class="bi bi-graph-up me-2"></i>Tischplanung-Statistiken
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            <!-- Gäste Statistiken -->
-                            <div class="col-md-6 mb-4">
-                                <div class="card h-100" style="border: 2px solid #20c997; background: linear-gradient(135deg, #e8fff9, #d1ecf1);">
-                                    <div class="card-header text-center" style="background: linear-gradient(135deg, #20c997, #17a2b8); color: white;">
-                                        <h6 class="mb-0"><i class="bi bi-people me-2"></i>Gäste</h6>
-                                    </div>
-                                    <div class="card-body text-center">
-                                        <div class="row">
-                                            <div class="col-4">
-                                                <div class="h3 mb-1" style="color: #20c997;">${stats.assignedEssen}</div>
-                                                <small class="text-muted">Zugeordnet</small>
-                                            </div>
-                                            <div class="col-4">
-                                                <div class="h3 mb-1" style="color: #dc3545;">${stats.unassignedEssen}</div>
-                                                <small class="text-muted">Noch offen</small>
-                                            </div>
-                                            <div class="col-4">
-                                                <div class="h3 mb-1" style="color: #6f42c1;">${stats.totalEssen}</div>
-                                                <small class="text-muted">Gesamt</small>
-                                            </div>
-                                        </div>
-                                        <div class="progress mt-3" style="height: 8px;">
-                                            <div class="progress-bar bg-success" role="progressbar" 
-                                                 style="width: ${stats.totalEssen > 0 ? (stats.assignedEssen / stats.totalEssen * 100) : 0}%"
-                                                 aria-valuenow="${stats.assignedEssen}" aria-valuemin="0" aria-valuemax="${stats.totalEssen}">
-                                            </div>
-                                        </div>
-                                        <small class="text-muted mt-2 d-block">
-                                            ${stats.totalEssen > 0 ? Math.round(stats.assignedEssen / stats.totalEssen * 100) : 0}% zugeordnet
-                                        </small>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Tisch Statistiken -->
-                            <div class="col-md-6 mb-4">
-                                <div class="card h-100" style="border: 2px solid #fd7e14; background: linear-gradient(135deg, #fff5e6, #ffe8d1);">
-                                    <div class="card-header text-center" style="background: linear-gradient(135deg, #fd7e14, #e55a1f); color: white;">
-                                        <h6 class="mb-0"><i class="bi bi-table me-2"></i>Tische</h6>
-                                    </div>
-                                    <div class="card-body text-center">
-                                        <div class="row">
-                                            <div class="col-4">
-                                                <div class="h3 mb-1" style="color: #fd7e14;">${stats.usedTables}</div>
-                                                <small class="text-muted">Belegt</small>
-                                            </div>
-                                            <div class="col-4">
-                                                <div class="h3 mb-1" style="color: #6c757d;">${stats.emptyTables}</div>
-                                                <small class="text-muted">Frei</small>
-                                            </div>
-                                            <div class="col-4">
-                                                <div class="h3 mb-1" style="color: #6f42c1;">${stats.totalTables}</div>
-                                                <small class="text-muted">Gesamt</small>
-                                            </div>
-                                        </div>
-                                        <div class="progress mt-3" style="height: 8px;">
-                                            <div class="progress-bar bg-warning" role="progressbar" 
-                                                 style="width: ${stats.totalTables > 0 ? (stats.usedTables / stats.totalTables * 100) : 0}%"
-                                                 aria-valuenow="${stats.usedTables}" aria-valuemin="0" aria-valuemax="${stats.totalTables}">
-                                            </div>
-                                        </div>
-                                        <small class="text-muted mt-2 d-block">
-                                            ${stats.totalTables > 0 ? Math.round(stats.usedTables / stats.totalTables * 100) : 0}% belegt
-                                        </small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Auslastung pro Tisch -->
-                        <div class="row">
-                            <div class="col-12">
-                                <div class="card" style="border: 2px solid #d4af37; background: linear-gradient(135deg, #fff9e6, #f8f4e6);">
-                                    <div class="card-header" style="background: linear-gradient(135deg, #d4af37, #b8941f); color: white;">
-                                        <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Auslastung pro Tisch</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        ${generateTableUtilizationChart()}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer" style="background: #f8f4e6; border-top: 1px solid #d4af37;">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                            <i class="bi bi-x-circle me-2"></i>Schließen
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Entferne existierendes Modal
-    const existingModal = document.getElementById('statisticsModal');
-    if (existingModal) {
-        existingModal.remove();
+    const row = document.getElementById('statisticsRow');
+    if (row.style.display === 'none') {
+        row.style.display = 'block';
+        updateStatistics();
+    } else {
+        row.style.display = 'none';
     }
-    
-    // Füge neues Modal hinzu
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    // Modal anzeigen
-    const modal = new bootstrap.Modal(document.getElementById('statisticsModal'));
-    modal.show();
-    
-    console.log('✅ Statistiken-Modal erfolgreich angezeigt');
-}
-
-// Hilfsfunktion für Tischauslastungsdiagramm
-function generateTableUtilizationChart() {
-    const tableUtilization = tables.map(table => {
-        const assignedGuests = guests.filter(g => g.assigned_table === table.id);
-        
-        // EINHEITLICHE BERECHNUNG: Exakt gleiche Logik wie in der Übersicht
-        const allGuests = [];
-        if (isBrautTisch(table)) {
-            allGuests.push(
-                { persons: 1, isBrautpaar: true }, // Braut
-                { persons: 1, isBrautpaar: true }  // Bräutigam
-            );
-        }
-        assignedGuests.forEach(guest => {
-            allGuests.push({ persons: guest.anzahl_essen || 1, isBrautpaar: false });
-        });
-        const assignedPersons = allGuests.reduce((sum, guest) => sum + guest.persons, 0);
-        
-        const maxPersons = table.max_personen || 10;
-        const utilization = maxPersons > 0 ? (assignedPersons / maxPersons * 100) : 0;
-        
-        return {
-            name: table.name || `Tisch ${table.id}`,
-            assigned: assignedPersons,
-            max: maxPersons,
-            utilization: utilization
-        };
-    }).filter(table => table.assigned > 0); // Nur belegte Tische
-    
-    if (tableUtilization.length === 0) {
-        return '<p class="text-muted text-center">Noch keine Tische belegt.</p>';
-    }
-    
-    return tableUtilization.map(table => `
-        <div class="d-flex align-items-center mb-3">
-            <div class="flex-shrink-0 me-3" style="width: 120px;">
-                <strong style="color: #b8941f;">${table.name}</strong>
-                <br><small class="text-muted">${table.assigned}/${table.max}</small>
-            </div>
-            <div class="flex-grow-1">
-                <div class="progress" style="height: 20px;">
-                    <div class="progress-bar ${table.utilization > 90 ? 'bg-danger' : table.utilization > 75 ? 'bg-warning' : 'bg-success'}" 
-                         role="progressbar" style="width: ${table.utilization}%"
-                         aria-valuenow="${table.utilization}" aria-valuemin="0" aria-valuemax="100">
-                        ${Math.round(table.utilization)}%
-                    </div>
-                </div>
-            </div>
-        </div>
-    `).join('');
 }
 
 // Beziehungsübersicht anzeigen
@@ -2861,6 +1794,66 @@ function showRelationshipsOverview() {
                 </div>
             `).join('')}
         </div>
+    `;
+    
+    // Modal anzeigen
+    const modal = new bootstrap.Modal(document.getElementById('relationshipModal'));
+    modal.show();
+}
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-secondary">
+                        <div class="card-body">
+                            <h4 class="text-secondary">${totalRelations - positiveRelations - negativeRelations}</h4>
+                            <small>Neutral</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="accordion" id="relationshipsAccordion">
+            ${Object.keys(groupedRelations).map((type, index) => `
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="heading${index}">
+                        <button class="accordion-button ${index === 0 ? '' : 'collapsed'}" type="button" 
+                                data-bs-toggle="collapse" data-bs-target="#collapse${index}">
+                            ${formatRelationshipType(type)} 
+                            <span class="badge bg-primary ms-2">${groupedRelations[type].length}</span>
+                        </button>
+                    </h2>
+                    <div id="collapse${index}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}" 
+                         data-bs-parent="#relationshipsAccordion">
+                        <div class="accordion-body">
+                            ${groupedRelations[type].map(rel => {
+                                const guest1 = guests.find(g => g.id === rel.gast_id_1);
+                                const guest2 = guests.find(g => g.id === rel.gast_id_2);
+                                const guest1Name = guest1 ? `${guest1.vorname} ${guest1.nachname || ''}` : 'Unbekannt';
+                                const guest2Name = guest2 ? `${guest2.vorname} ${guest2.nachname || ''}` : 'Unbekannt';
+                                const strengthColor = rel.staerke > 0 ? 'success' : rel.staerke < 0 ? 'danger' : 'secondary';
+                                
+                                return `<div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                                        <div>
+                                            <strong>${guest1Name}</strong> ↔ <strong>${guest2Name}</strong>
+                                            ${rel.notizen ? `<br><small class="text-muted">📝 ${rel.notizen}</small>` : ''}
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-${strengthColor}">${rel.staerke}</span>
+                                            <button class="btn btn-sm btn-outline-primary ms-2" 
+                                                    onclick="editRelationships(${rel.gast_id_1})" 
+                                                    title="Bearbeiten">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </div>
+                                    </div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+        
+        ${totalRelations === 0 ? '<div class="alert alert-info">Noch keine Beziehungen definiert. Verwenden Sie die Buttons neben den Gästen, um Beziehungen hinzuzufügen.</div>' : ''}
     `;
     
     // Modal anzeigen
@@ -3339,31 +2332,14 @@ function showTableDetails(tableId) {
             </div>
             <div class="col-md-6">
                 <label class="form-label">Belegung</label>
-                <p class="form-control-plaintext">${getTableDisplayData(table).total_persons}/${table.max_personen} ${isBrautTisch(table) ? 'Gäste' : 'Personen'} (${assignedGuests.filter(g => g.kategorie !== 'Brautpaar').length} zugewiesene Gäste)</p>
+                <p class="form-control-plaintext">${assignedGuests.reduce((sum, guest) => sum + (guest.anzahl_essen || 0), 0)}/${table.max_personen} Essen (${assignedGuests.length} Gäste)</p>
             </div>
         </div>
         
         <hr>
         <h6>Zugewiesene Gäste</h6>
         <div class="list-group">
-            ${isBrautTisch(table) ? (() => {
-                const brautpaar = getBrautpaarNames();
-                return `
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>👑 ${brautpaar.braut}</strong>
-                            <small class="d-block text-muted">1 Essen (Braut)</small>
-                        </div>
-                    </div>
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>👑 ${brautpaar.braeutigam}</strong>
-                            <small class="d-block text-muted">1 Essen (Bräutigam)</small>
-                        </div>
-                    </div>
-                `;
-            })() : ''}
-            ${assignedGuests.filter(guest => guest.kategorie !== 'Brautpaar').map(guest => `
+            ${assignedGuests.map(guest => `
                 <div class="list-group-item d-flex justify-content-between align-items-center">
                     <div>
                         <strong>${guest.vorname} ${guest.nachname || ''}</strong>
@@ -3548,40 +2524,11 @@ async function optimizeTable(tableId) {
 
 // Hilfsfunktionen für bessere UX
 function showTooltip(element, text) {
-    // Bestehende Tooltips entfernen
-    hideTooltip();
-    
-    if (!text) return;
-    
-    const tooltip = document.createElement('div');
-    tooltip.className = 'custom-tooltip';
-    tooltip.textContent = text;
-    tooltip.style.cssText = `
-        position: absolute;
-        background: #333;
-        color: white;
-        padding: 5px 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        z-index: 9999;
-        pointer-events: none;
-        opacity: 0.9;
-        white-space: nowrap;
-    `;
-    
-    document.body.appendChild(tooltip);
-    
-    const rect = element.getBoundingClientRect();
-    tooltip.style.left = `${rect.left + rect.width / 2 - tooltip.offsetWidth / 2}px`;
-    tooltip.style.top = `${rect.top - tooltip.offsetHeight - 5}px`;
-    
-    // Tooltip nach 3 Sekunden automatisch ausblenden
-    setTimeout(() => hideTooltip(), 3000);
+    // Tooltip-Implementierung
 }
 
 function hideTooltip(element) {
-    const existingTooltips = document.querySelectorAll('.custom-tooltip');
-    existingTooltips.forEach(tooltip => tooltip.remove());
+    // Tooltip verstecken
 }
 
 // Touch-Unterstützung für mobile Geräte
@@ -3631,9 +2578,7 @@ function setupKeyboardShortcuts() {
                     break;
                 case 'z':
                     e.preventDefault();
-                    if (confirm('Letzte Änderung rückgängig machen?')) {
-                        showAlert('Undo-Funktion noch nicht implementiert', 'info');
-                    }
+                    // Undo-Funktionalität
                     break;
                 case 'a':
                     e.preventDefault();
@@ -3710,6 +2655,130 @@ async function autoAssignGuests() {
     } catch (error) {
         console.error('❌ Fehler bei automatischer Zuweisung:', error);
         showAlert('Fehler bei automatischer Zuweisung: ' + error.message, 'danger');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Tisch-Zuordnungs-Übersicht anzeigen
+async function showTableOverview() {
+    console.log('📋 Zeige Tisch-Zuordnungs-Übersicht');
+    
+    try {
+        showLoading(true);
+        
+        // Hole aktuelle Tischzuordnungen von der API
+        const response = await window.TischplanungAPI.getTableOverview();
+        
+        if (!response || !response.table_overview || response.table_overview.length === 0) {
+            showAlert('Keine Tischzuordnungen gefunden. Bitte führen Sie zuerst eine Auto-Zuordnung durch.', 'info');
+            return;
+        }
+        
+        // Konvertiere Array zu Objekt für kompatibilität
+        const tableOverview = {};
+        response.table_overview.forEach(table => {
+            tableOverview[table.table_name] = table;
+        });
+        
+        const tableOverviewRow = document.getElementById('tableOverviewRow');
+        const tableOverviewContent = document.getElementById('tableOverviewContent');
+        
+        if (!tableOverviewRow || !tableOverviewContent) {
+            console.error('❌ Tisch-Übersicht Elemente nicht gefunden');
+            return;
+        }
+        
+        // HTML für die Übersicht generieren
+        let overviewHTML = '<div class="row">';
+        
+        Object.keys(tableOverview).sort().forEach(tableName => {
+            const table = tableOverview[tableName];
+            const tableGuests = table.guests || [];
+            
+            overviewHTML += `
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card border-0 shadow-sm" style="border-radius: 12px;">
+                        <div class="card-header bg-gradient text-white text-center" 
+                             style="background: linear-gradient(135deg, #007bff, #0056b3); border-radius: 12px 12px 0 0;">
+                            <h6 class="mb-0 fw-bold">${tableName}</h6>
+                            <small>${table.total_persons} Personen, ${tableGuests.length} Gäste</small>
+                        </div>
+                        <div class="card-body p-3">
+                            ${tableGuests.map(guest => `
+                                <div class="d-flex align-items-center mb-2">
+                                    <div class="flex-shrink-0">
+                                        <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" 
+                                             style="width: 32px; height: 32px; font-size: 12px; font-weight: bold;">
+                                            ${guest.name.split(' ').map(n => n.charAt(0)).join('').substring(0, 2)}
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1 ms-2">
+                                        <div class="fw-semibold" style="font-size: 0.9rem;">${guest.name}</div>
+                                        <small class="text-muted">
+                                            ${guest.category} • ${guest.side}
+                                            ${guest.persons > 1 ? ` • ${guest.persons} Pers.` : ''}
+                                            ${guest.children > 0 ? ` • ${guest.children} Kind${guest.children > 1 ? 'er' : ''}` : ''}
+                                        </small>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        overviewHTML += '</div>';
+        
+        // Zusammenfassung hinzufügen
+        const totalGuests = Object.values(tableOverview).reduce((sum, table) => sum + (table.guests?.length || 0), 0);
+        const totalPersons = Object.values(tableOverview).reduce((sum, table) => sum + (table.total_persons || 0), 0);
+        const totalTables = Object.keys(tableOverview).length;
+        
+        overviewHTML += `
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card bg-light border-0">
+                        <div class="card-body">
+                            <h6 class="card-title mb-3">
+                                <i class="bi bi-graph-up me-2"></i>Zusammenfassung
+                            </h6>
+                            <div class="row text-center">
+                                <div class="col-md-3">
+                                    <div class="h4 text-primary mb-0">${totalTables}</div>
+                                    <small class="text-muted">Tische</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="h4 text-success mb-0">${totalGuests}</div>
+                                    <small class="text-muted">Gäste</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="h4 text-info mb-0">${totalPersons}</div>
+                                    <small class="text-muted">Personen</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="h4 text-warning mb-0">${(totalPersons / totalTables).toFixed(1)}</div>
+                                    <small class="text-muted">Ø pro Tisch</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        tableOverviewContent.innerHTML = overviewHTML;
+        tableOverviewRow.style.display = 'block';
+        
+        // Sanft nach oben scrollen
+        tableOverviewRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+        showAlert('Tisch-Zuordnungs-Übersicht erfolgreich geladen', 'success');
+        
+    } catch (error) {
+        console.error('❌ Fehler beim Anzeigen der Tisch-Übersicht:', error);
+        showAlert('Fehler beim Laden der Tisch-Übersicht: ' + error.message, 'danger');
     } finally {
         showLoading(false);
     }
@@ -3942,19 +3011,9 @@ function debugSystemCheck() {
     }, 100);
 }
 
-// Global verfügbar machen (sofort nach Funktionsdefinition)
+// Global verfügbar machen
 window.makeApiCall = makeApiCall;
 window.debugSystemCheck = debugSystemCheck;
-window.showTableOverview = showTableOverview;
-window.updateStatistics = updateStatistics;
-window.showStatistics = showStatistics;
-
-// Zusätzliche explizite globale Deklaration für onclick-Handler
-if (typeof window !== 'undefined') {
-    window.showTableOverview = showTableOverview;
-    window.showStatistics = showStatistics;
-    window.updateStatistics = updateStatistics;
-}
 
 
 

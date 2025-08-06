@@ -5778,6 +5778,104 @@ def api_tischplanung_assignments():
         logger.error(f"Fehler beim Laden der Zuordnungen: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/tischplanung/overview', methods=['GET'])
+@require_auth
+@require_role(['admin'])
+def api_tischplanung_overview():
+    """Lädt die komplette Tischzuordnungs-Übersicht"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        # Lade alle Daten
+        zuordnungen = data_manager.get_tisch_zuordnungen()
+        tische = data_manager.get_tische()
+        gaeste = data_manager.get_gaeste_liste()
+        
+        if not zuordnungen:
+            return jsonify({'table_overview': []})
+        
+        # Erstelle Übersicht nach Tischen
+        table_overview = {}
+        
+        for zuordnung in zuordnungen:
+            tisch_id = zuordnung.get('tisch_id')
+            gast_id = zuordnung.get('gast_id')
+            
+            # Finde Tisch und Gast
+            tisch = next((t for t in tische if t.get('id') == tisch_id), None)
+            gast = next((g for g in gaeste if g.get('id') == gast_id), None)
+            
+            if not tisch or not gast:
+                continue
+                
+            table_name = tisch.get('name', f'Tisch {tisch_id}')
+            
+            if table_name not in table_overview:
+                table_overview[table_name] = {
+                    'table_id': tisch_id,
+                    'table_name': table_name,
+                    'guests': [],
+                    'total_persons': 0
+                }
+            
+            persons_count = gast.get('anzahl_essen', 1) or 1
+            
+            table_overview[table_name]['guests'].append({
+                'guest_id': gast_id,
+                'name': f"{gast.get('vorname', '')} {gast.get('nachname', '')}".strip(),
+                'category': gast.get('kategorie', 'Unbekannt'),
+                'side': gast.get('seite', ''),
+                'persons': persons_count,
+                'children': gast.get('kind', 0) or 0
+            })
+            
+            table_overview[table_name]['total_persons'] += persons_count
+        
+        # Füge Brautpaar hinzu falls Brauttisch existiert
+        config = data_manager.load_config()
+        braut_name = config.get('braut_name', 'Braut')
+        braeutigam_name = config.get('braeutigam_name', 'Bräutigam')
+        
+        if 'Brauttisch' in table_overview:
+            # Füge Brautpaar hinzu (falls nicht bereits vorhanden)
+            brauttisch = table_overview['Brauttisch']
+            brautpaar_vorhanden = any('Brautpaar' in g.get('category', '') for g in brauttisch['guests'])
+            
+            if not brautpaar_vorhanden:
+                brauttisch['guests'].insert(0, {
+                    'guest_id': -1,
+                    'name': f"{braut_name} & {braeutigam_name}",
+                    'category': 'Brautpaar',
+                    'side': 'Beide',
+                    'persons': 2,
+                    'children': 0
+                })
+                brauttisch['total_persons'] += 2
+        
+        # Konvertiere zu sortierter Liste
+        table_list = list(table_overview.values())
+        def sort_key(table):
+            name = table['table_name']
+            if name == 'Brauttisch':
+                return (0, name)
+            elif name.startswith('Tisch '):
+                try:
+                    num = int(name.split(' ')[1])
+                    return (1, num)
+                except:
+                    return (2, name)
+            else:
+                return (2, name)
+        
+        table_list.sort(key=sort_key)
+        
+        return jsonify({'table_overview': table_list})
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Tischübersicht: {e}")
+        return jsonify({'table_overview': [], 'error': str(e)}), 500
+
 @app.route('/api/tischplanung/assign', methods=['POST'])
 @require_auth
 @require_role(['admin'])
@@ -6036,29 +6134,84 @@ def api_tischplanung_auto_assign():
         def get_guest_priority(guest):
             # Prüfe ob Trauzeuge/in (hat Beziehung zum Brautpaar mit "Trauzeuge/in")
             is_trauzeuge = False
+            guest_relationship_score = 0
+            
+            # 1. Prüfe Kategorie auf Trauzeugen
+            if guest.get('kategorie') in ['Trauzeugen', 'Trauzeuge', 'Ehrengast']:
+                is_trauzeuge = True
+            
+            # 2. Prüfe Beziehungstyp "Trauzeuge/in" zum Brautpaar (ID -1)
             for rel in beziehungen:
                 if ((rel.get('gast_id_1') == guest['id'] and rel.get('gast_id_2') == -1) or 
-                    (rel.get('gast_id_2') == guest['id'] and rel.get('gast_id_1') == -1)) and \
-                   rel.get('beziehungstyp') == 'Trauzeuge/in':
-                    is_trauzeuge = True
-                    break
+                    (rel.get('gast_id_2') == guest['id'] and rel.get('gast_id_1') == -1)):
+                    if rel.get('beziehungstyp') == 'Trauzeuge/in':
+                        is_trauzeuge = True
+                    # Sammle Beziehungsstärke zum Brautpaar
+                    guest_relationship_score = max(guest_relationship_score, rel.get('staerke', 0))
             
             if is_trauzeuge:
-                return 0  # Höchste Priorität für Trauzeugen
+                # Trauzeugen: Priorität 0 + Beziehungsstärke (höhere Stärke = niedrigere Zahl = höhere Priorität)
+                return 0 - (guest_relationship_score / 10.0)  # 0 bis -1 für Trauzeugen
             
-            # Normale Kategorien-Priorität
-            return priority_order.get(guest.get('kategorie', 'Bekannte'), 5)
+            # Normale Kategorien-Priorität mit Beziehungsstärke
+            base_priority = priority_order.get(guest.get('kategorie', 'Bekannte'), 5)
+            return base_priority - (guest_relationship_score / 10.0)  # Beziehungsstärke als Subpriority
+        
+        def calculate_table_compatibility(guest, table_guests):
+            """
+            Berechnet Kompatibilität zwischen einem Gast und bereits zugewiesenen Tischgästen
+            Berücksichtigt positive und negative Beziehungen zwischen allen Gästen
+            """
+            if not table_guests:
+                return 100  # Leerer Tisch = perfekte Kompatibilität
+            
+            total_compatibility = 0
+            relationship_count = 0
+            
+            for table_guest in table_guests:
+                if table_guest['guest_id'] == -1:  # Skip Brautpaar-Eintrag
+                    continue
+                    
+                # Suche Beziehung zwischen Gast und Tischgast
+                relationship_strength = 0
+                for rel in beziehungen:
+                    if ((rel.get('gast_id_1') == guest['id'] and rel.get('gast_id_2') == table_guest['guest_id']) or 
+                        (rel.get('gast_id_1') == table_guest['guest_id'] and rel.get('gast_id_2') == guest['id'])):
+                        relationship_strength = rel.get('staerke', 0)
+                        break
+                
+                # Beziehungsstärke zur Kompatibilität hinzufügen
+                if relationship_strength != 0:
+                    relationship_count += 1
+                    # Positive Beziehungen (1-5) erhöhen Kompatibilität
+                    # Negative Beziehungen (-1 bis -5) senken Kompatibilität drastisch
+                    if relationship_strength > 0:
+                        total_compatibility += relationship_strength * 20  # Positive Beziehungen: +20 bis +100
+                    else:
+                        total_compatibility += relationship_strength * 50  # Negative Beziehungen: -50 bis -250
+            
+            # Durchschnittliche Kompatibilität berechnen
+            if relationship_count > 0:
+                avg_compatibility = total_compatibility / relationship_count
+                # Basis-Kompatibilität von 50 + Beziehungsbonus/malus
+                return max(0, min(100, 50 + avg_compatibility))
+            else:
+                # Keine Beziehungen = neutrale Kompatibilität
+                return 75
         
         andere_gaeste_sorted = sorted(andere_gaeste, key=get_guest_priority)
         
-        logger.info(f"💒 Trauzeugen werden am Brauttisch priorisiert")
-        for guest in andere_gaeste_sorted[:5]:  # Log erste 5 Gäste
+        logger.info(f"💒 Intelligente Gäste-Sortierung mit Trauzeugen-Priorität")
+        for guest in andere_gaeste_sorted[:8]:  # Log erste 8 Gäste für bessere Übersicht
             priority = get_guest_priority(guest)
-            is_trauzeuge = priority == 0
-            logger.info(f"   {'👰💒' if is_trauzeuge else '👤'} {guest.get('vorname', '')} {guest.get('nachname', '')} - Priorität: {priority}")
+            is_trauzeuge = priority < 1  # Alle Prioritäten unter 1 sind Trauzeugen
+            kategorie = guest.get('kategorie', 'Unbekannt')
+            logger.info(f"   {'👰💒' if is_trauzeuge else '👤'} {guest.get('vorname', '')} {guest.get('nachname', '')} - Kategorie: {kategorie} - Priorität: {priority:.2f}")
         
-        # Finale Reihenfolge: Trauzeugen zuerst, dann andere
-        gaeste_sorted = trauzeugen_gaeste + andere_gaeste_sorted
+        # 🔄 KORRIGIERTE FINALE REIHENFOLGE: Kombiniere alle Gäste und sortiere nach Priorität
+        # Entferne das manuelle Trennen von trauzeugen_gaeste und andere_gaeste
+        all_gaeste = active_gaeste.copy()  # Alle aktiven Gäste
+        gaeste_sorted = sorted(all_gaeste, key=get_guest_priority)
         
         # 💑 SPEZIELLE BRAUTTISCH-BEHANDLUNG
         # Da das Brautpaar nicht in der Gästeliste existiert, erstellen wir einen Brauttisch
@@ -6114,53 +6267,62 @@ def api_tischplanung_auto_assign():
         logger.info(f"💑 Brautpaar ({braut_name} & {braeutigam_name}) fest zum Brauttisch zugewiesen")
         
         # 2. TRAUZEUGEN/EHRENGÄSTE ZUM BRAUTTISCH ZUWEISEN (nur wenn noch Platz)
-        if trauzeugen_gaeste:
-            logger.info(f"👥 {len(trauzeugen_gaeste)} Trauzeugen/Ehrengäste für Brauttisch prüfen...")
-            
-            for gast in trauzeugen_gaeste:
-                persons_needed = gast.get('anzahl_essen', 0) or 1
-                
-                # Prüfe ob noch Platz am Brauttisch (nach Brautpaar-Reservierung)
-                if current_table_capacity + persons_needed <= current_table['max_personen']:
-                    success, _ = data_manager.assign_gast_to_tisch(
-                        gast['id'],
-                        current_table['id'],
-                        position=None,
-                        zugeordnet_von='Auto-Zuweisung (Brauttisch)'
-                    )
-                    
-                    if success:
-                        assigned_count += 1
-                        assignments.append({
-                            'guest_id': gast['id'],
-                            'guest_name': f"{gast['vorname']} {gast.get('nachname', '')}",
-                            'guest_category': gast.get('kategorie', 'Unbekannt'),
-                            'persons_count': persons_needed,
-                            'table_id': current_table['id'],
-                            'table_name': current_table['name'],
-                            'guest_side': gast.get('seite', 'Unbekannt')
-                        })
-                        current_table_capacity += persons_needed
-                        logger.info(f"💑 Trauzeuge/Ehrengast {gast['vorname']} zu Brauttisch zugewiesen ({current_table_capacity}/{current_table['max_personen']})")
-                else:
-                    # Brauttisch voll - Trauzeuge zu anderem Tisch
-                    logger.info(f"⚠️ Brauttisch voll ({current_table_capacity}/{current_table['max_personen']}) - {gast['vorname']} wird an anderen Tisch zugewiesen")
-                    andere_gaeste_sorted.insert(0, gast)  # An den Anfang der anderen Gäste
-            
-            logger.info(f"💑 Brauttisch final belegt: {current_table_capacity}/{current_table['max_personen']} Personen")
-            
-            # Nächster Tisch für andere Gäste
-            if current_table_capacity >= current_table['max_personen'] * 0.8:  # 80% Auslastung
-                current_table_index = 1  # Nächster Tisch (Index 1, da Brauttisch Index 0 ist)
-                current_table_capacity = 0
+        trauzeugen_am_brauttisch = []
+        logger.info(f"👥 Prüfe Trauzeugen für Brauttisch...")
         
-        # 3. ANDERE GÄSTE ZUWEISEN
-        for gast in andere_gaeste_sorted:
+        for gast in gaeste_sorted:
+            # Nur Trauzeugen (Priorität < 1) betrachten
+            if get_guest_priority(gast) >= 1:
+                break  # Alle folgenden haben niedrigere Priorität
+                
+            persons_needed = gast.get('anzahl_essen', 0) or 1
+            
+            # Prüfe ob noch Platz am Brauttisch (nach Brautpaar-Reservierung)
+            if current_table_capacity + persons_needed <= current_table['max_personen']:
+                success, _ = data_manager.assign_gast_to_tisch(
+                    gast['id'],
+                    current_table['id'],
+                    position=None,
+                    zugeordnet_von='Auto-Zuweisung (Brauttisch-Trauzeuge)'
+                )
+                
+                if success:
+                    assigned_count += 1
+                    assignments.append({
+                        'guest_id': gast['id'],
+                        'guest_name': f"{gast['vorname']} {gast.get('nachname', '')}",
+                        'guest_category': gast.get('kategorie', 'Trauzeuge'),
+                        'persons_count': persons_needed,
+                        'table_id': current_table['id'],
+                        'table_name': current_table['name'],
+                        'guest_side': gast.get('seite', 'Unbekannt')
+                    })
+                    current_table_capacity += persons_needed
+                    trauzeugen_am_brauttisch.append(gast)
+                    logger.info(f"💑 Trauzeuge {gast['vorname']} zu Brauttisch zugewiesen ({current_table_capacity}/{current_table['max_personen']})")
+            else:
+                # Brauttisch voll - Trauzeuge zu anderem Tisch (aber immer noch höchste Priorität für andere Tische)
+                logger.info(f"⚠️ Brauttisch voll ({current_table_capacity}/{current_table['max_personen']}) - {gast['vorname']} wird an anderen Tisch zugewiesen (behält Trauzeuge-Priorität)")
+        
+        logger.info(f"💑 Brauttisch final belegt: {current_table_capacity}/{current_table['max_personen']} Personen ({len(trauzeugen_am_brauttisch)} Trauzeugen + Brautpaar)")
+        
+        # Entferne zugewiesene Trauzeugen aus der Hauptliste
+        gaeste_sorted = [g for g in gaeste_sorted if g not in trauzeugen_am_brauttisch]
+        # Nächster Tisch für andere Gäste vorbereiten
+        if current_table_capacity >= current_table['max_personen'] * 0.8:  # 80% Auslastung
+            current_table_index = 1  # Nächster Tisch (Index 1, da Brauttisch Index 0 ist)
+            current_table_capacity = 0
+        
+        # 3. ANDERE GÄSTE ZUWEISEN (nach Priorität und Beziehungskompatibilität sortiert)
+        for gast in gaeste_sorted:
             # ⚠️ WICHTIG: Prüfe Beziehungskonflikte BEVOR Zuordnung erfolgt
             persons_needed = gast.get('anzahl_essen', 0) or 1
             
-            # Finde einen kompatiblen Tisch (ohne negative Beziehungen)
-            table_assigned = False
+            # Finde den BESTEN kompatiblen Tisch (mit Beziehungskompatibilität)
+            best_table = None
+            best_compatibility = -1
+            best_table_index = -1
+            
             for table_index in range(len(tische)):
                 current_table = tische[table_index]
                 
@@ -6172,32 +6334,66 @@ def api_tischplanung_auto_assign():
                     continue
                 
                 # BEZIEHUNGSKOMPATIBILITÄT PRÜFEN
-                table_compatible = True
                 table_guests = [assignment for assignment in assignments if assignment['table_id'] == current_table['id']]
                 
+                # Prüfe auf negative Beziehungen (TABU!)
+                has_negative_relationship = False
                 for table_assignment in table_guests:
-                    # Skip Brautpaar (hat guest_id = -1)
-                    if table_assignment['guest_id'] == -1:
+                    if table_assignment['guest_id'] == -1:  # Skip Brautpaar
                         continue
                         
-                    # Finde Beziehung zwischen aktuellem Gast und Tischgast
                     existing_guest_id = table_assignment['guest_id']
-                    negative_relationship = None
-                    
                     for rel in beziehungen:
                         if ((rel.get('gast_id_1') == gast['id'] and rel.get('gast_id_2') == existing_guest_id) or 
                             (rel.get('gast_id_1') == existing_guest_id and rel.get('gast_id_2') == gast['id'])):
                             # Negative Beziehungen (< -1) sind TABU!
                             if rel.get('staerke', 0) < -1:
-                                table_compatible = False
-                                negative_relationship = rel
-                                logger.warning(f"❌ KONFLIKT VERHINDERT: {gast['vorname']} kann nicht zu Tisch {current_table['name']} - negative Beziehung (Stärke: {rel.get('staerke')}) mit bereits zugewiesenem Gast")
+                                has_negative_relationship = True
+                                logger.warning(f"❌ KONFLIKT: {gast['vorname']} kann nicht zu Tisch {current_table['name']} - negative Beziehung (Stärke: {rel.get('staerke')}) mit {table_assignment['guest_name']}")
                                 break
+                    
+                    if has_negative_relationship:
+                        break
                 
-                if not table_compatible:
-                    continue  # Dieser Tisch ist nicht kompatibel - nächsten versuchen
+                if has_negative_relationship:
+                    continue  # Dieser Tisch ist nicht kompatibel
                 
-                # Tisch ist kompatibel - Gast zuweisen
+                # Berechne Kompatibilität basierend auf positiven Beziehungen
+                compatibility = calculate_table_compatibility(gast, table_guests)
+                
+                # Bester Tisch gefunden?
+                if compatibility > best_compatibility:
+                    best_compatibility = compatibility
+                    best_table = current_table
+                    best_table_index = table_index
+            
+            # Gast zu bestem kompatiblen Tisch zuweisen
+            if best_table:
+                success, _ = data_manager.assign_gast_to_tisch(
+                    gast['id'],
+                    best_table['id'],
+                    position=None,
+                    zugeordnet_von='Auto-Zuweisung (Kompatibilitäts-optimiert)'
+                )
+                
+                if success:
+                    assigned_count += 1
+                    assignments.append({
+                        'guest_id': gast['id'],
+                        'guest_name': f"{gast['vorname']} {gast.get('nachname', '')}",
+                        'guest_category': gast.get('kategorie', 'Unbekannt'),
+                        'persons_count': persons_needed,
+                        'table_id': best_table['id'],
+                        'table_name': best_table['name'],
+                        'guest_side': gast.get('seite', 'Unbekannt')
+                    })
+                    
+                    compatibility_emoji = "💚" if best_compatibility >= 80 else "💛" if best_compatibility >= 60 else "🟡"
+                    logger.info(f"{compatibility_emoji} {gast['vorname']} zu {best_table['name']} zugewiesen (Kompatibilität: {best_compatibility:.0f}%)")
+                    table_assigned = True
+                else:
+                    logger.error(f"❌ Fehler beim Zuweisen von {gast['vorname']} zu {best_table['name']}")
+            else:
                 success, _ = data_manager.assign_gast_to_tisch(
                     gast['id'],
                     current_table['id'],
@@ -6254,12 +6450,12 @@ def api_tischplanung_auto_assign():
                         assignments.append({
                             'guest_id': gast['id'],
                             'guest_name': f"{gast['vorname']} {gast.get('nachname', '')}",
-                        'guest_category': gast.get('kategorie', 'Unbekannt'),
-                        'persons_count': persons_needed,
-                        'table_id': new_table_id,
-                        'table_name': new_table_name,
-                        'guest_side': gast.get('seite', 'Unbekannt')
-                    })
+                            'guest_category': gast.get('kategorie', 'Unbekannt'),
+                            'persons_count': persons_needed,
+                            'table_id': new_table_id,
+                            'table_name': new_table_name,
+                            'guest_side': gast.get('seite', 'Unbekannt')
+                        })
                     logger.info(f"✅ Gast {gast['vorname']} zu neuem Tisch {new_table_name} zugewiesen ({persons_needed}/{standard_tisch_groesse} Personen)")
         
         # Erstelle detaillierte Übersicht nach Tischen sortiert
@@ -6346,6 +6542,31 @@ def api_tischplanung_auto_assign():
 
         logger.info(f"🎯 Auto-Zuordnung abgeschlossen: {assigned_count} Gäste zugewiesen (anzahl_essen berücksichtigt)")
 
+        # ✅ TISCHGRÖSSENS-OPTIMIERUNG: Anpassung der Tischgrößen basierend auf tatsächlicher Belegung
+        optimized_tables_count = 0
+        for table in table_list:
+            table_id = table['table_id']
+            current_occupancy = table['total_persons']
+            
+            # Hole aktuellen Tisch aus DB für max_personen
+            current_table = next((t for t in tische if t['id'] == table_id), None)
+            if current_table:
+                current_max = current_table['max_personen']
+                
+                # Optimiere Tischgröße: min. 75% Auslastung oder exakte Belegung
+                if current_occupancy > 0:
+                    # Mindestgröße: aktuelle Belegung + 1 Platz Puffer
+                    optimal_size = max(current_occupancy + 1, 4)  # Mindestens 4 Plätze
+                    
+                    # Wenn aktueller Tisch viel zu groß ist (< 60% Auslastung), verkleinere
+                    if current_occupancy / current_max < 0.6 and optimal_size < current_max:
+                        data_manager.update_tisch(table_id, {'max_personen': optimal_size})
+                        logger.info(f"📏 Tisch {table['table_name']}: Größe optimiert von {current_max} auf {optimal_size} Plätze (Belegung: {current_occupancy})")
+                        optimized_tables_count += 1
+                        
+        if optimized_tables_count > 0:
+            message += f' (Tischgrößen optimiert: {optimized_tables_count} Tische)'
+
         return jsonify({
             'success': success,
             'message': message,
@@ -6355,12 +6576,81 @@ def api_tischplanung_auto_assign():
             'assignments': assignments,
             'table_overview': table_list,
             'created_tables': created_tables,
+            'optimized_tables': optimized_tables_count,
             'filter_used': 'Nur zugesagte Gäste' if only_confirmed else 'Alle Gäste mit Essen',
             'relationships_used': len(beziehungen) > 0
         })
         
     except Exception as e:
         logger.error(f"❌ Fehler bei automatischer Zuweisung: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/tischplanung/optimize-table-sizes', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def api_tischplanung_optimize_table_sizes():
+    """Optimiert die Tischgrößen basierend auf aktueller Belegung"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        # Lade alle Daten
+        tische = data_manager.get_tische()
+        zuordnungen = data_manager.get_tisch_zuordnungen()
+        
+        if not tische:
+            return jsonify({'error': 'Keine Tische vorhanden'}), 400
+        
+        optimized_count = 0
+        optimizations = []
+        
+        for tisch in tische:
+            tisch_id = tisch['id']
+            
+            # Berechne aktuelle Belegung dieses Tisches
+            current_occupancy = 0
+            for zuordnung in zuordnungen:
+                if zuordnung.get('tisch_id') == tisch_id:
+                    gast_id = zuordnung.get('gast_id')
+                    gast = data_manager.get_gast_by_id(gast_id)
+                    if gast:
+                        current_occupancy += gast.get('anzahl_essen', 1)
+            
+            # Berücksichtige Brautpaar am Brauttisch
+            if tisch.get('name') == 'Brauttisch':
+                current_occupancy += 2  # Brautpaar
+            
+            current_max = tisch['max_personen']
+            
+            if current_occupancy > 0:
+                # Optimale Größe: aktuelle Belegung + 20% Puffer, mindestens 4 Plätze
+                optimal_size = max(int(current_occupancy * 1.2), 4)
+                
+                # Wenn der Unterschied signifikant ist (mehr als 2 Plätze), optimiere
+                if abs(current_max - optimal_size) > 2:
+                    data_manager.update_tisch(tisch_id, {'max_personen': optimal_size})
+                    
+                    optimizations.append({
+                        'table_name': tisch.get('name', f'Tisch {tisch_id}'),
+                        'old_size': current_max,
+                        'new_size': optimal_size,
+                        'occupancy': current_occupancy
+                    })
+                    optimized_count += 1
+                    
+                    logger.info(f"📏 {tisch.get('name')}: Größe optimiert {current_max} → {optimal_size} (Belegung: {current_occupancy})")
+        
+        message = f"Tischgrößen optimiert: {optimized_count} Tische angepasst" if optimized_count > 0 else "Alle Tischgrößen bereits optimal"
+        
+        return jsonify({
+            'success': True,
+            'message': message,
+            'optimized_count': optimized_count,
+            'optimizations': optimizations
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Fehler bei Tischgrößen-Optimierung: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/tischplanung/save', methods=['POST'])

@@ -277,6 +277,15 @@ window.TischplanungAPI = {
     // Neue Methoden für die Tischübersicht
     async getTableOverview() {
         try {
+            // Versuche zuerst die neue API-Route
+            const response = await fetch('/api/tischplanung/overview');
+            if (response.ok) {
+                const data = await response.json();
+                return data; // Bereits im erwarteten Format
+            }
+            
+            // Fallback: Lade Daten separat und kombiniere sie
+            console.warn('Neue Overview-API nicht verfügbar, verwende Fallback');
             const assignments = await this.loadAssignments();
             const tables = await this.loadTables();
             const guests = await this.loadGuests();
