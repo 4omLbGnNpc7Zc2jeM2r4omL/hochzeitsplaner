@@ -17,7 +17,7 @@ import atexit
 import threading
 import requests # type: ignore
 import re
-from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for, flash, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for, flash, send_from_directory, make_response
 from flask_cors import CORS
 from datetime import datetime, timedelta
 import shutil
@@ -1516,6 +1516,141 @@ def zeitplan():
         return render_template('zeitplan.html', bride_name='Braut', groom_name='Bräutigam')
 
 # =============================================================================
+# Kontakte Routen
+# =============================================================================
+
+@app.route('/kontakte')
+@require_auth
+@require_role(['admin', 'user'])
+def kontakte():
+    """Kontakte Verwaltung Seite"""
+    return render_template('kontakte.html')
+
+@app.route('/api/kontakte/list')
+@require_auth
+@require_role(['admin', 'user'])
+def api_kontakte_list():
+    """Kontakte aus CSV-Datei laden"""
+    try:
+        import csv
+        import os
+        
+        # CSV-Datei Pfad - korrekte Behandlung für PyInstaller
+        if getattr(sys, 'frozen', False):
+            # Wenn als .exe ausgeführt (PyInstaller) - data-Verzeichnis neben der .exe
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            # Normal als Python-Script - data-Verzeichnis neben der app.py
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        csv_file_path = os.path.join(base_dir, 'data', 'kontakte.csv')
+        
+        if not os.path.exists(csv_file_path):
+            return jsonify({
+                'success': False,
+                'error': f'Kontakte CSV-Datei nicht gefunden: {csv_file_path}',
+                'kontakte': []
+            })
+        
+        kontakte = []
+        
+        with open(csv_file_path, 'r', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                # Bereinige die Daten und füge ID hinzu
+                kontakt = {}
+                for key, value in row.items():
+                    kontakt[key] = value.strip() if value else ''
+                # Füge eindeutige ID für Frontend hinzu
+                kontakt['id'] = len(kontakte) + 1
+                kontakte.append(kontakt)
+        
+        return jsonify({
+            'success': True,
+            'kontakte': kontakte,
+            'count': len(kontakte)
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Kontakte: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Fehler beim Laden der Kontakte: {str(e)}',
+            'kontakte': []
+        })
+
+@app.route('/api/kontakte/contact', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_kontakte_contact():
+    """Kontaktaufnahme mit einem Anbieter starten"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Keine Daten empfangen'}), 400
+        
+        kontakt_name = data.get('kontakt_name')
+        kontakt_kategorie = data.get('kontakt_kategorie')
+        kontakt_email = data.get('kontakt_email')
+        betreff = data.get('betreff', '')
+        nachricht = data.get('nachricht', '')
+        
+        if not all([kontakt_name, kontakt_kategorie, kontakt_email]):
+            return jsonify({'success': False, 'error': 'Kontaktdaten unvollständig'}), 400
+        
+        if not data_manager:
+            return jsonify({'success': False, 'error': 'DataManager nicht verfügbar'}), 500
+        
+        # Erstelle Aufgabe im Aufgabenplaner für beide Partner
+        aufgaben_titel = f"Kontakt zu {kontakt_name} ({kontakt_kategorie})"
+        aufgaben_beschreibung = f"Kontaktaufnahme mit {kontakt_name} - {kontakt_kategorie}\n"
+        aufgaben_beschreibung += f"E-Mail: {kontakt_email}\n"
+        if betreff:
+            aufgaben_beschreibung += f"Betreff: {betreff}\n"
+        if nachricht:
+            aufgaben_beschreibung += f"Nachricht: {nachricht}\n"
+        
+        # Füge Aufgabe für beide Partner hinzu
+        neue_aufgabe = {
+            'titel': aufgaben_titel,
+            'beschreibung': aufgaben_beschreibung,
+            'kategorie': kontakt_kategorie,  # Verwende die echte Kontakt-Kategorie
+            'prioritaet': 'Mittel',
+            'status': 'Offen',
+            'faellig_am': '',
+            'erstellt_am': datetime.now().strftime('%Y-%m-%d %H:%M'),
+            'bearbeitet_am': '',
+            'zugewiesen_an': 'Beide'  # Explizit beiden zuweisen
+        }
+        
+        # Speichere Aufgabe
+        success = data_manager.add_aufgabe(neue_aufgabe)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'Aufgabe für Kontakt zu {kontakt_name} wurde erstellt',
+                'task_created': True,
+                'email_data': {
+                    'to': kontakt_email,
+                    'subject': betreff or f'Anfrage Hochzeit - {kontakt_kategorie}',
+                    'body': nachricht
+                }
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Fehler beim Erstellen der Aufgabe'
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler bei Kontaktaufnahme: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Fehler bei Kontaktaufnahme: {str(e)}'
+        }), 500
+
+# =============================================================================
 # Gäste-spezifische Routen
 # =============================================================================
 
@@ -1638,11 +1773,18 @@ def get_first_login_message():
             anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, formatted_date, guest_name
         )
         
-        return jsonify({
+        # Response mit Cache-Control Headers erstellen
+        response_data = {
             'success': True,
             'message': message,
             'wedding_date': formatted_date
-        })
+        }
+        response = make_response(jsonify(response_data))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        return response
         
     except Exception as e:
         logger.error(f"Fehler beim Generieren der First-Login-Nachricht: {e}")
@@ -3060,7 +3202,14 @@ def api_settings_get():
         
         cleaned_settings = clean_json_data(settings)
         
-        return jsonify({"success": True, "settings": cleaned_settings})
+        # Response mit Cache-Control Headers erstellen
+        response_data = {"success": True, "settings": cleaned_settings}
+        response = make_response(jsonify(response_data))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        return response
     except Exception as e:
         logger.error(f"Fehler beim Laden der Einstellungen aus SQLite: {str(e)}")
         return jsonify({"error": str(e)}), 500

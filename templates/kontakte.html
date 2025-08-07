@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}Kontakte - Hochzeitsplaner{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="card wedding-gradient-subtle mb-4 border-0 shadow-sm">
+        <div class="card-body text-center py-4">
+            <h1 class="display-5 mb-3">
+                <i class="fas fa-address-book text-wedding-primary me-3"></i>
+                Nützliche Kontakte
+            </h1>
+            <p class="lead text-muted mb-0">
+                Verwalten Sie alle wichtigen Kontakte für Ihre Hochzeit
+            </p>
+        </div>
+    </div>
+
+    <!-- Filter und Suche -->
+    <div class="card wedding-card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="kategorie-filter" class="form-label fw-semibold">
+                        <i class="fas fa-filter me-2"></i>Kategorie Filter
+                    </label>
+                    <select id="kategorie-filter" class="form-select">
+                        <option value="">Alle Kategorien</option>
+                        <option value="Fotograf">Fotograf</option>
+                        <option value="DJ">DJ</option>
+                        <option value="Caterer">Caterer</option>
+                        <option value="Location">Location</option>
+                        <option value="Florist">Florist</option>
+                        <option value="Band">Band</option>
+                        <option value="Videograf">Videograf</option>
+                        <option value="Konditor">Konditor</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="bewertung-filter" class="form-label fw-semibold">
+                        <i class="fas fa-star me-2"></i>Mindest-Bewertung
+                    </label>
+                    <select id="bewertung-filter" class="form-select">
+                        <option value="">Alle Bewertungen</option>
+                        <option value="5">⭐⭐⭐⭐⭐ 5 Sterne</option>
+                        <option value="4">⭐⭐⭐⭐ 4+ Sterne</option>
+                        <option value="3">⭐⭐⭐ 3+ Sterne</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="suche-input" class="form-label fw-semibold">
+                        <i class="fas fa-search me-2"></i>Suche
+                    </label>
+                    <input type="text" id="suche-input" class="form-control" placeholder="Name, Ort oder Notizen durchsuchen...">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading und Error States -->
+    <div id="loading-spinner" class="text-center py-5 d-none">
+        <div class="spinner-border text-wedding-primary" role="status">
+            <span class="visually-hidden">Laden...</span>
+        </div>
+        <p class="mt-3 text-muted">Kontakte werden geladen...</p>
+    </div>
+
+    <div id="error-message" class="alert alert-danger d-none" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <span id="error-text">Ein Fehler ist aufgetreten.</span>
+    </div>
+
+    <!-- Statistik Cards -->
+    <div id="statistik-cards" class="row g-3 mb-4 d-none">
+        <div class="col-md-4">
+            <div class="card wedding-card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-users fa-2x text-wedding-primary mb-2"></i>
+                    <h3 id="total-kontakte" class="mb-1">0</h3>
+                    <small class="text-muted">Gesamt Kontakte</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card wedding-card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-tags fa-2x text-warning mb-2"></i>
+                    <h3 id="total-kategorien" class="mb-1">0</h3>
+                    <small class="text-muted">Kategorien</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card wedding-card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-star fa-2x text-warning mb-2"></i>
+                    <h3 id="top-rated" class="mb-1">0</h3>
+                    <small class="text-muted">⭐⭐⭐⭐⭐ Anbieter</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kontakte Grid -->
+    <div id="kontakte-container" class="row g-4">
+        <!-- Kontakte werden hier dynamisch geladen -->
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="text-center py-5 d-none">
+        <i class="fas fa-address-book fa-3x text-muted mb-3"></i>
+        <h4 class="text-muted">Keine Kontakte gefunden</h4>
+        <p class="text-muted">Versuchen Sie andere Suchkriterien oder laden Sie eine CSV-Datei hoch.</p>
+    </div>
+</div>
+
+<!-- Kontakt Detail Modal -->
+<div class="modal fade" id="kontaktDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header wedding-gradient text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Kontakt Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="kontakt-details">
+                    <!-- Details werden hier dynamisch geladen -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <button type="button" class="btn btn-success" id="btn-kontakt-aufnehmen">
+                    <i class="fas fa-envelope me-2"></i>Kontakt aufnehmen
+                </button>
+                <button type="button" class="btn btn-wedding-primary" id="btn-kontakt-website">
+                    <i class="fas fa-external-link-alt me-2"></i>Website besuchen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Kontaktaufnahme Modal -->
+<div class="modal fade" id="kontaktaufnahmeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-envelope me-2"></i>
+                    Kontakt aufnehmen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="kontaktaufnahme-form">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Anbieter</label>
+                            <input type="text" id="contact-name" class="form-control" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Kategorie</label>
+                            <input type="text" id="contact-kategorie" class="form-control" readonly>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">E-Mail Adresse</label>
+                        <input type="email" id="contact-email" class="form-control" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="contact-betreff" class="form-label fw-semibold">Betreff</label>
+                        <input type="text" id="contact-betreff" class="form-control" 
+                               placeholder="z.B. Anfrage für Hochzeit am [Datum]" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="contact-nachricht" class="form-label fw-semibold">Nachricht</label>
+                        <textarea id="contact-nachricht" class="form-control" rows="6" 
+                                  placeholder="Beschreiben Sie Ihre Anfrage..." required></textarea>
+                        <div class="form-text">
+                            <i class="fas fa-lightbulb me-1"></i>
+                            Tipp: Erwähnen Sie Ihr Hochzeitsdatum, Gästeanzahl und spezielle Wünsche
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Was passiert als nächstes?</strong><br>
+                        1. Eine Aufgabe wird im Aufgabenplaner erstellt<br>
+                        2. Das E-Mail-Modal wird geöffnet (falls E-Mail-Manager aktiv)<br>
+                        3. Sie können die E-Mail direkt versenden oder später bearbeiten
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-success" id="btn-kontakt-senden">
+                    <i class="fas fa-paper-plane me-2"></i>Kontakt aufnehmen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- E-Mail Modal (wird automatisch geöffnet) -->
+<div class="modal fade" id="emailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-envelope me-2"></i>
+                    E-Mail senden
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="email-form">
+                    <div class="mb-3">
+                        <label for="email-to" class="form-label fw-semibold">An</label>
+                        <input type="email" id="email-to" class="form-control" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email-subject" class="form-label fw-semibold">Betreff</label>
+                        <input type="text" id="email-subject" class="form-control" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email-body" class="form-label fw-semibold">Nachricht</label>
+                        <textarea id="email-body" class="form-control" rows="8" required></textarea>
+                    </div>
+                    
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Aufgabe wurde im Aufgabenplaner erstellt!
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Später senden</button>
+                <button type="button" class="btn btn-primary" id="btn-email-senden">
+                    <i class="fas fa-paper-plane me-2"></i>E-Mail senden
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/kontakte.js') }}"></script>
+{% endblock %}

@@ -9,6 +9,7 @@
     --wedding-text-dark: #6b5a47;
     --wedding-shadow: rgba(212, 175, 55, 0.2);
     --wedding-white: #f8f9fa;
+    --wedding-gold-text: #8b4513;
 }
 
 /* ===== BUTTONS UND AKTIONEN ===== */
@@ -215,24 +216,46 @@
 }
 
 /* ===== CARDS UND CONTAINER ===== */
-.card-wedding {
-    border: 10px;
-    border-radius: 15px;
-    background: linear-gradient(135deg, var(--wedding-white) 0%, #ffffff 100%);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-    transition: all 0.3s ease;
+.card-wedding, .wedding-card {
+    border: none !important;
+    border-radius: 15px !important;
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08) !important;
+    transition: all 0.3s ease !important;
 }
 
-.card-wedding:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.12);
+.card-wedding:hover, .wedding-card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.12) !important;
+}
+
+.card-wedding .card-body, .wedding-card .card-body {
+    background: transparent !important;
+    color: var(--wedding-text-dark) !important;
 }
 
 .card-wedding-header {
-    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
-    border-radius: 15px 15px 0 0;
-    border: none;
-    color: var(--wedding-text);
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    border-radius: 15px 15px 0 0 !important;
+    border: none !important;
+    color: var(--wedding-text) !important;
+}
+
+/* Outline-Button für Wedding Theme */
+.btn-outline-wedding-primary {
+    border: 2px solid var(--wedding-text-dark) !important;
+    color: var(--wedding-text-dark) !important;
+    background: transparent !important;
+    border-radius: 12px !important;
+    transition: all 0.3s ease !important;
+}
+
+.btn-outline-wedding-primary:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-color: var(--wedding-text-dark) !important;
+    color: var(--wedding-text-dark) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(255, 255, 255, 0.3) !important;
 }
 
 .card-wedding-stat {

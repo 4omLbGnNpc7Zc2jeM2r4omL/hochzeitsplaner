@@ -2088,6 +2088,10 @@ class SQLiteHochzeitsDatenManager:
             zugewiesen_an = aufgabe.get('zugewiesen_an', aufgabe.get('zustaendig', ''))
             if not zugewiesen_an:
                 zugewiesen_an = 'Braut'  # Standardwert
+            # Akzeptiere "Beide" für Kontakt-Aufgaben
+            valid_assignments = ['Braut', 'Bräutigam', 'Beide']
+            if zugewiesen_an not in valid_assignments:
+                zugewiesen_an = 'Braut'
             
             # Erstellt von
             erstellt_von = aufgabe.get('erstellt_von', 'System')
@@ -2148,6 +2152,10 @@ class SQLiteHochzeitsDatenManager:
             zugewiesen_an = aufgabe.get('zugewiesen_an', aufgabe.get('zustaendig', ''))
             if not zugewiesen_an:
                 zugewiesen_an = 'Braut'  # Standardwert
+            # Akzeptiere "Beide" für Kontakt-Aufgaben
+            valid_assignments = ['Braut', 'Bräutigam', 'Beide']
+            if zugewiesen_an not in valid_assignments:
+                zugewiesen_an = 'Braut'
             
             with self._get_connection() as conn:
                 conn.execute("""

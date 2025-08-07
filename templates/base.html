@@ -83,6 +83,14 @@
                             </a>
                         </li>
                         
+                        <!-- Kontakte - Eigener Punkt -->
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'kontakte' %}active fw-bold{% endif %}" 
+                               href="{{ url_for('kontakte') }}" style="color: #8b7355;">
+                                <i class="bi bi-telephone-book me-1"></i>Nützliche Kontakte
+                            </a>
+                        </li>
+                        
                         <!-- Planung -->
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle {% if request.endpoint in ['tischplanung', 'zeitplan', 'aufgabenplaner'] %}active fw-bold{% endif %}" 
