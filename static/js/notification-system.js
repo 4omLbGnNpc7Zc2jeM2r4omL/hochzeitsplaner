@@ -128,51 +128,67 @@ class NotificationSystem {
 }
 
 // Globale Instanz erstellen
-window.notifications = new NotificationSystem();
+const notificationSystem = new NotificationSystem();
+window.notifications = notificationSystem;
 
-    // Globale Funktionen für einfache Verwendung
-    window.showSuccess = (message, duration) => notificationSystem.showSuccess(message, duration);
-    window.showError = (message, duration) => notificationSystem.showError(message, duration);
-    window.showWarning = (message, duration) => notificationSystem.showWarning(message, duration);
-    window.showInfo = (message, duration) => notificationSystem.showInfo(message, duration);
+// Globale Funktionen für einfache Verwendung
+window.showSuccess = (message, duration) => notificationSystem.success(message, duration);
+window.showError = (message, duration) => notificationSystem.error(message, duration);
+window.showWarning = (message, duration) => notificationSystem.warning(message, duration);
+window.showInfo = (message, duration) => notificationSystem.info(message, duration);
     
-    // Bestätigungsdialog-Funktion
-    window.showConfirm = (title, message) => {
+    // Bestätigungsdialog-Funktion - schöner im Website-Container
+    window.showConfirm = (title, message, confirmText = 'Bestätigen', cancelText = 'Abbrechen') => {
         return new Promise((resolve) => {
-            const modal = document.createElement('div');
-            modal.className = 'modal fade';
-            modal.innerHTML = `
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">${title}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            ${message}
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-                            <button type="button" class="btn btn-danger confirm-btn">Bestätigen</button>
+            // Verwende das schöne Notification-System für Bestätigungen
+            const confirmContainer = document.createElement('div');
+            confirmContainer.className = 'alert alert-warning border-0 shadow-lg notification-item';
+            confirmContainer.style.cssText = `
+                margin-bottom: 10px;
+                pointer-events: auto;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                border: 2px solid #ffc107;
+                animation: slideInRight 0.3s ease-out;
+                max-width: 400px;
+                padding: 20px;
+            `;
+
+            confirmContainer.innerHTML = `
+                <div class="d-flex align-items-start">
+                    <i class="bi bi-question-circle-fill text-warning me-3" style="font-size: 1.5rem; margin-top: 2px;"></i>
+                    <div class="flex-grow-1">
+                        <h6 class="alert-heading mb-2">${title}</h6>
+                        <p class="mb-3">${message}</p>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-secondary cancel-btn">${cancelText}</button>
+                            <button type="button" class="btn btn-sm btn-danger confirm-btn">${confirmText}</button>
                         </div>
                     </div>
                 </div>
             `;
-            
-            document.body.appendChild(modal);
-            
-            const bootstrapModal = new bootstrap.Modal(modal);
-            
-            modal.querySelector('.confirm-btn').addEventListener('click', () => {
-                bootstrapModal.hide();
+
+            // Event Listeners
+            const confirmBtn = confirmContainer.querySelector('.confirm-btn');
+            const cancelBtn = confirmContainer.querySelector('.cancel-btn');
+
+            confirmBtn.addEventListener('click', () => {
+                notificationSystem.hide(confirmContainer);
                 resolve(true);
             });
-            
-            modal.addEventListener('hidden.bs.modal', () => {
-                document.body.removeChild(modal);
+
+            cancelBtn.addEventListener('click', () => {
+                notificationSystem.hide(confirmContainer);
                 resolve(false);
             });
-            
-            bootstrapModal.show();
+
+            // Auto-Cancel nach 30 Sekunden
+            setTimeout(() => {
+                if (confirmContainer.parentNode) {
+                    notificationSystem.hide(confirmContainer);
+                    resolve(false);
+                }
+            }, 30000);
+
+            notificationSystem.container.appendChild(confirmContainer);
         });
     };

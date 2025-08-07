@@ -3626,8 +3626,8 @@ class SQLiteHochzeitsDatenManager:
                 
                 cursor.execute("""
                     INSERT INTO gaeste_uploads 
-                    (gast_id, original_filename, filename, file_path, file_size, file_type, mime_type, beschreibung, upload_date)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    (gast_id, original_filename, filename, file_path, file_size, file_type, mime_type, beschreibung, admin_approved, upload_date)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
                 """, (gast_id, original_filename, filename, file_path, file_size, file_type, mime_type, beschreibung))
                 
                 upload_id = cursor.lastrowid
@@ -3640,6 +3640,71 @@ class SQLiteHochzeitsDatenManager:
         except Exception as e:
             logger.error(f"Fehler beim Hinzufügen des Uploads: {e}")
             return None
+    
+    def add_admin_upload(self, admin_user, original_filename, filename, file_path, file_size, mime_type, beschreibung=''):
+        """Fügt einen Admin-Upload hinzu - wird automatisch genehmigt"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                
+                # Bestimme file_type aus mime_type oder filename
+                file_type = self._get_file_type_from_mime(mime_type) or self._get_file_type_from_filename(filename)
+                
+                # Prüfe ob Admin-Gast existiert, wenn nicht erstelle ihn
+                admin_gast_id = self._get_or_create_admin_guest()
+                
+                # Admin-Upload mit admin_gast_id und automatischer Genehmigung
+                beschreibung_mit_admin = f"{beschreibung} (Admin: {admin_user})" if beschreibung else f"Admin-Upload von {admin_user}"
+                
+                cursor.execute("""
+                    INSERT INTO gaeste_uploads 
+                    (gast_id, original_filename, filename, file_path, file_size, file_type, mime_type, beschreibung, admin_approved, upload_date)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+                """, (admin_gast_id, original_filename, filename, file_path, file_size, file_type, mime_type, beschreibung_mit_admin))
+                
+                upload_id = cursor.lastrowid
+                conn.commit()
+                conn.close()
+                
+                logger.info(f"Admin-Upload hinzugefügt und genehmigt: ID {upload_id}, Datei {original_filename}, Admin {admin_user}")
+                return upload_id
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Hinzufügen des Admin-Uploads: {e}")
+            return None
+    
+    def _get_or_create_admin_guest(self):
+        """Erstellt oder holt den Admin-Gast-Eintrag"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Prüfe ob Admin-Gast bereits existiert
+            cursor.execute("SELECT id FROM gaeste WHERE guest_code = 'admin_uploads'")
+            result = cursor.fetchone()
+            
+            if result:
+                conn.close()
+                return result[0]
+            
+            # Erstelle Admin-Gast
+            cursor.execute("""
+                INSERT INTO gaeste 
+                (vorname, nachname, kategorie, seite, status, guest_code, guest_password, max_personen, first_login)
+                VALUES ('Administrator', 'Uploads', 'System', 'Beide', 'Zugesagt', 'admin_uploads', NULL, 0, 0)
+            """)
+            
+            admin_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"Admin-Gast erstellt mit ID: {admin_id}")
+            return admin_id
+            
+        except Exception as e:
+            logger.error(f"Fehler beim Erstellen des Admin-Gastes: {e}")
+            return 1  # Fallback auf ersten Gast
     
     def _get_file_type_from_mime(self, mime_type):
         """Bestimmt file_type aus MIME-Type"""
@@ -3717,14 +3782,17 @@ class SQLiteHochzeitsDatenManager:
     def get_upload_by_id(self, upload_id):
         """Lädt einen Upload anhand der ID"""
         try:
+            logger.info(f"🎯 Database: get_upload_by_id called for ID: {upload_id}")
+            
             with self._lock:
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
                 
+                logger.info(f"📡 Database: Executing query for upload ID: {upload_id}")
                 cursor.execute("""
                     SELECT gu.id, gu.gast_id, gu.original_filename, gu.filename, gu.file_path,
                            gu.file_size, gu.file_type, gu.mime_type, gu.beschreibung, gu.upload_date,
-                           g.vorname, g.nachname
+                           gu.admin_approved, g.vorname, g.nachname
                     FROM gaeste_uploads gu
                     JOIN gaeste g ON gu.gast_id = g.id
                     WHERE gu.id = ?
@@ -3734,7 +3802,7 @@ class SQLiteHochzeitsDatenManager:
                 conn.close()
                 
                 if row:
-                    return {
+                    upload = {
                         'id': row[0],
                         'gast_id': row[1],
                         'original_filename': row[2],
@@ -3745,14 +3813,18 @@ class SQLiteHochzeitsDatenManager:
                         'mime_type': row[7],
                         'beschreibung': row[8],
                         'upload_date': row[9],
-                        'gast_vorname': row[10],
-                        'gast_nachname': row[11]
+                        'admin_approved': row[10],
+                        'gast_vorname': row[11],
+                        'gast_nachname': row[12]
                     }
-                
-                return None
+                    logger.info(f"📋 Database: Found upload {upload_id}: {upload['original_filename']} (approved: {upload['admin_approved']})")
+                    return upload
+                else:
+                    logger.warning(f"📭 Database: Upload {upload_id} not found in database")
+                    return None
                 
         except Exception as e:
-            logger.error(f"Fehler beim Laden des Uploads: {e}")
+            logger.error(f"❌ Database: Fehler beim Laden des Uploads {upload_id}: {e}")
             return None
     
     def delete_upload(self, upload_id):
@@ -3842,7 +3914,7 @@ class SQLiteHochzeitsDatenManager:
                 cursor.execute("""
                     SELECT gu.id, gu.gast_id, gu.original_filename, gu.filename, gu.file_path,
                            gu.file_size, gu.file_type, gu.mime_type, gu.beschreibung, gu.upload_date,
-                           g.vorname, g.nachname
+                           gu.admin_approved, g.vorname, g.nachname
                     FROM gaeste_uploads gu
                     JOIN gaeste g ON gu.gast_id = g.id
                     ORDER BY gu.upload_date DESC
@@ -3861,8 +3933,9 @@ class SQLiteHochzeitsDatenManager:
                         'mime_type': row[7],
                         'beschreibung': row[8],
                         'upload_date': row[9],
-                        'gast_vorname': row[10],
-                        'gast_nachname': row[11]
+                        'admin_approved': row[10],
+                        'gast_vorname': row[11],
+                        'gast_nachname': row[12]
                     })
                 
                 conn.close()
@@ -3944,6 +4017,167 @@ class SQLiteHochzeitsDatenManager:
         except Exception as e:
             logger.error(f"Fehler beim Laden der Upload-Details: {e}")
             return None
+
+    # =============================================================================
+    # PHOTO GALLERY METHODEN
+    # =============================================================================
+    
+    def approve_upload(self, upload_id):
+        """Genehmigt einen Upload für die Foto-Galerie"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    UPDATE gaeste_uploads 
+                    SET admin_approved = 1, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND admin_approved = 0
+                """, (upload_id,))
+                
+                rows_affected = cursor.rowcount
+                conn.commit()
+                conn.close()
+                
+                if rows_affected > 0:
+                    logger.info(f"Upload {upload_id} wurde genehmigt")
+                    return True
+                else:
+                    logger.warning(f"Upload {upload_id} nicht gefunden oder bereits genehmigt")
+                    return False
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Genehmigen des Uploads: {e}")
+            return False
+    
+    def reject_upload(self, upload_id):
+        """Lehnt einen Upload ab (setzt admin_approved auf -1)"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    UPDATE gaeste_uploads 
+                    SET admin_approved = -1, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (upload_id,))
+                
+                rows_affected = cursor.rowcount
+                conn.commit()
+                conn.close()
+                
+                if rows_affected > 0:
+                    logger.info(f"Upload {upload_id} wurde abgelehnt")
+                    return True
+                else:
+                    logger.warning(f"Upload {upload_id} nicht gefunden")
+                    return False
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Ablehnen des Uploads: {e}")
+            return False
+    
+    def get_pending_uploads(self):
+        """Lädt alle noch nicht genehmigten Uploads (admin_approved = 0)"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT gu.id, gu.gast_id, gu.original_filename, gu.filename, gu.file_path,
+                           gu.file_size, gu.file_type, gu.mime_type, gu.beschreibung, gu.upload_date,
+                           gu.admin_approved, g.vorname, g.nachname
+                    FROM gaeste_uploads gu
+                    JOIN gaeste g ON gu.gast_id = g.id
+                    WHERE gu.admin_approved = 0
+                    ORDER BY gu.upload_date DESC
+                """)
+                
+                uploads = []
+                for row in cursor.fetchall():
+                    uploads.append({
+                        'id': row[0],
+                        'gast_id': row[1],
+                        'original_filename': row[2],
+                        'filename': row[3],
+                        'file_path': row[4],
+                        'file_size': row[5],
+                        'file_type': row[6],
+                        'mime_type': row[7],
+                        'beschreibung': row[8],
+                        'upload_date': row[9],
+                        'admin_approved': row[10],
+                        'gast_vorname': row[11],
+                        'gast_nachname': row[12]
+                    })
+                
+                conn.close()
+                return uploads
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Laden der ausstehenden Uploads: {e}")
+            return []
+    
+    def get_approved_uploads(self):
+        """Lädt alle genehmigten Uploads für die Foto-Galerie (admin_approved = 1)"""
+        try:
+            logger.info("🎯 Database: get_approved_uploads called")
+            
+            with self._lock:
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                
+                logger.info("📡 Database: Executing query for approved uploads...")
+                cursor.execute("""
+                    SELECT gu.id, gu.gast_id, gu.original_filename, gu.filename, gu.file_path,
+                           gu.file_size, gu.file_type, gu.mime_type, gu.beschreibung, gu.upload_date,
+                           gu.admin_approved, 
+                           CASE 
+                               WHEN g.guest_code = 'admin_uploads' THEN 'Brautpaar'
+                               ELSE COALESCE(g.vorname, 'Administrator') 
+                           END as vorname, 
+                           CASE 
+                               WHEN g.guest_code = 'admin_uploads' THEN ''
+                               ELSE COALESCE(g.nachname, '') 
+                           END as nachname
+                    FROM gaeste_uploads gu
+                    LEFT JOIN gaeste g ON gu.gast_id = g.id
+                    WHERE gu.admin_approved = 1
+                    ORDER BY gu.upload_date DESC
+                """)
+                
+                rows = cursor.fetchall()
+                logger.info(f"📦 Database: Found {len(rows)} approved uploads in database")
+                
+                uploads = []
+                for row in rows:
+                    upload = {
+                        'id': row[0],
+                        'gast_id': row[1],
+                        'original_filename': row[2],
+                        'filename': row[3],
+                        'file_path': row[4],
+                        'file_size': row[5],
+                        'file_type': row[6],
+                        'mime_type': row[7],
+                        'beschreibung': row[8],
+                        'upload_date': row[9],
+                        'admin_approved': row[10],
+                        'gast_vorname': row[11],
+                        'gast_nachname': row[12]
+                    }
+                    uploads.append(upload)
+                    logger.info(f"📋 Database: Upload {upload['id']}: {upload['original_filename']} by {upload['gast_vorname']} {upload['gast_nachname']}")
+                
+                conn.close()
+                logger.info(f"✅ Database: Returning {len(uploads)} approved uploads")
+                return uploads
+                
+        except Exception as e:
+            logger.error(f"❌ Database: Fehler beim Laden der genehmigten Uploads: {e}")
+            return []
 
     # =============================================================================
     # TISCHPLANUNG METHODEN

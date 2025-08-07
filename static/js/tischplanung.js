@@ -882,6 +882,8 @@ function handleTableDrop(e, tableId) {
 // Gast zu Tisch zuweisen
 async function assignGuestToTable(guestId, tableId) {
     try {
+        console.log('🎯 assignGuestToTable aufgerufen:', guestId, 'zu Tisch', tableId);
+        
         const response = await fetch('/api/tischplanung/assign', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -889,24 +891,36 @@ async function assignGuestToTable(guestId, tableId) {
         });
         
         if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Tischzuordnung erfolgreich:', result);
+            
             const guest = guests.find(g => g.id === guestId);
-            guest.assigned_table = tableId;
+            if (guest) {
+                guest.assigned_table = tableId;
+            }
             
             renderSeatingChart();
             renderGuestList();
             updateStatistics();
             checkConflicts();
             
-            showAlert(`${guest.vorname} wurde Tisch zugewiesen`, 'success');
+            // Benachrichtigung für Touch-System
+            if (guest) {
+                showAlert(`${guest.vorname} wurde Tisch zugewiesen`, 'success');
+            }
         } else {
             const error = await response.json();
-            showAlert(error.message, 'warning');
+            console.error('❌ Tischzuordnung fehlgeschlagen:', error);
+            showAlert(error.message || 'Fehler beim Zuweisen', 'warning');
         }
     } catch (error) {
-        console.error('Fehler beim Zuweisen:', error);
+        console.error('❌ Fehler beim Zuweisen:', error);
         showAlert('Fehler beim Zuweisen des Gastes', 'danger');
     }
 }
+
+// Funktion global verfügbar machen für Touch-System
+window.assignGuestToTable = assignGuestToTable;
 
 // Tisch auswählen
 function selectTable(tableId) {
@@ -1662,6 +1676,7 @@ function displayTableOverviewModal(tableOverview) {
             modalHtml += `
                 <div class="col-md-6 col-lg-4 mb-4">
                     <div class="card h-100 table-drop-zone" 
+                         data-table-id="${table.table_id}"
                          style="border: 2px solid #d4af37; box-shadow: 0 4px 8px rgba(212, 175, 55, 0.2); border-left: 4px solid #d4af37; background: white;"
                          ondragover="handleModalTableDragOver(event)"
                          ondrop="handleModalTableDrop(event, ${table.table_id})">
@@ -1814,6 +1829,9 @@ function refreshTableOverviewModal() {
     console.log('✅ Modal-Inhalt erfolgreich aktualisiert');
 }
 
+// Funktionen global verfügbar machen für Touch-System
+window.refreshTableOverviewModal = refreshTableOverviewModal;
+
 // Modal-Inhalt aktualisieren
 function updateModalContent(tableOverview) {
     const modal = document.getElementById('tableOverviewModal');
@@ -1925,6 +1943,7 @@ function updateModalContent(tableOverview) {
             contentHtml += `
                 <div class="col-md-6 col-lg-4 mb-4">
                     <div class="card h-100 table-drop-zone" 
+                         data-table-id="${table.table_id}"
                          style="border: 2px solid #d4af37; box-shadow: 0 4px 8px rgba(212, 175, 55, 0.2); border-left: 4px solid #d4af37; background: white;"
                          ondragover="handleModalTableDragOver(event)"
                          ondrop="handleModalTableDrop(event, ${table.table_id})">
@@ -1990,11 +2009,21 @@ function updateModalContent(tableOverview) {
 function setupModalDragAndDrop() {
     // Event Listeners für draggable Gäste im Modal
     document.querySelectorAll('.draggable-guest').forEach(guestElement => {
+        // Standard Drag & Drop Events
         guestElement.addEventListener('dragstart', handleModalGuestDragStart);
         guestElement.addEventListener('dragend', handleModalGuestDragEnd);
+        
+        // Touch-Unterstützung durch Attribute
+        guestElement.setAttribute('draggable', 'true');
+        guestElement.style.touchAction = 'none'; // Verhindert Scroll während Drag
     });
     
-    console.log('🎯 Modal Drag & Drop Event Listeners eingerichtet');
+    // Touch Drag & Drop System aktualisieren
+    if (window.refreshTouchDragDrop) {
+        window.refreshTouchDragDrop();
+    }
+    
+    console.log('🎯 Modal Drag & Drop Event Listeners eingerichtet (inkl. Touch-Support)');
 }
 
 // Modal Drag & Drop Handler
@@ -3097,32 +3126,8 @@ async function addNewRelationship(guestId) {
     }
 }
 
-// Beziehung löschen
-async function deleteRelationship(relationshipId) {
-    if (!confirm('Beziehung wirklich löschen?')) return;
-    
-    try {
-        const response = await fetch(`/api/tischplanung/relationships/${relationshipId}`, {
-            method: 'DELETE'
-        });
-        
-        if (response.ok) {
-            await loadRelationships();
-            if (selectedGuest) {
-                showGuestRelationships(selectedGuest);
-            }
-            renderGuestList();
-            checkConflicts();
-            showAlert('Beziehung gelöscht', 'info');
-        } else {
-            const error = await response.json();
-            showAlert(error.error, 'danger');
-        }
-    } catch (error) {
-        console.error('Fehler beim Löschen der Beziehung:', error);
-        showAlert('Fehler beim Löschen der Beziehung', 'danger');
-    }
-}
+// deleteRelationship wird von tischplanung-relationships.js bereitgestellt
+// NICHT hier definieren, um Konflikte zu vermeiden!
 
 // Beziehungen bearbeiten (Modal)
 function editRelationships(guestId) {
@@ -3277,33 +3282,8 @@ function getExistingRelationshipsHTML(guestId) {
     }).join('');
 }
 
-async function deleteRelationshipFromModal(relationshipId) {
-    if (!confirm('Beziehung wirklich löschen?')) return;
-    
-    try {
-        const response = await fetch(`/api/tischplanung/relationships/${relationshipId}`, {
-            method: 'DELETE'
-        });
-        
-        if (response.ok) {
-            await loadRelationships();
-            renderGuestList();
-            
-            // Liste in Modal aktualisieren
-            const existingList = document.getElementById('existingRelationshipsList');
-            if (existingList) {
-                existingList.innerHTML = getExistingRelationshipsHTML(selectedGuest);
-            }
-            
-            showAlert('Beziehung gelöscht', 'success');
-        } else {
-            throw new Error('Fehler beim Löschen');
-        }
-    } catch (error) {
-        console.error('Fehler beim Löschen der Beziehung:', error);
-        showAlert('Fehler beim Löschen der Beziehung', 'danger');
-    }
-}
+// deleteRelationshipFromModal wird von tischplanung-relationships.js bereitgestellt
+// NICHT hier definieren, um Konflikte zu vermeiden!
 
 // Tisch-Details anzeigen
 function showTableDetails(tableId) {

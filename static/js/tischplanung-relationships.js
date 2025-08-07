@@ -621,18 +621,6 @@ async function deleteRelationship(relationshipId) {
     try {
         console.log('deleteRelationship aufgerufen mit ID:', relationshipId);
         
-        // Bestätigung anfordern
-        if (window.showConfirm) {
-            const confirmed = await window.showConfirm(
-                'Beziehung löschen', 
-                'Sind Sie sicher, dass Sie diese Beziehung löschen möchten?'
-            );
-            if (!confirmed) return;
-        } else {
-            const confirmed = confirm('Sind Sie sicher, dass Sie diese Beziehung löschen möchten?');
-            if (!confirmed) return;
-        }
-
         // API prüfen
         if (!window.TischplanungAPI) {
             throw new Error('Tischplanung API nicht verfügbar');
@@ -664,10 +652,13 @@ async function deleteRelationship(relationshipId) {
             setTimeout(() => showRelationshipsOverview(), 500);
         } else {
             console.error('Delete-Fehler:', result);
+            const errorMessage = result.error || result.message || 'Unbekannter Fehler';
+            console.error('Detaillierte Fehlermeldung:', errorMessage);
+            
             if (window.showError) {
-                window.showError('Fehler beim Löschen der Beziehung: ' + (result.error || result.message || 'Unbekannter Fehler'));
+                window.showError('Fehler beim Löschen der Beziehung: ' + errorMessage);
             } else {
-                alert('Fehler beim Löschen der Beziehung: ' + (result.error || result.message || 'Unbekannter Fehler'));
+                alert('Fehler beim Löschen der Beziehung: ' + errorMessage);
             }
         }
 

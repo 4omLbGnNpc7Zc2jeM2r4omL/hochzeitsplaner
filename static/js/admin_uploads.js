@@ -307,7 +307,10 @@ function renderUploadsTable(uploads) {
                 <small>${formatDateTime(upload.upload_date)}</small>
             </td>
             <td>
-                <small>${escapeHtml(upload.description || 'Keine Beschreibung')}</small>
+                ${getApprovalStatusBadge(upload)}
+            </td>
+            <td>
+                <small>${escapeHtml(upload.beschreibung || 'Keine Beschreibung')}</small>
             </td>
             <td>
                 <div class="btn-group btn-group-sm" role="group">
@@ -360,6 +363,9 @@ function renderUploadsGrid(uploads) {
                             Datum: ${formatDateTime(upload.upload_date)}
                         </small>
                     </p>
+                    <div class="mb-2">
+                        ${getApprovalStatusBadge(upload)}
+                    </div>
                 </div>
                 <div class="card-footer">
                     <div class="btn-group w-100" role="group">
@@ -476,7 +482,7 @@ function getFilePreview(upload, size = 'small') {
     const fileType = getFileType(upload);
     
     if (fileType.startsWith('image/')) {
-        return `<img src="/uploads/${upload.filename}" alt="${escapeHtml(upload.original_filename)}" class="img-fluid rounded" style="max-height: ${size === 'large' ? '180px' : '50px'}; max-width: 100%;">`;
+        return `<img src="/api/gallery-image/${upload.id}" alt="${escapeHtml(upload.original_filename)}" class="img-fluid rounded" style="max-height: ${size === 'large' ? '180px' : '50px'}; max-width: 100%;">`;
     } else if (fileType.startsWith('video/')) {
         return `<i class="bi bi-play-circle text-primary" style="font-size: ${iconSize};"></i>`;
     } else {
@@ -510,6 +516,21 @@ function formatFileSize(bytes) {
 function formatDateTime(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString('de-DE') + ' ' + date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * Get approval status badge for upload
+ */
+function getApprovalStatusBadge(upload) {
+    const status = upload.admin_approved;
+    
+    if (status === 1) {
+        return '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Genehmigt</span>';
+    } else if (status === -1) {
+        return '<span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Abgelehnt</span>';
+    } else {
+        return '<span class="badge bg-warning"><i class="bi bi-hourglass-split me-1"></i>Ausstehend</span>';
+    }
 }
 
 /**
@@ -765,4 +786,149 @@ function bulkDownload() {
 function bulkDelete() {
     console.log('Bulk delete initiated');
     HochzeitsplanerApp.showAlert('Bulk Delete wird implementiert...', 'warning');
+}
+
+// ============================
+// Admin Upload Functions
+// ============================
+
+/**
+ * Toggle the admin upload section visibility
+ */
+function toggleAdminUpload() {
+    const section = document.getElementById('adminUploadSection');
+    if (section) {
+        if (section.style.display === 'none') {
+            section.style.display = 'block';
+            document.getElementById('adminUploadFile').focus();
+        } else {
+            section.style.display = 'none';
+            // Reset form
+            document.getElementById('adminUploadForm').reset();
+            hideAdminUploadProgress();
+        }
+    }
+}
+
+/**
+ * Start the admin upload process
+ */
+function startAdminUpload() {
+    const fileInput = document.getElementById('adminUploadFile');
+    const descriptionInput = document.getElementById('adminUploadDescription');
+    
+    if (!fileInput.files || fileInput.files.length === 0) {
+        HochzeitsplanerApp.showAlert('Bitte wählen Sie mindestens eine Datei aus.', 'warning');
+        return;
+    }
+    
+    const files = Array.from(fileInput.files);
+    const description = descriptionInput.value.trim();
+    
+    console.log(`📤 Starting admin upload of ${files.length} file(s)`);
+    
+    // Show progress
+    showAdminUploadProgress();
+    updateAdminUploadProgress(0, `Uploading ${files.length} file(s)...`);
+    
+    // Upload files sequentially
+    uploadFilesSequentially(files, description, 0);
+}
+
+/**
+ * Upload files one by one to avoid overwhelming the server
+ */
+function uploadFilesSequentially(files, description, currentIndex) {
+    if (currentIndex >= files.length) {
+        // All files uploaded
+        hideAdminUploadProgress();
+        HochzeitsplanerApp.showAlert(`✅ Alle ${files.length} Datei(en) erfolgreich hochgeladen!`, 'success');
+        document.getElementById('adminUploadForm').reset();
+        toggleAdminUpload();
+        // Refresh the uploads list
+        loadAllUploads();
+        return;
+    }
+    
+    const file = files[currentIndex];
+    const progress = Math.round(((currentIndex) / files.length) * 100);
+    
+    updateAdminUploadProgress(progress, `Uploading "${file.name}" (${currentIndex + 1}/${files.length})...`);
+    
+    // Create FormData for this file
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('description', description);
+    
+    fetch('/api/admin/admin-upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        console.log(`✅ File "${file.name}" uploaded successfully with ID ${data.upload_id}`);
+        
+        // Upload next file
+        uploadFilesSequentially(files, description, currentIndex + 1);
+    })
+    .catch(error => {
+        console.error(`❌ Error uploading "${file.name}":`, error);
+        hideAdminUploadProgress();
+        HochzeitsplanerApp.showAlert(`Fehler beim Upload von "${file.name}": ${error.message}`, 'error');
+    });
+}
+
+/**
+ * Show the upload progress indicators
+ */
+function showAdminUploadProgress() {
+    const progressDiv = document.getElementById('adminUploadProgress');
+    if (progressDiv) {
+        progressDiv.style.display = 'block';
+    }
+    
+    // Disable upload button
+    const uploadBtn = document.querySelector('button[onclick="startAdminUpload()"]');
+    if (uploadBtn) {
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Uploading...';
+    }
+}
+
+/**
+ * Hide the upload progress indicators
+ */
+function hideAdminUploadProgress() {
+    const progressDiv = document.getElementById('adminUploadProgress');
+    if (progressDiv) {
+        progressDiv.style.display = 'none';
+    }
+    
+    // Re-enable upload button
+    const uploadBtn = document.querySelector('button[onclick="startAdminUpload()"]');
+    if (uploadBtn) {
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Dateien hochladen';
+    }
+}
+
+/**
+ * Update the upload progress
+ */
+function updateAdminUploadProgress(percentage, status) {
+    const progressBar = document.querySelector('#adminUploadProgress .progress-bar');
+    const statusText = document.getElementById('adminUploadStatus');
+    
+    if (progressBar) {
+        progressBar.style.width = `${percentage}%`;
+        progressBar.setAttribute('aria-valuenow', percentage);
+    }
+    
+    if (statusText) {
+        statusText.textContent = status;
+    }
 }

@@ -578,3 +578,125 @@ function debounce(func, wait) {
         timeout = setTimeout(later, wait);
     };
 }
+
+// =============================================================================
+// NEUEN KONTAKT HINZUFÜGEN
+// =============================================================================
+
+function showAddContactModal() {
+    // Modal anzeigen
+    const modal = new bootstrap.Modal(document.getElementById('addContactModal'));
+    
+    // Formular zurücksetzen
+    document.getElementById('addContactForm').reset();
+    
+    // Event Listener für Speichern-Button
+    document.getElementById('btn-kontakt-speichern').onclick = saveNewContact;
+    
+    modal.show();
+}
+
+async function saveNewContact() {
+    const form = document.getElementById('addContactForm');
+    const saveBtn = document.getElementById('btn-kontakt-speichern');
+    
+    // Validierung
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    // Button deaktivieren
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Speichern...';
+    
+    try {
+        const kontaktData = {
+            name: document.getElementById('add-name').value.trim(),
+            kategorie: document.getElementById('add-kategorie').value,
+            telefon: document.getElementById('add-telefon').value.trim(),
+            email: document.getElementById('add-email').value.trim(),
+            adresse: document.getElementById('add-adresse').value.trim(),
+            website: document.getElementById('add-website').value.trim(),
+            bewertung: document.getElementById('add-bewertung').value,
+            kosten: document.getElementById('add-kosten').value.trim(),
+            notizen: document.getElementById('add-notizen').value.trim(),
+            bild_url: document.getElementById('add-bild-url').value.trim()
+        };
+        
+        console.log('Sende neuen Kontakt:', kontaktData);
+        
+        const response = await fetch('/api/kontakte/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(kontaktData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Erfolg anzeigen
+            showNotification(result.message, 'success');
+            
+            // Modal schließen
+            bootstrap.Modal.getInstance(document.getElementById('addContactModal')).hide();
+            
+            // Kontakte neu laden
+            ladeKontakte();
+            
+        } else {
+            showNotification(result.error || 'Fehler beim Speichern des Kontakts', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Speichern des Kontakts:', error);
+        showNotification('Fehler beim Speichern des Kontakts', 'error');
+    } finally {
+        // Button wieder aktivieren
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save me-2"></i>Kontakt speichern';
+    }
+}
+
+function showNotification(message, type = 'info') {
+    // Erstelle Notification-Element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Automatisch nach 5 Sekunden entfernen
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// Event Listener für das Modal aktualisieren
+document.addEventListener('DOMContentLoaded', function() {
+    // Bestehende Event Listeners...
+    const existingSetup = setupEventListeners;
+    setupEventListeners = function() {
+        // Bestehende Event Listeners aufrufen
+        if (existingSetup) existingSetup();
+        
+        // Neuen Event Listener für Modal hinzufügen
+        const addContactModal = document.getElementById('addContactModal');
+        if (addContactModal) {
+            addContactModal.addEventListener('hidden.bs.modal', function() {
+                // Formular beim Schließen zurücksetzen
+                document.getElementById('addContactForm').reset();
+            });
+        }
+    };
+});

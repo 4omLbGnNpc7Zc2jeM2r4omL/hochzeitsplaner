@@ -18,6 +18,15 @@ import threading
 import requests # type: ignore
 import re
 from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for, flash, send_from_directory, make_response
+
+# PIL import für Thumbnail-Generierung
+try:
+    from PIL import Image
+    PIL_AVAILABLE = True
+    logger_msg = "✅ PIL/Pillow successfully imported for thumbnail generation"
+except ImportError as e:
+    PIL_AVAILABLE = False
+    logger_msg = f"⚠️ PIL/Pillow not available: {e}. Thumbnails will fall back to original images"
 from flask_cors import CORS
 from datetime import datetime, timedelta
 import shutil
@@ -58,6 +67,9 @@ except ImportError:
 # Logger einrichten
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# PIL-Status loggen
+logger.info(logger_msg)
 
 # Konfigurationsmanager importieren
 try:
@@ -252,9 +264,14 @@ def require_auth(f):
         # Login-Route selbst nicht schützen
         if request.endpoint == 'login':
             return f(*args, **kwargs)
-            
+        
+        logger.info(f"🔐 Auth Check: Route {request.path} von {request.remote_addr}")
+        logger.info(f"🔐 Auth Check: Session logged_in: {session.get('logged_in', False)}")
+        logger.info(f"🔐 Auth Check: Session user: {session.get('username', 'none')}")
+        
         # Prüfen ob Benutzer eingeloggt ist
         if 'logged_in' not in session or not session['logged_in']:
+            logger.warning(f"❌ Auth Check: Nicht eingeloggt für Route {request.path}")
             if request.path.startswith('/api/'):
                 return jsonify({'error': 'Authentication required'}), 401
             return redirect(url_for('login'))
@@ -264,12 +281,14 @@ def require_auth(f):
             timeout_hours = auth_config['auth']['session_timeout_hours']
             login_time = datetime.fromisoformat(session['login_time'])
             if datetime.now() - login_time > timedelta(hours=timeout_hours):
+                logger.warning(f"⏰ Auth Check: Session timeout für {session.get('username')}")
                 session.clear()
                 if request.path.startswith('/api/'):
                     return jsonify({'error': 'Session expired'}), 401
                 flash('Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.', 'warning')
                 return redirect(url_for('login'))
         
+        logger.info(f"✅ Auth Check: Authentifizierung erfolgreich für {session.get('username')}")
         return f(*args, **kwargs)
     return decorated_function
 
@@ -280,12 +299,18 @@ def require_role(allowed_roles):
         def decorated_function(*args, **kwargs):
             user_role = session.get('user_role', 'guest')
             
+            logger.info(f"🔒 Role Check: Route {request.path}")
+            logger.info(f"🔒 Role Check: User role: {user_role}")
+            logger.info(f"🔒 Role Check: Allowed roles: {allowed_roles}")
+            
             if user_role not in allowed_roles:
+                logger.warning(f"❌ Role Check: Zugriff verweigert für {user_role} auf {request.path}")
                 if request.path.startswith('/api/'):
                     return jsonify({'error': 'Insufficient permissions'}), 403
                 flash('Sie haben keine Berechtigung für diese Seite.', 'danger')
                 return redirect(url_for('guest_dashboard' if user_role == 'guest' else 'index'))
             
+            logger.info(f"✅ Role Check: Zugriff erlaubt für {user_role}")
             return f(*args, **kwargs)
         return decorated_function
     return decorator
@@ -628,7 +653,7 @@ def protect_api_routes():
         request.path == '/favicon.ico'):
         return
     
-    # Alle API-Routen schützen
+    # ALLE API-Routen erfordern Authentifizierung
     if request.path.startswith('/api/'):
         if 'logged_in' not in session or not session['logged_in']:
             return jsonify({'error': 'Authentication required'}), 401
@@ -1578,6 +1603,92 @@ def api_kontakte_list():
             'error': f'Fehler beim Laden der Kontakte: {str(e)}',
             'kontakte': []
         })
+
+@app.route('/api/kontakte/add', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_kontakte_add():
+    """Neuen Kontakt zur CSV-Datei hinzufügen"""
+    try:
+        import csv
+        import os
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Keine Daten empfangen'}), 400
+        
+        # Pflichtfelder prüfen
+        required_fields = ['name', 'kategorie', 'telefon']
+        missing_fields = [field for field in required_fields if not data.get(field, '').strip()]
+        
+        if missing_fields:
+            return jsonify({
+                'success': False, 
+                'error': f'Fehlende Pflichtfelder: {", ".join(missing_fields)}'
+            }), 400
+        
+        # CSV-Datei Pfad - korrekte Behandlung für PyInstaller
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        csv_file_path = os.path.join(base_dir, 'data', 'kontakte.csv')
+        
+        # Neuer Kontakt-Datensatz
+        new_kontakt = {
+            'name': data.get('name', '').strip(),
+            'kategorie': data.get('kategorie', '').strip(),
+            'telefon': data.get('telefon', '').strip(),
+            'email': data.get('email', '').strip(),
+            'adresse': data.get('adresse', '').strip(),
+            'website': data.get('website', '').strip(),
+            'notizen': data.get('notizen', '').strip(),
+            'bewertung': data.get('bewertung', '').strip(),
+            'kosten': data.get('kosten', '').strip(),
+            'bild_url': data.get('bild_url', '').strip()
+        }
+        
+        # Prüfe ob CSV-Datei existiert und Header lesen
+        file_exists = os.path.exists(csv_file_path)
+        fieldnames = ['name', 'kategorie', 'telefon', 'email', 'adresse', 'website', 'notizen', 'bewertung', 'kosten', 'bild_url']
+        
+        if file_exists:
+            # Bestehende Header aus der Datei lesen
+            try:
+                with open(csv_file_path, 'r', encoding='utf-8') as csvfile:
+                    reader = csv.DictReader(csvfile)
+                    if reader.fieldnames:
+                        fieldnames = reader.fieldnames
+            except Exception as e:
+                logger.warning(f"Fehler beim Lesen der CSV-Header: {e}")
+        
+        # Daten zur CSV-Datei hinzufügen
+        with open(csv_file_path, 'a', newline='', encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            
+            # Header schreiben wenn Datei neu ist
+            if not file_exists:
+                writer.writeheader()
+            
+            # Nur Felder schreiben, die in fieldnames enthalten sind
+            filtered_kontakt = {key: new_kontakt.get(key, '') for key in fieldnames}
+            writer.writerow(filtered_kontakt)
+        
+        logger.info(f"✅ Neuer Kontakt hinzugefügt: {new_kontakt['name']} ({new_kontakt['kategorie']})")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Kontakt "{new_kontakt["name"]}" erfolgreich hinzugefügt',
+            'kontakt': new_kontakt
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Hinzufügen des Kontakts: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Fehler beim Hinzufügen des Kontakts: {str(e)}'
+        }), 500
 
 @app.route('/api/kontakte/contact', methods=['POST'])
 @require_auth
@@ -5494,6 +5605,408 @@ def browse_directories():
         logger.error(f"Fehler beim Durchsuchen der Verzeichnisse: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
+# ============================
+# Photo Gallery API Routen
+# ============================
+
+@app.route('/api/admin/admin-upload', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def admin_upload():
+    """Admin-Upload von Dateien - werden automatisch genehmigt"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        # Prüfe ob Datei vorhanden
+        if 'file' not in request.files:
+            return jsonify({'error': 'Keine Datei ausgewählt'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'Keine Datei ausgewählt'}), 400
+        
+        # Upload-Einstellungen abrufen für Validierung
+        settings = data_manager.get_upload_settings()
+        
+        # Validiere Datei
+        validation = validate_upload_file(file, settings)
+        if not validation['valid']:
+            return jsonify({'error': validation['error']}), 400
+        
+        # Für Admin-Uploads: Verwende Admin-Info statt Gast-Info
+        admin_user = session.get('username', 'Administrator')
+        description = request.form.get('description', f'Hochgeladen von {admin_user}')
+        
+        # Admin-Upload verarbeiten (ohne Gast-ID)
+        upload_result = process_admin_upload(file, admin_user, description)
+        
+        if upload_result['success']:
+            return jsonify({
+                'message': 'Admin-Upload erfolgreich - automatisch genehmigt',
+                'upload_id': upload_result['upload_id']
+            })
+        else:
+            return jsonify({'error': upload_result['error']}), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Admin-Upload: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/approve-upload/<int:upload_id>', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def approve_upload(upload_id):
+    """Genehmigt einen Upload für die Foto-Galerie"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        success = data_manager.approve_upload(upload_id)
+        
+        if success:
+            return jsonify({'message': 'Upload erfolgreich genehmigt'})
+        else:
+            return jsonify({'error': 'Upload nicht gefunden oder bereits genehmigt'}), 404
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Genehmigen des Uploads: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/reject-upload/<int:upload_id>', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def reject_upload(upload_id):
+    """Lehnt einen Upload für die Foto-Galerie ab"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        success = data_manager.reject_upload(upload_id)
+        
+        if success:
+            return jsonify({'message': 'Upload abgelehnt'})
+        else:
+            return jsonify({'error': 'Upload nicht gefunden'}), 404
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Ablehnen des Uploads: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/pending-uploads')
+@require_auth
+@require_role(['admin'])
+def get_pending_uploads():
+    """Liefert alle noch nicht genehmigten Uploads"""
+    try:
+        if not data_manager:
+            logger.error("❌ DataManager nicht verfügbar")
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        logger.info("🔍 Lade ausstehende Uploads...")
+        uploads = data_manager.get_pending_uploads()
+        logger.info(f"✅ {len(uploads)} ausstehende Uploads gefunden")
+        
+        # Debug-Info
+        for upload in uploads:
+            logger.info(f"  - Upload ID {upload['id']}: {upload['original_filename']} (Genehmigt: {upload['admin_approved']})")
+        
+        return jsonify(uploads)
+        
+    except Exception as e:
+        logger.error(f"❌ Fehler beim Laden der ausstehenden Uploads: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/approved-gallery')
+@require_auth
+@require_role(['admin', 'user', 'guest'])
+def get_approved_gallery():
+    """Liefert alle genehmigten Uploads für die Foto-Galerie (für eingeloggte Benutzer)"""
+    try:
+        logger.info("🎯 Photo Gallery API: get_approved_gallery called")
+        logger.info(f"🔐 Photo Gallery API: User: {session.get('username', 'unknown')}")
+        logger.info(f"🔐 Photo Gallery API: Role: {session.get('user_role', 'unknown')}")
+        
+        if not data_manager:
+            logger.error("❌ Photo Gallery API: Datenbank nicht verfügbar")
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        logger.info("📡 Photo Gallery API: Fetching approved uploads from database...")
+        uploads = data_manager.get_approved_uploads()
+        
+        logger.info(f"📦 Photo Gallery API: Found {len(uploads)} approved uploads")
+        
+        if uploads:
+            logger.info(f"📦 Photo Gallery API: Sample upload: {uploads[0]}")
+        else:
+            logger.warning("📭 Photo Gallery API: No approved uploads found")
+        
+        logger.info("✅ Photo Gallery API: Returning uploads successfully")
+        return jsonify(uploads)
+        
+    except Exception as e:
+        logger.error(f"❌ Photo Gallery API: Fehler beim Laden der Foto-Galerie: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/gallery-image/<int:upload_id>')
+@require_auth
+@require_role(['admin', 'user', 'guest'])
+def serve_gallery_image(upload_id):
+    """Stellt genehmigte Bilder für die Galerie bereit (für eingeloggte Benutzer)"""
+    try:
+        logger.info(f"🖼️ Photo Gallery API: serve_gallery_image called for upload_id: {upload_id}")
+        
+        if not data_manager:
+            logger.error("❌ Photo Gallery API: Datenbank nicht verfügbar")
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        # Prüfe ob Upload genehmigt ist
+        logger.info(f"🔍 Photo Gallery API: Checking upload {upload_id} approval status...")
+        upload = data_manager.get_upload_by_id(upload_id)
+        
+        if not upload:
+            logger.warning(f"📭 Photo Gallery API: Upload {upload_id} not found")
+            return jsonify({'error': 'Upload nicht gefunden'}), 404
+        
+        logger.info(f"📋 Photo Gallery API: Upload {upload_id} details: {upload}")
+        
+        if upload.get('admin_approved') != 1:
+            logger.warning(f"🚫 Photo Gallery API: Upload {upload_id} not approved (status: {upload.get('admin_approved')})")
+            return jsonify({'error': 'Upload nicht genehmigt'}), 403
+        
+        # Datei bereitstellen
+        upload_path = get_upload_path()
+        file_path = os.path.join(upload_path, upload['filename'])
+        
+        logger.info(f"📁 Photo Gallery API: Looking for file at: {file_path}")
+        
+        if not os.path.exists(file_path):
+            logger.error(f"❌ Photo Gallery API: File not found at: {file_path}")
+            return jsonify({'error': 'Datei nicht gefunden'}), 404
+        
+        logger.info(f"✅ Photo Gallery API: Serving file: {file_path} with mime_type: {upload['mime_type']}")
+        return send_file(file_path, mimetype=upload['mime_type'])
+        
+    except Exception as e:
+        logger.error(f"❌ Photo Gallery API: Fehler beim Bereitstellen des Galerie-Bildes: {e}")
+        return jsonify({'error': str(e)}), 500
+
+def create_video_thumbnail(upload_id, filename):
+    """Erstellt ein generisches Thumbnail für Videos"""
+    try:
+        if not PIL_AVAILABLE:
+            # Fallback: Einfache JSON-Antwort
+            return jsonify({'error': 'Video-Thumbnail nicht verfügbar'}), 404
+        
+        from PIL import Image, ImageDraw, ImageFont
+        import io
+        
+        # Cache-Verzeichnis für Video-Thumbnails
+        upload_path = get_upload_path()
+        thumbnails_dir = os.path.join(upload_path, 'video_thumbnails')
+        if not os.path.exists(thumbnails_dir):
+            os.makedirs(thumbnails_dir)
+        
+        # Video-Thumbnail-Dateiname
+        video_thumb_filename = f"video_thumb_{upload_id}.jpg"
+        video_thumb_path = os.path.join(thumbnails_dir, video_thumb_filename)
+        
+        # Prüfe ob Video-Thumbnail bereits existiert
+        if os.path.exists(video_thumb_path):
+            logger.info(f"✅ Video Thumbnail: Using cached video thumbnail: {video_thumb_path}")
+            return send_file(video_thumb_path, mimetype='image/jpeg')
+        
+        logger.info(f"🎬 Video Thumbnail: Creating generic video thumbnail for: {filename}")
+        
+        # Erstelle ein 300x300 Video-Thumbnail mit Play-Symbol
+        img = Image.new('RGB', (300, 300), color='#2c3e50')
+        draw = ImageDraw.Draw(img)
+        
+        # Gradient-Hintergrund simulieren
+        for y in range(300):
+            color_val = int(44 + (y / 300) * 40)  # Von #2c3e50 zu hellerer Farbe
+            draw.line([(0, y), (300, y)], fill=(color_val, color_val + 20, color_val + 30))
+        
+        # Play-Symbol zeichnen (großer Kreis mit Dreieck)
+        center_x, center_y = 150, 150
+        circle_radius = 60
+        
+        # Kreis für Play-Button
+        draw.ellipse([center_x - circle_radius, center_y - circle_radius, 
+                     center_x + circle_radius, center_y + circle_radius], 
+                    fill='#ffffff', outline='#ecf0f1', width=3)
+        
+        # Play-Dreieck
+        triangle_size = 25
+        triangle_points = [
+            (center_x - triangle_size//2, center_y - triangle_size),
+            (center_x - triangle_size//2, center_y + triangle_size),
+            (center_x + triangle_size, center_y)
+        ]
+        draw.polygon(triangle_points, fill='#3498db')
+        
+        # Video-Icon in der Ecke
+        icon_size = 24
+        draw.rectangle([10, 10, 10 + icon_size, 10 + icon_size], fill='#e74c3c')
+        draw.polygon([(15, 18), (15, 26), (25, 22)], fill='#ffffff')
+        
+        # "VIDEO" Text
+        try:
+            # Versuche eine bessere Schrift zu verwenden
+            font = ImageFont.truetype("arial.ttf", 16)
+        except:
+            # Fallback auf Standard-Schrift
+            font = ImageFont.load_default()
+        
+        text = "VIDEO"
+        text_bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
+        text_x = (300 - text_width) // 2
+        text_y = 240
+        
+        # Text-Schatten
+        draw.text((text_x + 1, text_y + 1), text, fill='#000000', font=font)
+        # Haupttext
+        draw.text((text_x, text_y), text, fill='#ffffff', font=font)
+        
+        # Speichere Video-Thumbnail
+        img.save(video_thumb_path, 'JPEG', quality=85, optimize=True)
+        
+        logger.info(f"✅ Video Thumbnail: Created and cached: {video_thumb_path}")
+        return send_file(video_thumb_path, mimetype='image/jpeg')
+        
+    except Exception as e:
+        logger.error(f"❌ Video Thumbnail: Error creating video thumbnail: {e}")
+        # Fallback: JSON-Fehler
+        return jsonify({'error': 'Video-Thumbnail Erstellung fehlgeschlagen'}), 500
+
+@app.route('/api/gallery-thumbnail/<int:upload_id>')
+@require_auth
+@require_role(['admin', 'user', 'guest'])
+def serve_gallery_thumbnail(upload_id):
+    """Stellt Thumbnails für die Galerie bereit (optimiert für Performance)"""
+    try:
+        logger.info(f"🖼️ Thumbnail API: serve_gallery_thumbnail called for upload_id: {upload_id}")
+        
+        if not data_manager:
+            logger.error("❌ Thumbnail API: Datenbank nicht verfügbar")
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        # Prüfe ob Upload genehmigt ist
+        upload = data_manager.get_upload_by_id(upload_id)
+        
+        if not upload:
+            logger.warning(f"📭 Thumbnail API: Upload {upload_id} not found")
+            return jsonify({'error': 'Upload nicht gefunden'}), 404
+        
+        if upload.get('admin_approved') != 1:
+            logger.warning(f"🚫 Thumbnail API: Upload {upload_id} not approved")
+            return jsonify({'error': 'Upload nicht genehmigt'}), 403
+        
+        # Thumbnail erstellen und bereitstellen
+        upload_path = get_upload_path()
+        file_path = os.path.join(upload_path, upload['filename'])
+        
+        if not os.path.exists(file_path):
+            logger.error(f"❌ Thumbnail API: File not found at: {file_path}")
+            return jsonify({'error': 'Datei nicht gefunden'}), 404
+        
+        # Prüfe ob es ein Bild ist (nur für Bilder Thumbnails erstellen)
+        if not upload['mime_type'].startswith('image/'):
+            # Für Videos: Erstelle ein generisches Video-Thumbnail
+            return create_video_thumbnail(upload_id, upload['filename'])
+        
+        # Thumbnail erstellen
+        if not PIL_AVAILABLE:
+            logger.warning("⚠️ Thumbnail API: PIL not available, serving original image")
+            return send_file(file_path, mimetype=upload['mime_type'])
+        
+        try:
+            import io
+            
+            # Cache-Verzeichnis für Thumbnails
+            thumbnails_dir = os.path.join(upload_path, 'thumbnails')
+            if not os.path.exists(thumbnails_dir):
+                os.makedirs(thumbnails_dir)
+            
+            # Thumbnail-Dateiname
+            thumb_filename = f"thumb_{upload_id}_{upload['filename']}"
+            thumb_path = os.path.join(thumbnails_dir, thumb_filename)
+            
+            # Prüfe ob Thumbnail bereits existiert
+            if os.path.exists(thumb_path):
+                logger.info(f"✅ Thumbnail API: Using cached thumbnail: {thumb_path}")
+                return send_file(thumb_path, mimetype='image/jpeg')
+            
+            # Thumbnail erstellen
+            logger.info(f"🔄 Thumbnail API: Creating thumbnail for: {file_path}")
+            
+            with Image.open(file_path) as img:
+                # EXIF-Orientierung korrigieren
+                try:
+                    # Einfachere EXIF-Handhabung
+                    if hasattr(img, '_getexif') and img._getexif() is not None:
+                        exif = img._getexif()
+                        orientation = exif.get(0x0112, 1)  # 0x0112 ist EXIF Orientation Tag
+                        if orientation == 3:
+                            img = img.rotate(180, expand=True)
+                        elif orientation == 6:
+                            img = img.rotate(270, expand=True)
+                        elif orientation == 8:
+                            img = img.rotate(90, expand=True)
+                except (AttributeError, KeyError, TypeError):
+                    pass  # Ignoriere EXIF-Fehler
+                
+                # Konvertiere zu RGB falls nötig
+                if img.mode in ('RGBA', 'P'):
+                    img = img.convert('RGB')
+                
+                # Thumbnail erstellen (300x300 max, behält Seitenverhältnis bei)
+                img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+                
+                # Speichere Thumbnail
+                img.save(thumb_path, 'JPEG', quality=85, optimize=True)
+                
+                logger.info(f"✅ Thumbnail API: Thumbnail created and cached: {thumb_path}")
+                return send_file(thumb_path, mimetype='image/jpeg')
+                
+        except Exception as thumb_error:
+            logger.error(f"❌ Thumbnail API: Error creating thumbnail: {thumb_error}")
+            # Fallback: Original-Datei bereitstellen
+            return send_file(file_path, mimetype=upload['mime_type'])
+        
+    except Exception as e:
+        logger.error(f"❌ Thumbnail API: Fehler beim Bereitstellen des Thumbnails: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/preview-upload/<int:upload_id>')
+@require_auth
+@require_role(['admin'])
+def admin_preview_upload(upload_id):
+    """Ermöglicht Admins die Vorschau von Uploads (auch pending)"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        # Upload laden (ohne Genehmigungsprüfung für Admins)
+        upload = data_manager.get_upload_by_id(upload_id)
+        if not upload:
+            return jsonify({'error': 'Upload nicht gefunden'}), 404
+        
+        # Datei bereitstellen
+        upload_path = get_upload_path()
+        file_path = os.path.join(upload_path, upload['filename'])
+        
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'Datei nicht gefunden'}), 404
+        
+        return send_file(file_path, mimetype=upload['mime_type'])
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Admin-Preview: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/admin/create-directory', methods=['POST'])
 @require_auth
 @require_role(['admin'])
@@ -5611,6 +6124,49 @@ def process_upload(file, gast_id, description):
         logger.error(f"Fehler beim Upload-Processing: {e}")
         return {'success': False, 'error': str(e)}
 
+def process_admin_upload(file, admin_user, description):
+    """Verarbeitet den Admin-Upload einer Datei - wird automatisch genehmigt"""
+    try:
+        # Upload-Verzeichnis erstellen
+        upload_path = get_upload_path()
+        os.makedirs(upload_path, exist_ok=True)
+        
+        # Eindeutigen Dateinamen generieren (mit admin prefix)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        file_ext = file.filename.split('.')[-1] if '.' in file.filename else 'bin'
+        filename = f'admin_upload_{timestamp}_{int(time.time())}.{file_ext}'
+        
+        file_path = os.path.join(upload_path, filename)
+        
+        # Datei speichern
+        file.save(file_path)
+        
+        # Dateigröße ermitteln
+        file_size = os.path.getsize(file_path)
+        
+        # In Datenbank speichern - Admin-Upload ohne Gast-ID aber automatisch genehmigt
+        upload_id = data_manager.add_admin_upload(
+            admin_user=admin_user,
+            original_filename=file.filename,
+            filename=filename,
+            file_path=file_path,
+            file_size=file_size,
+            mime_type=file.content_type or 'application/octet-stream',
+            beschreibung=description
+        )
+        
+        if upload_id:
+            return {'success': True, 'upload_id': upload_id}
+        else:
+            # Datei löschen wenn DB-Eintrag fehlschlägt
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            return {'success': False, 'error': 'Fehler beim Speichern in der Datenbank'}
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Admin-Upload-Processing: {e}")
+        return {'success': False, 'error': str(e)}
+
 def get_upload_path():
     """Ermittelt das Upload-Verzeichnis"""
     settings = data_manager.get_upload_settings() if data_manager else {}
@@ -5632,6 +6188,75 @@ def get_upload_path():
 def gaeste_uploads():
     """Admin-Seite für Gäste-Upload-Verwaltung"""
     return render_template('gaeste_uploads.html')
+
+@app.route('/photo-gallery')
+@require_auth
+@require_role(['admin', 'user', 'guest'])
+def photo_gallery():
+    """Foto-Galerie mit genehmigten Uploads (für alle eingeloggte Benutzer)"""
+    try:
+        logger.info("🎯 Photo Gallery Route: /photo-gallery aufgerufen")
+        logger.info(f"🔐 Photo Gallery Route: Session user: {session.get('username', 'unknown')}")
+        logger.info(f"🔐 Photo Gallery Route: Session role: {session.get('user_role', 'unknown')}")
+        logger.info(f"🔐 Photo Gallery Route: Session guest_id: {session.get('guest_id', 'unknown')}")
+        
+        # Lade zusätzliche Template-Variablen falls verfügbar
+        context = {}
+        if data_manager:
+            try:
+                config = data_manager.load_config()
+                context['brautpaar_namen'] = config.get('brautpaar_namen', 'Brautpaar')
+            except Exception as e:
+                logger.warning(f"⚠️ Photo Gallery Route: Konnte Konfiguration nicht laden: {e}")
+                context['brautpaar_namen'] = 'Brautpaar'
+        
+        logger.info("✅ Photo Gallery Route: Rendering template photo_gallery.html")
+        return render_template('photo_gallery.html', **context)
+        
+    except Exception as e:
+        logger.error(f"❌ Photo Gallery Route: Fehler beim Laden der Photo Gallery: {e}")
+        return render_template('error.html', error=str(e)), 500
+
+# Test-Route für Debug
+@app.route('/photo-gallery-test')
+def photo_gallery_test():
+    """Test-Route ohne Authentifizierung"""
+    logger.info("🧪 Photo Gallery Test Route: /photo-gallery-test aufgerufen")
+    
+    # Überprüfe ob JS-Datei existiert
+    js_path = os.path.join('static', 'js', 'photo_gallery.js')
+    js_full_path = os.path.join(os.path.dirname(__file__), js_path)
+    js_exists = os.path.exists(js_full_path)
+    
+    logger.info(f"🔍 JS File Check: {js_full_path} exists: {js_exists}")
+    
+    return f"""
+    <h1>Photo Gallery Test Route funktioniert!</h1>
+    <p>JS File exists: {js_exists}</p>
+    <p>JS File path: {js_full_path}</p>
+    <script>
+        console.log('Test route loaded');
+        console.log('Testing fetch to API...');
+        fetch('/api/approved-gallery')
+            .then(response => {{
+                console.log('API Response:', response.status);
+                return response.json();
+            }})
+            .then(data => {{
+                console.log('API Data:', data);
+            }})
+            .catch(error => {{
+                console.error('API Error:', error);
+            }});
+    </script>
+    """
+
+@app.route('/admin/upload-approval')
+@require_auth
+@require_role(['admin'])
+def upload_approval():
+    """Admin-Seite für Upload-Genehmigungen"""
+    return render_template('upload_approval.html')
 
 # =============================================================================
 # TISCHPLANUNG API ROUTEN
@@ -5897,18 +6522,18 @@ def api_tischplanung_delete_relationship(relationship_id):
     """Löscht eine Beziehung"""
     try:
         if not data_manager:
-            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+            return jsonify({'success': False, 'error': 'Datenbank nicht verfügbar'}), 500
         
         success = data_manager.delete_gast_beziehung(relationship_id)
         
         if success:
-            return jsonify({'message': 'Beziehung erfolgreich gelöscht'})
+            return jsonify({'success': True, 'message': 'Beziehung erfolgreich gelöscht'})
         else:
-            return jsonify({'error': 'Beziehung nicht gefunden'}), 404
+            return jsonify({'success': False, 'error': 'Beziehung nicht gefunden'}), 404
             
     except Exception as e:
         logger.error(f"Fehler beim Löschen der Beziehung: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/tischplanung/assignments', methods=['GET'])
 @require_auth
