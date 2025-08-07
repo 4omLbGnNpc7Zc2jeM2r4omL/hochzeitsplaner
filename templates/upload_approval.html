@@ -1,0 +1,804 @@
+{% extends "base.html" %}
+
+{% block title %}Upload-Genehmigungen - {{ brautpaar_namen or "Brautpaar heiratet" }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="mb-0">
+                <i class="bi bi-check-circle me-2"></i>
+                Upload-Genehmigungen
+            </h1>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-wedding-primary" onclick="refreshPendingUploads()">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Aktualisieren
+                </button>
+                <button type="button" class="btn btn-wedding-success" onclick="approveAll()" disabled id="approveAllBtn">
+                    <i class="bi bi-check-all me-2"></i>Alle genehmigen
+                </button>
+                <a href="/photo-gallery" class="btn btn-wedding-secondary" target="_blank">
+                    <i class="bi bi-images me-2"></i>Galerie ansehen
+                </a>
+            </div>
+        </div>
+
+        <!-- Statistiken -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card card-wedding-stat-gold">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-0" id="pendingCount">0</h5>
+                                <p class="card-text">Ausstehend</p>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-hourglass-split" style="font-size: 2rem; color: var(--wedding-text);"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card card-wedding-stat-gold">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-0" id="approvedCount">0</h5>
+                                <p class="card-text">Genehmigt</p>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-check-circle-fill" style="font-size: 2rem; color: var(--wedding-success);"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card card-wedding-stat-gold">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-0" id="selectedCount">0</h5>
+                                <p class="card-text">Ausgewählt</p>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-check-square" style="font-size: 2rem; color: var(--wedding-primary);"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter und Aktionen -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" id="searchInput" placeholder="Uploads durchsuchen..." 
+                   onkeyup="filterUploads()">
+        </div>
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" id="typeFilter" onchange="filterUploads()">
+            <option value="">Alle Dateitypen</option>
+            <option value="image">Nur Bilder</option>
+            <option value="video">Nur Videos</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <div class="btn-group w-100" role="group">
+            <button type="button" class="btn btn-success btn-sm" onclick="approveSelected()" disabled id="approveSelectedBtn">
+                <i class="bi bi-check me-1"></i>Genehmigen
+            </button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="rejectSelected()" disabled id="rejectSelectedBtn">
+                <i class="bi bi-x me-1"></i>Ablehnen
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Upload-Liste -->
+<div class="row" id="uploadsContainer">
+    <!-- Wird dynamisch gefüllt -->
+</div>
+
+<!-- Keine Uploads Nachricht -->
+<div class="row d-none" id="noUploadsMessage">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                <h4 class="mt-3">Noch keine Uploads vorhanden</h4>
+                <p class="text-muted">Es sind derzeit keine Uploads zur Genehmigung vorhanden.</p>
+                <div class="mt-3">
+                    <a href="/gaeste-uploads" class="btn btn-wedding-primary me-2">
+                        <i class="bi bi-cloud-upload me-2"></i>Alle Uploads ansehen
+                    </a>
+                    <button type="button" class="btn btn-wedding-secondary" onclick="refreshPendingUploads()">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Aktualisieren
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Animation -->
+<div class="row" id="loadingAnimation">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Lädt...</span>
+                </div>
+                <p class="mt-2 mb-0">Uploads werden geladen...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="previewModalLabel">Upload-Vorschau</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="previewImage" src="" alt="" class="img-fluid mb-3 d-none">
+                <video id="previewVideo" controls class="img-fluid mb-3 d-none">
+                    <source src="" type="">
+                    Ihr Browser unterstützt dieses Video-Format nicht.
+                </video>
+                <div id="previewInfo" class="text-start">
+                    <!-- Upload-Informationen -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" onclick="approveFromPreview()">
+                    <i class="bi bi-check me-1"></i>Genehmigen
+                </button>
+                <button type="button" class="btn btn-danger" onclick="rejectFromPreview()">
+                    <i class="bi bi-x me-1"></i>Ablehnen
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* THUMBNAIL FIX v2.0 - 80px height enforced */
+.upload-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+    min-height: 220px; /* Kompakte Kartenhöhe für kleine Thumbnails */
+}
+
+/* Container für Thumbnail - explizite Größenbegrenzung */
+.upload-card .position-relative {
+    height: 80px !important;
+    overflow: hidden;
+}
+
+.upload-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.upload-card.selected {
+    border: 2px solid var(--wedding-primary);
+    background-color: rgba(139, 115, 85, 0.1);
+}
+
+.upload-thumbnail {
+    width: 100% !important;
+    height: 80px !important; /* Sehr klein für echte Thumbnails */
+    max-height: 80px !important; /* Override für alle anderen Regeln */
+    object-fit: cover !important;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.upload-thumbnail:hover {
+    transform: scale(1.05);
+}
+
+.upload-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    border-radius: 8px;
+}
+
+.upload-card:hover .upload-overlay {
+    opacity: 1;
+}
+
+.upload-actions {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+}
+
+.selection-checkbox {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    transform: scale(1.2);
+}
+
+.type-badge {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    z-index: 5;
+}
+
+/* Modal für große Vorschau */
+.preview-modal .modal-dialog {
+    max-width: 90vw;
+    max-height: 90vh;
+}
+
+.preview-modal .modal-content {
+    height: auto;
+}
+
+.preview-modal .modal-body {
+    padding: 0;
+    text-align: center;
+}
+
+.preview-modal img,
+.preview-modal video {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+}
+
+#previewImage, #previewVideo {
+    max-height: 80vh;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.selection-checkbox {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+}
+
+.type-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+}
+
+.upload-actions {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.upload-card:hover .upload-actions {
+    opacity: 1;
+}
+
+#previewImage, #previewVideo {
+    max-height: 400px;
+    max-width: 100%;
+}
+
+.guest-info {
+    background: var(--wedding-light);
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let pendingUploads = [];
+let filteredUploads = [];
+let selectedUploads = new Set();
+let currentPreviewUpload = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadPendingUploads();
+    loadApprovedCount();
+});
+
+function loadPendingUploads() {
+    showLoading();
+    
+    fetch('/api/admin/pending-uploads')
+        .then(response => response.json())
+        .then(data => {
+            pendingUploads = data || [];
+            filteredUploads = [...pendingUploads];
+            updatePendingCount();
+            updateButtonStates();
+            renderUploads();
+            hideLoading();
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden der ausstehenden Uploads:', error);
+            showError('Fehler beim Laden der ausstehenden Uploads');
+            pendingUploads = [];
+            filteredUploads = [];
+            updatePendingCount();
+            updateButtonStates();
+            renderUploads();
+            hideLoading();
+        });
+}
+
+function loadApprovedCount() {
+    fetch('/api/approved-gallery')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('approvedCount').textContent = data.length;
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden der genehmigten Uploads:', error);
+        });
+}
+
+function refreshPendingUploads() {
+    selectedUploads.clear();
+    updateSelectedCount();
+    loadPendingUploads();
+    loadApprovedCount();
+}
+
+function renderUploads() {
+    const container = document.getElementById('uploadsContainer');
+    const noUploadsMessage = document.getElementById('noUploadsMessage');
+    
+    if (filteredUploads.length === 0) {
+        container.innerHTML = '';
+        noUploadsMessage.classList.remove('d-none');
+        updateButtonStates();
+        return;
+    }
+    
+    noUploadsMessage.classList.add('d-none');
+    
+    container.innerHTML = filteredUploads.map(upload => `
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+            <div class="card upload-card h-100 ${selectedUploads.has(upload.id) ? 'selected' : ''}" 
+                 onclick="toggleSelection(${upload.id})">
+                <div class="position-relative" style="height: 80px; overflow: hidden;">
+                    <input type="checkbox" class="form-check-input selection-checkbox" 
+                           ${selectedUploads.has(upload.id) ? 'checked' : ''} 
+                           onclick="event.stopPropagation();" 
+                           onchange="toggleSelection(${upload.id})">
+                    
+                    ${upload.file_type === 'image' ? 
+                        `<img src="/api/admin/preview-upload/${upload.id}" alt="${upload.original_filename}" 
+                              class="upload-thumbnail" loading="lazy" 
+                              style="width: 100%; height: 80px; object-fit: cover; cursor: pointer;"
+                              onclick="event.stopPropagation(); showLargePreview(${upload.id}, '${upload.file_type}', '${upload.original_filename}')">` :
+                        `<video class="upload-thumbnail" poster="" preload="metadata"
+                               style="width: 100%; height: 80px; object-fit: cover; cursor: pointer;"
+                               onclick="event.stopPropagation(); showLargePreview(${upload.id}, '${upload.file_type}', '${upload.original_filename}')">
+                            <source src="/api/admin/preview-upload/${upload.id}" type="${upload.mime_type}">
+                        </video>`
+                    }
+                    
+                    <div class="type-badge">
+                        <i class="bi bi-${upload.file_type === 'image' ? 'image' : 'camera-video'}"></i>
+                    </div>
+                    
+                    <div class="upload-overlay" onclick="event.stopPropagation(); showLargePreview(${upload.id}, '${upload.file_type}', '${upload.original_filename}')">
+                        <div class="text-center">
+                            <i class="bi bi-zoom-in" style="font-size: 2rem;"></i>
+                            <div class="mt-2">Vergrößern</div>
+                        </div>
+                    </div>
+                    
+                    <div class="upload-actions">
+                        <button class="btn btn-success btn-sm me-1" 
+                                onclick="event.stopPropagation(); approveUpload(${upload.id})"
+                                title="Genehmigen">
+                            <i class="bi bi-check"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" 
+                                onclick="event.stopPropagation(); rejectUpload(${upload.id})"
+                                title="Ablehnen">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <div class="guest-info">
+                        <small><i class="bi bi-person me-1"></i>${upload.gast_vorname} ${upload.gast_nachname}</small>
+                    </div>
+                    
+                    <h6 class="card-title text-truncate" title="${upload.original_filename}">
+                        ${upload.original_filename}
+                    </h6>
+                    
+                    <small class="text-muted d-block mb-2">
+                        <i class="bi bi-calendar me-1"></i>${formatDate(upload.upload_date)}
+                    </small>
+                    
+                    ${upload.beschreibung ? 
+                        `<p class="card-text small text-muted">${upload.beschreibung}</p>` : 
+                        '<p class="card-text small text-muted fst-italic">Keine Beschreibung</p>'
+                    }
+                    
+                    <small class="text-muted">
+                        ${formatFileSize(upload.file_size)} • ${upload.file_type}
+                    </small>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterUploads() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const typeFilter = document.getElementById('typeFilter').value;
+    
+    filteredUploads = pendingUploads.filter(upload => {
+        const matchesSearch = upload.original_filename.toLowerCase().includes(searchTerm) ||
+                            (upload.beschreibung && upload.beschreibung.toLowerCase().includes(searchTerm)) ||
+                            `${upload.gast_vorname} ${upload.gast_nachname}`.toLowerCase().includes(searchTerm);
+        
+        const matchesType = !typeFilter || upload.file_type === typeFilter;
+        
+        return matchesSearch && matchesType;
+    });
+    
+    renderUploads();
+}
+
+function toggleSelection(uploadId) {
+    if (selectedUploads.has(uploadId)) {
+        selectedUploads.delete(uploadId);
+    } else {
+        selectedUploads.add(uploadId);
+    }
+    
+    updateSelectedCount();
+    updateButtonStates();
+    renderUploads();
+}
+
+function updateSelectedCount() {
+    document.getElementById('selectedCount').textContent = selectedUploads.size;
+}
+
+function updatePendingCount() {
+    document.getElementById('pendingCount').textContent = pendingUploads.length;
+}
+
+function updateButtonStates() {
+    const hasSelected = selectedUploads.size > 0;
+    const hasUploads = pendingUploads.length > 0;
+    
+    document.getElementById('approveSelectedBtn').disabled = !hasSelected;
+    document.getElementById('rejectSelectedBtn').disabled = !hasSelected;
+    document.getElementById('approveAllBtn').disabled = !hasUploads;
+}
+
+function previewUpload(uploadId) {
+    const upload = pendingUploads.find(u => u.id === uploadId);
+    if (!upload) return;
+    
+    currentPreviewUpload = upload;
+    
+    document.getElementById('previewModalLabel').textContent = upload.original_filename;
+    
+    const image = document.getElementById('previewImage');
+    const video = document.getElementById('previewVideo');
+    
+    if (upload.file_type === 'image') {
+        image.src = `/api/gallery-image/${upload.id}`;
+        image.alt = upload.original_filename;
+        image.classList.remove('d-none');
+        video.classList.add('d-none');
+    } else {
+        video.querySelector('source').src = `/api/gallery-image/${upload.id}`;
+        video.querySelector('source').type = upload.mime_type;
+        video.load();
+        video.classList.remove('d-none');
+        image.classList.add('d-none');
+    }
+    
+    document.getElementById('previewInfo').innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <strong>Datei:</strong> ${upload.original_filename}<br>
+                <strong>Typ:</strong> ${upload.file_type}<br>
+                <strong>Größe:</strong> ${formatFileSize(upload.file_size)}<br>
+                <strong>Upload:</strong> ${formatDate(upload.upload_date)}
+            </div>
+            <div class="col-md-6">
+                <strong>Gast:</strong> ${upload.gast_vorname} ${upload.gast_nachname}<br>
+                <strong>MIME-Type:</strong> ${upload.mime_type}<br>
+                ${upload.beschreibung ? `<strong>Beschreibung:</strong><br>${upload.beschreibung}` : '<em>Keine Beschreibung</em>'}
+            </div>
+        </div>
+    `;
+    
+    const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+    modal.show();
+}
+
+function showLargePreview(uploadId, fileType, filename) {
+    // Create a fullscreen modal for better viewing
+    const modalHtml = `
+        <div class="modal fade" id="largePreviewModal" tabindex="-1" style="z-index: 1060;">
+            <div class="modal-dialog modal-xl modal-dialog-centered">
+                <div class="modal-content bg-dark">
+                    <div class="modal-header border-0">
+                        <h5 class="modal-title text-white">${filename}</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                    </div>
+                    <div class="modal-body text-center p-0">
+                        ${fileType === 'image' ? 
+                            `<img src="/api/admin/preview-upload/${uploadId}" class="img-fluid" style="max-height: 80vh; width: auto;">` :
+                            `<video controls class="w-100" style="max-height: 80vh;">
+                                <source src="/api/admin/preview-upload/${uploadId}" type="video/mp4">
+                                Ihr Browser unterstützt keine Video-Wiedergabe.
+                            </video>`
+                        }
+                    </div>
+                    <div class="modal-footer border-0 justify-content-center">
+                        <button type="button" class="btn btn-success" onclick="approveFromPreview(${uploadId})">
+                            <i class="bi bi-check-lg me-1"></i>Genehmigen
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="rejectFromPreview(${uploadId})">
+                            <i class="bi bi-x-lg me-1"></i>Ablehnen
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-arrow-left me-1"></i>Zurück
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing large preview modal if any
+    const existingModal = document.getElementById('largePreviewModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add new modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show modal with proper accessibility
+    const modal = new bootstrap.Modal(document.getElementById('largePreviewModal'), {
+        backdrop: true,
+        keyboard: true,
+        focus: true
+    });
+    modal.show();
+    
+    // Clean up when modal is hidden
+    document.getElementById('largePreviewModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+function approveFromPreview(uploadId) {
+    console.log('approveFromPreview called with uploadId:', uploadId);
+    
+    // Close the large preview modal first
+    const modal = bootstrap.Modal.getInstance(document.getElementById('largePreviewModal'));
+    if (modal) {
+        modal.hide();
+    }
+    
+    // Then approve the upload
+    approveUpload(uploadId);
+}
+
+function rejectFromPreview(uploadId) {
+    console.log('rejectFromPreview called with uploadId:', uploadId);
+    
+    // Close the large preview modal first
+    const modal = bootstrap.Modal.getInstance(document.getElementById('largePreviewModal'));
+    if (modal) {
+        modal.hide();
+    }
+    
+    // Then reject the upload
+    rejectUpload(uploadId);
+}
+
+function approveUpload(uploadId) {
+    console.log('approveUpload called with uploadId:', uploadId);
+    
+    console.log('Sending approve request for upload:', uploadId);
+    
+    fetch(`/api/admin/approve-upload/${uploadId}`, {
+        method: 'POST'
+    })
+    .then(response => {
+        console.log('Approve response status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Approve response data:', data);
+        if (data.message) {
+            showNotification(data.message, 'success');
+            refreshPendingUploads();
+        } else {
+            showError(data.error || 'Fehler beim Genehmigen');
+        }
+    })
+    .catch(error => {
+        console.error('Fehler beim Genehmigen:', error);
+        showError('Fehler beim Genehmigen');
+    });
+}
+
+function rejectUpload(uploadId) {
+    console.log('rejectUpload called with uploadId:', uploadId);
+    
+    console.log('Sending reject request for upload:', uploadId);
+    
+    fetch(`/api/admin/reject-upload/${uploadId}`, {
+        method: 'POST'
+    })
+    .then(response => {
+        console.log('Reject response status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Reject response data:', data);
+        if (data.message) {
+            showNotification(data.message, 'warning');
+            refreshPendingUploads();
+        } else {
+            showError(data.error || 'Fehler beim Ablehnen');
+        }
+    })
+    .catch(error => {
+        console.error('Fehler beim Ablehnen:', error);
+        showError('Fehler beim Ablehnen');
+    });
+}
+
+function approveSelected() {
+    if (selectedUploads.size === 0) return;
+    
+    const promises = Array.from(selectedUploads).map(uploadId => 
+        fetch(`/api/admin/approve-upload/${uploadId}`, { method: 'POST' })
+    );
+    
+    Promise.all(promises)
+        .then(() => {
+            showNotification(`${selectedUploads.size} Upload(s) genehmigt`, 'success');
+            selectedUploads.clear();
+            refreshPendingUploads();
+        })
+        .catch(error => {
+            console.error('Fehler beim Genehmigen:', error);
+            showError('Fehler beim Genehmigen der ausgewählten Uploads');
+        });
+}
+
+function rejectSelected() {
+    if (selectedUploads.size === 0) return;
+    
+    const promises = Array.from(selectedUploads).map(uploadId => 
+        fetch(`/api/admin/reject-upload/${uploadId}`, { method: 'POST' })
+    );
+    
+    Promise.all(promises)
+        .then(() => {
+            showNotification(`${selectedUploads.size} Upload(s) abgelehnt`, 'warning');
+            selectedUploads.clear();
+            refreshPendingUploads();
+        })
+        .catch(error => {
+            console.error('Fehler beim Ablehnen:', error);
+            showError('Fehler beim Ablehnen der ausgewählten Uploads');
+        });
+}
+
+function approveAll() {
+    if (pendingUploads.length === 0) return;
+    
+    const promises = pendingUploads.map(upload => 
+        fetch(`/api/admin/approve-upload/${upload.id}`, { method: 'POST' })
+    );
+    
+    Promise.all(promises)
+        .then(() => {
+            showNotification(`Alle ${pendingUploads.length} Upload(s) genehmigt`, 'success');
+            refreshPendingUploads();
+        })
+        .catch(error => {
+            console.error('Fehler beim Genehmigen aller Uploads:', error);
+            showError('Fehler beim Genehmigen aller Uploads');
+        });
+}
+
+function showLoading() {
+    document.getElementById('loadingAnimation').classList.remove('d-none');
+    document.getElementById('uploadsContainer').innerHTML = '';
+    document.getElementById('noUploadsMessage').classList.add('d-none');
+}
+
+function hideLoading() {
+    document.getElementById('loadingAnimation').classList.add('d-none');
+}
+
+function showError(message) {
+    showNotification(message, 'danger');
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function showNotification(message, type = 'info') {
+    // Nutze das bestehende Notification-System
+    if (typeof addNotification === 'function') {
+        addNotification(message, type);
+    } else {
+        alert(message);
+    }
+}
+</script>
+{% endblock %}

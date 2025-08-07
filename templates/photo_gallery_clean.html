@@ -1,0 +1,382 @@
+{% extends "base.html" %}
+
+{% block title %}Foto-Galerie - {{ brautpaar_namen or "Brautpaar heiratet" }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="mb-0">
+                <i class="bi bi-images me-2"></i>
+                Foto-Galerie
+            </h1>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-wedding-primary" onclick="refreshGallery()">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Aktualisieren
+                </button>
+                <button type="button" class="btn btn-wedding-secondary" onclick="toggleViewMode()">
+                    <i class="bi bi-grid-3x3-gap me-2"></i>Ansicht
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter und Suche -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" id="searchInput" placeholder="Fotos durchsuchen..." 
+                           onkeyup="filterPhotos()">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="typeFilter" onchange="filterPhotos()">
+                    <option value="">Alle Dateitypen</option>
+                    <option value="image">Nur Bilder</option>
+                    <option value="video">Nur Videos</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="guestFilter" onchange="filterPhotos()">
+                    <option value="">Alle Gäste</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Galerie -->
+<div class="row" id="galleryContainer">
+    <!-- Wird dynamisch gefüllt -->
+</div>
+
+<!-- Keine Bilder Nachricht -->
+<div class="row d-none" id="noPhotosMessage">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-images" style="font-size: 4rem; color: var(--wedding-accent);"></i>
+                <h4 class="mt-3">Noch keine Fotos</h4>
+                <p class="text-muted">Es wurden noch keine Fotos für die Galerie freigegeben.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Animation -->
+<div class="row" id="loadingAnimation">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Lädt...</span>
+                </div>
+                <p class="mt-2 mb-0">Galerie wird geladen...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal für Vollbild-Ansicht -->
+<div class="modal fade" id="fullscreenModal" tabindex="-1" aria-labelledby="fullscreenModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white" id="fullscreenModalLabel">Foto-Ansicht</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body p-0 d-flex align-items-center justify-content-center">
+                <img id="fullscreenImage" src="" alt="" class="img-fluid">
+                <video id="fullscreenVideo" controls class="img-fluid d-none">
+                    <source src="" type="">
+                    Ihr Browser unterstützt dieses Video-Format nicht.
+                </video>
+            </div>
+            <div class="modal-footer border-0 bg-dark">
+                <div class="d-flex justify-content-between w-100 text-white">
+                    <div>
+                        <strong id="modalFileName">Dateiname</strong><br>
+                        <small id="modalUploadInfo" class="text-muted">Upload-Informationen</small>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-outline-light me-2" onclick="downloadFile()">
+                            <i class="bi bi-download me-1"></i>Herunterladen
+                        </button>
+                        <button type="button" class="btn btn-outline-light" onclick="shareFile()">
+                            <i class="bi bi-share me-1"></i>Teilen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.gallery-item {
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+    margin-bottom: 20px;
+}
+
+.gallery-item:hover {
+    transform: scale(1.05);
+}
+
+.gallery-item img, .gallery-item video {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.gallery-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    color: white;
+    padding: 15px;
+    border-radius: 0 0 8px 8px;
+}
+
+.gallery-overlay h6 {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.gallery-overlay small {
+    opacity: 0.8;
+}
+
+.view-mode-grid .gallery-item {
+    margin-bottom: 20px;
+}
+
+.view-mode-list .gallery-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.view-mode-list .gallery-item img,
+.view-mode-list .gallery-item video {
+    width: 100px;
+    height: 100px;
+    margin-right: 15px;
+}
+
+.view-mode-list .gallery-overlay {
+    position: static;
+    background: none;
+    color: inherit;
+    padding: 0;
+    flex-grow: 1;
+}
+
+.type-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+}
+
+#fullscreenImage, #fullscreenVideo {
+    max-height: 90vh;
+    max-width: 100%;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+console.log('🚀 Photo Gallery: Initializing...');
+
+// Wait for DOM to be ready
+function loadGalleryData() {
+    console.log('🔍 Photo Gallery: Checking DOM elements...');
+    
+    const loading = document.getElementById('loadingAnimation');
+    const container = document.getElementById('galleryContainer');
+    
+    if (!loading || !container) {
+        console.error('❌ Photo Gallery: Required DOM elements not found, retrying...');
+        setTimeout(loadGalleryData, 100);
+        return;
+    }
+    
+    console.log('✅ Photo Gallery: DOM elements found, making API call...');
+    
+    // Load gallery data from API
+    fetch('/api/approved-gallery')
+        .then(response => {
+            console.log('📡 Photo Gallery: API Response:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('📦 Photo Gallery: API Data:', data);
+            
+            // Hide loading animation
+            if (loading) {
+                loading.style.display = 'none';
+            }
+            
+            if (data && data.length > 0) {
+                console.log('🖼️ Photo Gallery: Creating gallery HTML...');
+                
+                let html = '';
+                data.forEach((upload, index) => {
+                    console.log(`📋 Photo Gallery: Processing upload ${index}:`, upload);
+                    html += `
+                        <div class="col-md-4 mb-3">
+                            <div class="card gallery-item" onclick="openFullscreen(${upload.id}, '${upload.file_type}', '${upload.original_filename}', '${upload.gast_vorname} ${upload.gast_nachname}', '${upload.upload_date}')">
+                                <div class="card-body">
+                                    <h6>${upload.original_filename}</h6>
+                                    <p><strong>Von:</strong> ${upload.gast_vorname} ${upload.gast_nachname}</p>
+                                    <p><strong>Typ:</strong> ${upload.file_type}</p>
+                                    <p><strong>Upload:</strong> ${upload.upload_date}</p>
+                                    <p><strong>Größe:</strong> ${Math.round(upload.file_size / 1024)} KB</p>
+                                    ${upload.file_type === 'image' ? 
+                                        `<img src="/api/gallery-image/${upload.id}" class="img-fluid rounded" alt="${upload.original_filename}" style="max-height: 200px; width: 100%; object-fit: cover; cursor: pointer;">` :
+                                        `<div class="bg-light p-3 rounded text-center" style="cursor: pointer;">
+                                            <i class="bi bi-play-circle" style="font-size: 3rem; color: #6c757d;"></i>
+                                            <p class="mt-2 mb-0">📹 Video: ${upload.original_filename}</p>
+                                            <small class="text-muted">Klicken zum Abspielen</small>
+                                        </div>`
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+                console.log('✅ Photo Gallery: Gallery displayed successfully!');
+                
+            } else {
+                console.log('⚠️ Photo Gallery: No data found, showing warning...');
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-warning">
+                            <h5>⚠️ Keine genehmigten Uploads</h5>
+                            <p>Die API funktioniert, aber es wurden keine genehmigten Uploads gefunden.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('❌ Photo Gallery: API Error:', error);
+            
+            if (loading) loading.style.display = 'none';
+            
+            container.innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-danger">
+                        <h5>❌ API-Fehler</h5>
+                        <p>Fehler: ${error.message}</p>
+                        <p>Prüfen Sie die Browser-Konsole und Server-Logs.</p>
+                    </div>
+                </div>
+            `;
+        });
+}
+
+// Fullscreen function
+window.openFullscreen = function(uploadId, fileType, filename, guestName, uploadDate) {
+    console.log('🖼️ Opening fullscreen for:', uploadId, fileType);
+    
+    const modal = new bootstrap.Modal(document.getElementById('fullscreenModal'));
+    const modalTitle = document.getElementById('fullscreenModalLabel');
+    const modalFileName = document.getElementById('modalFileName');
+    const modalUploadInfo = document.getElementById('modalUploadInfo');
+    const fullscreenImage = document.getElementById('fullscreenImage');
+    const fullscreenVideo = document.getElementById('fullscreenVideo');
+    
+    // Set modal content
+    modalTitle.textContent = filename;
+    modalFileName.textContent = filename;
+    modalUploadInfo.textContent = `Hochgeladen von ${guestName} am ${uploadDate}`;
+    
+    if (fileType === 'image') {
+        // Show image
+        fullscreenImage.src = `/api/gallery-image/${uploadId}`;
+        fullscreenImage.alt = filename;
+        fullscreenImage.classList.remove('d-none');
+        fullscreenVideo.classList.add('d-none');
+    } else {
+        // Show video
+        fullscreenVideo.src = `/api/gallery-image/${uploadId}`;
+        fullscreenVideo.classList.remove('d-none');
+        fullscreenImage.classList.add('d-none');
+    }
+    
+    // Store current file info for download/share
+    window.currentFile = { id: uploadId, filename: filename, type: fileType };
+    
+    modal.show();
+};
+
+// Download function
+window.downloadFile = function() {
+    if (window.currentFile) {
+        const link = document.createElement('a');
+        link.href = `/api/gallery-image/${window.currentFile.id}`;
+        link.download = window.currentFile.filename;
+        link.click();
+    }
+};
+
+// Share function
+window.shareFile = function() {
+    if (window.currentFile) {
+        const url = `${window.location.origin}/api/gallery-image/${window.currentFile.id}`;
+        if (navigator.share) {
+            navigator.share({
+                title: window.currentFile.filename,
+                url: url
+            });
+        } else {
+            // Fallback: copy to clipboard
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Link wurde in die Zwischenablage kopiert!');
+            });
+        }
+    }
+};
+
+// Gallery refresh function
+window.refreshGallery = function() {
+    console.log('🔄 Refreshing gallery...');
+    window.location.reload();
+};
+
+// Toggle view mode function (placeholder)
+window.toggleViewMode = function() {
+    console.log('🎨 View mode toggle - not implemented yet');
+    alert('View mode toggle feature coming soon!');
+};
+
+// Filter functions (placeholder)
+window.filterPhotos = function() {
+    console.log('🔍 Filter photos - not implemented yet');
+};
+
+// Start loading when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadGalleryData);
+} else {
+    loadGalleryData();
+}
+
+console.log('✅ Photo Gallery: Functions loaded');
+</script>
+{% endblock %}

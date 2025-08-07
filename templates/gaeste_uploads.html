@@ -14,9 +14,72 @@
                 <button type="button" class="btn btn-wedding-primary" onclick="refreshUploads()">
                     <i class="bi bi-arrow-clockwise me-2"></i>Aktualisieren
                 </button>
+                <button type="button" class="btn btn-success" onclick="toggleAdminUpload()">
+                    <i class="bi bi-cloud-upload-fill me-2"></i>Admin Upload
+                </button>
+                <a href="/admin/upload-approval" class="btn btn-warning">
+                    <i class="bi bi-check-circle me-2"></i>Genehmigungen
+                </a>
+                <a href="/photo-gallery" class="btn btn-wedding-secondary" target="_blank">
+                    <i class="bi bi-images me-2"></i>Galerie
+                </a>
                 <button type="button" class="btn btn-wedding-success" onclick="downloadAllUploads()">
                     <i class="bi bi-download me-2"></i>Alle herunterladen
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Admin Upload Section -->
+<div class="row mb-4" id="adminUploadSection" style="display: none;">
+    <div class="col-12">
+        <div class="card card-wedding">
+            <div class="card-header card-wedding-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-cloud-upload-fill me-2"></i>Administrator Upload
+                    <small class="text-muted ms-2">(Dateien werden automatisch genehmigt)</small>
+                </h6>
+            </div>
+            <div class="card-body">
+                <form id="adminUploadForm" enctype="multipart/form-data">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label for="adminUploadFile" class="form-label">Datei auswählen</label>
+                            <input type="file" class="form-control" id="adminUploadFile" name="file" 
+                                   accept="image/*,video/*" multiple>
+                            <div class="form-text">
+                                Unterstützte Formate: JPG, PNG, GIF, MP4, MOV, AVI (max. 50MB pro Datei)
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="adminUploadDescription" class="form-label">Beschreibung (optional)</label>
+                            <textarea class="form-control" id="adminUploadDescription" name="description" 
+                                      rows="3" placeholder="Beschreibung der Dateien..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <button type="button" class="btn btn-success" onclick="startAdminUpload()">
+                                        <i class="bi bi-cloud-upload me-2"></i>Dateien hochladen
+                                    </button>
+                                    <button type="button" class="btn btn-secondary ms-2" onclick="toggleAdminUpload()">
+                                        <i class="bi bi-x-lg me-2"></i>Abbrechen
+                                    </button>
+                                </div>
+                                <div id="adminUploadProgress" style="display: none;">
+                                    <div class="progress" style="width: 200px;">
+                                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                    <small class="text-muted mt-1" id="adminUploadStatus">Upload wird vorbereitet...</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -157,6 +220,7 @@
                                     <th>Typ</th>
                                     <th>Größe</th>
                                     <th>Upload-Datum</th>
+                                    <th>Status</th>
                                     <th>Beschreibung</th>
                                     <th>Aktionen</th>
                                 </tr>
@@ -361,5 +425,5 @@
     </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/admin_uploads.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin_uploads.js') }}?v=20250807123500"></script>
 {% endblock %}

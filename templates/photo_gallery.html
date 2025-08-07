@@ -1,0 +1,1572 @@
+{% extends "base.html" %}
+
+{% block title %}Foto-Galerie - {{ brautpaar_namen or "Brautpaar heiratet" }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="mb-0">
+                <i class="bi bi-images me-2"></i>
+                Foto-Galerie
+            </h1>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-wedding-primary" onclick="refreshGallery()">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Aktualisieren
+                </button>
+                <button type="button" class="btn btn-wedding-secondary" onclick="toggleViewMode()">
+                    <i class="bi bi-grid-3x3-gap me-2"></i>Ansicht
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter und Suche -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" id="searchInput" placeholder="Fotos durchsuchen..." 
+                           onkeyup="filterPhotos()">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="typeFilter" onchange="filterPhotos()">
+                    <option value="">Alle Dateitypen</option>
+                    <option value="image">Nur Bilder</option>
+                    <option value="video">Nur Videos</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="guestFilter" onchange="filterPhotos()">
+                    <option value="">Alle Gäste</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Galerie -->
+<div class="row" id="galleryContainer">
+    <!-- Wird dynamisch gefüllt -->
+</div>
+
+<!-- Keine Bilder Nachricht -->
+<div class="row d-none" id="noPhotosMessage">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-images" style="font-size: 4rem; color: var(--wedding-accent);"></i>
+                <h4 class="mt-3">Noch keine Fotos</h4>
+                <p class="text-muted">Es wurden noch keine Fotos für die Galerie freigegeben.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Animation -->
+<div class="row" id="loadingAnimation">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Lädt...</span>
+                </div>
+                <p class="mt-2 mb-0">Galerie wird geladen...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Immediate execution script -->
+<script>
+console.log('🚀 IMMEDIATE: Photo Gallery starting immediately...');
+
+// Define all functions first
+let galleryData = []; // Store gallery data for navigation
+let currentIndex = -1; // Current item index
+
+window.openFullscreen = function(uploadId, fileType, filename, guestName, uploadDate) {
+    console.log('🖼️ Opening fullscreen for:', uploadId, fileType);
+    
+    // Find current index in gallery data
+    currentIndex = galleryData.findIndex(item => item.id === uploadId);
+    
+    const modal = new bootstrap.Modal(document.getElementById('fullscreenModal'));
+    const modalUploadInfo = document.getElementById('modalUploadInfo');
+    const fullscreenImage = document.getElementById('fullscreenImage');
+    const fullscreenVideo = document.getElementById('fullscreenVideo');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    
+    // Set only upload info (no title, no filename)
+    modalUploadInfo.textContent = `Hochgeladen von ${guestName} am ${uploadDate}`;
+    
+    if (fileType === 'image') {
+        // Show image
+        fullscreenImage.src = `/api/gallery-image/${uploadId}`;
+        fullscreenImage.alt = filename;
+        fullscreenImage.classList.remove('d-none');
+        fullscreenVideo.classList.add('d-none');
+        
+        // FORCE SMALL SIZE - Direkte Style-Zuweisung
+        fullscreenImage.style.maxHeight = '75vh';
+        fullscreenImage.style.maxWidth = '75vw';
+        fullscreenImage.style.width = 'auto';
+        fullscreenImage.style.height = 'auto';
+        fullscreenImage.style.objectFit = 'contain';
+        fullscreenImage.style.borderRadius = '16px';
+        fullscreenImage.style.boxShadow = '0 12px 48px rgba(0, 0, 0, 0.7)';
+        
+        // Ensure proper loading and sizing
+        fullscreenImage.onload = function() {
+            console.log('🖼️ Image loaded and sized properly');
+            // FORCE AGAIN after loading
+            this.style.maxHeight = '75vh';
+            this.style.maxWidth = '75vw';
+            this.style.width = 'auto';
+            this.style.height = 'auto';
+            this.style.objectFit = 'contain';
+            this.style.borderRadius = '16px';
+            this.style.boxShadow = '0 12px 48px rgba(0, 0, 0, 0.7)';
+        };
+    } else {
+        // Show video
+        fullscreenVideo.src = `/api/gallery-image/${uploadId}`;
+        fullscreenVideo.classList.remove('d-none');
+        fullscreenImage.classList.add('d-none');
+        
+        // FORCE SMALL SIZE - Direkte Style-Zuweisung für Video
+        fullscreenVideo.style.maxHeight = '75vh';
+        fullscreenVideo.style.maxWidth = '75vw';
+        fullscreenVideo.style.width = 'auto';
+        fullscreenVideo.style.height = 'auto';
+        fullscreenVideo.style.objectFit = 'contain';
+        fullscreenVideo.style.borderRadius = '16px';
+        fullscreenVideo.style.boxShadow = '0 12px 48px rgba(0, 0, 0, 0.7)';
+        
+        // Ensure video is properly configured for mobile
+        fullscreenVideo.setAttribute('playsinline', '');
+        fullscreenVideo.setAttribute('webkit-playsinline', '');
+    }
+    
+    // Update navigation buttons
+    prevBtn.style.display = currentIndex > 0 ? 'block' : 'none';
+    nextBtn.style.display = currentIndex < galleryData.length - 1 ? 'block' : 'none';
+    
+    // Store current file info for download
+    window.currentFile = { id: uploadId, filename: filename, type: fileType };
+    
+    // ULTIMATE FORCE SIZE - Interval timer to ensure size stays small
+    const sizeForceInterval = setInterval(() => {
+        const img = document.getElementById('fullscreenImage');
+        const vid = document.getElementById('fullscreenVideo');
+        
+        if (img && !img.classList.contains('d-none')) {
+            img.style.maxHeight = '75vh';
+            img.style.maxWidth = '75vw';
+            img.style.width = 'auto';
+            img.style.height = 'auto';
+            img.style.objectFit = 'contain';
+            img.style.borderRadius = '16px';
+            img.style.boxShadow = '0 12px 48px rgba(0, 0, 0, 0.7)';
+        }
+        
+        if (vid && !vid.classList.contains('d-none')) {
+            vid.style.maxHeight = '75vh';
+            vid.style.maxWidth = '75vw';
+            vid.style.width = 'auto';
+            vid.style.height = 'auto';
+            vid.style.objectFit = 'contain';
+            vid.style.borderRadius = '16px';
+            vid.style.boxShadow = '0 12px 48px rgba(0, 0, 0, 0.7)';
+        }
+    }, 100);
+    
+    // Store interval for cleanup
+    window.currentSizeForceInterval = sizeForceInterval;
+    
+    modal.show();
+};
+
+window.showPrevious = function() {
+    if (currentIndex > 0) {
+        const prevItem = galleryData[currentIndex - 1];
+        const prevDisplayName = prevItem.gast_vorname === 'Brautpaar' || prevItem.gast_vorname === 'Administrator' ? 
+            'Brautpaar' : 
+            (prevItem.gast_vorname && prevItem.gast_nachname ? `${prevItem.gast_vorname} ${prevItem.gast_nachname}` : 'Unbekannt');
+        window.openFullscreen(prevItem.id, prevItem.file_type, prevItem.original_filename, 
+                            prevDisplayName, prevItem.upload_date);
+    }
+};
+
+window.showNext = function() {
+    if (currentIndex < galleryData.length - 1) {
+        const nextItem = galleryData[currentIndex + 1];
+        const nextDisplayName = nextItem.gast_vorname === 'Brautpaar' || nextItem.gast_vorname === 'Administrator' ? 
+            'Brautpaar' : 
+            (nextItem.gast_vorname && nextItem.gast_nachname ? `${nextItem.gast_vorname} ${nextItem.gast_nachname}` : 'Unbekannt');
+        window.openFullscreen(nextItem.id, nextItem.file_type, nextItem.original_filename, 
+                            nextDisplayName, nextItem.upload_date);
+    }
+};
+
+window.closeFullscreen = function() {
+    console.log('🚪 Attempting to close fullscreen modal...');
+    
+    // Clear focus from any buttons before hiding
+    if (document.activeElement && document.activeElement.blur) {
+        document.activeElement.blur();
+    }
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('fullscreenModal'));
+    if (modal) {
+        console.log('📱 Using Bootstrap modal instance to close');
+        modal.hide();
+    } else {
+        console.log('⚠️ No Bootstrap modal instance found, using manual close');
+        // Fallback: manually hide modal
+        const modalElement = document.getElementById('fullscreenModal');
+        if (modalElement) {
+            modalElement.style.display = 'none';
+            modalElement.classList.remove('show');
+            modalElement.setAttribute('aria-hidden', 'true');
+            
+            // Remove ALL backdrops
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => {
+                console.log('🗑️ Removing backdrop:', backdrop);
+                backdrop.remove();
+            });
+            
+            // Restore body scroll and state
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            console.log('🧹 Manual cleanup completed');
+        }
+    }
+    
+    // Additional safety timeout to force cleanup
+    setTimeout(function() {
+        const remainingBackdrops = document.querySelectorAll('.modal-backdrop');
+        if (remainingBackdrops.length > 0) {
+            console.log('🚨 Found remaining backdrops, force removing...');
+            remainingBackdrops.forEach(backdrop => backdrop.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        }
+    }, 300);
+};
+
+// Emergency cleanup function for stuck modals
+window.forceCleanupModal = function() {
+    console.log('🚨 EMERGENCY: Force cleaning up modal state...');
+    
+    // Remove all modal backdrops
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(backdrop => backdrop.remove());
+    
+    // Hide any visible modals
+    const modals = document.querySelectorAll('.modal.show');
+    modals.forEach(modal => {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+    });
+    
+    // Force restore body state
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+    document.body.style.marginRight = '';
+    
+    console.log('✅ Emergency cleanup completed');
+};
+
+// Auto-cleanup on page visibility change (when user switches tabs)
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+        // Page became visible again, check for stuck modals
+        setTimeout(function() {
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            if (backdrops.length > 0) {
+                console.log('🔧 Auto-cleanup: Found stuck backdrops on page focus');
+                window.forceCleanupModal();
+            }
+        }, 100);
+    }
+});
+
+// Gallery Item Hover Functions for Guest Gallery Design
+window.galleryItemMouseEnter = function(element) {
+    // Main item hover effects
+    element.style.transform = 'translateY(-12px) scale(1.02) !important';
+    element.style.boxShadow = '0 16px 40px rgba(0, 0, 0, 0.15), 0 24px 64px rgba(0, 0, 0, 0.1) !important';
+    
+    // Image hover effects
+    const img = element.querySelector('img');
+    if (img) {
+        img.style.transform = 'scale(1.1) !important';
+        img.style.filter = 'contrast(1.1) saturate(1.2) brightness(1.05) !important';
+    }
+    
+    // Overlay effects
+    const overlay = element.querySelector('.media-overlay');
+    if (overlay) {
+        overlay.style.opacity = '1 !important';
+    }
+    
+    const overlayContent = element.querySelector('.overlay-content');
+    if (overlayContent) {
+        overlayContent.style.transform = 'scale(1) translateY(0) !important';
+    }
+    
+    // Gallery info effects
+    const galleryInfo = element.querySelector('.gallery-info');
+    if (galleryInfo) {
+        galleryInfo.style.background = 'linear-gradient(135deg, #ffffff 0%, #f1f3f4 100%) !important';
+        galleryInfo.style.transform = 'translateY(-2px) !important';
+    }
+    
+    // Date effects
+    const galleryDate = element.querySelector('.gallery-date');
+    if (galleryDate) {
+        galleryDate.style.opacity = '1 !important';
+        galleryDate.style.color = '#5a6c7d !important';
+    }
+};
+
+window.galleryItemMouseLeave = function(element) {
+    // Main item hover effects
+    element.style.transform = 'translateY(0) !important';
+    element.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.1), 0 8px 32px rgba(0, 0, 0, 0.05) !important';
+    
+    // Image hover effects
+    const img = element.querySelector('img');
+    if (img) {
+        img.style.transform = 'scale(1) !important';
+        img.style.filter = 'contrast(1.05) saturate(1.1) !important';
+    }
+    
+    // Overlay effects
+    const overlay = element.querySelector('.media-overlay');
+    if (overlay) {
+        overlay.style.opacity = '0 !important';
+    }
+    
+    const overlayContent = element.querySelector('.overlay-content');
+    if (overlayContent) {
+        overlayContent.style.transform = 'scale(0.8) translateY(20px) !important';
+    }
+    
+    // Gallery info effects
+    const galleryInfo = element.querySelector('.gallery-info');
+    if (galleryInfo) {
+        galleryInfo.style.background = 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important';
+        galleryInfo.style.transform = 'translateY(0) !important';
+    }
+    
+    // Date effects
+    const galleryDate = element.querySelector('.gallery-date');
+    if (galleryDate) {
+        galleryDate.style.opacity = '0.8 !important';
+        galleryDate.style.color = '#6c757d !important';
+    }
+};
+
+// Keyboard navigation
+document.addEventListener('keydown', function(e) {
+    const modal = document.getElementById('fullscreenModal');
+    if (modal && modal.classList.contains('show')) {
+        switch(e.key) {
+            case 'ArrowLeft':
+                e.preventDefault();
+                if (currentIndex > 0) showPrevious();
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                if (currentIndex < galleryData.length - 1) showNext();
+                break;
+            case 'Escape':
+                e.preventDefault();
+                closeFullscreen();
+                break;
+        }
+    }
+});
+
+// Touch/swipe navigation for mobile
+let touchStartX = 0;
+let touchEndX = 0;
+
+document.addEventListener('touchstart', function(e) {
+    const modal = document.getElementById('fullscreenModal');
+    if (modal && modal.classList.contains('show')) {
+        touchStartX = e.changedTouches[0].screenX;
+    }
+});
+
+document.addEventListener('touchend', function(e) {
+    const modal = document.getElementById('fullscreenModal');
+    if (modal && modal.classList.contains('show')) {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }
+});
+
+function handleSwipe() {
+    const swipeThreshold = 50; // Minimum swipe distance
+    const swipeDistance = touchEndX - touchStartX;
+    
+    if (Math.abs(swipeDistance) > swipeThreshold) {
+        if (swipeDistance > 0 && currentIndex > 0) {
+            // Swipe right - show previous
+            showPrevious();
+        } else if (swipeDistance < 0 && currentIndex < galleryData.length - 1) {
+            // Swipe left - show next
+            showNext();
+        }
+    }
+}
+
+// Modal event listeners for proper cleanup
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('fullscreenModal');
+    if (modal) {
+        // Auto-hide feature für bessere Bildbetrachtung
+        let hideTimeout;
+        
+        const showControls = () => {
+            modal.classList.remove('auto-hide');
+            clearTimeout(hideTimeout);
+            hideTimeout = setTimeout(() => {
+                modal.classList.add('auto-hide');
+            }, 3000); // Hide after 3 seconds of inactivity
+        };
+        
+        const hideControls = () => {
+            modal.classList.add('auto-hide');
+        };
+        
+        // Show controls on mouse move or touch
+        modal.addEventListener('mousemove', showControls);
+        modal.addEventListener('touchstart', showControls);
+        modal.addEventListener('click', showControls);
+        
+        // Always show controls when hovering over them
+        const controls = modal.querySelectorAll('.modal-footer, .nav-btn, .custom-close-btn');
+        controls.forEach(control => {
+            control.addEventListener('mouseenter', () => {
+                modal.classList.remove('auto-hide');
+                clearTimeout(hideTimeout);
+            });
+        });
+        
+        // Clean up when modal is hidden
+        modal.addEventListener('hidden.bs.modal', function () {
+            console.log('🚪 Modal closed properly');
+            // Reset auto-hide state
+            modal.classList.remove('auto-hide');
+            clearTimeout(hideTimeout);
+            
+            // Force remove any remaining backdrops
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+            
+            // Force restore body state
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            // Clear any video sources to stop playback
+            const video = document.getElementById('fullscreenVideo');
+            if (video && !video.classList.contains('d-none')) {
+                video.pause();
+                video.src = '';
+            }
+            // Clear image source
+            const image = document.getElementById('fullscreenImage');
+            if (image && !image.classList.contains('d-none')) {
+                image.src = '';
+            }
+            // Reset current file
+            window.currentFile = null;
+            
+            // CLEANUP: Stop size force interval
+            if (window.currentSizeForceInterval) {
+                clearInterval(window.currentSizeForceInterval);
+                window.currentSizeForceInterval = null;
+                console.log('🔧 Size force interval cleared');
+            }
+            
+            console.log('🧹 Forced cleanup completed');
+        });
+        
+        // Handle modal show event
+        modal.addEventListener('shown.bs.modal', function () {
+            console.log('🖼️ Modal opened properly');
+            // Start auto-hide timer
+            showControls();
+        });
+        
+        // Add additional cleanup on hide start
+        modal.addEventListener('hide.bs.modal', function () {
+            console.log('🚪 Modal starting to close...');
+            // Clear focus immediately
+            if (document.activeElement && document.activeElement.blur) {
+                document.activeElement.blur();
+            }
+            // Clear auto-hide timer
+            clearTimeout(hideTimeout);
+            modal.classList.remove('auto-hide');
+        });
+    }
+});
+
+window.downloadFile = function() {
+    if (window.currentFile) {
+        const link = document.createElement('a');
+        link.href = `/api/gallery-image/${window.currentFile.id}`;
+        link.download = window.currentFile.filename;
+        link.click();
+    }
+};
+
+window.refreshGallery = function() {
+    console.log('🔄 Refreshing gallery...');
+    window.location.reload();
+};
+
+window.toggleViewMode = function() {
+    console.log('🎨 View mode toggle - not implemented yet');
+    alert('View mode toggle feature coming soon!');
+};
+
+window.filterPhotos = function() {
+    console.log('🔍 Filter photos - not implemented yet');
+};
+
+// Immediate gallery loading function
+function loadGalleryNow() {
+    const loading = document.getElementById('loadingAnimation');
+    const container = document.getElementById('galleryContainer');
+    
+    if (!loading || !container) {
+        setTimeout(loadGalleryNow, 50);
+        return;
+    }
+    
+    console.log('📡 IMMEDIATE: Making API call...');
+    
+    fetch('/api/approved-gallery')
+        .then(response => {
+            console.log('📡 IMMEDIATE: API Response:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('📦 IMMEDIATE: Data received:', data);
+            
+            // Store gallery data for navigation
+            galleryData = data || [];
+            
+            loading.style.display = 'none';
+            
+            if (data && data.length > 0) {
+                let html = '';
+                data.forEach((upload) => {
+                    const fileTypeClass = upload.file_type === 'image' ? 'image' : 'video';
+                    
+                    // Verbesserte Namenlogik für Brautpaar-Erkennung
+                    let displayName = 'Unbekannt';
+                    let isBrautpaar = false;
+                    
+                    if (upload.gast_vorname === 'Brautpaar' || upload.gast_vorname === 'Administrator') {
+                        displayName = 'Brautpaar';
+                        isBrautpaar = true;
+                    } else if (upload.gast_vorname && upload.gast_nachname) {
+                        displayName = `${upload.gast_vorname} ${upload.gast_nachname}`;
+                        isBrautpaar = false;
+                    }
+                    
+                    const authorDisplay = isBrautpaar ? 
+                        `<span style="font-family: 'Playfair Display', serif !important; font-weight: 600 !important; font-size: 1.2rem !important; color: #000000 !important; letter-spacing: 1px !important; position: relative !important; text-transform: uppercase !important; font-style: italic !important;">Brautpaar</span>` : 
+                        `<span style="color: #495057 !important; font-weight: 600 !important;">${displayName}</span>`;
+                    
+                    const uploadDate = new Date(upload.upload_date).toLocaleDateString('de-DE', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                    });
+                    
+                    html += `
+                        <div class="col-lg-3 col-md-4 col-sm-6 col-12">
+                            <div class="gallery-item" 
+                                 style="position: relative !important; cursor: pointer !important; transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1) !important; margin-bottom: 1.8rem !important; border-radius: 16px !important; overflow: hidden !important; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1), 0 8px 32px rgba(0, 0, 0, 0.05) !important; background: white !important; transform: translateY(0) !important; min-height: 330px !important;"
+                                 onmouseenter="galleryItemMouseEnter(this)"
+                                 onmouseleave="galleryItemMouseLeave(this)"
+                                 onclick="openFullscreen(${upload.id}, '${upload.file_type}', '${upload.original_filename}', '${displayName}', '${uploadDate}')">
+                                <div class="card" style="border: none !important; border-radius: 16px !important; overflow: hidden !important; height: 100% !important; display: flex !important; flex-direction: column !important; background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important; min-height: 330px !important;">
+                                    <div class="card-body" style="padding: 0 !important; height: 100% !important; display: flex !important; flex-direction: column !important;">
+                                        <div class="gallery-media-container" style="position: relative !important; width: 100% !important; aspect-ratio: 4/3 !important; overflow: hidden !important; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important; display: flex !important; align-items: center !important; justify-content: center !important; border-radius: 16px 16px 0 0 !important; min-height: 250px !important;">
+                                            <img src="/api/gallery-thumbnail/${upload.id}" 
+                                                 alt="${upload.original_filename}" 
+                                                 loading="lazy"
+                                                 style="width: 100% !important; height: 100% !important; object-fit: cover !important; transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1) !important; max-width: 100% !important; max-height: 100% !important; display: block !important; min-height: 100% !important; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important; filter: contrast(1.05) saturate(1.1) !important;">
+                                            <div class="media-overlay" style="position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; background: linear-gradient(135deg, rgba(74, 144, 226, 0.8) 0%, rgba(156, 39, 176, 0.8) 100%) !important; display: flex !important; align-items: center !important; justify-content: center !important; opacity: 0 !important; transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1) !important; backdrop-filter: blur(8px) !important;">
+                                                <div class="overlay-content" style="text-align: center !important; color: white !important; transform: scale(0.8) translateY(20px) !important; transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1) !important;">
+                                                    <i class="bi bi-zoom-in" style="font-size: 3rem !important; margin-bottom: 0.5rem !important; display: block !important; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3)) !important;"></i>
+                                                    <span class="overlay-text" style="font-size: 1rem !important; font-weight: 600 !important; letter-spacing: 0.5px !important; text-transform: uppercase !important; opacity: 0.9 !important;">Ansehen</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="gallery-info" style="padding: 1.55rem !important; flex-grow: 1 !important; display: flex !important; flex-direction: column !important; justify-content: center !important; text-align: center !important; background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important; border-radius: 0 0 16px 16px !important; transition: all 0.3s ease !important; min-height: 80px !important;">
+                                            <div class="gallery-author" style="font-size: 1rem !important; font-weight: 600 !important; margin-bottom: 0.5rem !important; line-height: 1.3 !important; transition: all 0.3s ease !important;">
+                                                ${authorDisplay}
+                                            </div>
+                                            <div class="gallery-date" style="font-size: 0.85rem !important; color: #6c757d !important; font-weight: 500 !important; opacity: 0.8 !important; transition: all 0.3s ease !important;">${uploadDate}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+                console.log('✅ IMMEDIATE: Gallery loaded successfully!');
+            } else {
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-warning">
+                            <h5>⚠️ Keine genehmigten Uploads</h5>
+                            <p>Die API funktioniert, aber keine genehmigten Uploads gefunden.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('❌ IMMEDIATE: Error:', error);
+            loading.style.display = 'none';
+            container.innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-danger">
+                        <h5>❌ Fehler</h5>
+                        <p>${error.message}</p>
+                    </div>
+                </div>
+            `;
+        });
+}
+
+// Start immediately
+loadGalleryNow();
+console.log('✅ IMMEDIATE: All functions defined and gallery loading started');
+</script>
+
+<!-- Modal für Vollbild-Ansicht -->
+<div class="modal fade" id="fullscreenModal" tabindex="-1" aria-labelledby="fullscreenModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content bg-dark">
+            <!-- Floating Close Button (top-right) -->
+            <button type="button" class="custom-close-btn position-absolute" data-bs-dismiss="modal" aria-label="Schließen" style="top: 20px; right: 20px; z-index: 1060;">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            
+            <!-- Full viewport body -->
+            <div class="modal-body p-0 d-flex align-items-center justify-content-center position-relative" style="height: 100vh;">
+                <!-- Navigation Buttons -->
+                <button type="button" class="btn btn-outline-light position-absolute nav-btn" id="prevBtn" 
+                        onclick="showPrevious()" 
+                        style="left: 20px; top: 50%; transform: translateY(-50%); z-index: 1040; display: none;">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <button type="button" class="btn btn-outline-light position-absolute nav-btn" id="nextBtn" 
+                        onclick="showNext()" 
+                        style="right: 20px; top: 50%; transform: translateY(-50%); z-index: 1040; display: none;">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+                
+                <!-- Media content -->
+                <img id="fullscreenImage" src="" alt="" class="img-fluid fullscreen-media" 
+                     style="max-height: 75vh !important; max-width: 75vw !important; width: auto !important; height: auto !important; object-fit: contain !important; border-radius: 16px !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7) !important;">
+                <video id="fullscreenVideo" controls class="img-fluid fullscreen-media d-none" 
+                       playsinline webkit-playsinline preload="metadata"
+                       style="max-height: 75vh !important; max-width: 75vw !important; width: auto !important; height: auto !important; object-fit: contain !important; border-radius: 16px !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7) !important;">
+                    <source src="" type="">
+                    Ihr Browser unterstützt dieses Video-Format nicht.
+                </video>
+            </div>
+            
+            <!-- Floating Footer -->
+            <div class="modal-footer border-0 position-absolute bottom-0 w-100" style="z-index: 1050; background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, transparent 100%); backdrop-filter: blur(10px);">
+                <div class="d-flex justify-content-between w-100 text-white align-items-center">
+                    <div style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
+                        <span id="modalUploadInfo" class="fs-5 fw-semibold">Upload-Informationen</span>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-outline-light me-2 modal-action-btn" onclick="downloadFile()">
+                            <i class="bi bi-download me-1"></i>Herunterladen
+                        </button>
+                        <button type="button" class="btn btn-outline-light modal-action-btn" data-bs-dismiss="modal">
+                            <i class="bi bi-x-lg me-1"></i>Schließen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Moderne Galerie-Karten mit verbessertem Design - Identisch zur Guest Gallery */
+.gallery-item {
+    position: relative !important;
+    cursor: pointer !important;
+    transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1) !important;
+    margin-bottom: 1.5rem !important;
+    border-radius: 16px !important;
+    overflow: hidden !important;
+    box-shadow: 
+        0 4px 16px rgba(0, 0, 0, 0.1),
+        0 8px 32px rgba(0, 0, 0, 0.05) !important;
+    background: white !important;
+    transform: translateY(0) !important;
+}
+
+.gallery-item:hover {
+    transform: translateY(-12px) scale(1.02) !important;
+    box-shadow: 
+        0 16px 40px rgba(0, 0, 0, 0.15),
+        0 24px 64px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Responsive Karten-Layout */
+.gallery-item .card {
+    border: none !important;
+    border-radius: 16px !important;
+    overflow: hidden !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
+}
+
+.gallery-item .card-body {
+    padding: 0 !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Medien-Container mit festem Aspect Ratio */
+.gallery-media-container {
+    position: relative !important;
+    width: 100% !important;
+    aspect-ratio: 4/3 !important;
+    overflow: hidden !important;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 16px 16px 0 0 !important;
+}
+
+/* Bilder Optimierungen */
+.gallery-item img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1) !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    display: block !important;
+    min-height: 100% !important;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+    filter: contrast(1.05) saturate(1.1) !important;
+}
+
+.gallery-item:hover img {
+    transform: scale(1.1) !important;
+    filter: contrast(1.1) saturate(1.2) brightness(1.05) !important;
+}
+
+/* Verbesserter Hover Overlay für Bilder */
+.media-overlay {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: linear-gradient(135deg, 
+        rgba(74, 144, 226, 0.8) 0%, 
+        rgba(156, 39, 176, 0.8) 100%) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    opacity: 0 !important;
+    transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1) !important;
+    backdrop-filter: blur(8px) !important;
+}
+
+.overlay-content {
+    text-align: center !important;
+    color: white !important;
+    transform: scale(0.8) translateY(20px) !important;
+    transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1) !important;
+}
+
+.overlay-content i {
+    font-size: 3rem !important;
+    margin-bottom: 0.5rem !important;
+    display: block !important;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3)) !important;
+}
+
+.overlay-text {
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.5px !important;
+    text-transform: uppercase !important;
+    opacity: 0.9 !important;
+}
+
+.gallery-item:hover .media-overlay {
+    opacity: 1 !important;
+}
+
+.gallery-item:hover .overlay-content {
+    transform: scale(1) translateY(0) !important;
+}
+
+/* Informations-Container */
+.gallery-info {
+    padding: 1.25rem !important;
+    flex-grow: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    text-align: center !important;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
+    border-radius: 0 0 16px 16px !important;
+    transition: all 0.3s ease !important;
+}
+
+.gallery-item:hover .gallery-info {
+    background: linear-gradient(135deg, #ffffff 0%, #f1f3f4 100%) !important;
+    transform: translateY(-2px) !important;
+}
+
+.gallery-author {
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    margin-bottom: 0.5rem !important;
+    line-height: 1.3 !important;
+    transition: all 0.3s ease !important;
+}
+
+.brautpaar-name {
+    font-family: 'Playfair Display', serif !important;
+    font-weight: 600 !important;
+    font-size: 1.2rem !important;
+    color: #000000 !important;
+    letter-spacing: 1px !important;
+    position: relative !important;
+    text-transform: uppercase !important;
+    font-style: italic !important;
+}
+
+.guest-name {
+    color: #495057 !important;
+    font-weight: 600 !important;
+}
+
+.gallery-date {
+    font-size: 0.85rem !important;
+    color: #6c757d !important;
+    font-weight: 500 !important;
+    opacity: 0.8 !important;
+    transition: all 0.3s ease !important;
+}
+
+.gallery-item:hover .gallery-date {
+    opacity: 1 !important;
+    color: #5a6c7d !important;
+}
+
+.brautpaar-name {
+    font-family: 'Playfair Display', serif !important;
+    font-weight: 600;
+    font-size: 1.2rem;
+    color: #000000 !important;
+    letter-spacing: 1px;
+    position: relative;
+    text-transform: uppercase;
+    font-style: italic;
+}
+
+.guest-name {
+    color: #495057;
+    font-weight: 600;
+}
+
+.gallery-date {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: 500;
+    opacity: 0.8;
+    transition: all 0.3s ease;
+}
+
+.gallery-item:hover .gallery-date {
+    opacity: 1;
+    color: #5a6c7d;
+}
+
+/* Zusätzliche Video-Effekte und Animationen */
+.video-container {
+    overflow: hidden;
+    position: relative;
+}
+
+.video-container::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, 
+        transparent 30%,
+        rgba(255, 255, 255, 0.1) 50%,
+        transparent 70%);
+    transform: rotate(45deg);
+    transition: all 0.6s ease;
+    opacity: 0;
+    z-index: 1;
+}
+
+.gallery-item.video:hover .video-container::before {
+    opacity: 1;
+    animation: shimmer 1.5s ease-in-out;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+    100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+/* Pulsating effect for video play button */
+.gallery-item.video .play-circle {
+    animation: pulse-subtle 3s infinite ease-in-out;
+}
+
+@keyframes pulse-subtle {
+    0%, 100% { 
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.3),
+            0 4px 16px rgba(156, 39, 176, 0.2),
+            0 0 0 0 rgba(108, 92, 231, 0.4);
+    }
+    50% { 
+        box-shadow: 
+            0 12px 40px rgba(0, 0, 0, 0.4),
+            0 6px 20px rgba(156, 39, 176, 0.3),
+            0 0 0 20px rgba(108, 92, 231, 0);
+    }
+}
+
+/* Lädt-Zustand für Bilder */
+.gallery-item img[src=""],
+.gallery-item img:not([src]) {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    opacity: 0.7;
+}
+
+.gallery-item img {
+    /* Verhindert Layout-Shifts beim Laden */
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+/* Loading Animation für bessere UX */
+.gallery-item img {
+    position: relative;
+}
+
+.gallery-item img:not([src*="api"]) {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading-shimmer 2s infinite;
+}
+
+@keyframes loading-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Entferne alte Klassen */
+.gallery-title, .gallery-meta, .type-badge {
+    display: none;
+}
+
+/* Responsive Grid System mit verbessertem Design */
+@media (min-width: 1200px) {
+    .gallery-item {
+        margin-bottom: 2rem;
+    }
+    
+    .gallery-author {
+        font-size: 1.1rem;
+    }
+    
+    .gallery-date {
+        font-size: 0.9rem;
+    }
+    
+    .brautpaar-name {
+        font-size: 1.3rem;
+    }
+    
+    .play-circle {
+        width: 90px;
+        height: 90px;
+    }
+    
+    .play-circle i {
+        font-size: 2.4rem;
+    }
+    
+    .overlay-content i {
+        font-size: 3.5rem;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .gallery-item {
+        margin-bottom: 1.25rem;
+        border-radius: 14px;
+    }
+    
+    .gallery-media-container {
+        aspect-ratio: 16/10;
+        border-radius: 14px 14px 0 0;
+    }
+    
+    .play-circle {
+        width: 75px;
+        height: 75px;
+    }
+    
+    .play-circle i {
+        font-size: 2rem;
+    }
+    
+    .overlay-content i {
+        font-size: 2.8rem;
+    }
+    
+    .video-type-badge {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.75rem;
+    }
+    
+    .video-duration-corner {
+        width: 36px;
+        height: 36px;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .gallery-item {
+        margin-bottom: 1rem;
+        border-radius: 12px;
+        transform: translateY(0);
+    }
+    
+    .gallery-item:hover {
+        transform: translateY(-6px) scale(1.01);
+    }
+    
+    .gallery-item.video:hover {
+        transform: translateY(-4px) scale(1.005);
+    }
+    
+    .gallery-media-container {
+        aspect-ratio: 4/3;
+        border-radius: 12px 12px 0 0;
+    }
+    
+    .gallery-info {
+        padding: 1rem;
+        border-radius: 0 0 12px 12px;
+    }
+    
+    .gallery-author {
+        font-size: 0.95rem;
+        margin-bottom: 0.4rem;
+    }
+    
+    .gallery-date {
+        font-size: 0.8rem;
+    }
+    
+    .brautpaar-name {
+        font-size: 1.1rem;
+    }
+    
+    .play-circle {
+        width: 65px;
+        height: 65px;
+    }
+    
+    .play-circle i {
+        font-size: 1.8rem;
+    }
+    
+    .overlay-content i {
+        font-size: 2.5rem;
+    }
+    
+    .video-type-badge {
+        padding: 0.35rem 0.7rem;
+        font-size: 0.7rem;
+        top: 0.75rem;
+        left: 0.75rem;
+    }
+    
+    .video-duration-corner {
+        width: 32px;
+        height: 32px;
+        font-size: 0.75rem;
+        top: 0.75rem;
+        right: 0.75rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .gallery-item {
+        margin-bottom: 0.75rem;
+        border-radius: 10px;
+    }
+    
+    .gallery-item:hover {
+        transform: translateY(-4px) scale(1.005);
+    }
+    
+    .gallery-item.video:hover {
+        transform: translateY(-3px) scale(1.002);
+    }
+    
+    .gallery-media-container {
+        aspect-ratio: 1/1;
+        border-radius: 10px 10px 0 0;
+    }
+    
+    .gallery-info {
+        padding: 0.75rem;
+        border-radius: 0 0 10px 10px;
+    }
+    
+    .gallery-author {
+        font-size: 0.9rem;
+        margin-bottom: 0.3rem;
+    }
+    
+    .gallery-date {
+        font-size: 0.75rem;
+    }
+    
+    .brautpaar-name {
+        font-size: 1.0rem;
+    }
+    
+    .play-circle {
+        width: 55px;
+        height: 55px;
+    }
+    
+    .play-circle i {
+        font-size: 1.5rem;
+    }
+    
+    .overlay-content i {
+        font-size: 2rem;
+    }
+    
+    .overlay-text {
+        font-size: 0.85rem;
+    }
+    
+    .video-type-badge {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.65rem;
+        top: 0.5rem;
+        left: 0.5rem;
+        border-radius: 20px;
+    }
+    
+    .video-duration-corner {
+        width: 28px;
+        height: 28px;
+        font-size: 0.7rem;
+        top: 0.5rem;
+        right: 0.5rem;
+    }
+    
+    .play-ripple {
+        width: 55px;
+        height: 55px;
+    }
+}
+
+/* Liste Ansicht (für künftige Implementierung) */
+.view-mode-list .gallery-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.view-mode-list .gallery-media-container {
+    width: 120px;
+    min-width: 120px;
+    aspect-ratio: 1/1;
+    margin-right: 1rem;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.view-mode-list .gallery-info {
+    padding: 0;
+    flex-grow: 1;
+    text-align: left;
+    background: transparent;
+}
+
+.view-mode-list .gallery-author {
+    margin-bottom: 0.25rem;
+}
+
+.view-mode-list .gallery-date {
+    font-size: 0.75rem;
+}
+
+@media (max-width: 575.98px) {
+    .view-mode-list .gallery-item {
+        flex-direction: column;
+        text-align: center;
+        padding: 0.75rem;
+    }
+    
+    .view-mode-list .gallery-media-container {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 0.75rem;
+        aspect-ratio: 4/3;
+    }
+    
+    .view-mode-list .gallery-info {
+        text-align: center;
+    }
+}
+
+.gallery-overlay h6 {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.gallery-overlay small {
+    opacity: 0.8;
+}
+
+/* Fullscreen Modal Optimierungen */
+
+/* Vollbild Media Darstellung - Deutlich kleinere zentrierte Ansicht */
+.fullscreen-media {
+    max-height: 75vh !important; /* 75% der Bildschirmhöhe verwenden */
+    max-width: 75vw !important; /* 75% der Bildschirmbreite verwenden */
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    border-radius: 16px !important; /* Größere abgerundete Ecken */
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7) !important; /* Stärkerer Schatten für bessere Sichtbarkeit */
+    /* Deutlich kleinere zentrierte Darstellung */
+}
+
+/* Custom Close Button (floating top-right) */
+.custom-close-btn {
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+}
+
+.custom-close-btn:hover {
+    background: rgba(0, 0, 0, 0.8);
+    border-color: rgba(255, 255, 255, 0.5);
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+.custom-close-btn:focus {
+    outline: none;
+    box-shadow: 
+        0 6px 20px rgba(0, 0, 0, 0.5),
+        0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+/* Navigation Buttons Verbesserung */
+.nav-btn {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border: 2px solid rgba(255, 255, 255, 0.25) !important;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    width: 60px;
+    height: 60px;
+    border-radius: 50% !important;
+    font-size: 1.4rem;
+    transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.nav-btn:hover {
+    background: rgba(255, 255, 255, 0.25) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    transform: translateY(-50%) scale(1.15);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.nav-btn:focus {
+    outline: none;
+    box-shadow: 
+        0 8px 24px rgba(0, 0, 0, 0.4),
+        0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+/* Modal Action Buttons */
+.modal-action-btn {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border: 2px solid rgba(255, 255, 255, 0.25) !important;
+    backdrop-filter: blur(20px);
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.modal-action-btn:hover {
+    background: rgba(255, 255, 255, 0.25) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Floating Footer Animationen */
+.modal-footer {
+    transition: all 0.3s ease;
+    opacity: 1;
+}
+
+/* Auto-hide für bessere Bildbetrachtung */
+#fullscreenModal.auto-hide .modal-footer,
+#fullscreenModal.auto-hide .custom-close-btn {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#fullscreenModal.auto-hide .nav-btn {
+    opacity: 0.3;
+}
+
+#fullscreenModal:hover .modal-footer,
+#fullscreenModal:hover .custom-close-btn,
+#fullscreenModal:hover .nav-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Responsive fullscreen adjustments - Deutlich kleinere zentrierte Darstellung */
+@media (max-width: 768px) {
+    .fullscreen-media {
+        max-height: 68vh !important; /* 50% größer als vorher (45vh * 1.5) */
+        max-width: 85vw !important; /* Angepasst für mobile Ansicht */
+    }
+    
+    .modal-footer {
+        padding: 0.75rem 1rem;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .modal-footer .d-flex {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 0.5rem;
+    }
+    
+    .modal-footer .d-flex > div:last-child {
+        margin-top: 0;
+    }
+    
+    /* Kleinere Navigation buttons für mobile */
+    .nav-btn {
+        width: 50px !important;
+        height: 50px !important;
+        font-size: 1.2rem !important;
+    }
+    
+    #prevBtn {
+        left: 15px !important;
+    }
+    
+    #nextBtn {
+        right: 15px !important;
+    }
+    
+    .custom-close-btn {
+        width: 42px;
+        height: 42px;
+        font-size: 1rem;
+        top: 15px !important;
+        right: 15px !important;
+    }
+    
+    .modal-action-btn {
+        font-size: 0.9rem;
+        padding: 0.5rem 1rem;
+    }
+}
+
+/* Very small screens (iPhone SE, etc.) - Deutlich kleinere zentrierte Darstellung */
+@media (max-width: 375px) {
+    .fullscreen-media {
+        max-height: 60vh !important; /* 50% größer als vorher (40vh * 1.5) */
+        max-width: 85vw !important; /* Angepasste Breite */
+    }
+    
+    .modal-footer {
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .nav-btn {
+        width: 44px !important;
+        height: 44px !important;
+        font-size: 1.1rem !important;
+    }
+    
+    #prevBtn {
+        left: 10px !important;
+    }
+    
+    #nextBtn {
+        right: 10px !important;
+    }
+    
+    .custom-close-btn {
+        width: 38px;
+        height: 38px;
+        font-size: 0.9rem;
+        top: 10px !important;
+        right: 10px !important;
+    }
+    
+    .modal-action-btn {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
+    }
+}
+
+/* Landscape orientation on mobile - Deutlich kleinere zentrierte Darstellung */
+@media (max-width: 768px) and (orientation: landscape) {
+    .fullscreen-media {
+        max-height: 75vh !important; /* 50% größer als vorher (50vh * 1.5) */
+        max-width: 70vw !important; /* Angepasst für Landscape */
+    }
+    
+    .modal-footer {
+        padding: 0.5rem 1rem;
+    }
+    
+    .modal-action-btn {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .custom-close-btn {
+        top: 10px !important;
+        right: 10px !important;
+    }
+}
+
+/* Tablet specific adjustments - Deutlich kleinere zentrierte Darstellung */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .fullscreen-media {
+        max-height: 72vh !important; /* 50% größer als vorher (48vh * 1.5) */
+        max-width: 75vw !important; /* Angepasste Breite für Tablets */
+    }
+    
+    .nav-btn {
+        width: 55px;
+        height: 55px;
+        font-size: 1.3rem;
+    }
+}
+
+/* Touch-friendly navigation buttons verbesserung */
+#prevBtn, #nextBtn {
+    min-width: 44px;
+    min-height: 44px;
+    transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* FORCE OVERRIDE: Absolut sicherstellen dass Fotos klein sind */
+#fullscreenImage.fullscreen-media,
+#fullscreenVideo.fullscreen-media,
+img.fullscreen-media,
+video.fullscreen-media {
+    max-height: 75vh !important;
+    max-width: 75vw !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    border-radius: 16px !important;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7) !important;
+}
+
+/* MOBILE FORCE OVERRIDE */
+@media (max-width: 768px) {
+    #fullscreenImage.fullscreen-media,
+    #fullscreenVideo.fullscreen-media,
+    img.fullscreen-media,
+    video.fullscreen-media {
+        max-height: 68vh !important;
+        max-width: 85vw !important;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- All functions are now defined in the immediate script above -->
+{% endblock %}

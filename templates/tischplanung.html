@@ -227,6 +227,96 @@
         font-size: 12px;
         margin-right: 10px;
     }
+    
+    /* Responsive Verbesserungen */
+    @media (max-width: 768px) {
+        .planning-container {
+            padding: 10px !important;
+        }
+        
+        .btn {
+            font-size: 14px;
+            padding: 8px 12px;
+        }
+        
+        .guest-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .guest-item {
+            margin-bottom: 8px;
+            padding: 8px;
+            font-size: 14px;
+        }
+        
+        .draggable-guest {
+            padding: 10px 8px;
+            margin-bottom: 6px;
+            cursor: grab;
+            border-radius: 8px;
+        }
+        
+        .draggable-guest:active {
+            cursor: grabbing;
+        }
+        
+        .table-drop-zone {
+            min-height: 60px;
+            padding: 15px 10px;
+            margin-bottom: 15px;
+        }
+        
+        .modal-dialog {
+            margin: 10px;
+        }
+        
+        .modal-body {
+            padding: 15px;
+        }
+        
+        /* Verbessertes Touch-Feedback */
+        .btn:active,
+        .draggable-guest:active,
+        .table-drop-zone:active {
+            transform: scale(0.98);
+            transition: transform 0.1s ease;
+        }
+        
+        /* Bessere Sichtbarkeit für Touch-Elemente */
+        .dropdown-menu {
+            font-size: 16px;
+        }
+        
+        .dropdown-item {
+            padding: 12px 16px;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        h1 {
+            font-size: 1.5rem;
+        }
+        
+        .btn {
+            font-size: 13px;
+            padding: 6px 10px;
+        }
+        
+        .statistics-card {
+            padding: 15px;
+        }
+        
+        .guest-item {
+            font-size: 13px;
+        }
+        
+        /* Navigation kompakter auf sehr kleinen Bildschirmen */
+        .flex-wrap .btn,
+        .flex-wrap .dropdown {
+            min-width: 100px;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -252,22 +342,22 @@
 
 <div class="row">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1><i class="bi bi-diagram-3 me-2"></i>Tischplanung</h1>
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center mb-4 gap-3">
+            <h1 class="mb-2 mb-lg-0"><i class="bi bi-diagram-3 me-2"></i>Tischplanung</h1>
             
-            <!-- Moderne, platzsparende Navigation -->
-            <div class="d-flex gap-2">
+            <!-- Responsive Navigation -->
+            <div class="d-flex flex-wrap gap-2 w-100 w-lg-auto justify-content-start justify-content-lg-end">
                 <!-- Hauptaktionen -->
-                <button type="button" class="btn border-0 shadow-sm" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); color: #8b7355; border-radius: 12px;" onclick="saveSeatingPlan()">
-                    <i class="bi bi-save me-1"></i>Speichern
+                <button type="button" class="btn border-0 shadow-sm flex-fill flex-lg-grow-0" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); color: #8b7355; border-radius: 12px; min-width: 120px;" onclick="saveSeatingPlan()">
+                    <i class="bi bi-save me-1"></i><span class="d-none d-sm-inline">Speichern</span>
                 </button>
                 
                 <!-- Zuordnungs-Dropdown -->
-                <div class="dropdown">
-                    <button class="btn border-0 shadow-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" style="background: linear-gradient(135deg, #e8d5a3, #f4e4bc); color: #8b7355; border-radius: 12px;">
-                        <i class="bi bi-magic me-1"></i>Zuordnung
+                <div class="dropdown flex-fill flex-lg-grow-0">
+                    <button class="btn border-0 shadow-sm dropdown-toggle w-100" type="button" data-bs-toggle="dropdown" style="background: linear-gradient(135deg, #e8d5a3, #f4e4bc); color: #8b7355; border-radius: 12px; min-width: 120px;">
+                        <i class="bi bi-magic me-1"></i><span class="d-none d-sm-inline">Zuordnung</span>
                     </button>
-                    <ul class="dropdown-menu">
+                    <ul class="dropdown-menu dropdown-menu-end">
                         <li>
                             <a class="dropdown-item" href="#" onclick="autoAssignGuests()" id="autoAssignBtn">
                                 <i class="bi bi-magic me-2"></i>Auto-Zuordnung starten
@@ -300,11 +390,11 @@
                 </div>
 
                 <!-- Verwaltung-Dropdown -->
-                <div class="dropdown">
-                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-gear me-1"></i>Verwaltung
+                <div class="dropdown flex-fill flex-lg-grow-0">
+                    <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" data-bs-toggle="dropdown" style="min-width: 120px;">
+                        <i class="bi bi-gear me-1"></i><span class="d-none d-sm-inline">Verwaltung</span>
                     </button>
-                    <ul class="dropdown-menu">
+                    <ul class="dropdown-menu dropdown-menu-end">
                         <li>
                             <a class="dropdown-item" href="#" onclick="clearAllTables()">
                                 <i class="bi bi-arrow-clockwise me-2"></i>Alle Zuordnungen zurücksetzen
@@ -325,8 +415,8 @@
                 </div>
 
                 <!-- Statistiken (direkt ohne Dropdown) -->
-                <button class="btn btn-outline-primary" type="button" onclick="showStatistics()">
-                    <i class="bi bi-graph-up me-1"></i>Statistiken anzeigen
+                <button class="btn btn-outline-primary flex-fill flex-lg-grow-0" type="button" onclick="showStatistics()" style="min-width: 120px;">
+                    <i class="bi bi-graph-up me-1"></i><span class="d-none d-sm-inline">Statistiken</span>
                 </button>
             </div>
         </div>
@@ -538,6 +628,8 @@
 <script src="{{ url_for('static', filename='js/tischplanung-renderer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/tischplanung-core.js') }}"></script>
 <script src="{{ url_for('static', filename='js/tischplanung-relationships.js') }}"></script>
+<!-- Touch Drag & Drop für Mobile Geräte -->
+<script src="{{ url_for('static', filename='js/touch-drag-drop.js') }}"></script>
 <!-- Haupt-Datei mit allen wichtigen Funktionen als LETZTES laden -->
 <script src="{{ url_for('static', filename='js/tischplanung.js') }}"></script>
 
@@ -1476,16 +1568,8 @@ function showRelationshipsOverview() {
     }
 }
 
-function deleteRelationship() {
-    console.log('🗑️ Lösche Beziehung');
-    if (window.TischplanungRelationships && window.TischplanungRelationships.deleteRelationship) {
-        window.TischplanungRelationships.deleteRelationship();
-    } else {
-        const modal = bootstrap.Modal.getInstance(document.getElementById('relationshipModal'));
-        if (modal) modal.hide();
-        alert('Beziehung gelöscht (Placeholder)');
-    }
-}
+// deleteRelationship wird von tischplanung-relationships.js bereitgestellt
+// NICHT hier definieren, um Konflikte zu vermeiden!
 
 function saveRelationship() {
     console.log('💾 Speichere Beziehung');
@@ -1517,7 +1601,7 @@ window.zoomIn = zoomIn;
 window.resetZoom = resetZoom;
 window.zoomOut = zoomOut;
 window.saveTableDetails = saveTableDetails;
-window.deleteRelationship = deleteRelationship;
+// deleteRelationship wird von tischplanung-relationships.js bereitgestellt
 window.saveRelationship = saveRelationship;
 window.autoAssignGuests = autoAssignGuests;
 window.centerTables = centerTables;

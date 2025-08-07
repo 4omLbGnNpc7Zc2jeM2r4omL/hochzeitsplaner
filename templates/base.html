@@ -63,6 +63,12 @@
                                 <i class="bi bi-clock me-1"></i>Hochzeitsablauf
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'photo_gallery' %}active fw-bold{% endif %}" 
+                               href="{{ url_for('photo_gallery') }}" style="color: #8b7355;">
+                                <i class="bi bi-images me-1"></i>Foto-Galerie
+                            </a>
+                        </li>
                     </ul>
                 {% else %}
                     <!-- Admin/User-Navigation - Organisiert in Gruppen -->
@@ -87,7 +93,7 @@
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'kontakte' %}active fw-bold{% endif %}" 
                                href="{{ url_for('kontakte') }}" style="color: #8b7355;">
-                                <i class="bi bi-telephone-book me-1"></i>Nützliche Kontakte
+                                <i class="bi bi-person-lines-fill me-1"></i>Nützliche Kontakte
                             </a>
                         </li>
                         
@@ -143,10 +149,18 @@
                             </ul>
                         </li>
                         
+                        <!-- Foto-Galerie - Eigener Punkt (zwischen Finanzen und Administration) -->
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'photo_gallery' %}active fw-bold{% endif %}" 
+                               href="{{ url_for('photo_gallery') }}" style="color: #8b7355;">
+                                <i class="bi bi-images me-1"></i>Foto-Galerie
+                            </a>
+                        </li>
+                        
                         {% if session.user_role == 'admin' %}
                         <!-- Administration -->
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle {% if request.endpoint in ['guest_credentials_page', 'gaeste_uploads', 'database_admin'] %}active fw-bold{% endif %}" 
+                            <a class="nav-link dropdown-toggle {% if request.endpoint in ['guest_credentials_page', 'gaeste_uploads', 'upload_approval', 'database_admin'] %}active fw-bold{% endif %}" 
                                href="#" role="button" data-bs-toggle="dropdown" style="color: #8b7355;">
                                 <i class="bi bi-gear-wide-connected me-1"></i>Administration
                             </a>
@@ -161,6 +175,12 @@
                                     <a class="dropdown-item {% if request.endpoint == 'gaeste_uploads' %}active{% endif %}" 
                                        href="{{ url_for('gaeste_uploads') }}">
                                         <i class="bi bi-cloud-upload me-2"></i>Gäste-Uploads
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item {% if request.endpoint == 'upload_approval' %}active{% endif %}" 
+                                       href="{{ url_for('upload_approval') }}">
+                                        <i class="bi bi-check-circle me-2"></i>Upload-Genehmigungen
                                     </a>
                                 </li>
                                 <li><hr class="dropdown-divider"></li>

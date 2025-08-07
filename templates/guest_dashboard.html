@@ -31,26 +31,6 @@
 {% block content %}
 <!-- Mobile-optimierte Navigation -->
 <div class="container-fluid p-0">
-    <!-- Willkommensnachricht -->
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="alert border-0 shadow-sm mb-3" id="welcomeMessage" 
-                 style="background: linear-gradient(135deg, #e8d5a3, #f4e4bc); border-radius: 12px;">
-                <div class="d-flex align-items-center">
-                    <div id="personalizedWelcome">
-                        <h5 class="mb-1" style="color: #8b7355; font-weight: 500;">
-                            <i class="bi bi-person-heart me-2"></i>
-                            Willkommen, {{ session.display_name }}!
-                        </h5>
-                        <p class="mb-0 small" style="color: #8b7355;">
-                            {{ brautpaar_namen or "Hochzeit" }} - Dein Dashboard
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
     <!-- Mobile Tab-Navigation -->
     <div class="row">
         <div class="col-12">
@@ -80,6 +60,12 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="gallery-tab" data-bs-toggle="pill" data-bs-target="#gallery-pane" type="button" role="tab">
+                        <i class="bi bi-images d-block d-md-inline me-md-1"></i>
+                        <span class="d-none d-md-inline">Galerie</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
                     <button class="nav-link" id="info-tab" data-bs-toggle="pill" data-bs-target="#info-pane" type="button" role="tab">
                         <i class="bi bi-info-circle d-block d-md-inline me-md-1"></i>
                         <span class="d-none d-md-inline">Info</span>
@@ -95,6 +81,22 @@
         <div class="tab-pane fade show active" id="rsvp-pane" role="tabpanel">
             <div class="row justify-content-center">
                 <div class="col-12 col-md-8 col-lg-6">
+                    <!-- Willkommensnachricht nur im RSVP Tab -->
+                    <div class="alert border-0 shadow-sm mb-4" id="welcomeMessage" 
+                         style="background: linear-gradient(135deg, #e8d5a3, #f4e4bc); border-radius: 12px;">
+                        <div class="d-flex align-items-center">
+                            <div id="personalizedWelcome">
+                                <h5 class="mb-1" style="color: #8b7355; font-weight: 500;">
+                                    <i class="bi bi-person-heart me-2"></i>
+                                    Willkommen, {{ session.display_name }}!
+                                </h5>
+                                <p class="mb-0 small" style="color: #8b7355;">
+                                    Wir würden uns riesig freuen euch den ganzen Tag über bei uns zu haben - von der Trauung im Weißen Saal über das Hochzeitsessen bis hin zur Hochzeitsfeier! 💕🎉
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- Deine Einladung Card über dem RSVP -->
                     <div class="card mb-3 border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 15px;">
                         <div class="card-header text-dark border-0" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border-radius: 15px 15px 0 0;">
@@ -398,6 +400,77 @@
             </div>
         </div>
         
+        <!-- Galerie Tab -->
+        <div class="tab-pane fade" id="gallery-pane" role="tabpanel">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 15px;">
+                        <div class="card-header border-0" style="background: linear-gradient(135deg, #8b7355, #d4af37); border-radius: 15px 15px 0 0;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0" style="color: #ffffff; font-weight: 500;">
+                                    <i class="bi bi-images me-2"></i>
+                                    Foto-Galerie
+                                </h5>
+                                <button type="button" class="btn btn-outline-light btn-sm" onclick="refreshGuestGallery()">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>
+                                    <span class="d-none d-sm-inline">Aktualisieren</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <!-- Filter und Suche für Gäste-Galerie -->
+                            <div class="row mb-3">
+                                <div class="col-md-8">
+                                    <div class="input-group">
+                                        <span class="input-group-text" style="background: #f8f9fa; border-color: #d4af37;">
+                                            <i class="bi bi-search"></i>
+                                        </span>
+                                        <input type="text" class="form-control" id="guestGallerySearch" 
+                                               placeholder="Fotos durchsuchen..." 
+                                               onkeyup="filterGuestGallery()"
+                                               style="border-color: #d4af37;">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <select class="form-select" id="guestGalleryTypeFilter" 
+                                            onchange="filterGuestGallery()"
+                                            style="border-color: #d4af37;">
+                                        <option value="">Alle Dateitypen</option>
+                                        <option value="image">Nur Bilder</option>
+                                        <option value="video">Nur Videos</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Loading Animation -->
+                            <div class="text-center py-5 d-none" id="guestGalleryLoading">
+                                <div class="spinner-border" style="color: #d4af37;" role="status">
+                                    <span class="visually-hidden">Lädt...</span>
+                                </div>
+                                <p class="mt-2 text-muted">Galerie wird geladen...</p>
+                            </div>
+                            
+                            <!-- Galerie Grid -->
+                            <div class="row" id="guestGalleryContainer">
+                                <!-- Wird dynamisch gefüllt -->
+                            </div>
+                            
+                            <!-- Keine Fotos Nachricht -->
+                            <div class="row d-none" id="guestGalleryNoPhotos">
+                                <div class="col-12">
+                                    <div class="text-center py-5">
+                                        <i class="bi bi-images" style="font-size: 4rem; color: #d4af37; opacity: 0.5;"></i>
+                                        <h5 class="mt-3" style="color: #8b7355;">Noch keine Fotos</h5>
+                                        <p class="text-muted">Es wurden noch keine Fotos für die Galerie freigegeben.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Informationen Tab -->
         <div class="tab-pane fade" id="info-pane" role="tabpanel">
             <div class="row justify-content-center">
@@ -482,6 +555,60 @@
                                 data-bs-dismiss="modal"
                                 style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border: none; color: #8b7355; font-weight: 500; letter-spacing: 1px; transition: all 0.3s ease;">
                             ✨ Zur Hochzeitswebsite ✨
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Guest Gallery Fullscreen Modal -->
+<div class="modal fade" id="guestFullscreenModal" tabindex="-1" aria-labelledby="guestFullscreenModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content bg-dark">
+            <!-- Floating Close Button (top-right) -->
+            <button type="button" class="guest-custom-close-btn position-absolute" data-bs-dismiss="modal" aria-label="Schließen" style="top: 20px; right: 20px; z-index: 1060;">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            
+            <!-- Full viewport body -->
+            <div class="modal-body p-0 d-flex align-items-center justify-content-center position-relative" style="height: 100vh;">
+                <!-- Navigation Buttons -->
+                <button type="button" class="btn btn-outline-light position-absolute guest-nav-btn" id="guestPrevBtn" 
+                        onclick="window.showGuestPrevious()" 
+                        style="left: 20px; top: 50%; transform: translateY(-50%); z-index: 1040; display: none;">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <button type="button" class="btn btn-outline-light position-absolute guest-nav-btn" id="guestNextBtn" 
+                        onclick="window.showGuestNext()" 
+                        style="right: 20px; top: 50%; transform: translateY(-50%); z-index: 1040; display: none;">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+                
+                <!-- Media content -->
+                <img id="guestFullscreenImage" src="" alt="" class="img-fluid guest-fullscreen-media" 
+                     style="max-height: 75vh !important; max-width: 75vw !important; width: auto !important; height: auto !important; object-fit: contain !important; border-radius: 16px !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7) !important;">
+                <video id="guestFullscreenVideo" controls class="img-fluid guest-fullscreen-media d-none" 
+                       playsinline webkit-playsinline preload="metadata"
+                       style="max-height: 75vh !important; max-width: 75vw !important; width: auto !important; height: auto !important; object-fit: contain !important; border-radius: 16px !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7) !important;">
+                    <source src="" type="">
+                    Ihr Browser unterstützt dieses Video-Format nicht.
+                </video>
+            </div>
+            
+            <!-- Floating Footer -->
+            <div class="modal-footer border-0 position-absolute bottom-0 w-100" style="z-index: 1050; background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, transparent 100%); backdrop-filter: blur(10px);">
+                <div class="d-flex justify-content-between w-100 text-white align-items-center">
+                    <div style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">
+                        <span id="guestModalUploadInfo" class="fs-5 fw-semibold">Upload-Informationen</span>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-outline-light me-2 guest-modal-action-btn" onclick="downloadGuestFile()">
+                            <i class="bi bi-download me-1"></i>Herunterladen
+                        </button>
+                        <button type="button" class="btn btn-outline-light guest-modal-action-btn" data-bs-dismiss="modal">
+                            <i class="bi bi-x-lg me-1"></i>Schließen
                         </button>
                     </div>
                 </div>
@@ -613,6 +740,560 @@
         overflow: hidden;
     }
     
+    /* === GUEST GALLERY MODERN STYLES === */
+    
+    /* Moderne Galerie-Karten mit verbessertem Design */
+    .guest-gallery-item {
+        position: relative;
+        cursor: pointer;
+        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        margin-bottom: 1.5rem;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 
+            0 4px 16px rgba(0, 0, 0, 0.1),
+            0 8px 32px rgba(0, 0, 0, 0.05);
+        background: white;
+        transform: translateY(0);
+    }
+
+    .guest-gallery-item:hover {
+        transform: translateY(-12px) scale(1.02);
+        box-shadow: 
+            0 16px 40px rgba(0, 0, 0, 0.15),
+            0 24px 64px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Video-spezifische Hover-Effekte */
+    .guest-gallery-item.video:hover {
+        transform: translateY(-8px) scale(1.015);
+        box-shadow: 
+            0 20px 48px rgba(156, 39, 176, 0.2),
+            0 12px 32px rgba(74, 144, 226, 0.15);
+    }
+
+    /* Responsive Karten-Layout */
+    .guest-gallery-item .card {
+        border: none;
+        border-radius: 16px;
+        overflow: hidden;
+        height: 100%;
+        min-height: 430px; /* Mindesthöhe für bessere Darstellung - +30px */
+        display: flex;
+        flex-direction: column;
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    }
+
+    .guest-gallery-item .card-body {
+        padding: 0;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Medien-Container mit festem Aspect Ratio */
+    .guest-gallery-media-container {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 4/3;
+        min-height: 310px; /* Mindesthöhe für bessere Sichtbarkeit - +30px für größere Fotos */
+        overflow: hidden;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 16px 16px 0 0;
+    }
+
+    /* Bilder Optimierungen */
+    .guest-gallery-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        max-width: 100%;
+        max-height: 100%;
+        display: block;
+        min-height: 100%;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        filter: contrast(1.05) saturate(1.1);
+    }
+
+    .guest-gallery-item:hover img {
+        transform: scale(1.1);
+        filter: contrast(1.1) saturate(1.2) brightness(1.05);
+    }
+
+    /* Verbesserter Hover Overlay für Bilder */
+    .guest-media-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, 
+            rgba(74, 144, 226, 0.8) 0%, 
+            rgba(156, 39, 176, 0.8) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        backdrop-filter: blur(8px);
+    }
+
+    .guest-overlay-content {
+        text-align: center;
+        color: white;
+        transform: scale(0.8) translateY(20px);
+        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    .guest-overlay-content i {
+        font-size: 3rem;
+        margin-bottom: 0.5rem;
+        display: block;
+        filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+    }
+
+    .guest-overlay-text {
+        font-size: 1rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        opacity: 0.9;
+    }
+
+    .guest-gallery-item:hover .guest-media-overlay {
+        opacity: 1;
+    }
+
+    .guest-gallery-item:hover .guest-overlay-content {
+        transform: scale(1) translateY(0);
+    }
+
+    /* Elegante Video-Container */
+    .guest-video-container {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+        border-radius: 16px 16px 0 0;
+    }
+
+    .guest-video-preview {
+        width: 100%;
+        height: 100%;
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        position: relative;
+        background-color: #2c3e50;
+        transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    .guest-gallery-item:hover .guest-video-preview {
+        transform: scale(1.05);
+        filter: brightness(1.1) contrast(1.1);
+    }
+
+    /* Video Overlay Gradient */
+    .guest-video-overlay-gradient {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(
+            135deg, 
+            rgba(74, 144, 226, 0.2) 0%, 
+            rgba(156, 39, 176, 0.3) 50%,
+            rgba(233, 30, 99, 0.2) 100%
+        );
+        transition: all 0.4s ease;
+    }
+
+    .guest-gallery-item:hover .guest-video-overlay-gradient {
+        background: linear-gradient(
+            135deg, 
+            rgba(74, 144, 226, 0.4) 0%, 
+            rgba(156, 39, 176, 0.5) 50%,
+            rgba(233, 30, 99, 0.4) 100%
+        );
+    }
+
+    /* Animierter Play Button */
+    .guest-video-play-button {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 3;
+    }
+
+    .guest-play-circle {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, 
+            rgba(255, 255, 255, 0.95) 0%, 
+            rgba(255, 255, 255, 0.9) 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.3),
+            0 4px 16px rgba(156, 39, 176, 0.2);
+        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        backdrop-filter: blur(20px);
+        border: 3px solid rgba(255, 255, 255, 0.8);
+    }
+
+    .guest-play-circle i {
+        font-size: 2rem;
+        color: #6c5ce7;
+        margin-left: 3px; /* Leicht nach rechts versetzt für optische Balance */
+        transition: all 0.3s ease;
+    }
+
+    .guest-gallery-item:hover .guest-play-circle {
+        transform: scale(1.15);
+        background: linear-gradient(135deg, 
+            rgba(255, 255, 255, 1) 0%, 
+            rgba(255, 255, 255, 0.95) 100%);
+        box-shadow: 
+            0 16px 48px rgba(0, 0, 0, 0.4),
+            0 8px 24px rgba(156, 39, 176, 0.3);
+    }
+
+    .guest-gallery-item:hover .guest-play-circle i {
+        color: #5f3dc4;
+        transform: scale(1.1);
+    }
+
+    /* Ripple Effekt */
+    .guest-play-ripple {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 80px;
+        height: 80px;
+        border: 2px solid rgba(255, 255, 255, 0.6);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        animation: guest-ripple 2s infinite;
+        z-index: 1;
+    }
+
+    @keyframes guest-ripple {
+        0% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0.8;
+        }
+        70% {
+            transform: translate(-50%, -50%) scale(1.8);
+            opacity: 0;
+        }
+        100% {
+            transform: translate(-50%, -50%) scale(1.8);
+            opacity: 0;
+        }
+    }
+
+    /* Video Type Badge */
+    .guest-video-type-badge {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        background: linear-gradient(135deg, 
+            rgba(74, 144, 226, 0.95) 0%, 
+            rgba(156, 39, 176, 0.95) 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 4px 16px rgba(74, 144, 226, 0.3);
+        transition: all 0.3s ease;
+        z-index: 2;
+    }
+
+    .guest-gallery-item:hover .guest-video-type-badge {
+        transform: translateY(-2px) scale(1.05);
+        box-shadow: 0 8px 24px rgba(74, 144, 226, 0.4);
+    }
+
+    /* Video Duration Corner */
+    .guest-video-duration-corner {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        width: 40px;
+        height: 40px;
+        background: rgba(0, 0, 0, 0.8);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.9rem;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+        z-index: 2;
+    }
+
+    .guest-gallery-item:hover .guest-video-duration-corner {
+        background: rgba(0, 0, 0, 0.9);
+        transform: scale(1.1);
+    }
+
+    /* Informations-Container */
+    .guest-gallery-info {
+        padding: 1.25rem;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        border-radius: 0 0 16px 16px;
+        transition: all 0.3s ease;
+    }
+
+    .guest-gallery-item:hover .guest-gallery-info {
+        background: linear-gradient(135deg, #ffffff 0%, #f1f3f4 100%);
+        transform: translateY(-2px);
+    }
+
+    .guest-gallery-author {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        line-height: 1.3;
+        transition: all 0.3s ease;
+    }
+
+    .guest-brautpaar-name {
+        font-family: 'Playfair Display', serif !important;
+        font-weight: 600;
+        font-size: 1.2rem;
+        color: #000000 !important;
+        letter-spacing: 1px;
+        position: relative;
+        text-transform: uppercase;
+        font-style: italic;
+    }
+
+    .guest-guest-name {
+        color: #495057;
+        font-weight: 600;
+    }
+
+    .guest-gallery-date {
+        font-size: 0.85rem;
+        color: #6c757d;
+        font-weight: 500;
+        opacity: 0.8;
+        transition: all 0.3s ease;
+    }
+
+    .guest-gallery-item:hover .guest-gallery-date {
+        opacity: 1;
+        color: #5a6c7d;
+    }
+
+    /* Fullscreen Modal Optimierungen für Guest Gallery */
+
+    /* Vollbild Media Darstellung - Deutlich kleinere zentrierte Ansicht */
+    .guest-fullscreen-media {
+        max-height: 75vh !important; /* 75% der Bildschirmhöhe verwenden */
+        max-width: 75vw !important; /* 75% der Bildschirmbreite verwenden */
+        width: auto !important;
+        height: auto !important;
+        object-fit: contain !important;
+        border-radius: 16px !important; /* Größere abgerundete Ecken */
+        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7) !important; /* Stärkerer Schatten für bessere Sichtbarkeit */
+    }
+
+    /* Custom Close Button (floating top-right) */
+    .guest-custom-close-btn {
+        background: rgba(0, 0, 0, 0.6);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        cursor: pointer;
+    }
+
+    .guest-custom-close-btn:hover {
+        background: rgba(0, 0, 0, 0.8);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: white;
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .guest-custom-close-btn:focus {
+        outline: none;
+        box-shadow: 
+            0 6px 20px rgba(0, 0, 0, 0.5),
+            0 0 0 3px rgba(255, 255, 255, 0.3);
+    }
+
+    /* Navigation Buttons Verbesserung */
+    .guest-nav-btn {
+        background: rgba(255, 255, 255, 0.15) !important;
+        border: 2px solid rgba(255, 255, 255, 0.25) !important;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        width: 60px;
+        height: 60px;
+        border-radius: 50% !important;
+        font-size: 1.4rem;
+        transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    .guest-nav-btn:hover {
+        background: rgba(255, 255, 255, 0.25) !important;
+        border-color: rgba(255, 255, 255, 0.4) !important;
+        transform: translateY(-50%) scale(1.15);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .guest-nav-btn:focus {
+        outline: none;
+        box-shadow: 
+            0 8px 24px rgba(0, 0, 0, 0.4),
+            0 0 0 3px rgba(255, 255, 255, 0.3);
+    }
+
+    /* Modal Action Buttons */
+    .guest-modal-action-btn {
+        background: rgba(255, 255, 255, 0.15) !important;
+        border: 2px solid rgba(255, 255, 255, 0.25) !important;
+        backdrop-filter: blur(20px);
+        transition: all 0.3s ease;
+        font-weight: 500;
+    }
+
+    .guest-modal-action-btn:hover {
+        background: rgba(255, 255, 255, 0.25) !important;
+        border-color: rgba(255, 255, 255, 0.4) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Auto-hide für bessere Bildbetrachtung */
+    #guestFullscreenModal.auto-hide .modal-footer,
+    #guestFullscreenModal.auto-hide .guest-custom-close-btn {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    #guestFullscreenModal.auto-hide .guest-nav-btn {
+        opacity: 0.3;
+    }
+
+    #guestFullscreenModal:hover .modal-footer,
+    #guestFullscreenModal:hover .guest-custom-close-btn,
+    #guestFullscreenModal:hover .guest-nav-btn {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Responsive fullscreen adjustments */
+    @media (max-width: 768px) {
+        .guest-fullscreen-media {
+            max-height: 68vh !important;
+            max-width: 85vw !important;
+        }
+        
+        .guest-nav-btn {
+            width: 50px !important;
+            height: 50px !important;
+            font-size: 1.2rem !important;
+        }
+        
+        #guestPrevBtn {
+            left: 15px !important;
+        }
+        
+        #guestNextBtn {
+            right: 15px !important;
+        }
+        
+        .guest-custom-close-btn {
+            width: 42px;
+            height: 42px;
+            font-size: 1rem;
+        }
+        
+        .guest-modal-action-btn {
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+        }
+    }
+
+    @media (max-width: 375px) {
+        .guest-fullscreen-media {
+            max-height: 60vh !important;
+            max-width: 85vw !important;
+        }
+    }
+
+    @media (max-width: 768px) and (orientation: landscape) {
+        .guest-fullscreen-media {
+            max-height: 75vh !important;
+            max-width: 70vw !important;
+        }
+    }
+
+    @media (min-width: 769px) and (max-width: 1024px) {
+        .guest-fullscreen-media {
+            max-height: 72vh !important;
+            max-width: 75vw !important;
+        }
+    }
+
+    /* FORCE OVERRIDE für Guest Gallery */
+    #guestFullscreenImage.guest-fullscreen-media,
+    #guestFullscreenVideo.guest-fullscreen-media,
+    img.guest-fullscreen-media,
+    video.guest-fullscreen-media {
+        max-height: 75vh !important;
+        max-width: 75vw !important;
+        width: auto !important;
+        height: auto !important;
+        object-fit: contain !important;
+        border-radius: 16px !important;
+        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7) !important;
+    }
+
+    @media (max-width: 768px) {
+        #guestFullscreenImage.guest-fullscreen-media,
+        #guestFullscreenVideo.guest-fullscreen-media,
+        img.guest-fullscreen-media,
+        video.guest-fullscreen-media {
+            max-height: 68vh !important;
+            max-width: 85vw !important;
+        }
+    }
+    
+    /* === END GUEST GALLERY STYLES === */
+    
     .btn-maps:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 15px rgba(0,0,0,0.2);
@@ -660,4 +1341,775 @@
 <script src="{{ url_for('static', filename='js/first_login_modal.js') }}"></script>
 <script src="{{ url_for('static', filename='js/guest_dashboard.js') }}"></script>
 <script src="{{ url_for('static', filename='js/guest_uploads.js') }}"></script>
+
+<script>
+// Gäste-Galerie JavaScript - Robuste Implementierung für Tab-System
+
+let guestGalleryData = []; // Store gallery data for navigation
+let guestCurrentIndex = -1; // Current item index
+let guestGalleryLoaded = false; // Flag to prevent multiple loads
+
+// Galerie-Laden Funktion
+function loadGuestGalleryNow() {
+    // Warten bis DOM-Elemente verfügbar sind
+    const loading = document.getElementById('guestGalleryLoading');
+    const container = document.getElementById('guestGalleryContainer');
+    
+    if (!loading || !container) {
+        setTimeout(loadGuestGalleryNow, 100);
+        return;
+    }
+    
+    // Vermeiden von mehrfachen gleichzeitigen Loads
+    if (guestGalleryLoaded) {
+        return;
+    }
+    
+    guestGalleryLoaded = true;
+    
+    // Zeige Loading-Animation
+    loading.style.display = 'block';
+    container.innerHTML = '';
+    
+    fetch('/api/approved-gallery')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Store gallery data for navigation
+            guestGalleryData = data || [];
+            
+            loading.style.display = 'none';
+            
+            if (data && data.length > 0) {
+                renderGuestGallery(data);
+            } else {
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="text-center py-5">
+                            <i class="bi bi-images" style="font-size: 4rem; color: #d4af37; opacity: 0.5;"></i>
+                            <h5 class="mt-3" style="color: #8b7355;">Noch keine Fotos</h5>
+                            <p class="text-muted">Es wurden noch keine Fotos für die Galerie freigegeben.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            loading.style.display = 'none';
+            container.innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-danger">
+                        <h5>❌ Fehler beim Laden der Galerie</h5>
+                        <p><strong>Fehlermeldung:</strong> ${error.message}</p>
+                        <p><strong>Zeitpunkt:</strong> ${new Date().toLocaleString('de-DE')}</p>
+                        <button class="btn btn-outline-danger btn-sm" onclick="location.reload()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Seite neu laden
+                        </button>
+                    </div>
+                </div>
+            `;
+            guestGalleryLoaded = false; // Reset flag on error
+        });
+}
+
+// Render-Funktion für Guest Gallery
+function renderGuestGallery(data) {
+    const container = document.getElementById('guestGalleryContainer');
+    if (!container) return;
+    
+    let html = '';
+    data.forEach((upload) => {
+        const fileTypeClass = upload.file_type === 'image' ? 'image' : 'video';
+        
+        // Enhanced displayName logic - treat Administrator as Brautpaar
+        let displayName;
+        if (upload.gast_vorname && upload.gast_nachname) {
+            displayName = `${upload.gast_vorname} ${upload.gast_nachname}`;
+        } else if (upload.gast_vorname === 'Administrator' || upload.gast_vorname === 'Brautpaar') {
+            displayName = 'Brautpaar';
+        } else {
+            displayName = 'Brautpaar'; // Default to Brautpaar instead of Unbekannt
+        }
+        
+        // Check if it's from Brautpaar
+        const isBrautpaar = displayName === 'Brautpaar';
+        const authorDisplay = isBrautpaar ? 
+            `<span class="guest-brautpaar-name">👰🏻‍♀️🤵🏻‍♂️ Brautpaar</span>` : 
+            `<span class="guest-guest-name">${displayName}</span>`;
+        
+        const uploadDate = new Date(upload.upload_date).toLocaleDateString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+        
+        html += `
+            <div class="col-lg-3 col-md-4 col-sm-6 col-12">
+                <div class="guest-gallery-item ${fileTypeClass}" onclick="openGuestFullscreen(${upload.id}, '${upload.file_type}', '${upload.original_filename}', '${displayName}', '${uploadDate}')">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="guest-gallery-media-container">
+                                ${upload.file_type === 'image' ? `
+                                    <img src="/api/gallery-thumbnail/${upload.id}" alt="${upload.original_filename}" loading="lazy">
+                                    <div class="guest-media-overlay">
+                                        <div class="guest-overlay-content">
+                                            <i class="bi bi-zoom-in"></i>
+                                            <span class="guest-overlay-text">Ansehen</span>
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <div class="guest-video-container">
+                                        <div class="guest-video-preview" style="background-image: linear-gradient(45deg, rgba(74, 144, 226, 0.1), rgba(156, 39, 176, 0.1)), url('/api/gallery-thumbnail/${upload.id}');">
+                                            <div class="guest-video-overlay-gradient"></div>
+                                            <div class="guest-video-play-button">
+                                                <div class="guest-play-circle">
+                                                    <i class="bi bi-play-fill"></i>
+                                                </div>
+                                                <div class="guest-play-ripple"></div>
+                                            </div>
+                                            <div class="guest-video-type-badge">
+                                                <i class="bi bi-camera-video-fill me-1"></i>
+                                                <span>Video</span>
+                                            </div>
+                                            <div class="guest-video-duration-corner">
+                                                <i class="bi bi-clock-fill"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `}
+                            </div>
+                            <div class="guest-gallery-info">
+                                <div class="guest-gallery-author ${isBrautpaar ? 'guest-brautpaar-name' : 'guest-guest-name'}">
+                                    ${authorDisplay}
+                                </div>
+                                <div class="guest-gallery-date">${uploadDate}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+// Enhanced Multi-Strategy Loading Approach
+
+// Strategy 0: Immediate DOM check
+function attemptImmediateLoad() {
+    // Check if gallery tab is currently visible/active
+    const galleryPane = document.getElementById('gallery-pane');
+    if (galleryPane) {
+        const isVisible = galleryPane.classList.contains('show') || galleryPane.classList.contains('active');
+        console.log('🔍 GUEST GALLERY: Gallery pane visible:', isVisible);
+        console.log('🔍 GUEST GALLERY: Gallery pane classes:', galleryPane.className);
+        
+        if (isVisible && !guestGalleryLoaded) {
+            loadGuestGalleryNow();
+            return;
+        }
+    }
+    
+    if (!guestGalleryLoaded) {
+        loadGuestGalleryNow();
+    }
+}
+
+// Try immediate load
+setTimeout(attemptImmediateLoad, 10);
+
+// Strategy 2: Enhanced Tab-aktivierung mit besserer Event-Detection
+document.addEventListener('DOMContentLoaded', function() {
+    const galleryTab = document.getElementById('gallery-tab');
+    const galleryPane = document.getElementById('gallery-pane');
+    
+    console.log('🔍 GUEST GALLERY: Tab elements found:', {
+        galleryTab: !!galleryTab,
+        galleryPane: !!galleryPane
+    });
+    
+    if (galleryTab) {
+        // Enhanced Bootstrap tab event listener
+        galleryTab.addEventListener('shown.bs.tab', function (e) {
+            console.log('🎯 GUEST: Gallery tab activated via Bootstrap shown.bs.tab event!');
+            console.log('🎯 GUEST: Event target:', e.target);
+            console.log('📡 GUEST: Loading gallery from tab activation...');
+            loadGuestGalleryNow();
+        });
+        
+        // ENHANCED click event listener - trigger immediately on click
+        galleryTab.addEventListener('click', function(e) {
+            console.log('🖱️ GUEST: Gallery tab clicked!');
+            console.log('🖱️ GUEST: Click target:', e.target);
+            console.log('🖱️ GUEST: Current guestGalleryLoaded flag:', guestGalleryLoaded);
+            
+            // IMMEDIATE load attempt - don't wait for tab switch
+            console.log('� GUEST: IMMEDIATE gallery load from click event...');
+            setTimeout(() => {
+                loadGuestGalleryNow();
+            }, 100); // Very short delay to ensure DOM is ready
+        });
+        
+        // Check if gallery tab is already active on load
+        const isActive = galleryTab.classList.contains('active') || 
+                         galleryTab.getAttribute('aria-selected') === 'true';
+        console.log('🔍 GUEST: Gallery tab initial state:', {
+            hasActiveClass: galleryTab.classList.contains('active'),
+            ariaSelected: galleryTab.getAttribute('aria-selected'),
+            classList: galleryTab.className,
+            isActive: isActive
+        });
+        
+        if (isActive) {
+            console.log('� GUEST: Gallery tab already active on load, loading immediately...');
+            setTimeout(() => {
+                loadGuestGalleryNow();
+            }, 100);
+        }
+    } else {
+        console.error('❌ GUEST: Gallery tab element NOT FOUND!');
+    }
+    
+    // UNIVERSAL Tab Observer - watches for any tab changes
+    const tabObserver = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' && 
+                mutation.attributeName === 'class' || 
+                mutation.attributeName === 'aria-selected') {
+                
+                const target = mutation.target;
+                if (target.id === 'gallery-tab' || target.getAttribute('data-bs-target') === '#gallery-pane') {
+                    const isNowActive = target.classList.contains('active') || 
+                                       target.getAttribute('aria-selected') === 'true';
+                    
+                    if (isNowActive) {
+                        console.log('� GUEST: Gallery tab became active (mutation observer)');
+                        setTimeout(() => {
+                            loadGuestGalleryNow();
+                        }, 200);
+                    }
+                }
+            }
+        });
+    });
+    
+    // Start observing tab changes
+    if (galleryTab) {
+        tabObserver.observe(galleryTab, {
+            attributes: true,
+            attributeFilter: ['class', 'aria-selected']
+        });
+    }
+    
+    // Strategy 3: Multiple force loading attempts with increasing delays
+    const forceLoadingAttempts = [500, 1000, 2000];
+    forceLoadingAttempts.forEach((delay, index) => {
+        setTimeout(() => {
+            if (!guestGalleryLoaded) {
+                console.log(`🚀 GUEST: Force loading attempt ${index + 1} after ${delay}ms...`);
+                loadGuestGalleryNow();
+            }
+        }, delay);
+    });
+    
+    // Strategy 4: Enhanced Global Tab Switch Detection
+    document.body.addEventListener('click', function(e) {
+        // Check if any gallery-related element was clicked
+        const target = e.target;
+        const isGalleryClick = target.id === 'gallery-tab' || 
+                              target.getAttribute('data-bs-target') === '#gallery-pane' ||
+                              target.closest('#gallery-tab') ||
+                              target.closest('[data-bs-target="#gallery-pane"]');
+        
+        if (isGalleryClick) {
+            console.log('🎯 GUEST: Gallery tab clicked via global listener!');
+            console.log('🎯 GUEST: Clicked element:', target);
+            setTimeout(() => {
+                console.log('📡 GUEST: Loading gallery from global click detection...');
+                loadGuestGalleryNow();
+            }, 150);
+        }
+    });
+});
+
+// Fullscreen modal functions
+window.openGuestFullscreen = function(uploadId, fileType, filename, guestName, uploadDate) {
+    
+    // Find current index in gallery data
+    guestCurrentIndex = guestGalleryData.findIndex(item => item.id === uploadId);
+    
+    const modal = new bootstrap.Modal(document.getElementById('guestFullscreenModal'));
+    const modalUploadInfo = document.getElementById('guestModalUploadInfo');
+    const fullscreenImage = document.getElementById('guestFullscreenImage');
+    const fullscreenVideo = document.getElementById('guestFullscreenVideo');
+    const prevBtn = document.getElementById('guestPrevBtn');
+    const nextBtn = document.getElementById('guestNextBtn');
+    
+    // Set only upload info (no title, no filename)
+    modalUploadInfo.textContent = `Hochgeladen von ${guestName} am ${uploadDate}`;
+    
+    if (fileType === 'image') {
+        // Show image
+        fullscreenImage.src = `/api/gallery-image/${uploadId}`;
+        fullscreenImage.alt = filename;
+        fullscreenImage.classList.remove('d-none');
+        fullscreenVideo.classList.add('d-none');
+        
+        // FORCE SMALL SIZE - Direkte Style-Zuweisung
+        fullscreenImage.style.maxHeight = '75vh';
+        fullscreenImage.style.maxWidth = '75vw';
+        fullscreenImage.style.width = 'auto';
+        fullscreenImage.style.height = 'auto';
+        fullscreenImage.style.objectFit = 'contain';
+        fullscreenImage.style.borderRadius = '16px';
+        fullscreenImage.style.boxShadow = '0 12px 48px rgba(0, 0, 0, 0.7)';
+        
+        // Ensure proper loading and sizing
+        fullscreenImage.onload = function() {
+            console.log('🖼️ GUEST: Image loaded and sized properly');
+            // FORCE AGAIN after loading
+            this.style.maxHeight = '75vh';
+            this.style.maxWidth = '75vw';
+            this.style.width = 'auto';
+            this.style.height = 'auto';
+            this.style.objectFit = 'contain';
+            this.style.borderRadius = '16px';
+            this.style.boxShadow = '0 12px 48px rgba(0, 0, 0, 0.7)';
+        };
+    } else {
+        // Show video
+        fullscreenVideo.src = `/api/gallery-image/${uploadId}`;
+        fullscreenVideo.classList.remove('d-none');
+        fullscreenImage.classList.add('d-none');
+        
+        // FORCE SMALL SIZE - Direkte Style-Zuweisung für Video
+        fullscreenVideo.style.maxHeight = '75vh';
+        fullscreenVideo.style.maxWidth = '75vw';
+        fullscreenVideo.style.width = 'auto';
+        fullscreenVideo.style.height = 'auto';
+        fullscreenVideo.style.objectFit = 'contain';
+        fullscreenVideo.style.borderRadius = '16px';
+        fullscreenVideo.style.boxShadow = '0 12px 48px rgba(0, 0, 0, 0.7)';
+        
+        // Ensure video is properly configured for mobile
+        fullscreenVideo.setAttribute('playsinline', '');
+        fullscreenVideo.setAttribute('webkit-playsinline', '');
+    }
+    
+    // Update navigation buttons
+    prevBtn.style.display = guestCurrentIndex > 0 ? 'block' : 'none';
+    nextBtn.style.display = guestCurrentIndex < guestGalleryData.length - 1 ? 'block' : 'none';
+    
+    // Store current file info for download
+    window.guestCurrentFile = { id: uploadId, filename: filename, type: fileType };
+    
+    // ULTIMATE FORCE SIZE - Interval timer to ensure size stays small
+    const sizeForceInterval = setInterval(() => {
+        const img = document.getElementById('guestFullscreenImage');
+        const vid = document.getElementById('guestFullscreenVideo');
+        
+        if (img && !img.classList.contains('d-none')) {
+            img.style.maxHeight = '75vh';
+            img.style.maxWidth = '75vw';
+            img.style.width = 'auto';
+            img.style.height = 'auto';
+            img.style.objectFit = 'contain';
+            img.style.borderRadius = '16px';
+            img.style.boxShadow = '0 12px 48px rgba(0, 0, 0, 0.7)';
+        }
+        
+        if (vid && !vid.classList.contains('d-none')) {
+            vid.style.maxHeight = '75vh';
+            vid.style.maxWidth = '75vw';
+            vid.style.width = 'auto';
+            vid.style.height = 'auto';
+            vid.style.objectFit = 'contain';
+            vid.style.borderRadius = '16px';
+            vid.style.boxShadow = '0 12px 48px rgba(0, 0, 0, 0.7)';
+        }
+    }, 100);
+    
+    // Store interval for cleanup
+    window.guestCurrentSizeForceInterval = sizeForceInterval;
+    
+    modal.show();
+};
+
+window.closeGuestFullscreen = function() {
+    console.log('🚪 GUEST: Attempting to close fullscreen modal...');
+    
+    // Clear focus from any buttons before hiding
+    if (document.activeElement && document.activeElement.blur) {
+        document.activeElement.blur();
+    }
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('guestFullscreenModal'));
+    if (modal) {
+        console.log('📱 GUEST: Using Bootstrap modal instance to close');
+        modal.hide();
+    } else {
+        console.log('⚠️ GUEST: No Bootstrap modal instance found, using manual close');
+        // Fallback: manually hide modal
+        const modalElement = document.getElementById('guestFullscreenModal');
+        if (modalElement) {
+            modalElement.style.display = 'none';
+            modalElement.classList.remove('show');
+            modalElement.setAttribute('aria-hidden', 'true');
+            
+            // Remove ALL backdrops
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => {
+                console.log('🗑️ GUEST: Removing backdrop:', backdrop);
+                backdrop.remove();
+            });
+            
+            // Restore body scroll and state
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            console.log('🧹 GUEST: Manual cleanup completed');
+        }
+    }
+    
+    // Additional safety timeout to force cleanup
+    setTimeout(function() {
+        const remainingBackdrops = document.querySelectorAll('.modal-backdrop');
+        if (remainingBackdrops.length > 0) {
+            console.log('🚨 GUEST: Found remaining backdrops, force removing...');
+            remainingBackdrops.forEach(backdrop => backdrop.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        }
+    }, 300);
+};
+
+window.downloadGuestFile = function() {
+    if (window.guestCurrentFile) {
+        const link = document.createElement('a');
+        link.href = `/api/gallery-image/${window.guestCurrentFile.id}`;
+        link.download = window.guestCurrentFile.filename;
+        link.click();
+    }
+};
+
+window.refreshGuestGallery = function() {
+    guestGalleryLoaded = false;
+    guestGalleryData = [];
+    loadGuestGalleryNow();
+};
+
+window.showGuestPrevious = function() {
+    if (guestCurrentIndex > 0) {
+        const prevItem = guestGalleryData[guestCurrentIndex - 1];
+        
+        // Enhanced displayName logic - treat Administrator as Brautpaar
+        let prevDisplayName;
+        if (prevItem.gast_vorname && prevItem.gast_nachname) {
+            prevDisplayName = `${prevItem.gast_vorname} ${prevItem.gast_nachname}`;
+        } else if (prevItem.gast_vorname === 'Administrator' || prevItem.gast_vorname === 'Brautpaar') {
+            prevDisplayName = 'Brautpaar';
+        } else {
+            prevDisplayName = 'Brautpaar'; // Default to Brautpaar instead of Unbekannt
+        }
+        const uploadDate = new Date(prevItem.upload_date).toLocaleDateString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+        window.openGuestFullscreen(prevItem.id, prevItem.file_type, prevItem.original_filename, 
+                            prevDisplayName, uploadDate);
+    }
+};
+
+window.showGuestNext = function() {
+    if (guestCurrentIndex < guestGalleryData.length - 1) {
+        const nextItem = guestGalleryData[guestCurrentIndex + 1];
+        
+        // Enhanced displayName logic - treat Administrator as Brautpaar
+        let nextDisplayName;
+        if (nextItem.gast_vorname && nextItem.gast_nachname) {
+            nextDisplayName = `${nextItem.gast_vorname} ${nextItem.gast_nachname}`;
+        } else if (nextItem.gast_vorname === 'Administrator' || nextItem.gast_vorname === 'Brautpaar') {
+            nextDisplayName = 'Brautpaar';
+        } else {
+            nextDisplayName = 'Brautpaar'; // Default to Brautpaar instead of Unbekannt
+        }
+        const uploadDate = new Date(nextItem.upload_date).toLocaleDateString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+        window.openGuestFullscreen(nextItem.id, nextItem.file_type, nextItem.original_filename, 
+                            nextDisplayName, uploadDate);
+    }
+};
+
+window.filterGuestGallery = function() {
+    const searchTerm = document.getElementById('guestGallerySearch').value.toLowerCase();
+    const typeFilter = document.getElementById('guestGalleryTypeFilter').value;
+    
+    if (!searchTerm && !typeFilter) {
+        // No filters, show all
+        renderFilteredGuestGallery(guestGalleryData);
+        return;
+    }
+    
+    const filtered = guestGalleryData.filter(photo => {
+        const matchesSearch = !searchTerm || 
+                            photo.original_filename.toLowerCase().includes(searchTerm) ||
+                            (photo.beschreibung && photo.beschreibung.toLowerCase().includes(searchTerm)) ||
+                            `${photo.gast_vorname} ${photo.gast_nachname}`.toLowerCase().includes(searchTerm);
+        
+        const matchesType = !typeFilter || photo.file_type === typeFilter;
+        
+        return matchesSearch && matchesType;
+    });
+    
+    renderFilteredGuestGallery(filtered);
+};
+
+function renderFilteredGuestGallery(filteredData) {
+    const container = document.getElementById('guestGalleryContainer');
+    const noPhotosMessage = document.getElementById('guestGalleryNoPhotos');
+    
+    if (filteredData.length === 0) {
+        container.innerHTML = '';
+        noPhotosMessage.classList.remove('d-none');
+        return;
+    }
+    
+    noPhotosMessage.classList.add('d-none');
+    
+    let html = '';
+    filteredData.forEach((upload) => {
+        const fileTypeClass = upload.file_type === 'image' ? 'image' : 'video';
+        
+        // Enhanced displayName logic - treat Administrator as Brautpaar
+        let displayName;
+        if (upload.gast_vorname && upload.gast_nachname) {
+            displayName = `${upload.gast_vorname} ${upload.gast_nachname}`;
+        } else if (upload.gast_vorname === 'Administrator' || upload.gast_vorname === 'Brautpaar') {
+            displayName = 'Brautpaar';
+        } else {
+            displayName = 'Brautpaar'; // Default to Brautpaar instead of Unbekannt
+        }
+        
+        // Check if it's from Brautpaar
+        const isBrautpaar = displayName === 'Brautpaar';
+        const authorDisplay = isBrautpaar ? 
+            `<span class="guest-brautpaar-name">👰🏻‍♀️🤵🏻‍♂️ Brautpaar</span>` : 
+            `<span class="guest-guest-name">${displayName}</span>`;
+        
+        const uploadDate = new Date(upload.upload_date).toLocaleDateString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+        
+        html += `
+            <div class="col-lg-3 col-md-4 col-sm-6 col-12">
+                <div class="guest-gallery-item ${fileTypeClass}" onclick="openGuestFullscreen(${upload.id}, '${upload.file_type}', '${upload.original_filename}', '${displayName}', '${uploadDate}')">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="guest-gallery-media-container">
+                                ${upload.file_type === 'image' ? `
+                                    <img src="/api/gallery-thumbnail/${upload.id}" alt="${upload.original_filename}" loading="lazy">
+                                    <div class="guest-media-overlay">
+                                        <div class="guest-overlay-content">
+                                            <i class="bi bi-zoom-in"></i>
+                                            <span class="guest-overlay-text">Ansehen</span>
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <div class="guest-video-container">
+                                        <div class="guest-video-preview" style="background-image: linear-gradient(45deg, rgba(74, 144, 226, 0.1), rgba(156, 39, 176, 0.1)), url('/api/gallery-thumbnail/${upload.id}');">
+                                            <div class="guest-video-overlay-gradient"></div>
+                                            <div class="guest-video-play-button">
+                                                <div class="guest-play-circle">
+                                                    <i class="bi bi-play-fill"></i>
+                                                </div>
+                                                <div class="guest-play-ripple"></div>
+                                            </div>
+                                            <div class="guest-video-type-badge">
+                                                <i class="bi bi-camera-video-fill me-1"></i>
+                                                <span>Video</span>
+                                            </div>
+                                            <div class="guest-video-duration-corner">
+                                                <i class="bi bi-clock-fill"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `}
+                            </div>
+                            <div class="guest-gallery-info">
+                                <div class="guest-gallery-author ${isBrautpaar ? 'guest-brautpaar-name' : 'guest-guest-name'}">
+                                    ${authorDisplay}
+                                </div>
+                                <div class="guest-gallery-date">${uploadDate}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+// Keyboard navigation for guest modal
+document.addEventListener('keydown', function(e) {
+    const modal = document.getElementById('guestFullscreenModal');
+    if (modal && modal.classList.contains('show')) {
+        switch(e.key) {
+            case 'ArrowLeft':
+                e.preventDefault();
+                if (guestCurrentIndex > 0) window.showGuestPrevious();
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                if (guestCurrentIndex < guestGalleryData.length - 1) window.showGuestNext();
+                break;
+            case 'Escape':
+                e.preventDefault();
+                closeGuestFullscreen();
+                break;
+        }
+    }
+});
+
+// Touch/swipe navigation for mobile on guest modal
+let guestTouchStartX = 0;
+let guestTouchEndX = 0;
+
+document.addEventListener('touchstart', function(e) {
+    const modal = document.getElementById('guestFullscreenModal');
+    if (modal && modal.classList.contains('show')) {
+        guestTouchStartX = e.changedTouches[0].screenX;
+    }
+});
+
+document.addEventListener('touchend', function(e) {
+    const modal = document.getElementById('guestFullscreenModal');
+    if (modal && modal.classList.contains('show')) {
+        guestTouchEndX = e.changedTouches[0].screenX;
+        handleGuestSwipe();
+    }
+});
+
+function handleGuestSwipe() {
+    const swipeThreshold = 50; // Minimum swipe distance
+    const swipeDistance = guestTouchEndX - guestTouchStartX;
+    
+    if (Math.abs(swipeDistance) > swipeThreshold) {
+        if (swipeDistance > 0 && guestCurrentIndex > 0) {
+            // Swipe right - show previous
+            window.showGuestPrevious();
+        } else if (swipeDistance < 0 && guestCurrentIndex < guestGalleryData.length - 1) {
+            // Swipe left - show next
+            window.showGuestNext();
+        }
+    }
+}
+
+// Modal event listeners for proper cleanup
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('guestFullscreenModal');
+    if (modal) {
+        // Auto-hide feature für bessere Bildbetrachtung
+        let hideTimeout;
+        
+        const showControls = () => {
+            modal.classList.remove('auto-hide');
+            clearTimeout(hideTimeout);
+            hideTimeout = setTimeout(() => {
+                modal.classList.add('auto-hide');
+            }, 3000); // Hide after 3 seconds of inactivity
+        };
+        
+        const hideControls = () => {
+            modal.classList.add('auto-hide');
+        };
+        
+        // Show controls on mouse move or touch
+        modal.addEventListener('mousemove', showControls);
+        modal.addEventListener('touchstart', showControls);
+        modal.addEventListener('click', showControls);
+        
+        // Always show controls when hovering over them
+        const controls = modal.querySelectorAll('.modal-footer, .guest-nav-btn, .guest-custom-close-btn');
+        controls.forEach(control => {
+            control.addEventListener('mouseenter', () => {
+                modal.classList.remove('auto-hide');
+                clearTimeout(hideTimeout);
+            });
+        });
+        
+        // Clean up when modal is hidden
+        modal.addEventListener('hidden.bs.modal', function () {
+            console.log('🚪 GUEST: Modal closed properly');
+            // Reset auto-hide state
+            modal.classList.remove('auto-hide');
+            clearTimeout(hideTimeout);
+            
+            // Force remove any remaining backdrops
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+            
+            // Force restore body state
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            // Clear any video sources to stop playback
+            const video = document.getElementById('guestFullscreenVideo');
+            if (video && !video.classList.contains('d-none')) {
+                video.pause();
+                video.src = '';
+            }
+            // Clear image source
+            const image = document.getElementById('guestFullscreenImage');
+            if (image && !image.classList.contains('d-none')) {
+                image.src = '';
+            }
+            // Reset current file
+            window.guestCurrentFile = null;
+            
+            // CLEANUP: Stop size force interval
+            if (window.guestCurrentSizeForceInterval) {
+                clearInterval(window.guestCurrentSizeForceInterval);
+                window.guestCurrentSizeForceInterval = null;
+                console.log('🔧 GUEST: Size force interval cleared');
+            }
+            
+            console.log('🧹 GUEST: Forced cleanup completed');
+        });
+        
+        // Handle modal show event
+        modal.addEventListener('shown.bs.modal', function () {
+            console.log('🖼️ GUEST: Modal opened properly');
+            // Start auto-hide timer
+            showControls();
+        });
+        
+        // Add additional cleanup on hide start
+        modal.addEventListener('hide.bs.modal', function () {
+            console.log('🚪 GUEST: Modal starting to close...');
+            // Clear focus immediately
+            if (document.activeElement && document.activeElement.blur) {
+                document.activeElement.blur();
+            }
+            // Clear auto-hide timer
+            clearTimeout(hideTimeout);
+            modal.classList.remove('auto-hide');
+        });
+    }
+});
+</script>
+
 {% endblock %}
