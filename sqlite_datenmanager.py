@@ -2343,6 +2343,141 @@ class SQLiteHochzeitsDatenManager:
             logger.error(f"Fehler beim Speichern der Einstellungen in SQLite: {e}")
             return False
     
+    def save_invitation_generator_settings(self, settings: dict) -> bool:
+        """
+        Speichert Einstellungen des Einladungs-Generators in der Datenbank
+        
+        Args:
+            settings: Dictionary mit Einstellungen (primaryColor, accentColor, etc.)
+        
+        Returns:
+            bool: Erfolg des Speichervorgangs
+        """
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                
+                # Alle Einstellungen mit Präfix 'invitation_' speichern
+                for key, value in settings.items():
+                    setting_key = f"invitation_{key}"
+                    
+                    # Typ bestimmen
+                    typ = type(value).__name__
+                    if typ == 'bool':
+                        typ = 'boolean'
+                    elif typ in ['dict', 'list']:
+                        typ = 'json'
+                        value = json.dumps(value, ensure_ascii=False)
+                    
+                    # Wert zu String konvertieren
+                    value_str = str(value) if value is not None else ''
+                    
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO einstellungen (schluessel, wert, typ, beschreibung, updated_at)
+                        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    """, (setting_key, value_str, typ, f"Einladungs-Generator: {key}"))
+                
+                conn.commit()
+                conn.close()
+                
+                logger.info(f"✅ Einladungs-Generator Einstellungen gespeichert: {len(settings)} Werte")
+                return True
+                
+        except Exception as e:
+            logger.error(f"❌ Fehler beim Speichern der Einladungs-Generator Einstellungen: {e}")
+            return False
+    
+    def load_invitation_generator_settings(self) -> dict:
+        """
+        Lädt Einstellungen des Einladungs-Generators aus der Datenbank
+        
+        Returns:
+            dict: Dictionary mit Einstellungen oder Default-Werte
+        """
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                
+                # Alle invitation_* Einstellungen laden
+                cursor.execute("""
+                    SELECT schluessel, wert, typ 
+                    FROM einstellungen 
+                    WHERE schluessel LIKE 'invitation_%'
+                """)
+                rows = cursor.fetchall()
+                conn.close()
+                
+                settings = {}
+                for key, value, typ in rows:
+                    # Entferne 'invitation_' Präfix
+                    clean_key = key.replace('invitation_', '', 1)
+                    
+                    # Typkonvertierung
+                    if typ == 'int':
+                        settings[clean_key] = int(value) if value else 0
+                    elif typ == 'float':
+                        settings[clean_key] = float(value) if value else 0.0
+                    elif typ == 'bool' or typ == 'boolean':
+                        settings[clean_key] = value.lower() in ('true', '1', 'yes', 'on') if value else False
+                    elif typ == 'json' and value:
+                        try:
+                            settings[clean_key] = json.loads(value)
+                        except json.JSONDecodeError:
+                            logger.warning(f"Konnte JSON für Einstellung '{clean_key}' nicht parsen: {value}")
+                            settings[clean_key] = value
+                    else:
+                        settings[clean_key] = value if value else ""
+                
+                # Fallback: Standard-Werte wenn keine Einstellungen vorhanden
+                if not settings:
+                    # Versuche Brautpaar-Namen aus allgemeinen Einstellungen zu laden
+                    braut_name = self.get_setting('braut_name', 'Braut')
+                    braeutigam_name = self.get_setting('braeutigam_name', 'Bräutigam')
+                    hochzeitsdatum = self.get_setting('hochzeitsdatum', 'Unser großer Tag')
+                    
+                    settings = {
+                        'primaryColor': '#8b7355',
+                        'accentColor': '#d4af37', 
+                        'backgroundColor': '#ffffff',
+                        'titleText': f"{braut_name} und {braeutigam_name} heiraten",
+                        'dateText': hochzeitsdatum,
+                        'greetingText': 'Liebe Familie,\nliebe Freunde,',
+                        'invitationText': 'Ihr seid herzlich zu unserer Hochzeit eingeladen!\n\nDer QR Code ist euer magisches Portal zu unserem Hochzeitschaos!',
+                        'fontSize': 100,
+                        'qrSize': 120,
+                        'includePhoto': True,
+                        'showLoginData': True,
+                        'elegantFont': True,
+                        'template': 'elegant'
+                    }
+                    
+                    logger.info("📋 Standard-Einstellungen für Einladungs-Generator geladen")
+                else:
+                    logger.info(f"✅ Einladungs-Generator Einstellungen geladen: {len(settings)} Werte")
+                
+                return settings
+                
+        except Exception as e:
+            logger.error(f"❌ Fehler beim Laden der Einladungs-Generator Einstellungen: {e}")
+            # Fallback: Standard-Werte
+            return {
+                'primaryColor': '#8b7355',
+                'accentColor': '#d4af37', 
+                'backgroundColor': '#ffffff',
+                'titleText': 'Brautpaar heiratet',
+                'dateText': 'Unser großer Tag',
+                'greetingText': 'Liebe Familie,\nliebe Freunde,',
+                'invitationText': 'Ihr seid herzlich zu unserer Hochzeit eingeladen!\n\nDer QR Code ist euer magisches Portal zu unserem Hochzeitschaos!',
+                'fontSize': 100,
+                'qrSize': 120,
+                'includePhoto': True,
+                'showLoginData': True,
+                'elegantFont': True,
+                'template': 'elegant'
+            }
+    
     def load_hochzeit_config(self) -> dict:
         """Lädt Hochzeit-Konfiguration aus SQLite"""
         try:
@@ -3047,36 +3182,51 @@ class SQLiteHochzeitsDatenManager:
         """Gibt Aufgaben-Statistiken zurück"""
         try:
             aufgaben = self.get_aufgaben()
+            from datetime import datetime
             
             total = len(aufgaben)
-            offen = len([a for a in aufgaben if a.get('status', '').lower() == 'offen'])
-            in_progress = len([a for a in aufgaben if a.get('status', '').lower() == 'in bearbeitung'])
-            erledigt = len([a for a in aufgaben if a.get('status', '').lower() == 'erledigt'])
+            offen = len([a for a in aufgaben if a.get('status', '') == 'Offen'])
+            in_bearbeitung = len([a for a in aufgaben if a.get('status', '') == 'In Bearbeitung'])
+            abgeschlossen = len([a for a in aufgaben if a.get('status', '') == 'Abgeschlossen'])
             
-            # Prioritäten-Statistiken
-            hoch = len([a for a in aufgaben if a.get('prioritaet', '').lower() == 'hoch'])
-            normal = len([a for a in aufgaben if a.get('prioritaet', '').lower() == 'normal'])
-            niedrig = len([a for a in aufgaben if a.get('prioritaet', '').lower() == 'niedrig'])
+            # Überfällige Aufgaben berechnen
+            heute = datetime.now().date()
+            ueberfaellig = 0
+            
+            for aufgabe in aufgaben:
+                if aufgabe.get('status', '') != 'Abgeschlossen' and aufgabe.get('faelligkeitsdatum'):
+                    try:
+                        if isinstance(aufgabe['faelligkeitsdatum'], str):
+                            faellig_datum = datetime.strptime(aufgabe['faelligkeitsdatum'], '%Y-%m-%d').date()
+                        else:
+                            faellig_datum = aufgabe['faelligkeitsdatum']
+                        
+                        if faellig_datum < heute:
+                            ueberfaellig += 1
+                    except (ValueError, TypeError):
+                        continue
+            
+            # Fortschritt in Prozent berechnen
+            fortschritt_prozent = round((abgeschlossen / total * 100) if total > 0 else 0, 1)
             
             return {
-                'total': total,
+                'gesamt': total,
                 'offen': offen,
-                'in_progress': in_progress,
-                'erledigt': erledigt,
-                'prioritaet': {
-                    'hoch': hoch,
-                    'normal': normal,
-                    'niedrig': niedrig
-                },
-                'completion_rate': round((erledigt / total * 100) if total > 0 else 0, 1)
+                'in_bearbeitung': in_bearbeitung,
+                'abgeschlossen': abgeschlossen,
+                'ueberfaellig': ueberfaellig,
+                'fortschritt_prozent': fortschritt_prozent
             }
             
         except Exception as e:
             logger.error(f"Fehler bei Aufgaben-Statistiken: {e}")
             return {
-                'total': 0, 'offen': 0, 'in_progress': 0, 'erledigt': 0,
-                'prioritaet': {'hoch': 0, 'normal': 0, 'niedrig': 0},
-                'completion_rate': 0
+                'gesamt': 0, 
+                'offen': 0, 
+                'in_bearbeitung': 0, 
+                'abgeschlossen': 0,
+                'ueberfaellig': 0,
+                'fortschritt_prozent': 0
             }
     
     def get_settings(self) -> dict:

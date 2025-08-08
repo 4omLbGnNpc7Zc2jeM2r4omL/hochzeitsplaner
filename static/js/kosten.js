@@ -45,15 +45,15 @@ let currentFixkosten = {};
  * Initialisiert die Kostenkonfigurations-Seite
  */
 async function initKosten() {
-    console.log('Kostenkonfiguration wird initialisiert...');
+
     
     try {
         await loadKostenConfig();
         setupEventListeners();
         updateCalculations();
-        console.log('✅ Kostenkonfiguration initialisiert');
+
     } catch (error) {
-        console.error('❌ Fehler beim Initialisieren der Kostenkonfiguration:', error);
+
         showError('Fehler beim Laden der Kostenkonfiguration');
     }
 }
@@ -92,12 +92,12 @@ async function loadKostenConfig() {
             const manualGuestCounts = config.manual_guest_counts || {};
             document.getElementById('mitternachtssnackGaeste').value = manualGuestCounts.mitternachtssnack || 80;
             
-            console.log('✅ Kostenkonfiguration geladen');
+
         } else {
             throw new Error(response.error || 'Unbekannter Fehler');
         }
     } catch (error) {
-        console.error('Fehler beim Laden der Kostenkonfiguration:', error);
+
         throw error;
     } finally {
         hideLoading();
@@ -192,8 +192,8 @@ async function saveKostenConfig() {
         };
         
         // Debug: Log das Objekt vor dem Senden
-        console.log('Config object before sending:', config);
-        console.log('JSON.stringify result:', JSON.stringify(config));
+
+
         
         // Verwende direkten fetch statt apiRequest für bessere Kontrolle
         const response = await fetch('/api/kosten/save', {
@@ -218,7 +218,7 @@ async function saveKostenConfig() {
             throw new Error(result.error || 'Fehler beim Speichern');
         }
     } catch (error) {
-        console.error('Fehler beim Speichern der Kostenkonfiguration:', error);
+
         showError('Fehler beim Speichern der Kostenkonfiguration: ' + error.message);
     } finally {
         hideLoading();
@@ -413,3 +413,4 @@ document.addEventListener('DOMContentLoaded', function() {
         initKosten();
     }
 });
+

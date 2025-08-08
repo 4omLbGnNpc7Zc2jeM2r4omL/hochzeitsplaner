@@ -10,7 +10,7 @@ let filteredUploads = [];
  * Initialize the admin uploads page
  */
 function initAdminUploads() {
-    console.log('🎯 Admin Uploads wird initialisiert...');
+
     
     // Load initial data
     loadUploadStatistics();
@@ -19,26 +19,26 @@ function initAdminUploads() {
     // Setup filter event listeners
     setupFilterListeners();
     
-    console.log('✅ Admin Uploads initialisiert');
+
 }
 
 /**
  * Setup filter event listeners
  */
 function setupFilterListeners() {
-    console.log('🎧 Setting up filter listeners...');
+
     
     const filterGuest = document.getElementById('filterGuest');
     const filterType = document.getElementById('filterType');
     
     if (filterGuest) {
         filterGuest.addEventListener('change', applyFilters);
-        console.log('✅ Guest filter listener added');
+
     }
     
     if (filterType) {
         filterType.addEventListener('change', applyFilters);
-        console.log('✅ Type filter listener added');
+
     }
 }
 
@@ -78,21 +78,21 @@ function getGuestName(upload) {
  * Apply filters to uploads
  */
 function applyFilters() {
-    console.log('🔍 Applying filters...');
+
     
     const filterGuest = document.getElementById('filterGuest');
     const filterType = document.getElementById('filterType');
     const uploadCount = document.getElementById('uploadCount');
     
     if (!filterGuest || !filterType) {
-        console.warn('⚠️ Filter elements not found');
+
         return;
     }
     
     const selectedGuest = filterGuest.value;
     const selectedType = filterType.value;
     
-    console.log('🔍 Filter values:', { selectedGuest, selectedType });
+
     
     // Filter uploads
     filteredUploads = allUploads.filter(upload => {
@@ -102,7 +102,7 @@ function applyFilters() {
         return guestMatch && typeMatch;
     });
     
-    console.log(`🔍 Filtered ${allUploads.length} uploads to ${filteredUploads.length} results`);
+
     
     // Update count
     if (uploadCount) uploadCount.textContent = filteredUploads.length;
@@ -110,7 +110,7 @@ function applyFilters() {
     // Check if we have results
     const emptyState = document.getElementById('emptyState');
     if (filteredUploads.length === 0) {
-        console.log('📭 No uploads match filters - showing empty state');
+
         if (emptyState) {
             emptyState.innerHTML = `
                 <i class="bi bi-funnel text-muted" style="font-size: 4rem;"></i>
@@ -131,14 +131,14 @@ function applyFilters() {
     renderUploadsTable(filteredUploads);
     renderUploadsGrid(filteredUploads);
     
-    console.log('✅ Filters applied successfully');
+
 }
 
 /**
  * Clear all filters
  */
 function clearFilters() {
-    console.log('🧹 Clearing filters...');
+
     
     const filterGuest = document.getElementById('filterGuest');
     const filterType = document.getElementById('filterType');
@@ -154,7 +154,7 @@ function clearFilters() {
  * Load upload statistics
  */
 async function loadUploadStatistics() {
-    console.log('📊 Lade Upload-Statistiken...');
+
     
     try {
         const response = await fetch('/api/admin/upload-statistics', {
@@ -166,7 +166,7 @@ async function loadUploadStatistics() {
         }
         
         const stats = await response.json();
-        console.log('📊 Statistiken erhalten:', stats);
+
         
         // Update statistics display
         const totalUploads = document.getElementById('totalUploads');
@@ -179,9 +179,9 @@ async function loadUploadStatistics() {
         if (totalVideos) totalVideos.textContent = stats.total_videos || 0;
         if (totalSize) totalSize.textContent = formatFileSize(stats.total_size || 0);
         
-        console.log('✅ Upload-Statistiken geladen');
+
     } catch (error) {
-        console.error('❌ Fehler beim Laden der Statistiken:', error);
+
     }
 }
 
@@ -189,7 +189,7 @@ async function loadUploadStatistics() {
  * Load all uploads and display them
  */
 async function loadAllUploads() {
-    console.log('📂 Lade alle Uploads...');
+
     
     // Get required elements
     const uploadsTableBody = document.getElementById('uploadsTableBody');
@@ -198,14 +198,14 @@ async function loadAllUploads() {
     const emptyState = document.getElementById('emptyState');
     const uploadCount = document.getElementById('uploadCount');
     
-    console.log('🎯 Upload Elements Check:');
-    console.log('  - uploadsTableBody:', uploadsTableBody);
-    console.log('  - uploadsGrid:', uploadsGrid);
-    console.log('  - loadingState:', loadingState);
-    console.log('  - emptyState:', emptyState);
+
+
+
+
+
     
     if (!uploadsTableBody || !uploadsGrid) {
-        console.error('❌ Required upload elements not found!');
+
         return;
     }
     
@@ -214,7 +214,7 @@ async function loadAllUploads() {
     if (emptyState) emptyState.style.display = 'none';
     
     try {
-        console.log('🚀 Fetching uploads from API...');
+
         const response = await fetch('/api/admin/all-uploads', {
             credentials: 'same-origin',
             headers: {
@@ -222,11 +222,11 @@ async function loadAllUploads() {
             }
         });
         
-        console.log('📡 API Response Status:', response.status, response.statusText);
+
         
         if (!response.ok) {
             if (response.status === 401) {
-                console.error('🔐 Authentication failed');
+
                 showAuthError();
                 return;
             }
@@ -234,8 +234,8 @@ async function loadAllUploads() {
         }
         
         const uploads = await response.json();
-        console.log('📦 Uploads received:', uploads);
-        console.log('📦 Upload count:', uploads.length);
+
+
         
         allUploads = uploads;
         filteredUploads = uploads; // Initial state: no filters applied
@@ -247,13 +247,13 @@ async function loadAllUploads() {
         if (uploadCount) uploadCount.textContent = uploads.length;
         
         if (uploads.length === 0) {
-            console.log('📭 No uploads found - showing empty state');
+
             if (emptyState) emptyState.style.display = 'block';
             clearUploadsDisplay();
             return;
         }
         
-        console.log(`📁 Rendering ${uploads.length} uploads...`);
+
         if (emptyState) emptyState.style.display = 'none';
         
         // Update filter options
@@ -263,10 +263,10 @@ async function loadAllUploads() {
         renderUploadsTable(uploads);
         renderUploadsGrid(uploads);
         
-        console.log('✅ Uploads rendered successfully!');
+
         
     } catch (error) {
-        console.error('❌ Error loading uploads:', error);
+
         showLoadError(error.message);
     }
 }
@@ -278,7 +278,7 @@ function renderUploadsTable(uploads) {
     const uploadsTableBody = document.getElementById('uploadsTableBody');
     if (!uploadsTableBody) return;
     
-    console.log('📋 Rendering table view with', uploads.length, 'uploads');
+
     
     uploadsTableBody.innerHTML = '';
     
@@ -329,7 +329,7 @@ function renderUploadsTable(uploads) {
         uploadsTableBody.appendChild(row);
     });
     
-    console.log('✅ Table view rendered');
+
 }
 
 /**
@@ -339,7 +339,7 @@ function renderUploadsGrid(uploads) {
     const uploadsGrid = document.getElementById('uploadsGrid');
     if (!uploadsGrid) return;
     
-    console.log('🔲 Rendering grid view with', uploads.length, 'uploads');
+
     
     uploadsGrid.innerHTML = '';
     
@@ -386,18 +386,18 @@ function renderUploadsGrid(uploads) {
         uploadsGrid.appendChild(col);
     });
     
-    console.log('✅ Grid view rendered');
+
 }
 
 /**
  * Update filter options based on available uploads
  */
 function updateFilterOptions(uploads) {
-    console.log('🔍 Updating filter options...');
+
     
     const filterGuest = document.getElementById('filterGuest');
     if (!filterGuest) {
-        console.warn('⚠️ filterGuest element not found');
+
         return;
     }
     
@@ -405,7 +405,7 @@ function updateFilterOptions(uploads) {
     const uniqueGuests = [...new Set(uploads.map(upload => getGuestName(upload)))];
     uniqueGuests.sort(); // Sort alphabetically
     
-    console.log('👥 Unique guests found:', uniqueGuests);
+
     
     // Clear existing options (except "Alle Gäste")
     filterGuest.innerHTML = '<option value="">Alle Gäste</option>';
@@ -418,7 +418,7 @@ function updateFilterOptions(uploads) {
         filterGuest.appendChild(option);
     });
     
-    console.log(`✅ Filter updated with ${uniqueGuests.length} guests`);
+
 }
 
 /**
@@ -547,17 +547,17 @@ function escapeHtml(text) {
  * Placeholder functions for upload actions
  */
 function viewUpload(id) {
-    console.log('View upload:', id);
+
     // TODO: Implement view upload functionality
 }
 
 function downloadUpload(id) {
-    console.log('Download upload:', id);
+
     window.open(`/api/admin/download-upload/${id}`, '_blank');
 }
 
 async function deleteUpload(id) {
-    console.log('Delete upload:', id);
+
     
     // Finde Upload-Info für Modal
     const upload = allUploads.find(u => u.id === id);
@@ -583,7 +583,7 @@ function showDeleteConfirmModal(upload) {
     const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
     
     if (!modal || !deletePreview || !deleteFilename || !deleteGuestName || !deleteFileSize || !confirmDeleteBtn) {
-        console.error('❌ Modal-Elemente nicht gefunden');
+
         // Fallback zu Browser-Confirm
         if (confirm(`Möchten Sie die Datei "${upload.original_filename}" wirklich löschen?`)) {
             performDeleteUpload(upload.id);
@@ -629,7 +629,7 @@ async function performDeleteUpload(uploadId) {
     const filename = upload ? upload.original_filename : `Upload ${uploadId}`;
     
     try {
-        console.log(`🗑️ Lösche Upload ${uploadId}...`);
+
         
         // Loading-Feedback
         showToast('Wird gelöscht...', `Die Datei "${filename}" wird gelöscht...`, 'info');
@@ -654,7 +654,7 @@ async function performDeleteUpload(uploadId) {
         }
         
         const result = await response.json();
-        console.log('✅ Upload erfolgreich gelöscht:', result);
+
         
         // Erfolgs-Feedback
         showDeleteSuccess(filename);
@@ -664,7 +664,7 @@ async function performDeleteUpload(uploadId) {
         await loadUploadStatistics();
         
     } catch (error) {
-        console.error('❌ Fehler beim Löschen:', error);
+
         showDeleteError(error.message);
     }
 }
@@ -717,18 +717,18 @@ function showDeleteError(message) {
 }
 
 function refreshUploads() {
-    console.log('Refreshing uploads...');
+
     loadUploadStatistics();
     loadAllUploads();
 }
 
 function downloadAllUploads() {
-    console.log('Download all uploads...');
+
     window.open('/api/admin/download-all-uploads', '_blank');
 }
 
 function setView(viewType) {
-    console.log('Set view to:', viewType);
+
     const listView = document.getElementById('uploadsListView');
     const gridView = document.getElementById('uploadsGridView');
     const viewListBtn = document.getElementById('viewList');
@@ -749,42 +749,42 @@ function setView(viewType) {
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 DOM loaded, initializing admin uploads...');
+
     initAdminUploads();
 });
 
 // Debug function
 window.debugAdminUploads = function() {
-    console.log('🔍 Debug Admin Uploads:');
-    console.log('  - allUploads:', allUploads);
-    console.log('  - allUploads.length:', allUploads.length);
-    console.log('  - filteredUploads:', filteredUploads);
-    console.log('  - filteredUploads.length:', filteredUploads.length);
+
+
+
+
+
     
     if (allUploads.length > 0) {
-        console.log('  - Sample upload object:', allUploads[0]);
-        console.log('  - Guest names from uploads:');
+
+
         allUploads.forEach((upload, index) => {
-            console.log(`    Upload ${index + 1}: "${getGuestName(upload)}" (vorname: ${upload.gast_vorname}, nachname: ${upload.gast_nachname})`);
+
         });
     }
     
-    console.log('  - Elements check:');
-    console.log('    - uploadsTableBody:', document.getElementById('uploadsTableBody'));
-    console.log('    - uploadsGrid:', document.getElementById('uploadsGrid'));
-    console.log('    - loadingState:', document.getElementById('loadingState'));
-    console.log('    - emptyState:', document.getElementById('emptyState'));
-    console.log('    - filterGuest:', document.getElementById('filterGuest'));
+
+
+
+
+
+
 };
 
 // Bulk action functions
 function bulkDownload() {
-    console.log('Bulk download initiated');
+
     HochzeitsplanerApp.showAlert('Bulk Download wird implementiert...', 'info');
 }
 
 function bulkDelete() {
-    console.log('Bulk delete initiated');
+
     HochzeitsplanerApp.showAlert('Bulk Delete wird implementiert...', 'warning');
 }
 
@@ -825,7 +825,7 @@ function startAdminUpload() {
     const files = Array.from(fileInput.files);
     const description = descriptionInput.value.trim();
     
-    console.log(`📤 Starting admin upload of ${files.length} file(s)`);
+
     
     // Show progress
     showAdminUploadProgress();
@@ -870,13 +870,13 @@ function uploadFilesSequentially(files, description, currentIndex) {
             throw new Error(data.error);
         }
         
-        console.log(`✅ File "${file.name}" uploaded successfully with ID ${data.upload_id}`);
+
         
         // Upload next file
         uploadFilesSequentially(files, description, currentIndex + 1);
     })
     .catch(error => {
-        console.error(`❌ Error uploading "${file.name}":`, error);
+
         hideAdminUploadProgress();
         HochzeitsplanerApp.showAlert(`Fehler beim Upload von "${file.name}": ${error.message}`, 'error');
     });
@@ -932,3 +932,4 @@ function updateAdminUploadProgress(percentage, status) {
         statusText.textContent = status;
     }
 }
+

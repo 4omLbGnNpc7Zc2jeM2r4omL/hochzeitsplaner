@@ -79,14 +79,14 @@
 
 <!-- Immediate execution script -->
 <script>
-console.log('🚀 IMMEDIATE: Photo Gallery starting immediately...');
+
 
 // Define all functions first
 let galleryData = []; // Store gallery data for navigation
 let currentIndex = -1; // Current item index
 
 window.openFullscreen = function(uploadId, fileType, filename, guestName, uploadDate) {
-    console.log('🖼️ Opening fullscreen for:', uploadId, fileType);
+
     
     // Find current index in gallery data
     currentIndex = galleryData.findIndex(item => item.id === uploadId);
@@ -119,7 +119,7 @@ window.openFullscreen = function(uploadId, fileType, filename, guestName, upload
         
         // Ensure proper loading and sizing
         fullscreenImage.onload = function() {
-            console.log('🖼️ Image loaded and sized properly');
+
             // FORCE AGAIN after loading
             this.style.maxHeight = '75vh';
             this.style.maxWidth = '75vw';
@@ -211,7 +211,7 @@ window.showNext = function() {
 };
 
 window.closeFullscreen = function() {
-    console.log('🚪 Attempting to close fullscreen modal...');
+
     
     // Clear focus from any buttons before hiding
     if (document.activeElement && document.activeElement.blur) {
@@ -220,10 +220,10 @@ window.closeFullscreen = function() {
     
     const modal = bootstrap.Modal.getInstance(document.getElementById('fullscreenModal'));
     if (modal) {
-        console.log('📱 Using Bootstrap modal instance to close');
+
         modal.hide();
     } else {
-        console.log('⚠️ No Bootstrap modal instance found, using manual close');
+
         // Fallback: manually hide modal
         const modalElement = document.getElementById('fullscreenModal');
         if (modalElement) {
@@ -234,7 +234,7 @@ window.closeFullscreen = function() {
             // Remove ALL backdrops
             const backdrops = document.querySelectorAll('.modal-backdrop');
             backdrops.forEach(backdrop => {
-                console.log('🗑️ Removing backdrop:', backdrop);
+
                 backdrop.remove();
             });
             
@@ -243,7 +243,7 @@ window.closeFullscreen = function() {
             document.body.style.overflow = '';
             document.body.style.paddingRight = '';
             
-            console.log('🧹 Manual cleanup completed');
+
         }
     }
     
@@ -251,7 +251,7 @@ window.closeFullscreen = function() {
     setTimeout(function() {
         const remainingBackdrops = document.querySelectorAll('.modal-backdrop');
         if (remainingBackdrops.length > 0) {
-            console.log('🚨 Found remaining backdrops, force removing...');
+
             remainingBackdrops.forEach(backdrop => backdrop.remove());
             document.body.classList.remove('modal-open');
             document.body.style.overflow = '';
@@ -262,7 +262,7 @@ window.closeFullscreen = function() {
 
 // Emergency cleanup function for stuck modals
 window.forceCleanupModal = function() {
-    console.log('🚨 EMERGENCY: Force cleaning up modal state...');
+
     
     // Remove all modal backdrops
     const backdrops = document.querySelectorAll('.modal-backdrop');
@@ -282,7 +282,7 @@ window.forceCleanupModal = function() {
     document.body.style.paddingRight = '';
     document.body.style.marginRight = '';
     
-    console.log('✅ Emergency cleanup completed');
+
 };
 
 // Auto-cleanup on page visibility change (when user switches tabs)
@@ -292,7 +292,7 @@ document.addEventListener('visibilitychange', function() {
         setTimeout(function() {
             const backdrops = document.querySelectorAll('.modal-backdrop');
             if (backdrops.length > 0) {
-                console.log('🔧 Auto-cleanup: Found stuck backdrops on page focus');
+
                 window.forceCleanupModal();
             }
         }, 100);
@@ -466,7 +466,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Clean up when modal is hidden
         modal.addEventListener('hidden.bs.modal', function () {
-            console.log('🚪 Modal closed properly');
+
             // Reset auto-hide state
             modal.classList.remove('auto-hide');
             clearTimeout(hideTimeout);
@@ -498,22 +498,22 @@ document.addEventListener('DOMContentLoaded', function() {
             if (window.currentSizeForceInterval) {
                 clearInterval(window.currentSizeForceInterval);
                 window.currentSizeForceInterval = null;
-                console.log('🔧 Size force interval cleared');
+
             }
             
-            console.log('🧹 Forced cleanup completed');
+
         });
         
         // Handle modal show event
         modal.addEventListener('shown.bs.modal', function () {
-            console.log('🖼️ Modal opened properly');
+
             // Start auto-hide timer
             showControls();
         });
         
         // Add additional cleanup on hide start
         modal.addEventListener('hide.bs.modal', function () {
-            console.log('🚪 Modal starting to close...');
+
             // Clear focus immediately
             if (document.activeElement && document.activeElement.blur) {
                 document.activeElement.blur();
@@ -535,17 +535,17 @@ window.downloadFile = function() {
 };
 
 window.refreshGallery = function() {
-    console.log('🔄 Refreshing gallery...');
+
     window.location.reload();
 };
 
 window.toggleViewMode = function() {
-    console.log('🎨 View mode toggle - not implemented yet');
+
     alert('View mode toggle feature coming soon!');
 };
 
 window.filterPhotos = function() {
-    console.log('🔍 Filter photos - not implemented yet');
+
 };
 
 // Immediate gallery loading function
@@ -558,15 +558,15 @@ function loadGalleryNow() {
         return;
     }
     
-    console.log('📡 IMMEDIATE: Making API call...');
+
     
     fetch('/api/approved-gallery')
         .then(response => {
-            console.log('📡 IMMEDIATE: API Response:', response.status);
+
             return response.json();
         })
         .then(data => {
-            console.log('📦 IMMEDIATE: Data received:', data);
+
             
             // Store gallery data for navigation
             galleryData = data || [];
@@ -634,7 +634,7 @@ function loadGalleryNow() {
                     `;
                 });
                 container.innerHTML = html;
-                console.log('✅ IMMEDIATE: Gallery loaded successfully!');
+
             } else {
                 container.innerHTML = `
                     <div class="col-12">
@@ -647,7 +647,7 @@ function loadGalleryNow() {
             }
         })
         .catch(error => {
-            console.error('❌ IMMEDIATE: Error:', error);
+
             loading.style.display = 'none';
             container.innerHTML = `
                 <div class="col-12">
@@ -662,7 +662,7 @@ function loadGalleryNow() {
 
 // Start immediately
 loadGalleryNow();
-console.log('✅ IMMEDIATE: All functions defined and gallery loading started');
+
 </script>
 
 <!-- Modal für Vollbild-Ansicht -->
@@ -1570,3 +1570,4 @@ video.fullscreen-media {
 {% block extra_js %}
 <!-- All functions are now defined in the immediate script above -->
 {% endblock %}
+

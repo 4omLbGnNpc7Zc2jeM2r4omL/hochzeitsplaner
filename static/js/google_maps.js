@@ -19,12 +19,12 @@ class GoogleMapsIntegration {
             
             if (this.apiKey && this.apiKey !== 'YOUR_GOOGLE_MAPS_API_KEY') {
                 this.initialized = true;
-                console.log('✅ Google Maps API erfolgreich konfiguriert');
+
             } else {
-                console.log('⚠️ Google Maps API-Key nicht konfiguriert, verwende Fallback');
+
             }
         } catch (error) {
-            console.error('Fehler beim Laden der Google Maps Konfiguration:', error);
+
         }
     }
 
@@ -66,7 +66,7 @@ class GoogleMapsIntegration {
     updateMapPreview(containerId, address, options = {}) {
         const container = document.getElementById(containerId);
         if (!container || !address) {
-            console.error(`Container ${containerId} nicht gefunden oder keine Adresse`);
+
             return false;
         }
 
@@ -81,7 +81,7 @@ class GoogleMapsIntegration {
         container.innerHTML = mapHtml;
         container.style.display = 'block';
         
-        console.log(`Karte aktualisiert für ${containerId}: ${address}`);
+
         return true;
     }
 
@@ -142,7 +142,7 @@ class GoogleMapsIntegration {
      */
     updateLocationMaps(locationsData) {
         if (!locationsData) {
-            console.log('Keine Location-Daten verfügbar');
+
             return;
         }
 
@@ -213,6 +213,7 @@ window.googleMaps = new GoogleMapsIntegration();
 document.addEventListener('DOMContentLoaded', function() {
     // Kurz warten bis Config geladen ist
     setTimeout(() => {
-        console.log('Google Maps Status:', window.googleMaps.getStatus());
+
     }, 1000);
 });
+

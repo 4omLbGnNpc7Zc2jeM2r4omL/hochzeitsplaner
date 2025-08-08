@@ -1,0 +1,1715 @@
+{% extends "base.html" %}
+
+{% block title %}Einladungs Generator - {{ brautpaar_namen }}{% endblock %}
+
+{% block extra_head %}
+<script>
+// KRITISCHE FUNKTIONEN FÜR ONCLICK-HANDLER - SOFORT VERFÜGBAR
+
+// SOFORTIGE BUTTON-HANDLER DEFINITION
+window.saveGeneratorSettings = function() {
+    
+    // Fallback auf direkte API-Speicherung wenn Manager nicht verfügbar
+    if (window.ManualSettingsManager && window.ManualSettingsManager.saveSettings) {
+        window.ManualSettingsManager.saveSettings();
+        return;
+    }
+    
+    // Sammle alle Einstellungen direkt aus dem DOM
+    try {
+        const settings = {
+            primaryColor: document.querySelector('#primaryColor')?.value || '#8B4513',
+            accentColor: document.querySelector('#accentColor')?.value || '#D2691E', 
+            backgroundColor: document.querySelector('#backgroundColor')?.value || '#F5F5DC',
+            invitationText: document.querySelector('#invitationText')?.value || '',
+            greetingText: document.querySelector('#greetingText')?.value || '',
+            titleText: document.querySelector('#titleText')?.value || '',
+            dateText: document.querySelector('#dateText')?.value || '',
+            qrSize: parseInt(document.querySelector('#qrSize')?.value) || 150,
+            includePhoto: document.querySelector('#includePhoto')?.checked || false,
+            showLoginData: document.querySelector('#showLoginData')?.checked || false,
+            elegantFont: document.querySelector('#elegantFont')?.checked || false,
+            template: window.einladungsGenerator?.currentTemplate || 'elegant'
+        };
+        
+
+        
+        // Direkt an Backend senden
+        fetch('/api/einladungs-generator/settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ settings: settings })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+
+                // Optional: Erfolgs-Toast anzeigen
+                if (window.showToast) {
+                    window.showToast('Einstellungen gespeichert', 'success');
+                }
+            } else {
+
+                alert('Fehler beim Speichern: ' + (data.error || 'Unbekannter Fehler'));
+            }
+        })
+        .catch(error => {
+
+            alert('Netzwerk-Fehler beim Speichern der Einstellungen');
+        });
+        
+    } catch (error) {
+
+        alert('Fehler beim Sammeln der Einstellungen');
+    }
+};
+
+window.loadGeneratorSettings = function() {
+
+    
+    if (window.ManualSettingsManager && window.ManualSettingsManager.loadSettings) {
+
+        window.ManualSettingsManager.loadSettings();
+        return;
+    }
+    
+
+    
+    // Direkt vom Backend laden
+    fetch('/api/einladungs-generator/settings')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.settings) {
+
+            
+            // Einstellungen in DOM setzen
+            const settings = data.settings;
+            if (settings.primaryColor) document.querySelector('#primaryColor').value = settings.primaryColor;
+            if (settings.accentColor) document.querySelector('#accentColor').value = settings.accentColor;
+            if (settings.backgroundColor) document.querySelector('#backgroundColor').value = settings.backgroundColor;
+            if (settings.invitationText) document.querySelector('#invitationText').value = settings.invitationText;
+            if (settings.greetingText) document.querySelector('#greetingText').value = settings.greetingText;
+            if (settings.titleText) document.querySelector('#titleText').value = settings.titleText;
+            if (settings.dateText) document.querySelector('#dateText').value = settings.dateText;
+            if (settings.qrSize) document.querySelector('#qrSize').value = settings.qrSize;
+            if (settings.template && window.selectTemplate) window.selectTemplate(settings.template);
+            
+            // Checkboxes setzen
+            if (settings.includePhoto !== undefined) document.querySelector('#includePhoto').checked = settings.includePhoto;
+            if (settings.showLoginData !== undefined) document.querySelector('#showLoginData').checked = settings.showLoginData;
+            if (settings.elegantFont !== undefined) document.querySelector('#elegantFont').checked = settings.elegantFont;
+            
+            // Vorschau aktualisieren
+            if (window.updatePreview) window.updatePreview();
+            
+
+        } else {
+
+            
+            // Standard-Werte setzen wenn keine Einstellungen vorhanden
+            const standardSettings = {
+                greetingText: 'Liebe Familie,\nliebe Freunde,',
+                invitationText: 'wir freuen uns sehr, Euch zu unserer Hochzeit einzuladen und diesen besonderen Tag gemeinsam mit Euch zu feiern.\n\nAlle wichtigen Informationen zu Ablauf, Ort und Uhrzeit findet Ihr über den beigefügten QR-Code.\nDort könnt Ihr uns auch direkt mitteilen, ob Ihr dabei seid.\n\nWir freuen uns auf ein unvergessliches Fest mit Euch!',
+                titleText: '{{ braut_name }} & {{ braeutigam_name }}',
+                dateText: '{{ wedding_date }}',
+                primaryColor: '#8b7355',
+                accentColor: '#d4af37',
+                backgroundColor: '#ffffff',
+                qrSize: 120,
+                includePhoto: true,
+                showLoginData: true,
+                elegantFont: true,
+                template: 'elegant'
+            };
+            
+            // Standard-Werte in DOM setzen
+            if (document.querySelector('#greetingText')) document.querySelector('#greetingText').value = standardSettings.greetingText;
+            if (document.querySelector('#invitationText')) document.querySelector('#invitationText').value = standardSettings.invitationText;
+            if (document.querySelector('#titleText')) document.querySelector('#titleText').value = standardSettings.titleText;
+            if (document.querySelector('#dateText')) document.querySelector('#dateText').value = standardSettings.dateText;
+            if (document.querySelector('#primaryColor')) document.querySelector('#primaryColor').value = standardSettings.primaryColor;
+            if (document.querySelector('#accentColor')) document.querySelector('#accentColor').value = standardSettings.accentColor;
+            if (document.querySelector('#backgroundColor')) document.querySelector('#backgroundColor').value = standardSettings.backgroundColor;
+            if (document.querySelector('#qrSize')) document.querySelector('#qrSize').value = standardSettings.qrSize;
+            if (document.querySelector('#includePhoto')) document.querySelector('#includePhoto').checked = standardSettings.includePhoto;
+            if (document.querySelector('#showLoginData')) document.querySelector('#showLoginData').checked = standardSettings.showLoginData;
+            if (document.querySelector('#elegantFont')) document.querySelector('#elegantFont').checked = standardSettings.elegantFont;
+            
+            // Standard-Template auswählen
+            if (window.selectTemplate) window.selectTemplate(standardSettings.template);
+            
+            // Vorschau aktualisieren
+            if (window.updatePreview) window.updatePreview();
+            
+
+        }
+    })
+    .catch(error => {
+
+        
+        // Bei Fehler: Standard-Werte setzen
+        const fallbackSettings = {
+            greetingText: 'Liebe Familie,\nliebe Freunde,',
+            invitationText: 'wir freuen uns sehr, Euch zu unserer Hochzeit einzuladen und diesen besonderen Tag gemeinsam mit Euch zu feiern.\n\nAlle wichtigen Informationen zu Ablauf, Ort und Uhrzeit findet Ihr über den beigefügten QR-Code.\nDort könnt Ihr uns auch direkt mitteilen, ob Ihr dabei seid.\n\nWir freuen uns auf ein unvergessliches Fest mit Euch!'
+        };
+        
+        if (document.querySelector('#greetingText')) document.querySelector('#greetingText').value = fallbackSettings.greetingText;
+        if (document.querySelector('#invitationText')) document.querySelector('#invitationText').value = fallbackSettings.invitationText;
+        
+
+    });
+};
+
+
+
+// SOFORTIGER EINLADUNGS-GENERATOR FALLBACK
+window.createFallbackGenerator = function() {
+
+    
+    window.einladungsGenerator = {
+        currentTemplate: 'elegant',
+        guestData: [],
+        currentSettings: {
+            primaryColor: '#8b7355',
+            accentColor: '#d4af37',
+            backgroundColor: '#ffffff',
+            titleText: '',
+            dateText: '',
+            greetingText: '',
+            invitationText: '',
+            fontSize: 100,
+            qrSize: 120,
+            includePhoto: true,
+            showLoginData: true,
+            elegantFont: true
+        },
+        
+        selectTemplate: function(templateName) {
+
+            this.currentTemplate = templateName;
+            
+            // Template-Buttons aktualisieren
+            const templateOptions = document.querySelectorAll('.template-option');
+            templateOptions.forEach(option => {
+                option.classList.remove('selected');
+                if (option.getAttribute('data-template') === templateName) {
+                    option.classList.add('selected');
+                }
+            });
+            
+            this.updatePreview();
+        },
+        
+        updatePreview: function() {
+
+            
+            // 🔄 WICHTIG: Vor jeder Vorschau-Aktualisierung die currentSettings aus DOM aktualisieren
+            // Aber erst prüfen ob DOM-Elemente Werte haben, sonst aus currentSettings nehmen
+            const domSettings = this.getCurrentSettingsFromDOM();
+            
+            // Intelligent kombinieren: Wenn DOM-Wert leer ist, verwende currentSettings
+            this.currentSettings = {
+                primaryColor: domSettings.primaryColor || this.currentSettings.primaryColor || '#8b7355',
+                accentColor: domSettings.accentColor || this.currentSettings.accentColor || '#d4af37',
+                backgroundColor: domSettings.backgroundColor || this.currentSettings.backgroundColor || '#ffffff',
+                invitationText: domSettings.invitationText || this.currentSettings.invitationText || '',
+                greetingText: domSettings.greetingText || this.currentSettings.greetingText || '',
+                titleText: domSettings.titleText || this.currentSettings.titleText || '',
+                dateText: domSettings.dateText || this.currentSettings.dateText || '',
+                fontSize: domSettings.fontSize || this.currentSettings.fontSize || 100,
+                qrSize: domSettings.qrSize || this.currentSettings.qrSize || 120,
+                includePhoto: domSettings.includePhoto !== undefined ? domSettings.includePhoto : this.currentSettings.includePhoto,
+                showLoginData: domSettings.showLoginData !== undefined ? domSettings.showLoginData : this.currentSettings.showLoginData,
+                elegantFont: domSettings.elegantFont !== undefined ? domSettings.elegantFont : this.currentSettings.elegantFont,
+                template: domSettings.template || this.currentTemplate || 'elegant'
+            };
+            
+
+            
+            // Grundlegende Vorschau-Aktualisierung
+            const preview = document.getElementById('cardPreview');
+            if (preview) {
+                preview.style.background = this.currentSettings.backgroundColor;
+                
+                // Kein Rahmen für elegantes Design
+                if (this.currentTemplate === 'elegant') {
+                    preview.style.border = 'none';
+                    preview.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.1)';
+                } else {
+                    preview.style.borderColor = this.currentSettings.primaryColor;
+                    preview.style.border = `2px solid ${this.currentSettings.primaryColor}`;
+                }
+            }
+            
+            // Titel aktualisieren
+            const title = document.getElementById('previewTitle');
+            if (title) {
+                title.style.color = this.currentSettings.primaryColor;
+                const titleInput = document.getElementById('titleText');
+                if (titleInput && titleInput.value) {
+                    title.textContent = titleInput.value;
+                } else if (this.currentSettings.titleText) {
+                    title.textContent = this.currentSettings.titleText;
+                }
+                
+                // Schriftart anwenden
+                if (this.currentSettings.elegantFont) {
+                    title.style.fontFamily = "'Dancing Script', cursive";
+                } else {
+                    title.style.fontFamily = "Arial, sans-serif";
+                }
+            }
+            
+            // Datum aktualisieren
+            const date = document.getElementById('previewDate');
+            if (date) {
+                date.style.color = this.currentSettings.accentColor;
+                const dateInput = document.getElementById('dateText');
+                if (dateInput && dateInput.value) {
+                    date.textContent = dateInput.value;
+                } else if (this.currentSettings.dateText) {
+                    date.textContent = this.currentSettings.dateText;
+                }
+            }
+            
+            // Begrüßung aktualisieren
+            const greeting = document.getElementById('previewGreeting');
+            if (greeting) {
+                const greetingInput = document.getElementById('greetingText');
+                if (greetingInput && greetingInput.value) {
+                    greeting.innerHTML = greetingInput.value.replace(/\n/g, '<br>');
+                } else if (this.currentSettings.greetingText) {
+                    greeting.innerHTML = this.currentSettings.greetingText.replace(/\n/g, '<br>');
+                } else {
+                    greeting.innerHTML = ''; // Leer lassen wenn keine Daten
+                }
+                greeting.style.color = this.currentSettings.primaryColor;
+            }
+            
+            // Einladungstext aktualisieren
+            const invitation = document.getElementById('previewInvitation');
+            if (invitation) {
+                const invitationInput = document.getElementById('invitationText');
+                if (invitationInput && invitationInput.value) {
+                    const text = invitationInput.value.substring(0, 150) + (invitationInput.value.length > 150 ? '...' : '');
+                    invitation.innerHTML = text.replace(/\n/g, '<br>');
+                } else if (this.currentSettings.invitationText) {
+                    const text = this.currentSettings.invitationText.substring(0, 150) + (this.currentSettings.invitationText.length > 150 ? '...' : '');
+                    invitation.innerHTML = text.replace(/\n/g, '<br>');
+                } else {
+                    invitation.innerHTML = ''; // Leer lassen wenn keine Daten
+                }
+                invitation.style.color = '#6c757d';
+            }
+            
+            // QR-Code Farbe aktualisieren
+            const qrIcon = document.querySelector('#previewQR i');
+            if (qrIcon) {
+                qrIcon.style.color = this.currentSettings.accentColor;
+            }
+            
+            // QR-Code Größe aktualisieren
+            const qrPreview = document.getElementById('previewQR');
+            if (qrPreview) {
+                const size = this.currentSettings.qrSize || 120;
+                qrPreview.style.width = size + 'px';
+                qrPreview.style.height = size + 'px';
+                qrPreview.style.borderColor = this.currentSettings.accentColor;
+            }
+            
+            // Scan-Text aktualisieren
+            const scanText = document.getElementById('previewScanText');
+            if (scanText) {
+                scanText.style.color = this.currentSettings.accentColor;
+            }
+            
+            // Login-Daten anzeigen/verstecken
+            const loginData = document.getElementById('previewLoginData');
+            const showLoginCheckbox = document.getElementById('showLoginData');
+            if (loginData && showLoginCheckbox) {
+                if (showLoginCheckbox.checked) {
+                    loginData.style.display = 'block';
+                    const testGuestSelect = document.getElementById('testGuestSelect');
+                    if (testGuestSelect && testGuestSelect.value) {
+                        const selectedGuest = this.guestData.find(g => g.id == testGuestSelect.value);
+                        if (selectedGuest) {
+                            loginData.innerHTML = `Login: GUEST${selectedGuest.id}<br>Password: pass${selectedGuest.id}`;
+                        }
+                    }
+                } else {
+                    loginData.style.display = 'none';
+                }
+            }
+            
+            // Foto anzeigen/verstecken und aus Datenbank laden
+            const photo = document.getElementById('previewPhoto');
+            const includePhotoCheckbox = document.getElementById('includePhoto');
+            if (photo && includePhotoCheckbox) {
+                if (includePhotoCheckbox.checked) {
+                    photo.style.display = 'block';
+                    
+                    // Stelle sicher, dass ein img-Element existiert
+                    let imgElement = photo.querySelector('img');
+                    if (!imgElement) {
+                        // Erstelle img-Element falls noch nicht vorhanden
+                        imgElement = document.createElement('img');
+                        imgElement.style.maxWidth = '100%';
+                        imgElement.style.height = 'auto';
+                        imgElement.style.borderRadius = '8px';
+                        imgElement.style.display = 'block';
+                        imgElement.style.margin = '0 auto'; // Zentriert das Bild
+                        photo.appendChild(imgElement);
+                    }
+                    
+                    // VERBESSERT: Lade Foto wenn noch nicht geladen oder wenn es ein Platzhalter ist
+                    if (!imgElement.src || 
+                        imgElement.src === '' || 
+                        imgElement.src.includes('data:image/svg+xml') ||
+                        !imgElement.src.includes('data:image/jpeg;base64,')) {
+                        
+
+                        
+                        // Versuche Foto aus API zu laden (JSON-Antwort mit photo_data)
+                        fetch('/api/guest/wedding-photo')
+                            .then(response => {
+                                if (response.ok) {
+                                    return response.json();
+                                }
+                                throw new Error('Foto nicht verfügbar');
+                            })
+                            .then(data => {
+
+                                if (data.success && data.photo_data && data.photo_data.trim()) {
+                                    // Base64-Daten zu Data-URL konvertieren
+                                    const photoDataUrl = `data:image/jpeg;base64,${data.photo_data}`;
+                                    imgElement.src = photoDataUrl;
+                                    imgElement.style.maxWidth = '100%';
+                                    imgElement.style.height = 'auto';
+                                    imgElement.style.borderRadius = '8px';
+                                    imgElement.style.display = 'block';
+                                    imgElement.style.margin = '0 auto'; // Zentriert das Bild
+                                    
+                                    // Stelle sicher, dass das Bild wirklich geladen wird
+                                    imgElement.onload = function() {
+
+                                    };
+                                    imgElement.onerror = function() {
+
+                                    };
+                                    
+
+                                } else {
+
+                                    throw new Error('Keine Foto-Daten in Antwort');
+                                }
+                            })
+                            .catch(error => {
+
+                                // Fallback zu Platzhalter-Foto
+                                imgElement.src = 'data:image/svg+xml;base64,' + btoa(`
+                                    <svg width="200" height="280" xmlns="http://www.w3.org/2000/svg">
+                                        <rect width="200" height="280" fill="#f8f9fa" stroke="${this.currentTemplate === 'elegant' ? 'none' : this.currentSettings.primaryColor}" stroke-width="${this.currentTemplate === 'elegant' ? '0' : '2'}"/>
+                                        <text x="100" y="140" text-anchor="middle" fill="${this.currentSettings.primaryColor}" font-family="Arial" font-size="14">Hochzeitsfoto</text>
+                                        <text x="100" y="160" text-anchor="middle" fill="${this.currentSettings.accent || '#d4af37'}" font-family="Arial" font-size="12">wird aus Datenbank geladen</text>
+                                    </svg>
+                                `);
+                                imgElement.style.margin = '0 auto'; // Auch Platzhalter zentrieren
+                                imgElement.style.display = 'block';
+                            });
+                    } else {
+                        // Bild ist bereits geladen, stelle nur sicher dass es sichtbar ist
+
+                        imgElement.style.display = 'block';
+                        imgElement.style.margin = '0 auto';
+                    }
+                    
+                    // Template-Rahmen anwenden (immer wenn Foto angezeigt wird)
+                    if (imgElement) {
+                        if (this.currentTemplate === 'elegant') {
+                            imgElement.style.border = 'none';
+                        } else {
+                            imgElement.style.border = `2px solid ${this.currentSettings.primaryColor}`;
+                        }
+                    }
+                } else {
+                    photo.style.display = 'none';
+                }
+            }
+            
+            // Template-spezifische Anpassungen
+            this.applyTemplateStyles();
+            
+
+        },
+        
+        applyTemplateStyles: function() {
+            const preview = document.getElementById('cardPreview');
+            if (!preview) return;
+            
+            // Template-Klassen zurücksetzen
+            preview.classList.remove('template-elegant', 'template-classic', 'template-modern');
+            preview.classList.add(`template-${this.currentTemplate}`);
+            
+            const title = document.getElementById('previewTitle');
+            const date = document.getElementById('previewDate');
+            
+            switch (this.currentTemplate) {
+                case 'elegant':
+                    if (title) {
+                        title.style.fontSize = '1.8rem';
+                        title.style.fontWeight = 'normal';
+                    }
+                    if (date) {
+                        date.style.fontSize = '1.2rem';
+                        date.style.fontStyle = 'italic';
+                    }
+                    break;
+                    
+                case 'classic':
+                    if (title) {
+                        title.style.fontSize = '1.6rem';
+                        title.style.fontWeight = 'bold';
+                        title.style.fontFamily = 'Georgia, serif';
+                    }
+                    if (date) {
+                        date.style.fontSize = '1rem';
+                        date.style.fontStyle = 'normal';
+                    }
+                    break;
+                    
+                case 'modern':
+                    if (title) {
+                        title.style.fontSize = '1.5rem';
+                        title.style.fontWeight = '300';
+                        title.style.fontFamily = 'Arial, sans-serif';
+                    }
+                    if (date) {
+                        date.style.fontSize = '0.9rem';
+                        date.style.color = '#666';
+                    }
+                    break;
+            }
+        },
+        
+        getCurrentSettingsFromDOM: function() {
+
+            
+            // Sammle alle aktuellen Werte direkt aus den DOM-Elementen
+            const settings = {
+                primaryColor: document.querySelector('#primaryColor')?.value || this.currentSettings.primaryColor || '#8b7355',
+                accentColor: document.querySelector('#accentColor')?.value || this.currentSettings.accentColor || '#d4af37', 
+                backgroundColor: document.querySelector('#backgroundColor')?.value || this.currentSettings.backgroundColor || '#ffffff',
+                invitationText: document.querySelector('#invitationText')?.value || this.currentSettings.invitationText || '',
+                greetingText: document.querySelector('#greetingText')?.value || this.currentSettings.greetingText || '',
+                titleText: document.querySelector('#titleText')?.value || this.currentSettings.titleText || '',
+                dateText: document.querySelector('#dateText')?.value || this.currentSettings.dateText || '',
+                fontSize: parseInt(document.querySelector('#fontSize')?.value) || this.currentSettings.fontSize || 100,
+                qrSize: parseInt(document.querySelector('#qrSize')?.value) || this.currentSettings.qrSize || 120,
+                includePhoto: document.querySelector('#includePhoto')?.checked !== undefined ? document.querySelector('#includePhoto').checked : this.currentSettings.includePhoto,
+                showLoginData: document.querySelector('#showLoginData')?.checked !== undefined ? document.querySelector('#showLoginData').checked : this.currentSettings.showLoginData,
+                elegantFont: document.querySelector('#elegantFont')?.checked !== undefined ? document.querySelector('#elegantFont').checked : this.currentSettings.elegantFont,
+                template: this.currentTemplate || 'elegant'
+            };
+            
+
+            return settings;
+        },
+        
+        getCurrentSettingsFromDatabase: async function() {
+
+            
+            try {
+                const response = await fetch('/api/einladungs-generator/settings');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.success && data.settings) {
+
+                        
+                        // Hole aktuelle DOM-Werte als Fallback
+                        const domSettings = this.getCurrentSettingsFromDOM();
+                        const dbSettings = data.settings;
+                        
+                        // WICHTIG: Für Karten-Generierung bevorzuge DATENBANK-Werte
+                        const finalSettings = {
+                            // Datenbank-Werte haben Priorität, DOM-Werte nur als Fallback wenn DB leer
+                            primaryColor: dbSettings.primaryColor || domSettings.primaryColor || '#8b7355',
+                            accentColor: dbSettings.accentColor || domSettings.accentColor || '#d4af37',
+                            backgroundColor: dbSettings.backgroundColor || domSettings.backgroundColor || '#ffffff',
+                            // Texte: IMMER Datenbank-Werte bevorzugen
+                            invitationText: dbSettings.invitationText || domSettings.invitationText || '',
+                            greetingText: dbSettings.greetingText || domSettings.greetingText || '',
+                            titleText: dbSettings.titleText || domSettings.titleText || '',
+                            dateText: dbSettings.dateText || domSettings.dateText || '',
+                            fontSize: dbSettings.fontSize || domSettings.fontSize || 100,
+                            qrSize: dbSettings.qrSize || domSettings.qrSize || 120,
+                            includePhoto: dbSettings.includePhoto !== undefined ? dbSettings.includePhoto : (domSettings.includePhoto !== undefined ? domSettings.includePhoto : true),
+                            showLoginData: dbSettings.showLoginData !== undefined ? dbSettings.showLoginData : (domSettings.showLoginData !== undefined ? domSettings.showLoginData : true),
+                            elegantFont: dbSettings.elegantFont !== undefined ? dbSettings.elegantFont : (domSettings.elegantFont !== undefined ? domSettings.elegantFont : true),
+                            template: dbSettings.template || this.currentTemplate || 'elegant'
+                        };
+                        
+
+                        return finalSettings;
+                    } else {
+
+                        return this.getCurrentSettingsFromDOM();
+                    }
+                } else {
+
+                    return this.getCurrentSettingsFromDOM();
+                }
+            } catch (error) {
+
+                return this.getCurrentSettingsFromDOM();
+            }
+        },
+        
+        initializeWithDatabaseSettings: async function() {
+
+            
+            try {
+                // Lade Einstellungen aus Datenbank
+                const response = await fetch('/api/einladungs-generator/settings');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.success && data.settings) {
+
+                        
+                        // Aktualisiere currentSettings mit Datenbank-Werten
+                        this.currentSettings = {
+                            primaryColor: data.settings.primaryColor || this.currentSettings.primaryColor,
+                            accentColor: data.settings.accentColor || this.currentSettings.accentColor,
+                            backgroundColor: data.settings.backgroundColor || this.currentSettings.backgroundColor,
+                            invitationText: data.settings.invitationText || this.currentSettings.invitationText,
+                            greetingText: data.settings.greetingText || this.currentSettings.greetingText,
+                            titleText: data.settings.titleText || this.currentSettings.titleText,
+                            dateText: data.settings.dateText || this.currentSettings.dateText,
+                            fontSize: data.settings.fontSize || this.currentSettings.fontSize,
+                            qrSize: data.settings.qrSize || this.currentSettings.qrSize,
+                            includePhoto: data.settings.includePhoto !== undefined ? data.settings.includePhoto : this.currentSettings.includePhoto,
+                            showLoginData: data.settings.showLoginData !== undefined ? data.settings.showLoginData : this.currentSettings.showLoginData,
+                            elegantFont: data.settings.elegantFont !== undefined ? data.settings.elegantFont : this.currentSettings.elegantFont
+                        };
+                        
+                        // Template setzen falls vorhanden
+                        if (data.settings.template) {
+                            this.currentTemplate = data.settings.template;
+                        }
+                        
+
+                        return true;
+                    } else {
+
+                        return false;
+                    }
+                } else {
+
+                    return false;
+                }
+            } catch (error) {
+
+                return false;
+            }
+        },
+        
+        updateCameraIcon: function() {
+            // Kamera-Icon mit Herz-Emoji erstellen (Position wie in Python-Script)
+            const qrPreview = document.getElementById('previewQR');
+            if (!qrPreview) return;
+            
+            // Entferne vorhandenes Kamera-Icon
+            const existingCamera = document.getElementById('previewCamera');
+            if (existingCamera) {
+                existingCamera.remove();
+            }
+            
+            // Erstelle neues Kamera-Icon
+            const cameraIcon = document.createElement('div');
+            cameraIcon.id = 'previewCamera';
+            cameraIcon.style.position = 'absolute';
+            cameraIcon.style.fontSize = '24px';
+            cameraIcon.style.color = this.currentSettings.accentColor;
+            cameraIcon.style.transform = 'rotate(45deg)'; // Korrigierte Drehrichtung: +45° wie in der Referenz
+            cameraIcon.style.pointerEvents = 'none';
+            cameraIcon.style.zIndex = '10';
+            
+            // Position relativ zum QR-Code (links oben, außerhalb - optimierte Position)
+            const leftOffset = -15; // Weiter nach rechts - näher zum QR-Code (war -25)
+            const topOffset = -15;  // Noch höher - weiter über der oberen Kante (war -5)
+            
+            cameraIcon.style.left = `calc(50% - ${(120 - leftOffset)}px)`;
+            cameraIcon.style.top = `calc(50% - ${(60 - topOffset)}px)`;
+            
+            // Kamera-Icon HTML (gleiches Design wie in Backend-Test-Karte)
+            cameraIcon.innerHTML = `
+                <div style="
+                    position: relative; 
+                    display: inline-block;
+                    width: 24px;
+                    height: 18px;
+                    background: ${this.currentSettings.accentColor};
+                    border-radius: 4px;
+                    border: 2px solid ${this.currentSettings.accentColor};
+                ">
+                    <!-- Kamera-Objektiv -->
+                    <div style="
+                        position: absolute;
+                        top: 3px;
+                        left: 6px;
+                        width: 10px;
+                        height: 10px;
+                        background: #333;
+                        border-radius: 50%;
+                        border: 1px solid #666;
+                    "></div>
+                    <!-- Herz-Symbol im Objektiv -->
+                    <div style="
+                        position: absolute;
+                        top: 6px;
+                        left: 9px;
+                        font-size: 4px;
+                        color: #d4af37;
+                        line-height: 1;
+                    ">♥</div>
+                    <!-- Kamera-Auslöser -->
+                    <div style="
+                        position: absolute;
+                        top: -2px;
+                        right: 4px;
+                        width: 4px;
+                        height: 3px;
+                        background: ${this.currentSettings.accentColor};
+                        border-radius: 2px;
+                    "></div>
+                </div>
+            `;
+            
+            // Füge Kamera zum QR-Container hinzu
+            qrPreview.style.position = 'relative';
+            qrPreview.appendChild(cameraIcon);
+        },
+        
+        generateTestCard: async function() {
+
+            const testGuestSelect = document.getElementById('testGuestSelect');
+            
+            if (!testGuestSelect || !testGuestSelect.value) {
+                this.showError('Bitte wählen Sie einen Gast für die Test-Karte aus.');
+                return;
+            }
+            
+            try {
+                this.showProgress('Erstelle Test-Karte...');
+                
+                // �️ WICHTIG: Aktuelle Einstellungen direkt aus Datenbank + DOM sammeln
+                const currentSettings = await this.getCurrentSettingsFromDatabase();
+
+                
+                // Template aus den finalen Einstellungen verwenden (falls aus DB geladen)
+                const templateToUse = currentSettings.template || this.currentTemplate || 'elegant';
+
+                
+                const requestData = {
+                    guest_id: parseInt(testGuestSelect.value),
+                    settings: currentSettings,
+                    template: templateToUse
+                };
+                
+                const response = await fetch('/api/generate-test-card', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    this.hideProgress();
+                    this.showSuccess(`Test-Karte für ${result.guest_name} erfolgreich erstellt! (Template: ${result.template})`);
+                    
+                    // Download-Button aktivieren mit echtem Dateipfad
+                    const downloadBtn = document.querySelector('[onclick="downloadTestCard()"]');
+                    if (downloadBtn) {
+                        downloadBtn.disabled = false;
+                        downloadBtn.setAttribute('data-filepath', result.filepath);
+                    }
+                    
+                    return result.filepath;
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Unbekannter Fehler');
+                }
+            } catch (error) {
+
+                this.hideProgress();
+                this.showError('Fehler beim Erstellen der Test-Karte: ' + error.message);
+                return null;
+            }
+        },
+        
+        generateAllCards: async function() {
+
+            
+            if (this.guestData.length === 0) {
+                this.showError('Keine Gäste gefunden. Bitte laden Sie die Daten neu.');
+                return;
+            }
+            
+            try {
+                this.showProgress(`Erstelle ${this.guestData.length} Karten...`);
+                
+                // �️ WICHTIG: Aktuelle Einstellungen direkt aus Datenbank + DOM sammeln
+                const currentSettings = await this.getCurrentSettingsFromDatabase();
+
+                
+                // Template aus den finalen Einstellungen verwenden (falls aus DB geladen)
+                const templateToUse = currentSettings.template || this.currentTemplate || 'elegant';
+
+                
+                const requestData = {
+                    settings: currentSettings,
+                    template: templateToUse
+                };
+                
+                const response = await fetch('/api/generate-all-cards', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    this.hideProgress();
+                    this.showGenerationSuccess(result);
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Unbekannter Fehler');
+                }
+            } catch (error) {
+
+                this.hideProgress();
+                this.showError('Fehler beim Erstellen der Karten: ' + error.message);
+            }
+        },
+        
+        downloadTestCard: async function() {
+
+            const downloadBtn = document.querySelector('[onclick="downloadTestCard()"]');
+            const filepath = downloadBtn ? downloadBtn.getAttribute('data-filepath') : null;
+            
+            if (!filepath) {
+                this.showError('Bitte erst eine Test-Karte erstellen.');
+                return;
+            }
+            
+            try {
+                this.showSuccess('Download wird gestartet...');
+                window.open(`/api/download-card?filepath=${encodeURIComponent(filepath)}`, '_blank');
+            } catch (error) {
+
+                this.showError('Fehler beim Herunterladen der Karte: ' + error.message);
+            }
+        },
+        
+        // Neue kombinierte Funktion: erstellt UND lädt herunter
+        createAndDownloadTestCard: async function() {
+
+            const testGuestSelect = document.getElementById('testGuestSelect');
+            
+            if (!testGuestSelect || !testGuestSelect.value) {
+                this.showError('Bitte wählen Sie einen Gast für die Test-Karte aus.');
+                return;
+            }
+            
+            try {
+                // Erst erstellen
+                const filepath = await this.generateTestCard();
+                
+                if (filepath) {
+                    // Dann sofort herunterladen
+                    setTimeout(() => {
+                        this.showSuccess('Karte erstellt! Download wird gestartet...');
+                        window.open(`/api/download-card?filepath=${encodeURIComponent(filepath)}`, '_blank');
+                    }, 500);
+                }
+            } catch (error) {
+
+                this.showError('Fehler beim Erstellen und Herunterladen: ' + error.message);
+            }
+        },
+        
+        showProgress: function(text) {
+            const progressDiv = document.querySelector('.generation-progress');
+            const successDiv = document.querySelector('.generation-success');
+            const progressText = document.getElementById('progressText');
+            
+            if (progressDiv) progressDiv.style.display = 'block';
+            if (successDiv) successDiv.style.display = 'none';
+            if (progressText) progressText.textContent = text;
+        },
+        
+        hideProgress: function() {
+            const progressDiv = document.querySelector('.generation-progress');
+            if (progressDiv) progressDiv.style.display = 'none';
+        },
+        
+        showGenerationSuccess: function(result) {
+            const successDiv = document.querySelector('.generation-success');
+            const successText = document.getElementById('successText');
+            const downloadBtn = document.getElementById('downloadZipBtn');
+            
+            if (successDiv) successDiv.style.display = 'block';
+            if (successText) successText.textContent = `${result.generated_count} Karten erfolgreich erstellt!`;
+            
+            if (downloadBtn) {
+                downloadBtn.onclick = () => {
+                    this.showSuccess('ZIP-Download wird gestartet...');
+                    window.open(`/api/download-zip?filepath=${encodeURIComponent(result.zip_filepath)}`, '_blank');
+                };
+            }
+        },
+        
+        showSuccess: function(message) {
+            const toast = document.getElementById('successToast');
+            const toastBody = document.getElementById('successToastBody');
+            
+            if (toast && toastBody) {
+                toastBody.textContent = message;
+                const bsToast = new bootstrap.Toast(toast);
+                bsToast.show();
+            } else {
+
+                alert('✅ ' + message);
+            }
+        },
+        
+        showError: function(message) {
+            const toast = document.getElementById('errorToast');
+            const toastBody = document.getElementById('errorToastBody');
+            
+            if (toast && toastBody) {
+                toastBody.textContent = message;
+                const bsToast = new bootstrap.Toast(toast);
+                bsToast.show();
+            } else {
+
+                alert('❌ ' + message);
+            }
+        },
+        
+        showWarning: function(message) {
+            // Verwende Error-Toast für Warnungen (falls kein Warning-Toast existiert)
+            this.showError('⚠️ ' + message);
+        },
+        
+        showInfo: function(message) {
+            // Verwende Success-Toast für Info-Nachrichten
+            this.showSuccess('ℹ️ ' + message);
+        },
+        
+        loadGuestData: async function() {
+
+            
+            try {
+                const response = await fetch('/api/einladungs-generator/gaeste');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    this.guestData = data.gaeste || [];
+
+                    
+                    // Gäste-Select-Box sofort aktualisieren
+                    this.updateGuestSelectBox();
+                } else {
+
+                    // Fallback zu Test-Daten wenn API nicht verfügbar
+                    this.guestData = [
+                        { id: 1, vorname: 'Max', nachname: 'Mustermann' },
+                        { id: 2, vorname: 'Maria', nachname: 'Musterfrau' },
+                        { id: 3, vorname: 'Test', nachname: 'Gast' }
+                    ];
+                    this.updateGuestSelectBox();
+                }
+            } catch (error) {
+
+                // Fallback zu Test-Daten
+                this.guestData = [
+                    { id: 1, vorname: 'Max', nachname: 'Mustermann' },
+                    { id: 2, vorname: 'Maria', nachname: 'Musterfrau' },
+                    { id: 3, vorname: 'Test', nachname: 'Gast' }
+                ];
+                this.updateGuestSelectBox();
+            }
+        },
+        
+        updateGuestSelectBox: function() {
+
+            
+            // Gäste-Select-Box aktualisieren
+            const select = document.getElementById('testGuestSelect');
+            if (select) {
+                select.innerHTML = '<option value="">Gast für Vorschau auswählen...</option>';
+                
+                if (this.guestData && this.guestData.length > 0) {
+                    this.guestData.forEach(guest => {
+                        const option = document.createElement('option');
+                        option.value = guest.id;
+                        option.textContent = `${guest.vorname} ${guest.nachname}`;
+                        select.appendChild(option);
+                    });
+
+                } else {
+
+                }
+            } else {
+
+            }
+        }
+    };
+    
+
+    return window.einladungsGenerator;
+};
+
+window.selectTemplate = function(templateName) {
+
+    
+    // Sofortige visuelle Aktualisierung
+    try {
+        const templateOptions = document.querySelectorAll('.template-option');
+
+        
+        templateOptions.forEach(option => {
+            option.classList.remove('selected');
+            if (option.getAttribute('data-template') === templateName) {
+                option.classList.add('selected');
+
+            }
+        });
+    } catch (error) {
+
+    }
+    
+    // Generator-Methode aufrufen
+    if (window.einladungsGenerator && window.einladungsGenerator.selectTemplate) {
+        window.einladungsGenerator.selectTemplate(templateName);
+
+    } else {
+
+        window.createFallbackGenerator();
+        window.einladungsGenerator.selectTemplate(templateName);
+    }
+};
+
+window.generateTestCard = function() {
+
+    if (!window.einladungsGenerator) {
+        window.createFallbackGenerator();
+    }
+    window.einladungsGenerator.generateTestCard();
+};
+
+window.generateAllCards = function() {
+
+    if (!window.einladungsGenerator) {
+        window.createFallbackGenerator();
+    }
+    window.einladungsGenerator.generateAllCards();
+};
+
+window.downloadTestCard = function() {
+
+    if (!window.einladungsGenerator) {
+        window.createFallbackGenerator();
+    }
+    window.einladungsGenerator.downloadTestCard();
+};
+
+window.createAndDownloadTestCard = function() {
+
+    if (!window.einladungsGenerator) {
+        window.createFallbackGenerator();
+    }
+    window.einladungsGenerator.createAndDownloadTestCard();
+};
+
+window.updatePreview = function() {
+
+    if (!window.einladungsGenerator) {
+        window.createFallbackGenerator();
+    }
+    window.einladungsGenerator.updatePreview();
+};
+
+window.updateFontSize = function() {
+    const fontSize = document.getElementById('fontSize');
+    const fontSizeValue = document.getElementById('fontSizeValue');
+    if (fontSize && fontSizeValue) {
+        fontSizeValue.textContent = fontSize.value;
+        if (window.einladungsGenerator) {
+            window.einladungsGenerator.currentSettings.fontSize = parseInt(fontSize.value);
+            window.einladungsGenerator.updatePreview();
+        }
+    }
+};
+
+window.updateQRSize = function() {
+    const qrSize = document.getElementById('qrSize');
+    const qrSizeValue = document.getElementById('qrSizeValue');
+    if (qrSize && qrSizeValue) {
+        qrSizeValue.textContent = qrSize.value;
+        if (window.einladungsGenerator) {
+            window.einladungsGenerator.currentSettings.qrSize = parseInt(qrSize.value);
+            window.einladungsGenerator.updatePreview();
+        }
+    }
+};
+
+window.updateColorFromText = function(colorType) {
+
+    if (!window.einladungsGenerator) {
+        window.createFallbackGenerator();
+    }
+    
+    const textInput = document.getElementById(colorType + 'ColorText');
+    const colorPicker = document.getElementById(colorType + 'Color');
+    
+    if (textInput && colorPicker) {
+        const newColor = textInput.value;
+        colorPicker.value = newColor;
+        window.einladungsGenerator.currentSettings[colorType + 'Color'] = newColor;
+        window.einladungsGenerator.updatePreview();
+    }
+};
+
+// Erweiterte Update-Funktionen
+window.updateFromInput = function(inputId, settingKey) {
+    if (!window.einladungsGenerator) {
+        window.createFallbackGenerator();
+    }
+    
+    const input = document.getElementById(inputId);
+    if (input) {
+        if (input.type === 'checkbox') {
+            window.einladungsGenerator.currentSettings[settingKey] = input.checked;
+        } else {
+            window.einladungsGenerator.currentSettings[settingKey] = input.value;
+        }
+        window.einladungsGenerator.updatePreview();
+    }
+};
+
+// Event-Listener für alle Formular-Elemente hinzufügen
+window.setupFormListeners = function() {
+
+    
+    // Debounce-Funktion für Performance-Optimierung
+    let updateTimeout;
+    function debouncedUpdate(inputId, settingKey) {
+        clearTimeout(updateTimeout);
+        updateTimeout = setTimeout(() => {
+            updateFromInput(inputId, settingKey);
+        }, 300); // 300ms Verzögerung nach letztem Tastendruck
+    }
+    
+    // Text-Inputs mit Debounce
+    ['titleText', 'dateText', 'greetingText', 'invitationText'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('input', () => {
+
+                debouncedUpdate(id, id);
+            });
+        }
+    });
+    
+    // Color-Inputs (sofortige Aktualisierung)
+    ['primaryColor', 'accentColor', 'backgroundColor'].forEach(colorId => {
+        const colorPicker = document.getElementById(colorId);
+        const textInput = document.getElementById(colorId + 'Text');
+        
+        if (colorPicker) {
+            colorPicker.addEventListener('change', () => {
+
+                if (textInput) textInput.value = colorPicker.value;
+                updateFromInput(colorId, colorId);
+            });
+        }
+        
+        if (textInput) {
+            textInput.addEventListener('input', () => {
+                updateColorFromText(colorId.replace('Color', ''));
+            });
+        }
+    });
+    
+    // Range-Inputs (sofortige Aktualisierung)
+    const fontSizeRange = document.getElementById('fontSize');
+    if (fontSizeRange) {
+        fontSizeRange.addEventListener('input', updateFontSize);
+    }
+    
+    const qrSizeRange = document.getElementById('qrSize');
+    if (qrSizeRange) {
+        qrSizeRange.addEventListener('input', updateQRSize);
+    }
+    
+    // Checkboxes (sofortige Aktualisierung)
+    ['includePhoto', 'showLoginData', 'elegantFont'].forEach(id => {
+        const checkbox = document.getElementById(id);
+        if (checkbox) {
+            checkbox.addEventListener('change', () => {
+
+                updateFromInput(id, id);
+            });
+        }
+    });
+    
+    // Test-Gast Auswahl (sofortige Aktualisierung)
+    const testGuestSelect = document.getElementById('testGuestSelect');
+    if (testGuestSelect) {
+        testGuestSelect.addEventListener('change', () => {
+
+            updatePreview();
+        });
+    }
+    
+
+};
+
+window.loadGuestData = function() {
+
+    if (!window.einladungsGenerator) {
+        window.createFallbackGenerator();
+    }
+    
+    // Stelle sicher, dass die Funktion existiert und ausgeführt wird
+    if (window.einladungsGenerator && typeof window.einladungsGenerator.loadGuestData === 'function') {
+        window.einladungsGenerator.loadGuestData().then(() => {
+
+        }).catch(error => {
+
+        });
+    } else {
+
+    }
+};
+
+// Auch im globalen Scope verfügbar machen
+selectTemplate = window.selectTemplate;
+generateTestCard = window.generateTestCard;
+generateAllCards = window.generateAllCards;
+downloadTestCard = window.downloadTestCard;
+createAndDownloadTestCard = window.createAndDownloadTestCard;
+updatePreview = window.updatePreview;
+updateFontSize = window.updateFontSize;
+updateQRSize = window.updateQRSize;
+updateColorFromText = window.updateColorFromText;
+loadGuestData = window.loadGuestData;
+
+
+
+// Sofort Fallback-Generator erstellen falls nötig
+setTimeout(() => {
+    if (!window.einladungsGenerator) {
+
+        window.createFallbackGenerator();
+    } else {
+
+    }
+    
+    // Event-Listener für Formular-Elemente einrichten
+    setupFormListeners();
+    
+    // **WICHTIG**: Gäste-Daten sofort laden
+
+    loadGuestData();
+    
+    // **WICHTIG**: Gespeicherte Einstellungen automatisch laden
+
+    loadGeneratorSettings();
+    
+    // **WICHTIG**: Generator currentSettings mit Datenbank-Werten initialisieren
+    setTimeout(async () => {
+        if (window.einladungsGenerator && typeof window.einladungsGenerator.initializeWithDatabaseSettings === 'function') {
+
+            await window.einladungsGenerator.initializeWithDatabaseSettings();
+        }
+        
+        // Nach Laden der Einstellungen: Vorschau aktualisieren
+        updatePreview();
+    }, 300);
+    
+    // Nach Laden der Einstellungen: Vorschau aktualisieren
+    setTimeout(() => {
+        updatePreview();
+        
+        // Fallback: Gäste nochmals laden falls beim ersten Mal nicht geklappt
+        setTimeout(() => {
+            const select = document.getElementById('testGuestSelect');
+            if (select && select.options.length <= 1) { // Nur Standard-Option vorhanden
+
+                loadGuestData();
+            }
+        }, 1000);
+    }, 200);
+}, 1000);
+
+// Zusätzliche DOM-Ready-Funktionalität
+document.addEventListener('DOMContentLoaded', function() {
+
+    
+    // Warte kurz für vollständiges Laden
+    setTimeout(() => {
+        // Generator verfügbar machen
+        if (!window.einladungsGenerator) {
+            window.createFallbackGenerator();
+        }
+        
+        // Setup Event-Listeners nochmals falls nötig
+        if (typeof setupFormListeners === 'function') {
+            setupFormListeners();
+        }
+        
+        // **WICHTIG**: Einstellungen nochmals laden falls beim ersten Mal nicht geklappt
+
+        loadGeneratorSettings();
+        
+        // **WICHTIG**: Generator mit Datenbank-Einstellungen initialisieren
+        setTimeout(async () => {
+            if (window.einladungsGenerator && typeof window.einladungsGenerator.initializeWithDatabaseSettings === 'function') {
+
+                await window.einladungsGenerator.initializeWithDatabaseSettings();
+                
+                // Vorschau mit geladenen Einstellungen aktualisieren
+                setTimeout(() => {
+                    updatePreview();
+
+                }, 100);
+            }
+        }, 200);
+        
+        // **WICHTIG**: Gäste-Daten laden falls noch nicht geschehen  
+
+        loadGuestData();
+    }, 500);
+});
+
+window.startTime = Date.now();
+</script>
+
+<style>
+    .card-wedding-header {
+        background: linear-gradient(135deg, #8b7355, #d4af37);
+        color: white;
+        border-radius: 15px 15px 0 0;
+    }
+    
+    .preview-card {
+        max-width: 400px;
+        margin: 0 auto;
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        border-radius: 15px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    .preview-card img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+    }
+    
+    .qr-preview {
+        width: 120px;
+        height: 120px;
+        border: 2px solid #d4af37;
+        border-radius: 8px;
+        background: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+    }
+    
+    .color-picker-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .color-picker {
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+    
+    .form-range::-webkit-slider-thumb {
+        background: linear-gradient(135deg, #d4af37, #f4e4bc);
+    }
+    
+    .form-range::-moz-range-thumb {
+        background: linear-gradient(135deg, #d4af37, #f4e4bc);
+        border: none;
+    }
+    
+    .generation-progress {
+        display: none;
+    }
+    
+    .generation-success {
+        display: none;
+    }
+    
+    .font-preview {
+        font-family: 'Dancing Script', cursive;
+        font-size: 1.2rem;
+        color: #8b7355;
+    }
+    
+    .template-option {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    
+    .template-option:hover {
+        border-color: #d4af37;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+    }
+    
+    .template-option.selected {
+        border-color: #d4af37;
+        background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(244, 228, 188, 0.1));
+    }
+    
+    /* Elegantes Template ohne Rahmen */
+    .preview-card.template-elegant {
+        border: none !important;
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
+    }
+    
+    .preview-card.template-elegant img {
+        border: none !important;
+    }
+    
+    /* Kamera-Icon Styling */
+    #previewCamera {
+        filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="bi bi-qr-code me-2"></i>
+                        Einladungs Generator
+                    </h1>
+                    <p class="text-muted mb-0">Erstelle personalisierte QR-Code Einladungskarten für deine Gäste</p>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-outline-secondary me-2" onclick="saveGeneratorSettings()">
+                        <i class="bi bi-floppy me-2"></i>Einstellungen speichern
+                    </button>
+                    <button type="button" class="btn btn-success" id="generateAllBtn" onclick="generateAllCards()">
+                        <i class="bi bi-download me-2"></i>Alle Karten erstellen
+                    </button>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Konfiguration -->
+                <div class="col-lg-8">
+                    <div class="card mb-4">
+                        <div class="card-header card-wedding-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-gear me-2"></i>
+                                Karten-Konfiguration
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- Template Auswahl -->
+                            <div class="mb-4">
+                                <h6><i class="bi bi-palette me-2"></i>Template auswählen</h6>
+                                <div class="row" id="templateOptions">
+                                    <div class="col-md-4 mb-3">
+                                        <div class="card template-option selected" data-template="elegant" onclick="selectTemplate('elegant')">
+                                            <div class="card-body text-center">
+                                                <i class="bi bi-heart-fill mb-2" style="font-size: 2rem; color: #d4af37;"></i>
+                                                <h6>Elegant</h6>
+                                                <small class="text-muted">Dancing Script mit Hochzeitsfoto</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <div class="card template-option" data-template="classic" onclick="selectTemplate('classic')">
+                                            <div class="card-body text-center">
+                                                <i class="bi bi-card-text mb-2" style="font-size: 2rem; color: #8b7355;"></i>
+                                                <h6>Klassisch</h6>
+                                                <small class="text-muted">Sauberes Design ohne Foto</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <div class="card template-option" data-template="modern" onclick="selectTemplate('modern')">
+                                            <div class="card-body text-center">
+                                                <i class="bi bi-phone mb-2" style="font-size: 2rem; color: #6c757d;"></i>
+                                                <h6>Modern</h6>
+                                                <small class="text-muted">Minimalistisch & QR-fokussiert</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Anpassungsoptionen -->
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6><i class="bi bi-brush me-2"></i>Farbanpassungen</h6>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Primärfarbe (Text & Rahmen)</label>
+                                        <div class="d-flex align-items-center">
+                                            <input type="color" class="color-picker me-2" id="primaryColor" value="#8b7355" onchange="updatePreview()">
+                                            <input type="text" class="form-control" id="primaryColorText" value="#8b7355" onchange="updateColorFromText('primary')">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Akzentfarbe (QR-Code & Highlights)</label>
+                                        <div class="d-flex align-items-center">
+                                            <input type="color" class="color-picker me-2" id="accentColor" value="#d4af37" onchange="updatePreview()">
+                                            <input type="text" class="form-control" id="accentColorText" value="#d4af37" onchange="updateColorFromText('accent')">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Hintergrundfarbe</label>
+                                        <div class="d-flex align-items-center">
+                                            <input type="color" class="color-picker me-2" id="backgroundColor" value="#ffffff" onchange="updatePreview()">
+                                            <input type="text" class="form-control" id="backgroundColorText" value="#ffffff" onchange="updateColorFromText('background')">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <h6><i class="bi bi-fonts me-2"></i>Text & Layout</h6>
+                                    
+                                    <div class="mb-3">
+                                        <label for="titleText" class="form-label">Überschrift</label>
+                                        <input type="text" class="form-control" id="titleText" value="{{ braut_name }} und {{ braeutigam_name }} heiraten" onchange="updatePreview()">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="dateText" class="form-label">Datum</label>
+                                        <input type="text" class="form-control" id="dateText" value="{{ wedding_date }}" onchange="updatePreview()">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="fontSize" class="form-label">Schriftgröße: <span id="fontSizeValue">100</span>%</label>
+                                        <input type="range" class="form-range" id="fontSize" min="80" max="120" value="100" onchange="updateFontSize()">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="qrSize" class="form-label">QR-Code Größe: <span id="qrSizeValue">120</span>px</label>
+                                        <input type="range" class="form-range" id="qrSize" min="100" max="180" value="120" onchange="updateQRSize()">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Inhalt Anpassungen -->
+                            <div class="mt-4">
+                                <h6><i class="bi bi-card-text me-2"></i>Einladungstext</h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="greetingText" class="form-label">Begrüßung</label>
+                                        <textarea class="form-control" id="greetingText" rows="3" onchange="updatePreview()"></textarea>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="invitationText" class="form-label">Einladungstext</label>
+                                        <textarea class="form-control" id="invitationText" rows="3" onchange="updatePreview()"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Erweiterte Optionen -->
+                            <div class="mt-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="includePhoto" checked onchange="updatePreview()">
+                                    <label class="form-check-label" for="includePhoto">
+                                        Hochzeitsfoto einschließen
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="showLoginData" checked onchange="updatePreview()">
+                                    <label class="form-check-label" for="showLoginData">
+                                        Login-Daten auf Karte anzeigen
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="elegantFont" checked onchange="updatePreview()">
+                                    <label class="form-check-label" for="elegantFont">
+                                        Elegante Schriftart (Dancing Script) verwenden
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Test-Karte Generierung -->
+                    <div class="card">
+                        <div class="card-header card-wedding-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-play-circle me-2"></i>
+                                Test & Generierung
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="testGuestSelect" class="form-label">Test-Gast auswählen</label>
+                                    <select class="form-select mb-3" id="testGuestSelect" onchange="updatePreview()">
+                                        <option value="">Gast für Vorschau auswählen...</option>
+                                    </select>
+                                    
+                                    <button type="button" class="btn btn-success me-2" onclick="createAndDownloadTestCard()">
+                                        <i class="bi bi-download me-1"></i>Test-Karte herunterladen
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary" onclick="generateTestCard()">
+                                        <i class="bi bi-eye me-1"></i>Nur Vorschau erstellen
+                                    </button>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="generation-progress">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                            <span id="progressText">Erstelle Karten...</span>
+                                        </div>
+                                        <div class="progress">
+                                            <div class="progress-bar" role="progressbar" id="progressBar" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="generation-success">
+                                        <div class="alert alert-success">
+                                            <i class="bi bi-check-circle me-2"></i>
+                                            <span id="successText">Karten erfolgreich erstellt!</span>
+                                        </div>
+                                        <button type="button" class="btn btn-success" id="downloadZipBtn">
+                                            <i class="bi bi-download me-1"></i>ZIP-Datei herunterladen
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vorschau -->
+                <div class="col-lg-4">
+                    <div class="card sticky-top" style="top: 1rem;">
+                        <div class="card-header card-wedding-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-eye me-2"></i>
+                                Live-Vorschau
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="preview-card" id="cardPreview">
+                                <!-- Wird dynamisch gefüllt -->
+                                <div class="p-4 text-center">
+                                    <div class="font-preview mb-3" id="previewTitle">
+                                        {{ braut_name }} und {{ braeutigam_name }} heiraten
+                                    </div>
+                                    <div class="text-muted mb-3" id="previewDate">
+                                        {{ wedding_date }}
+                                    </div>
+                                    
+                                    <div class="mb-3" id="previewPhoto" style="display: none;">
+                                        <img src="" alt="Hochzeitsfoto" class="img-fluid" style="max-height: 150px; display: block; margin: 0 auto;">
+                                    </div>
+                                    
+                                    <div class="mb-3" id="previewGreeting">
+                                        <div style="font-size: 0.9rem; color: #8b7355;">
+                                            Liebe Familie,<br>
+                                            liebe Freunde,
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3" id="previewInvitation">
+                                        <div style="font-size: 0.8rem; color: #6c757d;">
+                                            Ihr seid herzlich zu unserer Hochzeit eingeladen!
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="qr-preview mb-3" id="previewQR">
+                                        <i class="bi bi-qr-code" style="font-size: 3rem; color: #d4af37;"></i>
+                                    </div>
+                                    
+                                    <div style="font-size: 0.7rem; color: #d4af37;" id="previewScanText">
+                                        Scan me
+                                    </div>
+                                    
+                                    <div class="mt-3" id="previewLoginData" style="font-size: 0.7rem; color: #6c757d;">
+                                        Login: GUEST123<br>
+                                        Password: pass123
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Die Vorschau zeigt eine vereinfachte Version. Die finale Karte enthält echte QR-Codes und Gastdaten.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success/Error Toast Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="successToast" class="toast align-items-center text-bg-success border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="successToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+    <div id="errorToast" class="toast align-items-center text-bg-danger border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="errorToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/robust_template_selection.js') }}"></script>
+<script src="{{ url_for('static', filename='js/global_functions_guard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/einladungs_generator.js') }}"></script>
+<script src="{{ url_for('static', filename='js/manual_settings_manager.js') }}"></script>
+{% endblock %}
+

@@ -7,7 +7,7 @@ let currentData = null;
 document.addEventListener('DOMContentLoaded', function() {
     if (window.GoogleMapsIntegration && !window.googleMaps) {
         window.googleMaps = new GoogleMapsIntegration();
-        console.log('Google Maps Integration initialized');
+
     }
 });
 
@@ -109,7 +109,7 @@ async function apiCall(endpoint, options = {}) {
         
         return data;
     } catch (error) {
-        console.error('API Call Error:', error);
+
         throw error;
     }
 }
@@ -128,7 +128,7 @@ async function loadDashboardStats() {
             throw new Error(data.error);
         }
     } catch (error) {
-        console.error('Fehler beim Laden der Dashboard-Daten:', error);
+
         showAlert('Fehler beim Laden der Dashboard-Daten: ' + error.message, 'danger');
     } finally {
         hideLoading();
@@ -222,7 +222,7 @@ async function loadGuests() {
             throw new Error(data.error);
         }
     } catch (error) {
-        console.error('Fehler beim Laden der Gästeliste:', error);
+
         showAlert('Fehler beim Laden der Gästeliste: ' + error.message, 'danger');
         return [];
     } finally {
@@ -245,7 +245,7 @@ async function addGuest(guestData) {
             throw new Error(data.error);
         }
     } catch (error) {
-        console.error('Fehler beim Hinzufügen des Gastes:', error);
+
         showAlert('Fehler beim Hinzufügen: ' + error.message, 'danger');
         return false;
     } finally {
@@ -264,7 +264,7 @@ async function loadSettings() {
             throw new Error(data.error);
         }
     } catch (error) {
-        console.error('Fehler beim Laden der Einstellungen:', error);
+
         return {};
     }
 }
@@ -284,7 +284,7 @@ async function saveSettings(settings) {
             throw new Error(response.error || 'Fehler beim Speichern');
         }
     } catch (error) {
-        console.error('Fehler beim Speichern der Einstellungen:', error);
+
         showError('Fehler beim Speichern der Einstellungen: ' + error.message);
         return false;
     } finally {
@@ -332,7 +332,7 @@ async function loadLocations() {
         }
         
     } catch (error) {
-        console.error('Fehler beim Laden der Locations:', error);
+
         showError('Fehler beim Laden der Location-Daten');
     }
 }
@@ -372,7 +372,7 @@ async function saveLocations() {
         return success;
         
     } catch (error) {
-        console.error('Fehler beim Speichern der Locations:', error);
+
         showError('Fehler beim Speichern der Location-Daten');
         return false;
     }
@@ -672,13 +672,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Globale Error Handler
     window.addEventListener('error', function(e) {
-        console.error('JavaScript Error:', e.error);
+
         showAlert('Ein unerwarteter Fehler ist aufgetreten.', 'danger');
     });
     
     // Unhandled Promise Rejections
     window.addEventListener('unhandledrejection', function(e) {
-        console.error('Unhandled Promise Rejection:', e.reason);
+
         showAlert('Ein unerwarteter Fehler ist aufgetreten.', 'danger');
     });
 });
@@ -704,3 +704,4 @@ window.HochzeitsplanerApp = {
     createBudgetChart,
     refreshDashboard: loadDashboardStats  // Alias für Dashboard-Refresh
 };
+

@@ -4,7 +4,7 @@ let currentGuests = [];
 let selectedGuests = new Set();
 
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('Gästeliste wird geladen...');
+
     
     // Event Listeners
     setupEventListeners();
@@ -84,7 +84,7 @@ async function loadAndDisplayGuests() {
             if (window.HochzeitsplanerApp && window.HochzeitsplanerApp.showLoading) {
                 window.HochzeitsplanerApp.showLoading();
             } else {
-                console.log('Loading guests...');
+
             }
         };
         
@@ -116,7 +116,7 @@ async function loadAndDisplayGuests() {
             throw new Error(data.error);
         }
     } catch (error) {
-        console.error('Fehler beim Laden der Gäste:', error);
+
         
         const showAlert = (message, type = 'danger') => {
             if (window.HochzeitsplanerApp && window.HochzeitsplanerApp.showAlert) {
@@ -409,7 +409,7 @@ async function handleSaveMassEdit() {
             throw new Error(result.error);
         }
     } catch (error) {
-        console.error('Fehler bei der Masseneditierung:', error);
+
         HochzeitsplanerApp.showAlert('Fehler bei der Masseneditierung: ' + error.message, 'danger');
     } finally {
         HochzeitsplanerApp.hideLoading();
@@ -545,7 +545,7 @@ async function handleAddGuest() {
             throw new Error(result.error);
         }
     } catch (error) {
-        console.error('Fehler beim Hinzufügen:', error);
+
         HochzeitsplanerApp.showAlert('Fehler beim Hinzufügen: ' + error.message, 'danger');
     } finally {
         HochzeitsplanerApp.hideLoading();
@@ -638,7 +638,7 @@ async function handleUpdateGuest() {
             if (window.HochzeitsplanerApp && window.HochzeitsplanerApp.showLoading) {
                 window.HochzeitsplanerApp.showLoading();
             } else {
-                console.log('Loading...');
+
             }
         };
         
@@ -686,7 +686,7 @@ async function handleUpdateGuest() {
             throw new Error(result.error);
         }
     } catch (error) {
-        console.error('Fehler beim Aktualisieren:', error);
+
         
         const showAlert = (message, type = 'danger') => {
             if (window.HochzeitsplanerApp && window.HochzeitsplanerApp.showAlert) {
@@ -737,7 +737,7 @@ async function deleteGuest(guestId) {
             throw new Error(result.error);
         }
     } catch (error) {
-        console.error('Fehler beim Löschen:', error);
+
         HochzeitsplanerApp.showAlert('Fehler beim Löschen: ' + error.message, 'danger');
     } finally {
         HochzeitsplanerApp.hideLoading();
@@ -750,3 +750,4 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+

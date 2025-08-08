@@ -148,6 +148,30 @@ window.getWeddingChartDefaults = function() {
 
 // Event-Listener für automatische Chart-Theming
 document.addEventListener('DOMContentLoaded', function() {
+    // Badge-Klassen für Wedding Theme hinzufügen
+    const weddingBadgeStyles = `
+        .badge-wedding-success {
+            color: #fff;
+            background: linear-gradient(135deg, #28a745, #34ce57);
+        }
+        .badge-wedding-danger {
+            color: #fff;
+            background: linear-gradient(135deg, #dc3545, #e74c3c);
+        }
+        .badge-wedding-secondary {
+            color: #fff;
+            background: linear-gradient(135deg, #d4af37, #f4e4bc);
+        }
+    `;
+    
+    // Style-Element erstellen und hinzufügen
+    if (!document.getElementById('wedding-badge-styles')) {
+        const styleElement = document.createElement('style');
+        styleElement.id = 'wedding-badge-styles';
+        styleElement.textContent = weddingBadgeStyles;
+        document.head.appendChild(styleElement);
+    }
+    
     // Warte kurz, damit Charts geladen werden können
     setTimeout(() => {
         // Versuche alle Chart.js Instanzen zu finden und zu themisieren
@@ -159,4 +183,5 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 });
 
-console.log('🎨 Hochzeits-Farbthema geladen - Harmonische Farben aktiviert');
+
+

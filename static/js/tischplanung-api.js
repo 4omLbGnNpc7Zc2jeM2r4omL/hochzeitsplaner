@@ -8,7 +8,7 @@ window.TischplanungAPI = {
             const response = await fetch('/api/tischplanung/tables');
             return await response.json();
         } catch (error) {
-            console.error('Fehler beim Laden der Tische:', error);
+
             return [];
         }
     },
@@ -22,7 +22,7 @@ window.TischplanungAPI = {
             });
             return await response.json();
         } catch (error) {
-            console.error('Fehler beim Speichern des Tisches:', error);
+
             return { success: false, error: error.message };
         }
     },
@@ -36,7 +36,7 @@ window.TischplanungAPI = {
             });
             return await response.json();
         } catch (error) {
-            console.error('Fehler beim Aktualisieren des Tisches:', error);
+
             return { success: false, error: error.message };
         }
     },
@@ -50,7 +50,7 @@ window.TischplanungAPI = {
             }
             return [];
         } catch (error) {
-            console.error('Fehler beim Laden der Gäste:', error);
+
             return [];
         }
     },
@@ -67,7 +67,7 @@ window.TischplanungAPI = {
             });
             return await response.json();
         } catch (error) {
-            console.error('Fehler beim Speichern des Gastes:', error);
+
             return { success: false, error: error.message };
         }
     },
@@ -79,7 +79,7 @@ window.TischplanungAPI = {
             });
             return await response.json();
         } catch (error) {
-            console.error('Fehler beim Löschen des Tisches:', error);
+
             return { success: false, error: error.message };
         }
     },
@@ -99,11 +99,11 @@ window.TischplanungAPI = {
             } else if (data && data.success && Array.isArray(data.data)) {
                 return data.data;
             } else {
-                console.warn('⚠️ Unerwartetes Format der Zuordnungen:', data);
+
                 return [];
             }
         } catch (error) {
-            console.error('Fehler beim Laden der Zuordnungen:', error);
+
             return [];
         }
     },
@@ -121,7 +121,7 @@ window.TischplanungAPI = {
             });
             return await response.json();
         } catch (error) {
-            console.error('Fehler beim Zuweisen des Gastes:', error);
+
             return { success: false, error: error.message };
         }
     },
@@ -137,7 +137,7 @@ window.TischplanungAPI = {
             
             // Spezielle Behandlung für 401 (Authentication required)
             if (response.status === 401) {
-                console.error('Authentifizierung erforderlich - Session abgelaufen?');
+
                 return { 
                     success: false, 
                     error: 'Authentifizierung erforderlich. Bitte erneut anmelden.' 
@@ -146,7 +146,7 @@ window.TischplanungAPI = {
             
             // Spezielle Behandlung für 404 (Gast nicht zugeordnet)
             if (response.status === 404) {
-                console.warn(`Gast ${guestId} war keinem Tisch zugeordnet`);
+
                 const data = await response.json().catch(() => ({}));
                 return { 
                     success: false, 
@@ -158,9 +158,9 @@ window.TischplanungAPI = {
             // Prüfe ob Response JSON ist
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
-                console.error('Server antwortete mit HTML statt JSON:', response.status);
+
                 const htmlText = await response.text();
-                console.error('HTML Response:', htmlText.substring(0, 200) + '...');
+
                 return { 
                     success: false, 
                     error: `Server-Fehler: Unerwartete Response (${response.status})` 
@@ -175,7 +175,7 @@ window.TischplanungAPI = {
                 return { success: false, error: data.error || `HTTP Error ${response.status}` };
             }
         } catch (error) {
-            console.error('Fehler beim Entfernen des Gastes:', error);
+
             return { success: false, error: error.message };
         }
     },
@@ -187,7 +187,7 @@ window.TischplanungAPI = {
             });
             return await response.json();
         } catch (error) {
-            console.error('Fehler beim Löschen aller Zuordnungen:', error);
+
             return { success: false, error: error.message };
         }
     },
@@ -199,7 +199,7 @@ window.TischplanungAPI = {
             const response = await fetch(url);
             return await response.json();
         } catch (error) {
-            console.error('Fehler beim Laden der Beziehungen:', error);
+
             return [];
         }
     },
@@ -213,7 +213,7 @@ window.TischplanungAPI = {
             });
             return await response.json();
         } catch (error) {
-            console.error('Fehler beim Speichern der Beziehung:', error);
+
             return { success: false, error: error.message };
         }
     },
@@ -227,7 +227,7 @@ window.TischplanungAPI = {
             });
             return await response.json();
         } catch (error) {
-            console.error('Fehler beim Aktualisieren der Beziehung:', error);
+
             return { success: false, error: error.message };
         }
     },
@@ -239,7 +239,7 @@ window.TischplanungAPI = {
             });
             return await response.json();
         } catch (error) {
-            console.error('Fehler beim Löschen der Beziehung:', error);
+
             return { success: false, error: error.message };
         }
     },
@@ -254,7 +254,7 @@ window.TischplanungAPI = {
             });
             return await response.json();
         } catch (error) {
-            console.error('Fehler bei der automatischen Zuweisung:', error);
+
             return { success: false, error: error.message };
         }
     },
@@ -269,7 +269,7 @@ window.TischplanungAPI = {
             const result = await response.json();
             return result;
         } catch (error) {
-            console.error('Fehler beim Löschen aller Tische:', error);
+
             return { success: false, error: error.message };
         }
     },
@@ -285,7 +285,7 @@ window.TischplanungAPI = {
             }
             
             // Fallback: Lade Daten separat und kombiniere sie
-            console.warn('Neue Overview-API nicht verfügbar, verwende Fallback');
+
             const assignments = await this.loadAssignments();
             const tables = await this.loadTables();
             const guests = await this.loadGuests();
@@ -336,7 +336,7 @@ window.TischplanungAPI = {
             
             return { table_overview: table_list };
         } catch (error) {
-            console.error('Fehler beim Laden der Tischübersicht:', error);
+
             return { table_overview: [] };
         }
     },
@@ -373,7 +373,7 @@ window.TischplanungAPI = {
                 message: `${cleared} Gäste von Tisch "${tableName}" entfernt` 
             };
         } catch (error) {
-            console.error('Fehler beim Leeren des Tisches:', error);
+
             return { success: false, error: error.message };
         }
     },
@@ -396,7 +396,7 @@ window.TischplanungAPI = {
             const result = await response.json();
             return { success: true, message: result.message };
         } catch (error) {
-            console.error('Fehler beim Löschen des Tisches:', error);
+
             return { success: false, error: error.message };
         }
     },
@@ -426,7 +426,7 @@ window.TischplanungAPI = {
             
             return config;
         } catch (error) {
-            console.error('Fehler beim Laden der Konfiguration:', error);
+
             // Fallback-Konfiguration
             return {
                 defaultTableSize: 8,
@@ -537,7 +537,7 @@ window.TischplanungAPI = {
             
             return stats;
         } catch (error) {
-            console.error('Fehler beim Laden der Statistiken:', error);
+
             return {
                 tables: { total: 0, occupied: 0, empty: 0, capacity: 0 },
                 guests: { total: 0, assigned: 0, unassigned: 0, totalPersons: 0, assignedPersons: 0 },
@@ -548,3 +548,4 @@ window.TischplanungAPI = {
         }
     }
 };
+

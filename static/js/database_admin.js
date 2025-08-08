@@ -87,7 +87,7 @@ class DatabaseAdmin {
                 throw new Error(data.message);
             }
         } catch (error) {
-            console.error('Fehler beim Laden der Datenbank-Informationen:', error);
+
             document.getElementById('databaseInfo').innerHTML = `
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle me-2"></i>
@@ -132,7 +132,7 @@ class DatabaseAdmin {
                 throw new Error(data.message);
             }
         } catch (error) {
-            console.error('Fehler beim Laden der Tabellen:', error);
+
             document.getElementById('tablesOverview').innerHTML = `
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle me-2"></i>
@@ -241,7 +241,7 @@ class DatabaseAdmin {
                 throw new Error(data.message);
             }
         } catch (error) {
-            console.error('Fehler beim Laden der Tabellendaten:', error);
+
             document.getElementById('tableDataContainer').innerHTML = `
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle me-2"></i>
@@ -397,7 +397,7 @@ class DatabaseAdmin {
                 throw new Error(data.message);
             }
         } catch (error) {
-            console.error('Fehler beim Ausführen der Query:', error);
+
             document.getElementById('queryResults').innerHTML = `
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle me-2"></i>
@@ -475,7 +475,7 @@ class DatabaseAdmin {
                 throw new Error(data.message);
             }
         } catch (error) {
-            console.error('Fehler beim Erstellen des Backups:', error);
+
             this.showError('Backup-Fehler: ' + error.message);
         } finally {
             document.getElementById('createBackupBtn').disabled = false;
@@ -545,3 +545,4 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+

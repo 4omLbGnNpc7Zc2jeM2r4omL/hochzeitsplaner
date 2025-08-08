@@ -298,19 +298,11 @@ def require_role(allowed_roles):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             user_role = session.get('user_role', 'guest')
-            
-            logger.info(f"🔒 Role Check: Route {request.path}")
-            logger.info(f"🔒 Role Check: User role: {user_role}")
-            logger.info(f"🔒 Role Check: Allowed roles: {allowed_roles}")
-            
             if user_role not in allowed_roles:
-                logger.warning(f"❌ Role Check: Zugriff verweigert für {user_role} auf {request.path}")
                 if request.path.startswith('/api/'):
                     return jsonify({'error': 'Insufficient permissions'}), 403
                 flash('Sie haben keine Berechtigung für diese Seite.', 'danger')
                 return redirect(url_for('guest_dashboard' if user_role == 'guest' else 'index'))
-            
-            logger.info(f"✅ Role Check: Zugriff erlaubt für {user_role}")
             return f(*args, **kwargs)
         return decorated_function
     return decorator
@@ -1517,6 +1509,357 @@ def database_admin():
         app.logger.error(f"Fehler in database_admin(): {e}")
         return render_template('error.html', error_message=f"Fehler beim Laden der Datenbank-Verwaltung: {str(e)}")
 
+@app.route('/einladungs-generator')
+@require_auth
+@require_role(['admin'])
+def einladungs_generator():
+    """Einladungs Generator Seite (nur für Admins)"""
+    try:
+        # Lade aktuelle Einstellungen
+        settings = data_manager.get_settings() if data_manager else {}
+        
+        # Hochzeitsdaten aus Einstellungen laden
+        braut_name = settings.get('braut_name', 'Braut')
+        braeutigam_name = settings.get('braeutigam_name', 'Bräutigam')
+        wedding_date = settings.get('hochzeitsdatum', '25. Juli 2026')
+        
+        # Wenn kein richtiges Datum gesetzt ist, aus wedding_date Einstellung laden
+        if wedding_date == '25. Juli 2026':
+            alt_date = settings.get('wedding_date', '')
+            if alt_date:
+                wedding_date = alt_date
+        
+        context = {
+            'braut_name': braut_name,
+            'braeutigam_name': braeutigam_name,
+            'wedding_date': wedding_date,
+            'brautpaar_namen': f"{braut_name} & {braeutigam_name}"
+        }
+        
+        return render_template('einladungs_generator.html', **context)
+    except Exception as e:
+        app.logger.error(f"Fehler in einladungs_generator(): {e}")
+        return render_template('error.html', error_message=f"Fehler beim Laden des Einladungs Generators: {str(e)}")
+
+@app.route('/api/einladungs-generator/gaeste')
+@require_auth
+@require_role(['admin'])
+def api_einladungs_generator_gaeste():
+    """API-Route für Gästeliste im Einladungs-Generator"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        # SQLite-basierte Gästeliste laden
+        gaeste_list = data_manager.get_gaeste_list()
+        
+        # Daten für JSON bereinigen und nur relevante Felder verwenden
+        cleaned_gaeste = []
+        for guest in gaeste_list:
+            if isinstance(guest, dict):
+                cleaned_guest = {
+                    'id': guest.get('id'),
+                    'vorname': guest.get('vorname', ''),
+                    'nachname': guest.get('nachname', ''),
+                    'guest_code': guest.get('guest_code', f"GUEST{guest.get('id', '')}"),
+                    'guest_password': guest.get('guest_password', f"pass{guest.get('id', '')}"),
+                    'telefon': guest.get('telefon', ''),
+                    'email': guest.get('email', '')
+                }
+                cleaned_gaeste.append(cleaned_guest)
+        
+        return jsonify({
+            'success': True,
+            'gaeste': cleaned_gaeste,
+            'count': len(cleaned_gaeste)
+        })
+    except Exception as e:
+        app.logger.error(f"Fehler beim Laden der Gästeliste für Einladungs-Generator: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/einladungs-generator/settings', methods=['GET'])
+@require_auth
+@require_role(['admin'])
+def api_get_invitation_settings():
+    """API-Route zum Laden der Einladungs-Generator Einstellungen"""
+    try:
+        settings = data_manager.load_invitation_generator_settings()
+        return jsonify({
+            'success': True,
+            'settings': settings
+        })
+    except Exception as e:
+        app.logger.error(f"Fehler beim Laden der Einladungs-Generator Einstellungen: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/einladungs-generator/settings', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def api_save_invitation_settings():
+    """API-Route zum Speichern der Einladungs-Generator Einstellungen"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Keine Daten empfangen'}), 400
+        
+        settings = data.get('settings', {})
+        
+        # Einstellungen in Datenbank speichern
+        success = data_manager.save_invitation_generator_settings(settings)
+        
+        if success:
+            app.logger.info(f"✅ Einladungs-Generator Einstellungen gespeichert: {len(settings)} Werte")
+            return jsonify({
+                'success': True,
+                'message': 'Einstellungen erfolgreich gespeichert'
+            })
+        else:
+            return jsonify({'error': 'Fehler beim Speichern der Einstellungen'}), 500
+            
+    except Exception as e:
+        app.logger.error(f"Fehler beim Speichern der Einladungs-Generator Einstellungen: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/generate-test-card', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def api_generate_test_card():
+    """Generiert eine Test-QR-Karte für einen spezifischen Gast"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Keine Daten empfangen'}), 400
+        
+        guest_id = data.get('guest_id')
+        settings = data.get('settings', {})
+        template = data.get('template', 'elegant')
+        
+        if not guest_id:
+            return jsonify({'error': 'Gast-ID erforderlich'}), 400
+        
+        # Lade gespeicherte Einstellungen aus der Datenbank als Fallback
+        try:
+            db_settings = data_manager.load_invitation_generator_settings()
+            app.logger.info(f"Datenbank-Einstellungen für Test-Karte geladen: {bool(db_settings)}")
+        except Exception as e:
+            app.logger.warning(f"Fehler beim Laden der DB-Einstellungen für Test-Karte: {e}")
+            db_settings = {}
+        
+        # Merge settings: Frontend-Einstellungen haben Priorität, DB-Einstellungen als Fallback
+        final_settings = {}
+        if db_settings:
+            final_settings.update(db_settings)
+        if settings:
+            final_settings.update(settings)
+        
+        # Falls immer noch keine Einstellungen vorhanden, verwende Standardwerte
+        if not final_settings:
+            final_settings = {
+                'primaryColor': '#8b7355',
+                'accentColor': '#d4af37',
+                'backgroundColor': '#ffffff',
+                'qrSize': 120,
+                'includePhoto': True,
+                'showLoginData': True,
+                'elegantFont': True
+            }
+        
+        # Template aus finalen Einstellungen verwenden falls nicht anders angegeben
+        if 'template' in final_settings and 'template' not in data:
+            template = final_settings['template']
+        
+        app.logger.info(f"Finale Einstellungen für Test-Karte: {final_settings}")
+        app.logger.info(f"Verwendetes Template für Test-Karte: {template}")
+        
+        # Dynamisch QR-Generator importieren (mit Reload für Entwicklung)
+        try:
+            import importlib
+            import qr_card_generator
+            # Erzwinge Reload des Moduls für Entwicklungsänderungen
+            importlib.reload(qr_card_generator)
+            from qr_card_generator import WebQRCardGenerator
+        except ImportError as e:
+            app.logger.error(f"QR Card Generator nicht verfügbar: {e}")
+            return jsonify({'error': 'QR Card Generator nicht verfügbar'}), 500
+        
+        # Gast aus Datenbank laden
+        guest = data_manager.get_guest_by_id(guest_id)
+        if not guest:
+            return jsonify({'error': 'Gast nicht gefunden'}), 404
+        
+        # QR-Generator initialisieren
+        generator = WebQRCardGenerator(data_manager)
+        
+        # Test-Karte mit finalen Settings generieren
+        import base64
+        filepath = generator.generate_invitation_card(guest, final_settings, template)
+        
+        # Karte als Base64-String für direkte Anzeige lesen
+        with open(filepath, 'rb') as f:
+            card_data = f.read()
+        card_base64 = base64.b64encode(card_data).decode('utf-8')
+        
+        return jsonify({
+            'success': True,
+            'filepath': filepath,
+            'card_data': card_base64,
+            'guest_name': f"{guest.get('vorname', '')} {guest.get('nachname', '')}".strip(),
+            'template': template
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Fehler beim Generieren der Test-Karte: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/generate-all-cards', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def api_generate_all_cards():
+    """Generiert QR-Karten für alle Gäste und erstellt ZIP-Datei"""
+    try:
+        data = request.get_json()
+        settings = data.get('settings', {}) if data else {}
+        template = data.get('template', 'elegant') if data else 'elegant'
+        
+        # Lade gespeicherte Einstellungen aus der Datenbank als Fallback
+        try:
+            db_settings = data_manager.load_invitation_generator_settings()
+            app.logger.info(f"Datenbank-Einstellungen geladen: {bool(db_settings)}")
+        except Exception as e:
+            app.logger.warning(f"Fehler beim Laden der DB-Einstellungen: {e}")
+            db_settings = {}
+        
+        # Merge settings: Frontend-Einstellungen haben Priorität, DB-Einstellungen als Fallback
+        final_settings = {}
+        if db_settings:
+            final_settings.update(db_settings)
+        if settings:
+            final_settings.update(settings)
+        
+        # Falls immer noch keine Einstellungen vorhanden, verwende Standardwerte
+        if not final_settings:
+            final_settings = {
+                'primaryColor': '#8b7355',
+                'accentColor': '#d4af37',
+                'backgroundColor': '#ffffff',
+                'qrSize': 120,
+                'includePhoto': True,
+                'showLoginData': True,
+                'elegantFont': True
+            }
+        
+        # Template aus finalen Einstellungen verwenden falls nicht anders angegeben
+        if 'template' in final_settings and not data:
+            template = final_settings['template']
+        
+        app.logger.info(f"Finale Einstellungen für Kartengenerierung: {final_settings}")
+        app.logger.info(f"Verwendetes Template: {template}")
+        
+        # Dynamisch QR-Generator importieren (mit Reload für Entwicklung)
+        try:
+            import importlib
+            import qr_card_generator
+            # Erzwinge Reload des Moduls für Entwicklungsänderungen
+            importlib.reload(qr_card_generator)
+            from qr_card_generator import WebQRCardGenerator
+        except ImportError as e:
+            app.logger.error(f"QR Card Generator nicht verfügbar: {e}")
+            return jsonify({'error': 'QR Card Generator nicht verfügbar'}), 500
+        
+        # QR-Generator initialisieren
+        generator = WebQRCardGenerator(data_manager)
+        
+        # Finale Settings anwenden
+        if final_settings:
+            primary_color = final_settings.get('primaryColor')
+            accent_color = final_settings.get('accentColor')
+            background_color = final_settings.get('backgroundColor')
+            
+            generator.set_colors(
+                primary=primary_color,
+                accent=accent_color,
+                background=background_color
+            )
+            
+            if 'qrSize' in final_settings:
+                generator.qr_size = int(final_settings['qrSize'])
+        
+        # Alle Karten als ZIP generieren
+        zip_data = generator.generate_all_cards(template, 'zip')
+        
+        if not zip_data:
+            return jsonify({'error': 'Keine Karten erstellt'}), 500
+        
+        # ZIP-Datei in temporärer Datei speichern
+        import tempfile
+        import os
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        zip_filename = f"qr_einladungskarten_{timestamp}.zip"
+        zip_path = os.path.join(tempfile.gettempdir(), zip_filename)
+        
+        with open(zip_path, 'wb') as f:
+            f.write(zip_data)
+        
+        # Anzahl der Gäste für Info
+        guest_count = len(data_manager.get_all_guests())
+        
+        app.logger.info(f"ZIP-Datei erstellt: {zip_path} mit {guest_count} Karten")
+        
+        return jsonify({
+            'success': True,
+            'generated_count': guest_count,
+            'zip_filepath': zip_path,
+            'zip_filename': zip_filename,
+            'template': template
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Fehler beim Generieren aller Karten: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/download-card')
+@require_auth
+@require_role(['admin'])
+def api_download_card():
+    """Download einer einzelnen QR-Karte"""
+    try:
+        filepath = request.args.get('filepath')
+        if not filepath or not os.path.exists(filepath):
+            return jsonify({'error': 'Datei nicht gefunden'}), 404
+        
+        return send_file(
+            filepath,
+            as_attachment=True,
+            download_name=os.path.basename(filepath),
+            mimetype='image/png'
+        )
+        
+    except Exception as e:
+        app.logger.error(f"Fehler beim Download der Karte: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/download-zip')
+@require_auth
+@require_role(['admin'])
+def api_download_zip():
+    """Download der ZIP-Datei mit allen QR-Karten"""
+    try:
+        filepath = request.args.get('filepath')
+        if not filepath or not os.path.exists(filepath):
+            return jsonify({'error': 'ZIP-Datei nicht gefunden'}), 404
+        
+        return send_file(
+            filepath,
+            as_attachment=True,
+            download_name=os.path.basename(filepath),
+            mimetype='application/zip'
+        )
+        
+    except Exception as e:
+        app.logger.error(f"Fehler beim Download der ZIP-Datei: {e}")
+        return jsonify({'error': str(e)}), 500
+
 # =============================================================================
 @app.route('/zeitplan')
 @require_auth
@@ -2042,7 +2385,7 @@ def apply_markdown_formatting(text):
 
 @app.route('/api/guest/wedding-photo')
 @require_auth
-@require_role(['guest'])
+@require_role(['guest', 'admin'])  # Admin-Zugriff für Einladungs-Generator
 def get_guest_wedding_photo():
     """API-Endpunkt für das Hochzeitsfoto in der Einladung"""
     try:
@@ -2052,8 +2395,14 @@ def get_guest_wedding_photo():
         # Lade Einstellungen
         settings = data_manager.load_settings()
         
-        # Foto-Daten extrahieren
+        # Foto-Daten extrahieren und Base64-Teil isolieren
         photo_data = settings.get('first_login_image_data', '')
+        
+        # Falls die Daten bereits ein Data-URL-Format haben, nur den Base64-Teil extrahieren
+        if photo_data.startswith('data:image/'):
+            # Entferne "data:image/jpeg;base64," oder ähnliches
+            if ',' in photo_data:
+                photo_data = photo_data.split(',', 1)[1]
         
         return jsonify({
             'success': True,

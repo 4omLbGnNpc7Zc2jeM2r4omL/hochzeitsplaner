@@ -1,14 +1,23 @@
 // Aufgabenplaner spezifische Funktionen
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Aufgabenplaner wird geladen...');
+
     
     // Event Listeners
     setupEventListeners();
     
     // Daten laden
-    loadAufgaben();
-    loadStatistics();
+    try {
+        loadAufgaben();
+    } catch (error) {
+
+    }
+    
+    try {
+        loadStatistics();
+    } catch (error) {
+
+    }
 });
 
 function setupEventListeners() {
@@ -73,7 +82,7 @@ async function loadAufgaben() {
             showAlert('Fehler beim Laden der Aufgaben: ' + data.error, 'danger');
         }
     } catch (error) {
-        console.error('Fehler beim Laden der Aufgaben:', error);
+
         showAlert('Aufgaben konnten nicht geladen werden.', 'danger');
     }
 }
@@ -85,9 +94,11 @@ async function loadStatistics() {
         
         if (data.success) {
             updateStatistics(data.statistics);
+        } else {
+
         }
     } catch (error) {
-        console.error('Fehler beim Laden der Statistiken:', error);
+
     }
 }
 
@@ -242,19 +253,19 @@ function filterAufgaben() {
 }
 
 function editAufgabe(id) {
-    console.log('=== EDIT AUFGABE DEBUG ===');
-    console.log('Loading Aufgabe ID:', id);
+
+
     
     // Finde die Aufgabe in den geladenen Daten
     fetch(`/api/aufgaben/get/${id}`)
         .then(response => {
-            console.log('GET Response Status:', response.status);
+
             return response.json();
         })
         .then(data => {
-            console.log('GET Response Data:', data);
+
             if (data.success) {
-                console.log('Aufgabe von Server erhalten:', data.aufgabe);
+
                 fillForm(data.aufgabe);
                 document.getElementById('aufgabeModalLabel').textContent = 'Aufgabe bearbeiten';
                 document.getElementById('deleteAufgabeBtn').style.display = 'inline-block';
@@ -262,22 +273,22 @@ function editAufgabe(id) {
                 const modal = new bootstrap.Modal(document.getElementById('aufgabeModal'));
                 modal.show();
             } else {
-                console.error('Fehler beim Laden der Aufgabe:', data.error);
+
                 showAlert('Fehler beim Laden der Aufgabe: ' + data.error, 'danger');
             }
         })
         .catch(error => {
-            console.error('Fetch Error beim Laden der Aufgabe:', error);
+
             showAlert('Aufgabe konnte nicht geladen werden.', 'danger');
         });
 }
 
 function fillForm(aufgabe) {
-    console.log('=== FILL FORM DEBUG ===');
-    console.log('Aufgabe Object:', aufgabe);
-    console.log('Fälligkeitsdatum aus Aufgabe:', aufgabe.faelligkeitsdatum);
-    console.log('Zuständig aus Aufgabe:', aufgabe.zustaendig);
-    console.log('======================');
+
+
+
+
+
     
     document.getElementById('aufgabeId').value = aufgabe.id || '';
     document.getElementById('aufgabeTitel').value = aufgabe.titel || '';
@@ -289,7 +300,7 @@ function fillForm(aufgabe) {
     document.getElementById('aufgabeKategorie').value = aufgabe.kategorie || '';
     document.getElementById('aufgabeNotizen').value = aufgabe.notizen || '';
     
-    console.log('Form gefüllt - Fälligkeitsdatum Element:', document.getElementById('aufgabeFaelligkeitsdatum').value);
+
 }
 
 function resetForm() {
@@ -321,21 +332,21 @@ async function saveAufgabe() {
     const isEdit = aufgabeId !== '';
     
     // Debug: Log der zu sendenden Daten
-    console.log('=== SAVE AUFGABE DEBUG ===');
-    console.log('Mode:', isEdit ? 'EDIT' : 'NEW');
-    console.log('Aufgabe ID:', aufgabeId);
-    console.log('Aufgabe Daten:', aufgabeData);
-    console.log('Fälligkeitsdatum Element Wert:', document.getElementById('aufgabeFaelligkeitsdatum').value);
-    console.log('Fälligkeitsdatum in Data:', aufgabeData.faelligkeitsdatum);
-    console.log('========================');
+
+
+
+
+
+
+
     
     try {
         const url = isEdit ? `/api/aufgaben/update/${aufgabeId}` : '/api/aufgaben/add';
         const method = isEdit ? 'PUT' : 'POST';
         
-        console.log('Request URL:', url);
-        console.log('Request Method:', method);
-        console.log('Request Body:', JSON.stringify(aufgabeData));
+
+
+
         
         const response = await fetch(url, {
             method: method,
@@ -347,8 +358,8 @@ async function saveAufgabe() {
         
         const data = await response.json();
         
-        console.log('Response Status:', response.status);
-        console.log('Response Data:', data);
+
+
         
         if (data.success) {
             showAlert(isEdit ? 'Aufgabe erfolgreich aktualisiert!' : 'Aufgabe erfolgreich erstellt!', 'success');
@@ -364,7 +375,7 @@ async function saveAufgabe() {
             showAlert('Fehler beim Speichern: ' + data.error, 'danger');
         }
     } catch (error) {
-        console.error('Fehler beim Speichern der Aufgabe:', error);
+
         showAlert('Aufgabe konnte nicht gespeichert werden.', 'danger');
     }
 }
@@ -411,7 +422,7 @@ async function deleteAufgabe() {
             showAlert('Fehler beim Löschen: ' + data.error, 'danger');
         }
     } catch (error) {
-        console.error('Fehler beim Löschen der Aufgabe:', error);
+
         showAlert('Aufgabe konnte nicht gelöscht werden.', 'danger');
     }
     
@@ -422,7 +433,7 @@ function showAlert(message, type) {
     // Verwende den festen Alert-Container
     const alertContainer = document.getElementById('aufgabenAlertContainer');
     if (!alertContainer) {
-        console.error('Alert-Container nicht gefunden');
+
         return;
     }
     
@@ -497,7 +508,7 @@ async function loadTaskForEmail(taskId) {
             }
         }
     } catch (error) {
-        console.error('Fehler beim Laden der Aufgabe:', error);
+
         showAlert('Aufgabe konnte nicht geladen werden.', 'danger');
     }
 }
@@ -574,7 +585,7 @@ async function sendTaskEmail() {
             showAlert('Fehler beim E-Mail-Versand: ' + data.message, 'danger');
         }
     } catch (error) {
-        console.error('Fehler beim E-Mail-Versand:', error);
+
         showAlert('E-Mail konnte nicht gesendet werden.', 'danger');
     } finally {
         // Send-Button wieder aktivieren
@@ -614,7 +625,7 @@ async function loadEmailHistory(taskId) {
         modal.show();
         
     } catch (error) {
-        console.error('Fehler beim Laden des E-Mail-Verlaufs:', error);
+
         showAlert('E-Mail-Verlauf konnte nicht geladen werden.', 'danger');
     }
 }
@@ -804,7 +815,7 @@ async function sendEmailReply() {
         }
         
     } catch (error) {
-        console.error('Fehler beim E-Mail-Antwort-Versand:', error);
+
         showAlert(`Fehler beim E-Mail-Versand: ${error.message}`, 'danger');
     }
 }
@@ -894,7 +905,7 @@ async function openEmailAssignment() {
         await loadTasksForAssignment();
         
     } catch (error) {
-        console.error('Fehler beim Öffnen der E-Mail-Zuordnung:', error);
+
         showAlert('E-Mail-Zuordnung konnte nicht geöffnet werden.', 'danger');
     }
 }
@@ -948,7 +959,7 @@ async function loadEmailsByFilter() {
         renderUnassignedEmails(emails);
         
     } catch (error) {
-        console.error('Fehler beim Laden der E-Mails:', error);
+
         document.getElementById('unassignedEmailsList').innerHTML = `
             <div class="text-center text-danger">
                 <i class="bi bi-exclamation-triangle fs-1"></i>
@@ -974,7 +985,7 @@ async function loadUnassignedEmails() {
         }
         
     } catch (error) {
-        console.error('Fehler beim Laden der E-Mails:', error);
+
         document.getElementById('unassignedEmailsList').innerHTML = `
             <div class="text-center text-danger">
                 <i class="bi bi-exclamation-triangle fs-1"></i>
@@ -1098,7 +1109,7 @@ async function loadTasksForAssignment() {
         }
         
     } catch (error) {
-        console.error('Fehler beim Laden der Aufgaben:', error);
+
         document.getElementById('taskAssignmentList').innerHTML = `
             <div class="text-center text-danger">
                 <i class="bi bi-exclamation-triangle fs-1"></i>
@@ -1204,7 +1215,7 @@ async function assignEmailToTask(taskId) {
         }
         
     } catch (error) {
-        console.error('Fehler beim Zuordnen der E-Mail:', error);
+
         showAlert(`Fehler beim Zuordnen: ${error.message}`, 'danger');
     }
 }
@@ -1266,7 +1277,7 @@ async function ignoreEmail(emailId) {
         }
         
     } catch (error) {
-        console.error('Fehler beim Ignorieren der E-Mail:', error);
+
         showAlert(`Fehler beim Ignorieren: ${error.message}`, 'danger');
     }
 }
@@ -1304,7 +1315,7 @@ async function unignoreEmail(emailId) {
         }
         
     } catch (error) {
-        console.error('Fehler beim Entfernen der E-Mail-Ignorierung:', error);
+
         showAlert(`Fehler beim Entfernen der Ignorierung: ${error.message}`, 'danger');
     }
 }
@@ -1335,7 +1346,7 @@ async function unassignEmail(emailId) {
         }
         
     } catch (error) {
-        console.error('Fehler beim Entfernen der E-Mail-Zuordnung:', error);
+
         showAlert(`Fehler beim Entfernen der Zuordnung: ${error.message}`, 'danger');
     }
 }
@@ -1353,7 +1364,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateUnassignedEmailBadge(unreadCount);
             }
         } catch (error) {
-            console.log('Fehler beim Prüfen ungelesener E-Mails:', error);
+
         }
     }, 2000);
 });
+

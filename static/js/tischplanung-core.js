@@ -21,7 +21,7 @@ class TischplanungCore {
     async initialize() {
         // Verhindere mehrfache Initialisierung
         if (this.isInitializing || this.isInitialized) {
-            console.log('⚠️ Tischplanung bereits initialisiert oder in Initialisierung');
+
             return;
         }
         
@@ -68,14 +68,14 @@ class TischplanungCore {
 
             }
         } catch (error) {
-            console.error('❌ Fehler beim Laden der Module:', error);
+
         }
     }
 
     async loadAllData() {
         // Verhindere parallele Datenladung
         if (this.isLoadingData) {
-            console.log('⚠️ Daten werden bereits geladen, warte...');
+
             return;
         }
         
@@ -93,7 +93,7 @@ class TischplanungCore {
             // Dann Zuordnungen laden (benötigt bereits geladene Gäste)
             await this.loadAssignments();
         } catch (error) {
-            console.error('❌ Fehler beim Laden der Daten:', error);
+
         } finally {
             this.isLoadingData = false;
         }
@@ -181,19 +181,19 @@ window.showRelationshipsOverview = async function() {
     try {
         // Sicherstellen, dass Tischplanung initialisiert ist
         if (!window.tischplanung) {
-            console.log('⚙️ Tischplanung wird initialisiert...');
+
             await window.initTischplanung();
         }
         
         // Aktuelle Beziehungen und Gäste laden
-        console.log('📥 Lade aktuelle Beziehungen und Gäste...');
+
         await window.tischplanung.loadRelationships();
         await window.tischplanung.loadGuests();
         
         const relationships = window.tischplanung.relationships || [];
         const guests = window.tischplanung.guests || [];
         
-        console.log(`📊 Gefunden: ${relationships.length} Beziehungen, ${guests.length} Gäste`);
+
         
         // Entferne vorhandenes Modal, falls vorhanden
         const existingModal = document.getElementById('relationshipsModal');
@@ -203,10 +203,10 @@ window.showRelationshipsOverview = async function() {
         
         // Modal für Beziehungen-Übersicht erstellen
         const modalHtml = `
-            <div class="modal fade" id="relationshipsModal" tabindex="-1">
+            <div class="modal fade modal-wedding" id="relationshipsModal" tabindex="-1">
                 <div class="modal-dialog modal-xl">
-                    <div class="modal-content">
-                        <div class="modal-header bg-primary text-white">
+                    <div class="modal-content" style="background: linear-gradient(135deg, #f8f4e6 0%, #fff9e6 100%); border: 2px solid #d4af37;">
+                        <div class="modal-header" style="background: linear-gradient(135deg, #d4af37, #b8941f); color: white; border-bottom: none;">
                             <h5 class="modal-title">
                                 <i class="bi bi-heart me-2"></i>Beziehungen verwalten
                             </h5>
@@ -215,9 +215,9 @@ window.showRelationshipsOverview = async function() {
                         <div class="modal-body">
                             <div class="row mb-3">
                                 <div class="col-md-6">
-                                    <div class="card border-primary">
-                                        <div class="card-header bg-light">
-                                            <h6 class="mb-0"><i class="bi bi-list me-2"></i>Bestehende Beziehungen (${relationships.length})</h6>
+                                    <div class="card card-wedding">
+                                        <div class="card-header card-wedding">
+                                            <h6 class="mb-0 text-wedding"><i class="bi bi-list me-2"></i>Bestehende Beziehungen (${relationships.length})</h6>
                                         </div>
                                         <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                                             <div id="relationshipsList">
@@ -227,9 +227,9 @@ window.showRelationshipsOverview = async function() {
                                     </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <div class="card border-success">
-                                        <div class="card-header bg-light">
-                                            <h6 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Neue Beziehung hinzufügen</h6>
+                                    <div class="card card-wedding">
+                                        <div class="card-header card-wedding">
+                                            <h6 class="mb-0 text-wedding"><i class="bi bi-plus-circle me-2"></i>Neue Beziehung hinzufügen</h6>
                                         </div>
                                         <div class="card-body">
                                             <div id="addRelationshipForm">
@@ -240,11 +240,11 @@ window.showRelationshipsOverview = async function() {
                                 </div>
                             </div>
                         </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <div class="modal-footer" style="background: #f8f4e6; border-top: 1px solid #d4af37;">
+                            <button type="button" class="btn btn-wedding-secondary" data-bs-dismiss="modal">
                                 <i class="bi bi-x me-2"></i>Schließen
                             </button>
-                            <button type="button" class="btn btn-primary" onclick="refreshRelationships()">
+                            <button type="button" class="btn btn-wedding-primary" onclick="refreshRelationships()">
                                 <i class="bi bi-arrow-clockwise me-2"></i>Aktualisieren
                             </button>
                         </div>
@@ -260,10 +260,10 @@ window.showRelationshipsOverview = async function() {
         const modal = new bootstrap.Modal(document.getElementById('relationshipsModal'));
         modal.show();
         
-        console.log('✅ Beziehungen-Modal erfolgreich angezeigt');
+
         
     } catch (error) {
-        console.error('❌ Fehler beim Anzeigen der Beziehungen-Übersicht:', error);
+
         alert('Fehler beim Laden der Beziehungen: ' + error.message);
     }
 };
@@ -278,20 +278,20 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 // Sicherstellen, dass Tischplanung initialisiert ist
                 if (!window.tischplanung) {
-                    console.log('⚙️ Tischplanung wird initialisiert...');
+
                     window.tischplanung = new TischplanungCore();
                     await window.tischplanung.initialize();
                 }
                 
                 // Aktuelle Beziehungen und Gäste laden
-                console.log('📥 Lade aktuelle Beziehungen und Gäste...');
+
                 await window.tischplanung.loadRelationships();
                 await window.tischplanung.loadGuests();
                 
                 const relationships = window.tischplanung.relationships || [];
                 const guests = window.tischplanung.guests || [];
                 
-                console.log(`📊 Gefunden: ${relationships.length} Beziehungen, ${guests.length} Gäste`);
+
                 
                 // Entferne vorhandenes Modal, falls vorhanden
                 const existingModal = document.getElementById('relationshipsModal');
@@ -301,10 +301,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Modal für Beziehungen-Übersicht erstellen
                 const modalHtml = `
-                    <div class="modal fade" id="relationshipsModal" tabindex="-1">
+                    <div class="modal fade modal-wedding" id="relationshipsModal" tabindex="-1">
                         <div class="modal-dialog modal-xl">
-                            <div class="modal-content">
-                                <div class="modal-header bg-primary text-white">
+                            <div class="modal-content" style="background: linear-gradient(135deg, #f8f4e6 0%, #fff9e6 100%); border: 2px solid #d4af37;">
+                                <div class="modal-header" style="background: linear-gradient(135deg, #d4af37, #b8941f); color: white; border-bottom: none;">
                                     <h5 class="modal-title">
                                         <i class="bi bi-heart me-2"></i>Beziehungen verwalten
                                     </h5>
@@ -313,9 +313,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="modal-body">
                                     <div class="row mb-3">
                                         <div class="col-md-6">
-                                            <div class="card border-primary">
-                                                <div class="card-header bg-light">
-                                                    <h6 class="mb-0"><i class="bi bi-list me-2"></i>Bestehende Beziehungen (${relationships.length})</h6>
+                                            <div class="card card-wedding">
+                                                <div class="card-header card-wedding">
+                                                    <h6 class="mb-0 text-wedding"><i class="bi bi-list me-2"></i>Bestehende Beziehungen (${relationships.length})</h6>
                                                 </div>
                                                 <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                                                     <div id="relationshipsList">
@@ -325,9 +325,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                             </div>
                                         </div>
                                         <div class="col-md-6">
-                                            <div class="card border-success">
-                                                <div class="card-header bg-light">
-                                                    <h6 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Neue Beziehung hinzufügen</h6>
+                                            <div class="card card-wedding">
+                                                <div class="card-header card-wedding">
+                                                    <h6 class="mb-0 text-wedding"><i class="bi bi-plus-circle me-2"></i>Neue Beziehung hinzufügen</h6>
                                                 </div>
                                                 <div class="card-body">
                                                     <div id="addRelationshipForm">
@@ -338,11 +338,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                         </div>
                                     </div>
                                 </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <div class="modal-footer" style="background: #f8f4e6; border-top: 1px solid #d4af37;">
+                                    <button type="button" class="btn btn-wedding-secondary" data-bs-dismiss="modal">
                                         <i class="bi bi-x me-2"></i>Schließen
                                     </button>
-                                    <button type="button" class="btn btn-primary" onclick="refreshRelationships()">
+                                    <button type="button" class="btn btn-wedding-primary" onclick="refreshRelationships()">
                                         <i class="bi bi-arrow-clockwise me-2"></i>Aktualisieren
                                     </button>
                                 </div>
@@ -361,7 +361,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Beziehungen-Modal erfolgreich angezeigt
                 
             } catch (error) {
-                console.error('❌ Fehler beim Anzeigen der Beziehungen-Übersicht:', error);
+
                 alert('Fehler beim Laden der Beziehungen: ' + error.message);
             }
         };
@@ -475,12 +475,34 @@ function generateAddRelationshipForm(guests) {
                     <label class="form-label">Beziehungstyp:</label>
                     <select class="form-select" id="relationshipType" required>
                         <option value="">Typ auswählen...</option>
-                        <option value="Familie">Familie</option>
-                        <option value="Freunde">Freunde</option>
-                        <option value="Kollegen">Kollegen</option>
-                        <option value="Partner">Partner/Ehepaar</option>
-                        <option value="Konflikt">Konflikt</option>
-                        <option value="Unbekannt">Unbekannt</option>
+                        <optgroup label="👨‍👩‍👧‍👦 Familie & Partner">
+                            <option value="trauzeugen">👰‍♀️ Trauzeugen</option>
+                            <option value="familie">👨‍👩‍👧‍👦 Familie</option>
+                            <option value="verwandte">👥 Verwandte</option>
+                            <option value="partner">💑 Partner</option>
+                        </optgroup>
+                        <optgroup label="😊 Freunde">
+                            <option value="beste_freunde">💯 Beste Freunde</option>
+                            <option value="freunde">😊 Freunde</option>
+                            <option value="studienfreunde">🎓 Studienfreunde</option>
+                        </optgroup>
+                        <optgroup label="💼 Beruf & Hobby">
+                            <option value="kollegen">💼 Kollegen</option>
+                            <option value="ehemalige_kollegen">📋 Ehemalige Kollegen</option>
+                            <option value="geschaeftlich">🤝 Geschäftlich</option>
+                            <option value="sportverein">⚽ Sportverein</option>
+                            <option value="hobby">🎨 Hobby-Partner</option>
+                        </optgroup>
+                        <optgroup label="🏠 Nachbarschaft & Bekannte">
+                            <option value="nachbarn">🏠 Nachbarn</option>
+                            <option value="bekannte">👋 Bekannte</option>
+                            <option value="neutral">😐 Neutral</option>
+                        </optgroup>
+                        <optgroup label="😤 Problematisch">
+                            <option value="ex_partner">💔 Ex-Partner</option>
+                            <option value="spinnen_sich_nicht">😤 Spinnen sich nicht</option>
+                            <option value="konflikt">⚡ Konflikt</option>
+                        </optgroup>
                     </select>
                 </div>
                 <div class="col-md-6 mb-3">
@@ -525,7 +547,7 @@ async function addRelationship(event) {
     try {
         // Sicherstellen, dass TischplanungAPI geladen ist
         if (!window.TischplanungAPI) {
-            console.log('⚙️ Lade TischplanungAPI...');
+
             await import('./tischplanung-api.js');
         }
         
@@ -553,7 +575,7 @@ async function addRelationship(event) {
             alert('Fehler beim Hinzufügen der Beziehung: ' + (result.error || 'Unbekannter Fehler'));
         }
     } catch (error) {
-        console.error('❌ Fehler beim Hinzufügen der Beziehung:', error);
+
         alert('Fehler beim Hinzufügen der Beziehung: ' + error.message);
     }
 }
@@ -566,7 +588,7 @@ async function deleteRelationship(relationshipId) {
     try {
         // Sicherstellen, dass TischplanungAPI geladen ist
         if (!window.TischplanungAPI) {
-            console.log('⚙️ Lade TischplanungAPI...');
+
             await import('./tischplanung-api.js');
         }
         
@@ -578,7 +600,7 @@ async function deleteRelationship(relationshipId) {
             alert('Fehler beim Löschen der Beziehung: ' + (result.error || 'Unbekannter Fehler'));
         }
     } catch (error) {
-        console.error('❌ Fehler beim Löschen der Beziehung:', error);
+
         alert('Fehler beim Löschen der Beziehung: ' + error.message);
     }
 }
@@ -587,7 +609,7 @@ async function refreshRelationships() {
     try {
         // Sicherstellen, dass Tischplanung verfügbar ist
         if (!window.tischplanung) {
-            console.warn('⚠️ Tischplanung nicht verfügbar, erstelle neue Instanz');
+
             window.tischplanung = new TischplanungCore();
             await window.tischplanung.initialize();
         }
@@ -612,24 +634,24 @@ async function refreshRelationships() {
             headerElement.innerHTML = `<i class="bi bi-list me-2"></i>Bestehende Beziehungen (${relationships.length})`;
         }
     } catch (error) {
-        console.error('❌ Fehler beim Aktualisieren der Beziehungen:', error);
+
         alert('Fehler beim Aktualisieren der Beziehungen: ' + error.message);
     }
 }
 
 window.showStatistics = function() {
-    console.log('📈 Zeige Tischplanung-Statistiken');
+
     
     // Sicherstellen, dass alle Daten geladen sind
     if (!window.tischplanung || !window.tischplanung.tables || !window.tischplanung.guests) {
-        console.warn('Tischplanung-Daten noch nicht geladen, warte auf Initialisierung...');
+
         
         // Falls die Initialisierung noch läuft, warten wir kurz und versuchen es erneut
         setTimeout(() => {
             if (window.tischplanung && window.tischplanung.tables && window.tischplanung.guests) {
                 window.showStatistics();
             } else {
-                console.error('Tischplanung-Daten konnten nicht geladen werden');
+
                 // Fallback-Daten setzen
                 window.tischplanung = window.tischplanung || {};
                 window.tischplanung.tables = window.tischplanung.tables || [];
@@ -678,57 +700,57 @@ window.showStatistics = function() {
     
     // Modal für Statistiken erstellen
     const modalHtml = `
-        <div class="modal fade" id="statisticsModal" tabindex="-1">
+        <div class="modal fade modal-wedding" id="statisticsModal" tabindex="-1">
             <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
+                <div class="modal-content" style="background: linear-gradient(135deg, #f8f4e6 0%, #fff9e6 100%); border: 2px solid #d4af37;">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #d4af37, #b8941f); color: white; border-bottom: none;">
                         <h5 class="modal-title">
                             <i class="bi bi-graph-up me-2"></i>Tischplanung-Statistiken
                         </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <div class="row">
                             <div class="col-md-6">
-                                <div class="card mb-3">
-                                    <div class="card-header bg-primary text-white">
-                                        <h6 class="mb-0">👥 Gäste-Übersicht</h6>
+                                <div class="card mb-3 card-wedding">
+                                    <div class="card-header">
+                                        <h6 class="mb-0 text-wedding">👥 Gäste-Übersicht</h6>
                                     </div>
                                     <div class="card-body">
                                         <div class="row text-center">
                                             <div class="col-4">
-                                                <h4 class="text-primary">${totalPersons}</h4>
-                                                <small>Gesamt</small>
+                                                <h4 class="text-wedding">${totalPersons}</h4>
+                                                <small class="text-wedding">Gesamt</small>
                                             </div>
                                             <div class="col-4">
-                                                <h4 class="text-success">${assignedPersons}</h4>
+                                                <h4 class="text-wedding">${assignedPersons}</h4>
                                                 <small>Zugeordnet</small>
                                             </div>
                                             <div class="col-4">
-                                                <h4 class="text-warning">${unassignedPersons}</h4>
+                                                <h4 class="text-wedding">${unassignedPersons}</h4>
                                                 <small>Offen</small>
                                             </div>
                                         </div>
                                         <div class="progress mt-2">
-                                            <div class="progress-bar bg-success" style="width: ${totalPersons > 0 ? (assignedPersons/totalPersons)*100 : 0}%"></div>
+                                            <div class="progress-bar" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); width: ${totalPersons > 0 ? (assignedPersons/totalPersons)*100 : 0}%"></div>
                                         </div>
                                         <small class="text-muted">${totalPersons > 0 ? Math.round((assignedPersons/totalPersons)*100) : 0}% zugeordnet</small>
                                     </div>
                                 </div>
                                 
-                                <div class="card mb-3">
-                                    <div class="card-header bg-info text-white">
-                                        <h6 class="mb-0">🍽️ Tisch-Übersicht</h6>
+                                <div class="card mb-3 card-wedding">
+                                    <div class="card-header">
+                                        <h6 class="mb-0 text-wedding">🍽️ Tisch-Übersicht</h6>
                                     </div>
                                     <div class="card-body">
                                         <div class="row text-center">
                                             <div class="col-6">
-                                                <h4 class="text-info">${totalTables}</h4>
-                                                <small>Gesamt</small>
+                                                <h4 class="text-wedding">${totalTables}</h4>
+                                                <small class="text-wedding">Gesamt</small>
                                             </div>
                                             <div class="col-6">
-                                                <h4 class="text-success">${usedTables}</h4>
-                                                <small>Belegt</small>
+                                                <h4 class="text-wedding">${usedTables}</h4>
+                                                <small class="text-wedding">Belegt</small>
                                             </div>
                                         </div>
                                     </div>
@@ -736,12 +758,12 @@ window.showStatistics = function() {
                             </div>
                             
                             <div class="col-md-6">
-                                <div class="card mb-3">
-                                    <div class="card-header ${conflicts > 0 ? 'bg-danger' : 'bg-success'} text-white">
-                                        <h6 class="mb-0">⚠️ Konflikte</h6>
+                                <div class="card mb-3 card-wedding">
+                                    <div class="card-header ${conflicts > 0 ? '' : ''}">
+                                        <h6 class="mb-0 ${conflicts > 0 ? 'text-danger' : 'text-wedding'}">⚠️ Konflikte</h6>
                                     </div>
                                     <div class="card-body">
-                                        <h4 class="text-center ${conflicts > 0 ? 'text-danger' : 'text-success'}">${conflicts}</h4>
+                                        <h4 class="text-center ${conflicts > 0 ? 'text-danger' : 'text-wedding'}">${conflicts}</h4>
                                         <p class="text-center mb-0">${conflicts > 0 ? 'Konflikte gefunden' : 'Keine Konflikte'}</p>
                                         
                                         ${conflicts > 0 ? `
@@ -749,7 +771,7 @@ window.showStatistics = function() {
                                             <div class="conflict-details">
                                                 <h6>Konflikt-Details:</h6>
                                                 ${conflictDetails.map(conflict => `
-                                                    <div class="alert alert-warning alert-sm p-2 mb-2">
+                                                    <div class="alert p-2 mb-2" style="background: linear-gradient(135deg, #8b7355, #a68660); color: white; border: 1px solid #6d5a44;">
                                                         <strong>${conflict.guest1}</strong> & <strong>${conflict.guest2}</strong><br>
                                                         <small>Tisch: ${conflict.table} | Typ: ${conflict.type}</small>
                                                     </div>
@@ -761,9 +783,9 @@ window.showStatistics = function() {
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
-                        ${conflicts > 0 ? '<button type="button" class="btn btn-warning" onclick="highlightConflicts()">Konflikte markieren</button>' : ''}
+                    <div class="modal-footer" style="background: #f8f4e6; border-top: 1px solid #d4af37;">
+                        <button type="button" class="btn btn-wedding-secondary" data-bs-dismiss="modal">Schließen</button>
+                        ${conflicts > 0 ? '<button type="button" class="btn btn-wedding-secondary" onclick="highlightConflicts()">Konflikte markieren</button>' : ''}
                     </div>
                 </div>
             </div>
@@ -784,7 +806,7 @@ window.showStatistics = function() {
 };
 
 window.clearAllTables = async function() {
-    console.log('🗑️ Alle Tischzuordnungen zurücksetzen');
+
     
     let confirmed;
     if (window.showConfirm) {
@@ -816,7 +838,7 @@ window.clearAllTables = async function() {
                 }
             }
         }).catch(error => {
-            console.error('❌ Fehler beim Zurücksetzen:', error);
+
             if (window.showError) {
                 window.showError('Fehler beim Zurücksetzen der Zuordnungen.');
             } else {
@@ -824,7 +846,7 @@ window.clearAllTables = async function() {
             }
         });
     } else {
-        console.error('❌ TischplanungAPI nicht verfügbar');
+
         if (window.showError) {
             window.showError('API nicht verfügbar. Bitte Seite neu laden.');
         } else {
@@ -857,7 +879,7 @@ window.deleteRelationship = function(relationshipId) {
 };
 
 window.highlightConflicts = function() {
-    console.log('🔍 Konflikte hervorheben');
+
     
     // Modal schließen
     const modal = bootstrap.Modal.getInstance(document.getElementById('statisticsModal'));
@@ -904,3 +926,4 @@ window.highlightConflicts = function() {
         }
     }
 };
+

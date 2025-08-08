@@ -30,15 +30,15 @@ function loadBrideGroomNames() {
                 // Lade auch das Hochzeitsdatum
                 if (data.settings.hochzeitsdatum) {
                     hochzeitsdatum = data.settings.hochzeitsdatum;
-                    console.log('Hochzeitsdatum für Admin-Zeitplan geladen:', hochzeitsdatum);
+
                 }
                 
-                console.log('Braut/Bräutigam Namen geladen:', brideGroom);
+
                 updateResponsibleDropdowns();
             }
         })
         .catch(error => {
-            console.error('Fehler beim Laden der Namen:', error);
+
         });
 }
 
@@ -96,13 +96,13 @@ function loadZeitplan() {
                 }
                 return Promise.resolve(); // Erfolgreich geladen
             } else {
-                console.error('Fehler beim Laden des Zeitplans:', data.error);
+
                 showNoDataMessage();
                 return Promise.reject(new Error(data.error));
             }
         })
         .catch(error => {
-            console.error('Fehler beim Laden des Zeitplans:', error);
+
             showNoDataMessage();
             return Promise.reject(error);
         });
@@ -117,7 +117,7 @@ function toggleView() {
     
     // Prüfe ob alle Elemente existieren
     if (!ganttView || !listView || !viewToggleIcon || !viewToggleText) {
-        console.error('Zeitplan HTML-Elemente nicht gefunden');
+
         return;
     }
     
@@ -146,7 +146,7 @@ function displayGanttChart(zeitplan) {
     
     // Sicherheitsprüfung für Container
     if (!container) {
-        console.error('Gantt Chart Container nicht gefunden');
+
         return;
     }
     
@@ -214,7 +214,7 @@ function displayGanttChart(zeitplan) {
                 </div>
             `;
         } catch (error) {
-            console.error('Fehler beim Formatieren des Hochzeitsdatums:', error);
+
         }
     }
     
@@ -420,7 +420,7 @@ function selectEvent(index) {
 
 // Event vom Gantt Chart aus auswählen
 function selectEventFromGantt(index) {
-    console.log('Event aus Gantt Chart ausgewählt:', index);
+
     
     // Zur Listenansicht wechseln um Details zu zeigen
     if (currentView === 'gantt') {
@@ -435,10 +435,10 @@ function selectEventFromGantt(index) {
 
 // Event-Details anzeigen
 function showEventDetails(index) {
-    console.log('Zeige Details für Event Index:', index);
+
     
     if (!currentZeitplan || !currentZeitplan[index]) {
-        console.error('Event nicht gefunden für Index:', index);
+
         showNoEventSelected();
         return;
     }
@@ -635,7 +635,7 @@ function parseDurationToMinutes(durationStr) {
 
 // Neuen Programmpunkt hinzufügen
 function addEvent() {
-    console.log('AddEvent aufgerufen');
+
     
     try {
         const startTime = document.getElementById('eventStartTime').value;
@@ -664,7 +664,7 @@ function addEvent() {
             eventteile: eventteile
         };
         
-        console.log('Event-Daten:', eventData);
+
         
         // Validierung
         if (!eventData.Uhrzeit || !eventData.Programmpunkt) {
@@ -682,7 +682,7 @@ function addEvent() {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('API-Antwort:', data);
+
             if (data.success) {
                 // Modal schließen und Form zurücksetzen
                 closeAddModal();
@@ -698,11 +698,11 @@ function addEvent() {
             }
         })
         .catch(error => {
-            console.error('Fehler beim Hinzufügen:', error);
+
             showError('Fehler beim Hinzufügen des Programmpunkts: ' + error.message);
         });
     } catch (error) {
-        console.error('Globaler Fehler in addEvent:', error);
+
         showError('Ein unerwarteter Fehler ist aufgetreten: ' + error.message);
     }
 }
@@ -730,7 +730,7 @@ function closeAddModal() {
             }
         }
     } catch (error) {
-        console.error('Fehler beim Schließen des Add-Modals:', error);
+
     }
 }
 
@@ -771,23 +771,23 @@ function calculateTimeDifference(startTime, endTime) {
 
 // Programmpunkt bearbeiten
 function editEvent(index) {
-    console.log('EditEvent aufgerufen mit Index:', index);
-    console.log('CurrentZeitplan verfügbar:', currentZeitplan);
-    console.log('Event-Anzahl:', currentZeitplan ? currentZeitplan.length : 'undefined');
+
+
+
     
     try {
         if (!currentZeitplan || !currentZeitplan[index]) {
-            console.error('Event nicht gefunden:', {index, currentZeitplan});
+
             showError('Event-Daten konnten nicht geladen werden.');
             return;
         }
         
         const event = currentZeitplan[index];
-        console.log('Event gefunden:', event);
-        console.log('Event ID:', event.id);
+
+
         
         // Edit Modal mit Event-Daten füllen
-        console.log('Fülle Modal-Felder...');
+
         document.getElementById('editEventIndex').value = index;
         document.getElementById('editEventId').value = event.id; // Speichere die ID
         document.getElementById('editEventStartTime').value = event.Uhrzeit;
@@ -820,29 +820,29 @@ function editEvent(index) {
             }
         }
         
-        console.log('Modal-Felder gefüllt');
+
         
         // Dauer berechnen wenn vorhanden
         if (event.Uhrzeit && event.EndZeit) {
-            console.log('Berechne Dauer...');
+
             calculateEditDuration();
         }
         
         // Modal anzeigen - prüfe ob Bootstrap verfügbar ist
         const modalElement = document.getElementById('editEventModal');
-        console.log('Modal-Element gefunden:', modalElement ? 'ja' : 'nein');
-        console.log('Bootstrap verfügbar:', typeof bootstrap !== 'undefined');
+
+
         
         if (modalElement) {
             try {
                 // Versuche Bootstrap 5 Modal
                 if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                    console.log('Verwende Bootstrap Modal');
+
                     const modal = new bootstrap.Modal(modalElement);
                     modal.show();
-                    console.log('Bootstrap Modal geöffnet');
+
                 } else {
-                    console.log('Bootstrap nicht verfügbar, verwende Fallback');
+
                     // Fallback: Modal manuell anzeigen
                     modalElement.classList.add('show');
                     modalElement.style.display = 'block';
@@ -853,30 +853,30 @@ function editEvent(index) {
                     backdrop.className = 'modal-backdrop fade show';
                     backdrop.id = 'modal-backdrop-edit';
                     document.body.appendChild(backdrop);
-                    console.log('Fallback Modal geöffnet');
+
                 }
             } catch (error) {
-                console.error('Fehler beim Öffnen des Edit-Modals:', error);
+
                 // Einfaches Alert als Fallback
                 const newTitle = prompt('Neuer Titel:', event.Programmpunkt);
                 if (newTitle) {
-                    console.log('Quick Edit:', {index, newTitle});
+
                     // Hier würde normalerweise die API aufgerufen
                 }
             }
         } else {
-            console.error('Edit Modal Element nicht gefunden');
+
             showError('Modal konnte nicht gefunden werden.');
         }
     } catch (globalError) {
-        console.error('Globaler Fehler in editEvent:', globalError);
+
         showError('Ein unerwarteter Fehler ist aufgetreten: ' + globalError.message);
     }
 }
 
 // Bearbeiteten Event speichern
 function saveEditEvent() {
-    console.log('SaveEditEvent aufgerufen');
+
     
     try {
         const index = parseInt(document.getElementById('editEventIndex').value);
@@ -907,7 +907,7 @@ function saveEditEvent() {
             eventteile: eventteile
         };
         
-        console.log('Update-Daten:', {index, eventId, eventData});
+
         
         // Validierung
         if (!eventData.Uhrzeit || !eventData.Programmpunkt) {
@@ -933,7 +933,7 @@ function saveEditEvent() {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Update API-Antwort:', data);
+
             if (data.success) {
                 // Modal schließen
                 closeEditModal();
@@ -943,7 +943,7 @@ function saveEditEvent() {
                     // Nach dem Neuladen: Wenn wir in der Listenansicht sind und ein Event ausgewählt war,
                     // die Details für den aktualisierten Event wieder anzeigen
                     if (currentView === 'list' && selectedEventIndex === index) {
-                        console.log('Aktualisiere Details für Event Index:', index);
+
                         setTimeout(() => {
                             showEventDetails(index);
                         }, 100); // Kurze Verzögerung um sicherzustellen, dass die Liste geladen ist
@@ -956,11 +956,11 @@ function saveEditEvent() {
             }
         })
         .catch(error => {
-            console.error('Fehler beim Aktualisieren:', error);
+
             showError('Fehler beim Aktualisieren des Programmpunkts: ' + error.message);
         });
     } catch (error) {
-        console.error('Globaler Fehler in saveEditEvent:', error);
+
         showError('Ein unerwarteter Fehler ist aufgetreten: ' + error.message);
     }
 }
@@ -974,7 +974,7 @@ function deleteEventFromDetails() {
 
 // Event löschen
 function deleteEvent() {
-    console.log('DeleteEvent aufgerufen');
+
     
     try {
         let index, eventId;
@@ -1003,7 +1003,7 @@ function deleteEvent() {
             return;
         }
         
-        console.log('Lösche Event mit Index:', index, 'und ID:', eventId);
+
         
         // API-Aufruf zum Löschen
         fetch('/api/zeitplan/delete', {
@@ -1017,7 +1017,7 @@ function deleteEvent() {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Delete API-Antwort:', data);
+
             if (data.success) {
                 // Modal schließen falls geöffnet
                 closeEditModal();
@@ -1037,11 +1037,11 @@ function deleteEvent() {
             }
         })
         .catch(error => {
-            console.error('Fehler beim Löschen:', error);
+
             showError('Fehler beim Löschen des Programmpunkts: ' + error.message);
         });
     } catch (error) {
-        console.error('Globaler Fehler in deleteEvent:', error);
+
         showError('Ein unerwarteter Fehler ist aufgetreten: ' + error.message);
     }
 }
@@ -1069,7 +1069,7 @@ function closeEditModal() {
             }
         }
     } catch (error) {
-        console.error('Fehler beim Schließen des Modals:', error);
+
     }
 }
 
@@ -1121,11 +1121,11 @@ function exportToICal() {
                 }
             }
             
-            console.log('Verwendetes Hochzeitsdatum für iCal:', weddingDate);
+
             generateICalFile(weddingDate);
         })
         .catch(error => {
-            console.error('Fehler beim Laden des Hochzeitsdatums:', error);
+
             generateICalFile('2025-09-01'); // Fallback
         });
 }
@@ -1198,7 +1198,7 @@ function generateICalFile(weddingDate) {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
     
-    console.log('iCal-Datei wurde exportiert');
+
 }
 
 // Hilfsfunktionen für iCal
@@ -1299,3 +1299,4 @@ function ensureEventpartsToggle() {
         setupEventpartsToggle();
     }, 2000);
 }
+

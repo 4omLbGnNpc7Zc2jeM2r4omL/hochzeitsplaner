@@ -4,7 +4,7 @@ let currentBudget = [];
 let editingIndex = -1;
 
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('Budget wird geladen...');
+
     
     // Event Listeners
     setupEventListeners();
@@ -64,7 +64,7 @@ async function loadAndDisplayBudget() {
             throw new Error(data.error || 'Unbekannter Fehler');
         }
     } catch (error) {
-        console.error('Fehler beim Laden des Budgets:', error);
+
         HochzeitsplanerApp.showAlert('Fehler beim Laden des Budgets: ' + error.message, 'danger');
         
         // Fallback: Leere Anzeige
@@ -236,7 +236,7 @@ async function handleGenerateBudget() {
             throw new Error(result.error);
         }
     } catch (error) {
-        console.error('Fehler beim Generieren des Budgets:', error);
+
         HochzeitsplanerApp.showAlert('Fehler beim Generieren: ' + error.message, 'danger');
     } finally {
         HochzeitsplanerApp.hideLoading();
@@ -279,7 +279,7 @@ function openBudgetModal(itemId = -1) {
             document.getElementById('budgetAusgegeben').value = item.ausgegeben || 0;
             updateGesamtpreis();
         } else {
-            console.error('Budget-Item für Bearbeitung nicht gefunden:', itemId);
+
             return;
         }
     } else {
@@ -359,7 +359,7 @@ async function handleSaveBudgetItem() {
             throw new Error(result.error);
         }
     } catch (error) {
-        console.error('Fehler beim Speichern:', error);
+
         HochzeitsplanerApp.showAlert('Fehler beim Speichern: ' + error.message, 'danger');
     } finally {
         HochzeitsplanerApp.hideLoading();
@@ -384,7 +384,7 @@ function deleteBudgetItem(itemId) {
         const modal = new bootstrap.Modal(document.getElementById('deleteBudgetModal'));
         modal.show();
     } else {
-        console.error('Budget-Item nicht gefunden:', itemId);
+
     }
 }
 
@@ -413,7 +413,7 @@ async function handleConfirmDelete() {
             throw new Error(result.error);
         }
     } catch (error) {
-        console.error('Fehler beim Löschen:', error);
+
         HochzeitsplanerApp.showAlert('Fehler beim Löschen: ' + error.message, 'danger');
     } finally {
         HochzeitsplanerApp.hideLoading();
@@ -469,7 +469,7 @@ function showEmptyBudgetMessage() {
             container.appendChild(messageDiv);
         }
     } catch (error) {
-        console.warn('Fehler beim Einfügen der leeren Budget-Nachricht:', error);
+
         // Sicherer Fallback
         container.appendChild(messageDiv);
     }
@@ -488,3 +488,4 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+

@@ -6,7 +6,7 @@
 // Initialisiert globale Variablen für Brautpaar-Namen
 async function initializeTischplanungGlobals() {
     try {
-        console.log('🔧 Initialisiere Tischplanung Globals...');
+
         const response = await fetch('/api/settings/get');
         if (response.ok) {
             const result = await response.json();
@@ -31,25 +31,19 @@ async function initializeTischplanungGlobals() {
                 // App-Einstellungen global verfügbar machen
                 window.appSettings = result.settings;
                 
-                console.log('✅ Globals erfolgreich geladen:', {
-                    weddingCoupleName,
-                    brautName,
-                    braeutigamName
-                });
-                
                 return true;
             } else {
-                console.warn('⚠️ Keine Einstellungen erhalten:', result);
+
                 setFallbackNames();
                 return false;
             }
         } else {
-            console.error('❌ Fehler beim Laden der Einstellungen:', response.status);
+
             setFallbackNames();
             return false;
         }
     } catch (error) {
-        console.error('❌ Fehler beim Initialisieren der Tischplanung Globals:', error);
+
         setFallbackNames();
         return false;
     }
@@ -65,7 +59,7 @@ function setFallbackNames() {
     window.weddingCoupleName = 'Braut & Bräutigam'; // ← WICHTIG FÜR FEHLERFIX!
     window.appSettings = {};
     
-    console.log('⚠️ Fallback-Namen für Tischplanung gesetzt');
+
 }
 
 // Automatische Initialisierung beim Laden der Seite
@@ -77,3 +71,4 @@ if (window.location.pathname === '/tischplanung') {
 
 // Export für manuelle Verwendung
 window.initializeTischplanungGlobals = initializeTischplanungGlobals;
+

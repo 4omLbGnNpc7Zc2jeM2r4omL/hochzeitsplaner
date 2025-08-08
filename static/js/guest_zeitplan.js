@@ -28,19 +28,19 @@ function loadHochzeitsdatum() {
                 }
                 
                 if (hochzeitsdatum) {
-                    console.log('Hochzeitsdatum Typ:', typeof hochzeitsdatum);
-                    console.log('Hochzeitsdatum Wert:', hochzeitsdatum);
+
+
                 } else {
-                    console.error('Hochzeitsdatum nicht gefunden in Settings:', data.settings);
+
                 }
                 loadZeitplan();
             } else {
-                console.error('Fehler beim Laden der Settings:', data);
+
                 loadZeitplan();
             }
         })
         .catch(error => {
-            console.error('Fehler beim Laden des Hochzeitsdatums:', error);
+
             loadZeitplan();
         });
 }
@@ -51,14 +51,14 @@ function loadZeitplan() {
         .then(data => {
             if (data.success) {
                 zeitplanData = data.events;
-                console.log('Alle geladenen Events für Gäste:', zeitplanData);
+
                 updateViews();
             } else {
                 showError(data.message || 'Fehler beim Laden des Zeitplans');
             }
         })
         .catch(error => {
-            console.error('Fehler beim Laden des Zeitplans:', error);
+
             showError('Fehler beim Laden des Zeitplans');
         });
 }
@@ -272,7 +272,7 @@ function updateGanttView() {
                 </div>
             `;
         } catch (error) {
-            console.error('Fehler beim Formatieren des Hochzeitsdatums:', error);
+
         }
     }
     
@@ -490,21 +490,21 @@ function getEventIcon(event) {
     const programmpunkt = event.Programmpunkt || '';
     const uhrzeit = event.Uhrzeit || '';
     
-    console.log('DEBUG: getEventIcon called for:', programmpunkt);
+
     
     // Spezielle Icons für bestimmte Event-Typen (haben Priorität vor Zeit-basierten Icons)
     if (programmpunkt.toLowerCase().includes('essen') || 
         programmpunkt.toLowerCase().includes('dinner') || 
         programmpunkt.toLowerCase().includes('snack') || 
         programmpunkt.toLowerCase().includes('lunch')) {
-        console.log('DEBUG: Food event - returning bi-cup-hot');
+
         return 'bi-cup-hot'; // Essen/Trinken Icon
     }
     
     if (programmpunkt.toLowerCase().includes('party') || 
         programmpunkt.toLowerCase().includes('feier') ||
         programmpunkt.toLowerCase().includes('tanz')) {
-        console.log('DEBUG: Party event - returning bi-heart');
+
         return 'bi-heart'; // Party Icon
     }
     
@@ -512,19 +512,19 @@ function getEventIcon(event) {
     const timeMinutes = parseTimeToMinutes(uhrzeit);
     const hour = Math.floor(timeMinutes / 60);
     
-    console.log('DEBUG: Time-based icon for hour:', hour);
+
     
     if (hour >= 6 && hour < 12) {
         // Morgens (06:00 - 11:59)
-        console.log('DEBUG: Morning - returning bi-sunrise');
+
         return 'bi-sunrise';
     } else if (hour >= 12 && hour < 19) {
         // Mittag/Nachmittag (12:00 - 18:59)
-        console.log('DEBUG: Day - returning bi-sun');
+
         return 'bi-sun';
     } else {
         // Abends/Nachts (19:00 - 05:59)
-        console.log('DEBUG: Night - returning bi-moon-stars');
+
         return 'bi-moon-stars';
     }
 }
@@ -1377,3 +1377,4 @@ function showGantt() {
         }, 100);
     }
 }
+

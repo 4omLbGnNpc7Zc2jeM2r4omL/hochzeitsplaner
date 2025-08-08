@@ -13,7 +13,7 @@ let currentGuestId = null;
  * Initialisiert das Upload-System
  */
 function initUploads() {
-    console.log('🔄 Initialisiere Upload-System...');
+
     
     // Event Listener für Upload-Bereich
     setupUploadArea();
@@ -71,17 +71,17 @@ function setupUploadArea() {
  */
 function setupFileInput() {
     const fileInput = document.getElementById('fileInput');
-    console.log('📄 Setup File Input:', fileInput ? '✅ Gefunden' : '❌ Nicht gefunden');
+
     
     if (!fileInput) return;
     
     fileInput.addEventListener('change', (e) => {
-        console.log('📁 Datei-Input Change Event:', e.target.files.length, 'Datei(en)');
+
         const files = Array.from(e.target.files);
         handleFileSelection(files);
     });
     
-    console.log('✅ File Input Event Listener hinzugefügt');
+
 }
 
 /**
@@ -89,20 +89,20 @@ function setupFileInput() {
  */
 function setupUploadButton() {
     const uploadBtn = document.getElementById('uploadBtn');
-    console.log('🔼 Setup Upload Button:', uploadBtn ? '✅ Gefunden' : '❌ Nicht gefunden');
+
     
     if (!uploadBtn) return;
     
     uploadBtn.addEventListener('click', () => {
-        console.log('🚀 Upload Button geklickt, ausgewählte Dateien:', selectedFiles.length);
+
         if (selectedFiles.length > 0) {
             startUpload();
         } else {
-            console.warn('⚠️ Keine Dateien ausgewählt');
+
         }
     });
     
-    console.log('✅ Upload Button Event Listener hinzugefügt');
+
 }
 
 /**
@@ -136,10 +136,10 @@ async function loadUploadConfig() {
                 fileInput.accept = acceptString.slice(0, -1); // Remove trailing comma
             }
             
-            console.log('✅ Upload-Konfiguration geladen');
+
         }
     } catch (error) {
-        console.error('❌ Fehler beim Laden der Upload-Konfiguration:', error);
+
     }
 }
 
@@ -148,7 +148,7 @@ async function loadUploadConfig() {
  * @param {Array} files - Array der ausgewählten Dateien
  */
 function handleFileSelection(files) {
-    console.log(`📁 ${files.length} Datei(en) ausgewählt`);
+
     
     // Validiere Dateien
     const validFiles = [];
@@ -282,7 +282,7 @@ function updateFileDescription(index, description) {
  * Startet den Upload-Prozess
  */
 async function startUpload() {
-    console.log(`🚀 Starte Upload von ${selectedFiles.length} Datei(en)`);
+
     
     const uploadBtn = document.getElementById('uploadBtn');
     const uploadProgress = document.getElementById('uploadProgress');
@@ -332,7 +332,7 @@ async function startUpload() {
         loadMyUploads();
         
     } catch (error) {
-        console.error('❌ Upload-Fehler:', error);
+
         showAlert('Upload fehlgeschlagen', error.message, 'danger');
     } finally {
         // UI zurücksetzen
@@ -349,7 +349,7 @@ async function startUpload() {
  * Lädt die eigenen Uploads des Gastes
  */
 async function loadMyUploads() {
-    console.log('📂 Lade eigene Uploads...');
+
     
     const container = document.getElementById('myUploadsContainer');
     if (!container) return;
@@ -361,7 +361,7 @@ async function loadMyUploads() {
         }
         
         const uploads = await response.json();
-        console.log(`✅ ${uploads.length} Upload(s) geladen`);
+
         
         if (uploads.length === 0) {
             container.innerHTML = `
@@ -383,7 +383,7 @@ async function loadMyUploads() {
         });
         
     } catch (error) {
-        console.error('❌ Fehler beim Laden der Uploads:', error);
+
         container.innerHTML = `
             <div class="alert alert-danger">
                 <i class="bi bi-exclamation-triangle me-2"></i>
@@ -456,7 +456,7 @@ function createUploadCard(upload) {
  */
 async function viewUpload(uploadId) {
     // TODO: Implementiere Upload-Anzeige Modal
-    console.log('👁️ Zeige Upload:', uploadId);
+
 }
 
 /**
@@ -489,7 +489,7 @@ async function deleteUpload(uploadId) {
             throw new Error(error.error || 'Löschen fehlgeschlagen');
         }
     } catch (error) {
-        console.error('❌ Fehler beim Löschen:', error);
+
         showAlert('Löschen fehlgeschlagen', error.message, 'danger');
     }
 }
@@ -555,11 +555,11 @@ function showAlert(title, message, type = 'info') {
 
 // Initialisierung beim Laden der Seite
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔄 Guest Uploads DOM Content Loaded');
+
     
     // Initialisiere Upload-System direkt
     if (document.getElementById('uploadArea')) {
-        console.log('📁 Upload-Bereich gefunden, initialisiere...');
+
         initUploads();
         window.uploadsInitialized = true;
     }
@@ -568,12 +568,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const uploadsTab = document.getElementById('uploads-tab');
     if (uploadsTab) {
         uploadsTab.addEventListener('shown.bs.tab', function() {
-            console.log('📂 Upload-Tab aktiviert');
+
             if (!window.uploadsInitialized) {
-                console.log('🔄 Initialisiere Upload-System nach Tab-Aktivierung...');
+
                 initUploads();
                 window.uploadsInitialized = true;
             }
         });
     }
 });
+

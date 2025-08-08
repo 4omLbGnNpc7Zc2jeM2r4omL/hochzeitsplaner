@@ -8,7 +8,7 @@
 // ===============================================
 
 async function checkFirstLogin() {
-    console.log('🔍 Checking first login status...');
+
     
     try {
         // Prüfe ob der Gast zum ersten Mal eingeloggt ist (aus URL Parameter)
@@ -16,11 +16,11 @@ async function checkFirstLogin() {
         const isFirstLogin = urlParams.get('first_login') === '1';
         
         if (!isFirstLogin) {
-            console.log('✅ Not a first login, skipping modal');
+
             return;
         }
 
-        console.log('🎉 First login detected! Loading modal data...');
+
 
         // Alle benötigten Daten in einem Promise.all laden für bessere Performance
         const [settingsResponse, personalizedResponse] = await Promise.all([
@@ -29,16 +29,16 @@ async function checkFirstLogin() {
         ]);
 
         if (!settingsResponse.ok) {
-            console.log('❌ Fehler beim Laden der Settings für First Login Modal');
+
             return;
         }
 
         const settingsResult = await settingsResponse.json();
         
-        console.log('🔍 Settings response:', settingsResult);
+
         
         if (!settingsResult.success) {
-            console.log('❌ Settings-API Response nicht erfolgreich');
+
             return;
         }
 
@@ -47,18 +47,9 @@ async function checkFirstLogin() {
         const firstLoginImageData = settingsResult.settings?.first_login_image_data;
         const firstLoginText = settingsResult.settings?.first_login_text;
         const weddingDate = settingsResult.settings?.hochzeitsdatum || settingsResult.settings?.hochzeit?.datum;
-        
-        console.log('🔍 First Login settings:', {
-            firstLoginImage,
-            firstLoginImageData: firstLoginImageData ? 'present' : 'not present',
-            firstLoginText,
-            weddingDate,
-            allSettings: Object.keys(settingsResult.settings || {}),
-            settingsResult: settingsResult
-        });
 
         if (!firstLoginImage && !firstLoginImageData && !firstLoginText) {
-            console.log('ℹ️ Kein First Login Modal konfiguriert');
+
             return;
         }
 
@@ -72,13 +63,13 @@ async function checkFirstLogin() {
                 if (personalizedResult.success) {
                     personalizedMessage = personalizedResult.message;
                     personalizedDate = personalizedResult.wedding_date;
-                    console.log('✅ Personalisierte Nachricht geladen');
+
                 }
             } catch (error) {
-                console.log('⚠️ Fehler beim Verarbeiten der personalisierten Nachricht:', error);
+
             }
         } else {
-            console.log('⚠️ Personalisierte Nachricht konnte nicht geladen werden, verwende Fallback');
+
         }
 
         // Modal mit allen geladenen Daten anzeigen
@@ -95,12 +86,12 @@ async function checkFirstLogin() {
         window.history.replaceState({}, document.title, newUrl);
         
     } catch (error) {
-        console.log('❌ Fehler beim First Login Check:', error);
+
     }
 }
 
 function showFirstLoginModal(data) {
-    console.log('📱 Showing first login modal with data:', data);
+
     
     const modal = document.getElementById('firstLoginModal');
     const welcomeImage = document.getElementById('welcomeImage');
@@ -110,7 +101,7 @@ function showFirstLoginModal(data) {
     const weddingDateDisplay = document.getElementById('weddingDateDisplay');
     
     if (!modal) {
-        console.log('❌ First Login Modal nicht gefunden!');
+
         return;
     }
     
@@ -119,9 +110,9 @@ function showFirstLoginModal(data) {
         try {
             const formattedDate = formatWeddingDate(data.weddingDate);
             weddingDateDisplay.textContent = formattedDate;
-            console.log('✅ Hochzeitsdatum gesetzt:', formattedDate);
+
         } catch (error) {
-            console.log('⚠️ Fehler beim Formatieren des Hochzeitsdatums:', error);
+
         }
     }
 
@@ -129,10 +120,10 @@ function showFirstLoginModal(data) {
     if (data.personalizedMessage && welcomeText) {
         welcomeText.innerHTML = data.personalizedMessage;
         welcomeText.dataset.personalized = 'true';
-        console.log('✅ Personalisierte Nachricht gesetzt');
+
     } else if (data.fallbackText && data.fallbackText.trim() && welcomeText) {
         welcomeText.innerHTML = data.fallbackText.trim().replace(/\n/g, '<br>');
-        console.log('✅ Fallback-Text gesetzt');
+
     }
     
     // Bild konfigurieren - Priorisiere Base64-Daten über URL
@@ -140,12 +131,12 @@ function showFirstLoginModal(data) {
         // Base64-Bild direkt verwenden
         welcomeImage.src = data.imageData.trim();
         welcomeImage.onload = function() {
-            console.log('✅ Hochgeladenes Willkommensbild geladen');
+
             welcomeImageContainer.classList.remove('d-none');
             welcomeImagePlaceholder.classList.add('d-none');
         };
         welcomeImage.onerror = function() {
-            console.log('⚠️ Hochgeladenes Willkommensbild konnte nicht geladen werden');
+
             welcomeImageContainer.classList.add('d-none');
             welcomeImagePlaceholder.classList.remove('d-none');
         };
@@ -153,12 +144,12 @@ function showFirstLoginModal(data) {
         // URL-Bild laden
         welcomeImage.src = data.imageUrl.trim();
         welcomeImage.onerror = function() {
-            console.log('⚠️ Willkommensbild konnte nicht geladen werden:', data.imageUrl);
+
             welcomeImageContainer.classList.add('d-none');
             welcomeImagePlaceholder.classList.remove('d-none');
         };
         welcomeImage.onload = function() {
-            console.log('✅ Willkommensbild geladen:', data.imageUrl);
+
             welcomeImageContainer.classList.remove('d-none');
             welcomeImagePlaceholder.classList.add('d-none');
         };
@@ -166,7 +157,7 @@ function showFirstLoginModal(data) {
         // Kein Bild - zeige Placeholder
         welcomeImageContainer.classList.add('d-none');
         welcomeImagePlaceholder.classList.remove('d-none');
-        console.log('ℹ️ Kein Bild verfügbar, zeige Placeholder');
+
     }
     
     // Modal anzeigen
@@ -177,7 +168,7 @@ function showFirstLoginModal(data) {
     
     bootstrapModal.show();
     
-    console.log('✅ First Login Modal angezeigt');
+
 }
 
 function formatWeddingDate(dateString) {
@@ -194,7 +185,8 @@ function formatWeddingDate(dateString) {
         
         return `${day}. ${month} ${year}`;
     } catch (error) {
-        console.log('⚠️ Fehler beim Formatieren des Datums:', error);
+
         return dateString; // Fallback auf ursprünglichen String
     }
 }
+

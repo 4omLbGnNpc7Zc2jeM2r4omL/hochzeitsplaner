@@ -185,6 +185,12 @@
                                 </li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
+                                    <a class="dropdown-item {% if request.endpoint == 'einladungs_generator' %}active{% endif %}" 
+                                       href="/einladungs-generator">
+                                        <i class="bi bi-qr-code me-2"></i>Einladungs Generator
+                                    </a>
+                                </li>
+                                <li>
                                     <a class="dropdown-item {% if request.endpoint == 'database_admin' %}active{% endif %}" 
                                        href="/database-admin">
                                         <i class="bi bi-database me-2"></i>Datenbank
@@ -267,3 +273,4 @@
     {% block scripts %}{% endblock %}
 </body>
 </html>
+

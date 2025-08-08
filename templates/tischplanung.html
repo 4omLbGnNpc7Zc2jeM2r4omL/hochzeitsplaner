@@ -591,7 +591,7 @@
 </div>
 
 <!-- Beziehungs-Editor Modal -->
-<div class="modal fade" id="relationshipModal" tabindex="-1">
+<div class="modal fade modal-wedding" id="relationshipModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -602,11 +602,11 @@
                 <!-- Wird dynamisch gefüllt -->
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-danger" onclick="deleteRelationship()">
+                <button type="button" class="btn btn-wedding-danger" onclick="deleteRelationship()">
                     <i class="bi bi-trash me-1"></i>Löschen
                 </button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-                <button type="button" class="btn btn-primary" onclick="saveRelationship()">
+                <button type="button" class="btn btn-wedding-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-wedding-primary" onclick="saveRelationship()">
                     <i class="bi bi-save me-1"></i>Speichern
                 </button>
             </div>
@@ -652,15 +652,15 @@ window.BRAEUTIGAM_NAME = "{{ braeutigam_name }}";
 window.weddingCoupleName = "{{ braut_name }} & {{ braeutigam_name }}";
 
 // Keine Fallback-Funktionen mehr - die echten Funktionen sind in tischplanung.js definiert
-console.log('🎯 Template geladen - Funktionen werden von tischplanung.js bereitgestellt');
+
 
 // DEBUG: Test nach 3 Sekunden
 setTimeout(function() {
-    console.log('🔍 DEBUG: Prüfe verfügbare Funktionen nach 3 Sekunden...');
-    console.log('showTableOverview auf window:', typeof window.showTableOverview);
-    console.log('showStatistics auf window:', typeof window.showStatistics);
-    console.log('tables Variable:', typeof tables !== 'undefined' ? 'verfügbar (' + tables.length + ' Einträge)' : 'undefined');
-    console.log('guests Variable:', typeof guests !== 'undefined' ? 'verfügbar (' + guests.length + ' Einträge)' : 'undefined');
+
+
+
+
+
 }, 3000);
 
 
@@ -677,7 +677,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             setTimeout(waitForInit, 100);
         } else {
-            console.error('❌ Tischplanung-Core nicht gefunden');
+
         }
     };
     
@@ -738,7 +738,7 @@ function addNewTable() {
                 if (window.showSuccess) {
                     window.showSuccess(`Tisch "${name}" erfolgreich erstellt`);
                 } else {
-                    console.log(`Tisch "${name}" erfolgreich erstellt`);
+
                 }
             } else {
                 if (window.showError) {
@@ -748,7 +748,7 @@ function addNewTable() {
                 }
             }
         }).catch(error => {
-            console.error('Fehler beim Erstellen des Tisches:', error);
+
             if (window.showError) {
                 window.showError('Fehler beim Erstellen des Tisches: ' + error.message);
             } else {
@@ -796,7 +796,7 @@ function searchGuests() {
 
 function updateTableSizes() {
     const defaultSize = parseInt(document.getElementById('defaultTableSize')?.value) || 8;
-    console.log('Update default table size to:', defaultSize);
+
     // Hier könnte man die Standard-Tischgröße aktualisieren
 }
 
@@ -894,16 +894,6 @@ function centerTables() {
     const startX = Math.max(50, (chart.offsetWidth - totalWidth) / 2);
     const startY = Math.max(50, (chart.offsetHeight - totalHeight) / 2);
     
-    console.log('📐 Matrix-Layout berechnet (Kollisionsfrei):', {
-        tableCount: tableCount,
-        tablesPerRow: tablesPerRow,
-        spacing: { x: spacingX, y: spacingY },
-        tableSize: tableSize,
-        chartSize: { width: chart.offsetWidth, height: chart.offsetHeight },
-        matrixSize: { width: totalWidth, height: totalHeight },
-        startPosition: { x: startX, y: startY }
-    });
-    
     // Batch-Update: Sammle alle Positionen und update ohne Render zwischen den Updates
     const updatePromises = [];
     
@@ -913,7 +903,7 @@ function centerTables() {
         const x = startX + col * spacingX;
         const y = startY + row * spacingY;
         
-        console.log(`📍 Positioniere Tisch ${table.name} (${index + 1}/${tableCount}): Row ${row}, Col ${col} -> (${x}, ${y})`);
+
         
         // Update Position im DOM sofort für bessere UX
         const tableElement = document.querySelector(`[data-table-id="${table.id}"]`);
@@ -934,10 +924,10 @@ function centerTables() {
     Promise.all(updatePromises).then(() => {
         // Nur einmal laden und rendern nach allen Updates
         window.tischplanung.loadTables().then(() => {
-            console.log('✅ Matrix-Zentrierung abgeschlossen (kollisionsfrei)');
+
         });
     }).catch(error => {
-        console.error('❌ Fehler beim Batch-Update der Tischpositionen:', error);
+
     });
 }
 
@@ -945,11 +935,6 @@ function autoAssignGuests() {
     // Prüfe Checkbox-Status
     const onlyConfirmedCheckbox = document.getElementById('onlyConfirmedGuests');
     const onlyConfirmed = onlyConfirmedCheckbox ? onlyConfirmedCheckbox.checked : true;
-    
-    console.log('📋 Filter-Einstellungen:', {
-        onlyConfirmed: onlyConfirmed,
-        criteriaText: onlyConfirmed ? 'Nur zugesagte Gäste mit anzahl_essen > 0' : 'Alle Gäste mit anzahl_essen > 0'
-    });
     
     try {
         // API-Aufruf mit Filter-Parameter
@@ -959,7 +944,7 @@ function autoAssignGuests() {
                 if (window.showSuccess) {
                     window.showSuccess(result.message || 'Auto-Zuordnung erfolgreich abgeschlossen!');
                 } else {
-                    console.log('✅ Auto-Zuordnung erfolgreich:', result.message);
+
                 }
                 
                 // KEIN Modal mehr - nur stille Verarbeitung
@@ -967,17 +952,17 @@ function autoAssignGuests() {
                 
                 // Stille Übersicht in Console für Debugging
                 if (result.table_overview && result.table_overview.length > 0) {
-                    console.log('📊 Zuordnungs-Übersicht:', result);
+
                 }
                 
                 // Tischplanung-Daten neu laden und anzeigen ohne Page-Reload
                 if (window.tischplanung) {
                     window.tischplanung.loadAllData().then(() => {
                         // Nach dem Laden automatisch Tische in Matrix zentrieren
-                        console.log('🎯 Auto-Assign abgeschlossen - Zentriere Tische kollisionsfrei in Matrix');
+
                         centerTables(); // Direkter Aufruf ohne setTimeout für bessere Performance
                     }).catch(error => {
-                        console.error('Fehler beim Neu-Laden der Tischplanung:', error);
+
                         location.reload();
                     });
                 } else {
@@ -985,7 +970,7 @@ function autoAssignGuests() {
                 }
             } else {
                 const errorMsg = result.message || 'Unbekannter Fehler bei der automatischen Zuordnung';
-                console.error('Auto-Zuordnung fehlgeschlagen:', errorMsg);
+
                 
                 if (window.showError) {
                     window.showError('Fehler bei der automatischen Zuordnung: ' + errorMsg);
@@ -994,7 +979,7 @@ function autoAssignGuests() {
                 }
             }
         }).catch(error => {
-            console.error('Auto-Zuordnung API Fehler:', error);
+
             const errorMsg = 'Verbindungsfehler bei der automatischen Zuordnung';
             
             if (window.showError) {
@@ -1004,7 +989,7 @@ function autoAssignGuests() {
             }
         });
     } catch (error) {
-        console.error('Auto-Zuordnung Ausführungsfehler:', error);
+
         const errorMsg = 'Kritischer Fehler bei der automatischen Zuordnung';
         
         if (window.showError) {
@@ -1107,7 +1092,7 @@ function getCategoryColor(category) {
 
 function createAssignmentOverviewModal() {
     const modal = document.createElement('div');
-    modal.className = 'modal fade';
+    modal.className = 'modal fade modal-wedding';
     modal.id = 'assignmentOverviewModal';
     modal.tabIndex = -1;
     modal.innerHTML = `
@@ -1121,8 +1106,8 @@ function createAssignmentOverviewModal() {
                     <!-- Inhalt wird dynamisch erstellt -->
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
-                    <button type="button" class="btn btn-primary" onclick="printAssignmentOverview()">
+                    <button type="button" class="btn btn-wedding-secondary" data-bs-dismiss="modal">Schließen</button>
+                    <button type="button" class="btn btn-wedding-primary" onclick="printAssignmentOverview()">
                         <i class="bi bi-printer"></i> Drucken
                     </button>
                 </div>
@@ -1193,7 +1178,7 @@ function clearAllTablesConfirm() {
                             window.tischplanung.render();
 
                         }).catch(error => {
-                            console.error('Fehler beim Neu-Laden der Tischplanung:', error);
+
                         });
                     }
                 } else {
@@ -1204,7 +1189,7 @@ function clearAllTablesConfirm() {
                     }
                 }
             }).catch(error => {
-                console.error('Fehler beim Löschen aller Tische:', error);
+
                 if (window.showError) {
                     window.showError('Fehler beim Löschen aller Tische: ' + error.message);
                 } else {
@@ -1212,7 +1197,7 @@ function clearAllTablesConfirm() {
                 }
             });
         } else {
-            console.error('TischplanungAPI nicht verfügbar');
+
             alert('Fehler: TischplanungAPI nicht verfügbar');
         }
     }
@@ -1220,11 +1205,7 @@ function clearAllTablesConfirm() {
 
 // Performance-Monitoring
 window.addEventListener('load', function() {
-    console.log('📊 Tischplanung Performance:', {
-        'DOM Ready': performance.timing.domContentLoadedEventEnd - performance.timing.navigationStart,
-        'Page Load': performance.timing.loadEventEnd - performance.timing.navigationStart,
-        'Scripts Loaded': Date.now() - performance.timing.navigationStart
-    });
+    // Performance monitoring removed
 });
 
 // Neue Funktionen für die Tischübersicht
@@ -1235,7 +1216,7 @@ function displayTableOverview(result) {
     const tableOverviewContent = document.getElementById('tableOverviewContent');
     
     if (!tableOverviewRow || !tableOverviewContent) {
-        console.error('Tischübersicht-Elemente nicht gefunden');
+
         return;
     }
     
@@ -1429,7 +1410,7 @@ function getSideBadgeClass(side) {
 
 function removeGuestFromTable(tableName, guestName, guestId) {
     if (confirm(`Möchten Sie "${guestName}" wirklich von Tisch "${tableName}" entfernen?`)) {
-        console.log(`🗑️ Entferne Gast ${guestName} (ID: ${guestId}) von Tisch ${tableName}`);
+
         
         if (window.TischplanungAPI) {
             window.TischplanungAPI.unassignGuest(guestId).then((result) => {
@@ -1459,7 +1440,7 @@ function removeGuestFromTable(tableName, guestName, guestId) {
                     }
                 }
             }).catch(error => {
-                console.error('Fehler beim Entfernen des Gastes:', error);
+
                 if (window.showError) {
                     window.showError(`Fehler beim Entfernen von ${guestName}: ${error.message}`);
                 } else {
@@ -1472,7 +1453,7 @@ function removeGuestFromTable(tableName, guestName, guestId) {
 
 function clearTableAssignment(tableName) {
     if (confirm(`Möchten Sie alle Gäste von Tisch "${tableName}" entfernen?`)) {
-        console.log(`🗑️ Leere Tisch ${tableName}`);
+
         
         if (window.TischplanungAPI) {
             window.TischplanungAPI.clearTable(tableName).then((result) => {
@@ -1502,7 +1483,7 @@ function clearTableAssignment(tableName) {
                     }
                 }
             }).catch(error => {
-                console.error('Fehler beim Leeren des Tisches:', error);
+
                 if (window.showError) {
                     window.showError(`Fehler beim Leeren von Tisch "${tableName}": ${error.message}`);
                 } else {
@@ -1515,7 +1496,7 @@ function clearTableAssignment(tableName) {
 
 function deleteTableFromOverview(tableName) {
     if (confirm(`⚠️ ACHTUNG: Tisch "${tableName}" wird komplett gelöscht!\n\nAlle Gäste werden dabei abgemeldet.\nSind Sie sicher?`)) {
-        console.log(`🗑️ Lösche Tisch ${tableName}`);
+
         
         if (window.TischplanungAPI) {
             window.TischplanungAPI.deleteTable(tableName).then((result) => {
@@ -1545,7 +1526,7 @@ function deleteTableFromOverview(tableName) {
                     }
                 }
             }).catch(error => {
-                console.error('Fehler beim Löschen des Tisches:', error);
+
                 if (window.showError) {
                     window.showError(`Fehler beim Löschen von Tisch "${tableName}": ${error.message}`);
                 } else {
@@ -1560,7 +1541,7 @@ function deleteTableFromOverview(tableName) {
 // Die vollständige Implementierung befindet sich in der JavaScript-Datei
 
 function showRelationshipsOverview() {
-    console.log('💕 Beziehungsübersicht wird von tischplanung-core.js bereitgestellt');
+
     if (window.TischplanungRelationships && window.TischplanungRelationships.showOverview) {
         window.TischplanungRelationships.showOverview();
     } else {
@@ -1572,7 +1553,7 @@ function showRelationshipsOverview() {
 // NICHT hier definieren, um Konflikte zu vermeiden!
 
 function saveRelationship() {
-    console.log('💾 Speichere Beziehung');
+
     if (window.TischplanungRelationships && window.TischplanungRelationships.saveRelationship) {
         window.TischplanungRelationships.saveRelationship();
     } else {
@@ -1610,3 +1591,4 @@ window.removeGuestFromTable = removeGuestFromTable;
 
 </script>
 {% endblock %}
+

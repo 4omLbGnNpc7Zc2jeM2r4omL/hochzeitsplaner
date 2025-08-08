@@ -359,7 +359,7 @@ function loadPendingUploads() {
             hideLoading();
         })
         .catch(error => {
-            console.error('Fehler beim Laden der ausstehenden Uploads:', error);
+
             showError('Fehler beim Laden der ausstehenden Uploads');
             pendingUploads = [];
             filteredUploads = [];
@@ -377,7 +377,7 @@ function loadApprovedCount() {
             document.getElementById('approvedCount').textContent = data.length;
         })
         .catch(error => {
-            console.error('Fehler beim Laden der genehmigten Uploads:', error);
+
         });
 }
 
@@ -624,7 +624,7 @@ function showLargePreview(uploadId, fileType, filename) {
 }
 
 function approveFromPreview(uploadId) {
-    console.log('approveFromPreview called with uploadId:', uploadId);
+
     
     // Close the large preview modal first
     const modal = bootstrap.Modal.getInstance(document.getElementById('largePreviewModal'));
@@ -637,7 +637,7 @@ function approveFromPreview(uploadId) {
 }
 
 function rejectFromPreview(uploadId) {
-    console.log('rejectFromPreview called with uploadId:', uploadId);
+
     
     // Close the large preview modal first
     const modal = bootstrap.Modal.getInstance(document.getElementById('largePreviewModal'));
@@ -650,19 +650,19 @@ function rejectFromPreview(uploadId) {
 }
 
 function approveUpload(uploadId) {
-    console.log('approveUpload called with uploadId:', uploadId);
+
     
-    console.log('Sending approve request for upload:', uploadId);
+
     
     fetch(`/api/admin/approve-upload/${uploadId}`, {
         method: 'POST'
     })
     .then(response => {
-        console.log('Approve response status:', response.status);
+
         return response.json();
     })
     .then(data => {
-        console.log('Approve response data:', data);
+
         if (data.message) {
             showNotification(data.message, 'success');
             refreshPendingUploads();
@@ -671,25 +671,25 @@ function approveUpload(uploadId) {
         }
     })
     .catch(error => {
-        console.error('Fehler beim Genehmigen:', error);
+
         showError('Fehler beim Genehmigen');
     });
 }
 
 function rejectUpload(uploadId) {
-    console.log('rejectUpload called with uploadId:', uploadId);
+
     
-    console.log('Sending reject request for upload:', uploadId);
+
     
     fetch(`/api/admin/reject-upload/${uploadId}`, {
         method: 'POST'
     })
     .then(response => {
-        console.log('Reject response status:', response.status);
+
         return response.json();
     })
     .then(data => {
-        console.log('Reject response data:', data);
+
         if (data.message) {
             showNotification(data.message, 'warning');
             refreshPendingUploads();
@@ -698,7 +698,7 @@ function rejectUpload(uploadId) {
         }
     })
     .catch(error => {
-        console.error('Fehler beim Ablehnen:', error);
+
         showError('Fehler beim Ablehnen');
     });
 }
@@ -717,7 +717,7 @@ function approveSelected() {
             refreshPendingUploads();
         })
         .catch(error => {
-            console.error('Fehler beim Genehmigen:', error);
+
             showError('Fehler beim Genehmigen der ausgewählten Uploads');
         });
 }
@@ -736,7 +736,7 @@ function rejectSelected() {
             refreshPendingUploads();
         })
         .catch(error => {
-            console.error('Fehler beim Ablehnen:', error);
+
             showError('Fehler beim Ablehnen der ausgewählten Uploads');
         });
 }
@@ -754,7 +754,7 @@ function approveAll() {
             refreshPendingUploads();
         })
         .catch(error => {
-            console.error('Fehler beim Genehmigen aller Uploads:', error);
+
             showError('Fehler beim Genehmigen aller Uploads');
         });
 }
@@ -802,3 +802,4 @@ function showNotification(message, type = 'info') {
 }
 </script>
 {% endblock %}
+

@@ -271,7 +271,7 @@ class GuestListImporter {
                 }
 
             } catch (error) {
-                console.error('Import-Fehler:', error);
+
                 this._showAlert(alertContainer, error.message, 'danger');
             }
         });
@@ -305,3 +305,4 @@ window.GuestListImporter = GuestListImporter;
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = GuestListImporter;
 }
+

@@ -192,3 +192,4 @@ window.showInfo = (message, duration) => notificationSystem.info(message, durati
             notificationSystem.container.appendChild(confirmContainer);
         });
     };
+

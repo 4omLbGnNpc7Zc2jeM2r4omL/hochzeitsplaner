@@ -87,6 +87,7 @@ jobs:
                 'config_manager',
                 'generate_qr_code',
                 'generate_guest_qr_cards',
+                'qr_card_generator',
                 'pandas',
                 'openpyxl',
                 'requests',

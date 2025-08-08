@@ -248,6 +248,7 @@ window.TischplanungEventHandlers = {
 
     showError(message) {
         // Einfache Fehlermeldung
-        console.error('❌', message);
+
     }
 };
+

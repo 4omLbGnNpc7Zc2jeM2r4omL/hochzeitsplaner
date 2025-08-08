@@ -25,7 +25,7 @@ class TouchDragDrop {
     }
     
     setupTouchEvents() {
-        console.log('🔧 Touch Drag & Drop initialisiert');
+
         
         // Event-Delegation für dynamische Elemente
         document.addEventListener('touchstart', this.handleTouchStart, { passive: false });
@@ -61,13 +61,13 @@ class TouchDragDrop {
         // Drop-Zonen aktivieren
         this.activateDropZones();
         
-        console.log('📱 Touch Drag gestartet für Gast ID:', this.draggedGuestId);
+
         
         // Debug: Drop-Zonen-Status protokollieren
         const dropZones = document.querySelectorAll('.table-drop-zone');
-        console.log('📱 Drop-Zonen im DOM gefunden:', dropZones.length);
+
         dropZones.forEach((zone, index) => {
-            console.log(`📱 Drop-Zone ${index}:`, zone, 'table-id:', zone.dataset.tableId);
+
         });
     }
     
@@ -100,21 +100,21 @@ class TouchDragDrop {
         // Drop-Zone am Ende der Bewegung prüfen
         const finalDropZone = this.getDropZoneAt(touch.clientX, touch.clientY);
         
-        console.log('📱 Touch End - Drop Zone gefunden:', finalDropZone ? finalDropZone.dataset.tableId : 'keine');
-        console.log('📱 Touch End - Gast ID:', this.draggedGuestId);
+
+
         
         if (finalDropZone && this.draggedGuestId) {
             // Drop ausführen
-            console.log('📱 Führe Drop aus...');
+
             this.executeDrop(finalDropZone);
         } else {
-            console.log('📱 Kein Drop ausgeführt - fehlende Drop-Zone oder Gast-ID');
+
         }
         
         // Cleanup
         this.cleanup();
         
-        console.log('📱 Touch Drag beendet');
+
     }
     
     createPlaceholder() {
@@ -143,9 +143,9 @@ class TouchDragDrop {
     activateDropZones() {
         this.dropZones = Array.from(document.querySelectorAll('.table-drop-zone'));
         
-        console.log('📱 Aktiviere Drop-Zonen:', this.dropZones.length);
+
         this.dropZones.forEach((zone, index) => {
-            console.log(`📱 Aktiviere Drop-Zone ${index}:`, zone.dataset.tableId);
+
         });
         
         this.dropZones.forEach(zone => {
@@ -183,20 +183,20 @@ class TouchDragDrop {
         const elementBelow = document.elementFromPoint(x, y);
         this.draggedElement.style.display = '';
         
-        console.log('🎯 getDropZoneAt - Element unter Finger:', elementBelow);
+
         
         if (elementBelow) {
             const dropZone = elementBelow.closest('.table-drop-zone');
             if (dropZone) {
-                console.log('🎯 Drop Zone gefunden:', dropZone);
-                console.log('🎯 Drop Zone table-id:', dropZone.dataset.tableId);
-                console.log('🎯 Drop Zone data attributes:', dropZone.dataset);
+
+
+
             } else {
-                console.log('🎯 Drop Zone gefunden: keine');
+
             }
             return dropZone;
         }
-        console.log('🎯 Kein Element unter Finger gefunden');
+
         return null;
     }
     
@@ -224,57 +224,57 @@ class TouchDragDrop {
     executeDrop(dropZone) {
         const tableId = parseInt(dropZone.dataset.tableId);
         
-        console.log('📱 executeDrop aufgerufen mit Drop-Zone:', dropZone);
-        console.log('📱 dataset.tableId:', dropZone.dataset.tableId);
-        console.log('📱 Parsed tableId:', tableId);
+
+
+
         
         if (tableId && this.draggedGuestId) {
-            console.log('📱 Touch Drop: Gast', this.draggedGuestId, 'zu Tisch', tableId);
+
             
             // Versuche verschiedene Methoden für die Tischzuordnung
             if (typeof assignGuestToTable === 'function') {
-                console.log('📱 Verwende assignGuestToTable Funktion');
+
                 assignGuestToTable(this.draggedGuestId, tableId).then(() => {
                     // Modal-Update nach erfolgreichem Assignment (wie in Desktop-Version)
-                    console.log('📱 Plane Modal-Refresh nach Touch Drop in 100ms...');
+
                     setTimeout(() => {
-                        console.log('🔄 Touch: Starte Modal-Refresh jetzt...');
+
                         if (typeof refreshTableOverviewModal === 'function') {
                             refreshTableOverviewModal();
                         } else if (typeof window.refreshTableOverviewModal === 'function') {
                             window.refreshTableOverviewModal();
                         } else {
-                            console.log('⚠️ refreshTableOverviewModal nicht verfügbar');
+
                         }
                     }, 100);
                 }).catch(error => {
-                    console.error('❌ Touch assignGuestToTable fehlgeschlagen:', error);
+
                 });
             } else if (typeof window.assignGuestToTable === 'function') {
-                console.log('📱 Verwende window.assignGuestToTable Funktion');
+
                 window.assignGuestToTable(this.draggedGuestId, tableId).then(() => {
                     // Modal-Update nach erfolgreichem Assignment (wie in Desktop-Version)
-                    console.log('📱 Plane Modal-Refresh nach Touch Drop in 100ms...');
+
                     setTimeout(() => {
-                        console.log('🔄 Touch: Starte Modal-Refresh jetzt...');
+
                         if (typeof refreshTableOverviewModal === 'function') {
                             refreshTableOverviewModal();
                         } else if (typeof window.refreshTableOverviewModal === 'function') {
                             window.refreshTableOverviewModal();
                         } else {
-                            console.log('⚠️ refreshTableOverviewModal nicht verfügbar');
+
                         }
                     }, 100);
                 }).catch(error => {
-                    console.error('❌ Touch window.assignGuestToTable fehlgeschlagen:', error);
+
                 });
             } else {
                 // Fallback: Direkte API-Anfrage
-                console.log('📱 Fallback: Direkte API-Anfrage für Tischzuordnung');
+
                 this.fallbackAssignGuest(this.draggedGuestId, tableId);
             }
         } else {
-            console.error('❌ Drop fehlgeschlagen - tableId:', tableId, 'guestId:', this.draggedGuestId);
+
         }
     }
     
@@ -292,14 +292,14 @@ class TouchDragDrop {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                console.log('✅ Touch Drop erfolgreich:', data.message);
+
                 
                 // Desktop-Integration: Gast-Zuordnung in global guests Array aktualisieren
                 if (typeof window.guests !== 'undefined' && Array.isArray(window.guests)) {
                     const guest = window.guests.find(g => g.id === guestId);
                     if (guest) {
                         guest.assigned_table = tableId;
-                        console.log('✅ Touch: Gast-Zuordnung in globalem Array aktualisiert');
+
                     }
                 }
                 
@@ -316,13 +316,13 @@ class TouchDragDrop {
                 
                 // Modal-Inhalt neu laden
                 setTimeout(() => {
-                    console.log('🔄 Touch: Starte Modal-Refresh...');
+
                     if (typeof refreshTableOverviewModal === 'function') {
                         refreshTableOverviewModal();
                     } else if (typeof window.refreshTableOverviewModal === 'function') {
                         window.refreshTableOverviewModal();
                     } else {
-                        console.log('⚠️ refreshTableOverviewModal nicht verfügbar');
+
                     }
                 }, 100);
                 
@@ -332,10 +332,10 @@ class TouchDragDrop {
                 } else if (typeof showAlert === 'function') {
                     showAlert(`Gast erfolgreich zu Tisch ${tableId} zugeordnet`, 'success');
                 } else {
-                    console.log(`✅ Gast ${guestId} erfolgreich zu Tisch ${tableId} zugeordnet`);
+
                 }
             } else {
-                console.error('❌ Touch Drop fehlgeschlagen:', data.error);
+
                 if (typeof showNotification === 'function') {
                     showNotification(data.error || 'Fehler beim Zuordnen', 'error');
                 } else if (typeof showAlert === 'function') {
@@ -344,7 +344,7 @@ class TouchDragDrop {
             }
         })
         .catch(error => {
-            console.error('❌ Touch Drop API-Fehler:', error);
+
             if (typeof showNotification === 'function') {
                 showNotification('Fehler beim Zuordnen', 'error');
             }
@@ -389,12 +389,12 @@ class TouchDragDrop {
     // Public method um Touch-Drag für neue Elemente zu aktivieren
     refreshTouchElements() {
         // Wird automatisch durch Event-Delegation gehandhabt
-        console.log('🔄 Touch Drag & Drop aktualisiert');
+
     }
     
     // Test-Funktion für Debugging
     testDrop(guestId, tableId) {
-        console.log('🧪 Test Drop:', guestId, 'zu Tisch', tableId);
+
         this.draggedGuestId = guestId;
         
         // Simuliere Drop-Zone
@@ -472,13 +472,13 @@ window.refreshTouchDragDrop = function() {
 // Globale Funktion um Touch Drag & Drop nach Modal-Updates zu aktualisieren
 window.refreshTouchDragDrop = function() {
     if (window.touchDragDrop) {
-        console.log('🔄 Touch Drag & Drop System aktualisiert');
+
         
         // Drop-Zonen neu sammeln
         const dropZones = document.querySelectorAll('.table-drop-zone');
-        console.log('🔄 Neue Drop-Zonen gefunden:', dropZones.length);
+
         dropZones.forEach((zone, index) => {
-            console.log(`🔄 Drop-Zone ${index}:`, zone.dataset.tableId);
+
         });
         
         // Touch-System aktualisieren falls nötig
@@ -486,8 +486,9 @@ window.refreshTouchDragDrop = function() {
             window.touchDragDrop.refreshTouchElements();
         }
     } else {
-        console.log('⚠️ Touch Drag & Drop System nicht verfügbar');
+
     }
 };
 
-console.log('📱 Touch Drag & Drop Modul geladen');
+
+

@@ -7,7 +7,7 @@ let gefilterteKontakte = [];
 let aktuellerKontakt = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Kontakte-Seite geladen');
+
     
     // Event Listeners
     setupEventListeners();
@@ -29,7 +29,7 @@ function setupEventListeners() {
 }
 
 function ladeKontakte() {
-    console.log('Lade Kontakte...');
+
     
     // Loading anzeigen
     document.getElementById('loading-spinner').classList.remove('d-none');
@@ -44,7 +44,7 @@ function ladeKontakte() {
             return response.json();
         })
         .then(data => {
-            console.log('Kontakte geladen:', data);
+
             
             if (data.success) {
                 alleKontakte = data.kontakte || [];
@@ -63,7 +63,7 @@ function ladeKontakte() {
             }
         })
         .catch(error => {
-            console.error('Fehler beim Laden der Kontakte:', error);
+
             
             // Loading verstecken
             document.getElementById('loading-spinner').classList.add('d-none');
@@ -464,7 +464,7 @@ function sendeKontaktanfrage() {
         }
     })
     .catch(error => {
-        console.error('Fehler:', error);
+
         sendenBtn.disabled = false;
         sendenBtn.innerHTML = originalText;
         showAlert('Netzwerkfehler bei der Kontaktaufnahme', 'danger');
@@ -526,7 +526,7 @@ function sendeEmail() {
         }
     })
     .catch(error => {
-        console.error('Fehler:', error);
+
         sendenBtn.disabled = false;
         sendenBtn.innerHTML = originalText;
         showAlert('Netzwerkfehler beim Senden der E-Mail', 'danger');
@@ -624,7 +624,7 @@ async function saveNewContact() {
             bild_url: document.getElementById('add-bild-url').value.trim()
         };
         
-        console.log('Sende neuen Kontakt:', kontaktData);
+
         
         const response = await fetch('/api/kontakte/add', {
             method: 'POST',
@@ -651,7 +651,7 @@ async function saveNewContact() {
         }
         
     } catch (error) {
-        console.error('Fehler beim Speichern des Kontakts:', error);
+
         showNotification('Fehler beim Speichern des Kontakts', 'error');
     } finally {
         // Button wieder aktivieren
@@ -700,3 +700,4 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 });
+

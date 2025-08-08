@@ -8,7 +8,7 @@ const DEBUG_GUEST_DASHBOARD = true;
 // Debug-Helper-Funktion
 function debugLog(...args) {
     if (DEBUG_GUEST_DASHBOARD) {
-        console.log(...args);
+
     }
 }
 
@@ -157,7 +157,7 @@ function loadLocationData() {
             initializeOpenStreetMap();
         })
         .catch(error => {
-            console.error('❌ Error loading location data:', error);
+
             
             // Fallback: Adresse-Felder mit Fehlermeldung füllen
             const standesamtAdresseEl = document.getElementById('standesamtAdresse');
@@ -198,7 +198,7 @@ async function initializeOpenStreetMap() {
             }
             
             if (maxWait === 0) {
-                console.warn('⚠️ Timeout beim Warten auf Leaflet, verwende Fallback');
+
                 initializeFallbackMaps();
                 return;
             }
@@ -247,7 +247,7 @@ async function initializeOpenStreetMap() {
             initializeFallbackMaps();
         }
     } catch (error) {
-        console.error('❌ Error initializing OpenStreetMap:', error);
+
         initializeFallbackMaps();
     }
 }
@@ -284,12 +284,12 @@ async function createGuestLocationMap(locationType, locationData) {
         }
 
         // Letzter Fallback: Zeige statische Karteninfo
-        console.warn(`⚠️ Keine Karte möglich für ${locationType}, zeige Fallback`);
+
         showFallbackLocationMap(locationType, locationData);
         return false;
         
     } catch (error) {
-        console.error(`❌ Fehler beim Erstellen der Karte für ${locationType}:`, error);
+
         // Zeige Fallback
         showFallbackLocationMap(locationType, locationData);
         return false;
@@ -475,7 +475,7 @@ function loadGuestInformationen() {
             }
         })
         .catch(error => {
-            console.error('Error loading guest informationen:', error);
+
             // Fallback anzeigen bei Fehler
             displayGuestInformationen();
         });
@@ -572,7 +572,7 @@ function loadGuestData() {
             displayGuestData(data);
         })
         .catch(error => {
-            console.error('Error loading guest data:', error);
+
             const guestInfoElement = document.getElementById('guestInfo');
             if (guestInfoElement) {
                 guestInfoElement.innerHTML = '<div class="alert alert-danger">Fehler beim Laden der Gästedaten</div>';
@@ -599,7 +599,7 @@ function loadSessionGuestData() {
             }
         })
         .catch(error => {
-            console.error('Error loading session guest data:', error);
+
         });
 }
 
@@ -888,7 +888,7 @@ function saveRsvp() {
     const notizElement = document.getElementById('guestNotiz');
     
     if (!statusElement) {
-        console.error('Guest status element not found');
+
         return;
     }
     
@@ -961,7 +961,7 @@ function saveRsvp() {
                     }
                 })
                 .catch(error => {
-                    console.error('Error on retry:', error);
+
                     showErrorMessage('Fehler beim erneuten Speichern: ' + error.message);
                 });
             } else {
@@ -973,7 +973,7 @@ function saveRsvp() {
         }
     })
     .catch(error => {
-        console.error('Error saving RSVP:', error);
+
         showErrorMessage('Fehler beim Speichern der Teilnahme: ' + error.message);
     });
 }
@@ -1012,7 +1012,7 @@ function loadZeitplanPreview() {
             displayZeitplanPreview(data);
         })
         .catch(error => {
-            console.error('❌ Error loading zeitplan preview:', error);
+
             
             // Fehler in der UI anzeigen
             if (zeitplanPreviewDiv) {
@@ -1031,7 +1031,7 @@ function displayZeitplanPreview(response) {
     const container = document.getElementById('zeitplanPreview');
     
     if (!container) {
-        console.error('❌ zeitplanPreview container not found');
+
         return;
     }
     
@@ -1115,7 +1115,7 @@ function loadInvitationHeaders() {
             }
         })
         .catch(error => {
-            console.error('❌ Error loading invitation headers:', error);
+
         });
 }
 
@@ -1137,7 +1137,7 @@ function updatePersonalizedWelcome() {
             }
         })
         .catch(error => {
-            console.error('❌ Error loading guest data for welcome:', error);
+
         });
 }
 
@@ -1145,7 +1145,7 @@ function displayPersonalizedWelcome(guestData) {
     const welcomeContainer = document.getElementById('personalizedWelcome');
     
     if (!welcomeContainer) {
-        console.error('❌ personalized welcome container not found');
+
         return;
     }
     
@@ -1262,7 +1262,7 @@ function showInvitationModal() {
         
         debugLog("✅ Invitation modal opened");
     }).catch(error => {
-        console.error("❌ Error loading personalized message for invitation:", error);
+
         showErrorMessage("Fehler beim Laden der personalisierten Einladung.");
     });
 }
@@ -1427,7 +1427,7 @@ function loadCompleteZeitplan() {
             displayCompleteZeitplan(data);
         })
         .catch(error => {
-            console.error('❌ Error loading complete zeitplan:', error);
+
             
             zeitplanContainer.innerHTML = `
                 <div class="alert alert-warning border-0" style="background: linear-gradient(135deg, #fff3cd, #ffeaa7); border-radius: 12px;">
@@ -1443,7 +1443,7 @@ function displayCompleteZeitplan(response) {
     const container = document.getElementById('zeitplanComplete');
     
     if (!container) {
-        console.error('❌ zeitplanComplete container not found');
+
         return;
     }
     
@@ -1558,3 +1558,4 @@ function displayCompleteZeitplan(response) {
     
     container.innerHTML = html;
 }
+

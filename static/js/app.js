@@ -180,7 +180,7 @@ async function apiRequest(endpoint, options = {}) {
         
         return data;
     } catch (error) {
-        console.error('API Request Fehler:', error);
+
         throw error;
     }
 }
@@ -195,7 +195,7 @@ async function loadSettings() {
         updateNavigationTitle();
         return data.settings;
     } catch (error) {
-        console.error('Fehler beim Laden der Einstellungen:', error);
+
         showError('Einstellungen konnten nicht geladen werden');
         return {};
     }
@@ -216,7 +216,7 @@ async function saveSettings(settings) {
         showSuccess('Einstellungen erfolgreich gespeichert');
         return true;
     } catch (error) {
-        console.error('Fehler beim Speichern der Einstellungen:', error);
+
         showError('Einstellungen konnten nicht gespeichert werden');
         return false;
     } finally {
@@ -232,7 +232,7 @@ async function loadDashboardStats() {
         const data = await apiRequest('/dashboard/stats');
         return data;
     } catch (error) {
-        console.error('Fehler beim Laden der Dashboard-Statistiken:', error);
+
         showError('Dashboard-Daten konnten nicht geladen werden');
         return null;
     }
@@ -246,7 +246,7 @@ async function loadGuestList() {
         const data = await apiRequest('/gaeste/list');
         return data.gaeste;
     } catch (error) {
-        console.error('Fehler beim Laden der Gästeliste:', error);
+
         showError('Gästeliste konnte nicht geladen werden');
         return [];
     }
@@ -265,7 +265,7 @@ async function addGuest(guestData) {
         showSuccess('Gast erfolgreich hinzugefügt');
         return true;
     } catch (error) {
-        console.error('Fehler beim Hinzufügen des Gastes:', error);
+
         showError('Gast konnte nicht hinzugefügt werden');
         return false;
     } finally {
@@ -286,7 +286,7 @@ async function updateGuest(index, guestData) {
         showSuccess('Gast erfolgreich aktualisiert');
         return true;
     } catch (error) {
-        console.error('Fehler beim Aktualisieren des Gastes:', error);
+
         showError('Gast konnte nicht aktualisiert werden');
         return false;
     } finally {
@@ -306,7 +306,7 @@ async function deleteGuest(index) {
         showSuccess('Gast erfolgreich gelöscht');
         return true;
     } catch (error) {
-        console.error('Fehler beim Löschen des Gastes:', error);
+
         showError('Gast konnte nicht gelöscht werden');
         return false;
     } finally {
@@ -322,7 +322,7 @@ async function loadBudgetList() {
         const data = await apiRequest('/budget/list');
         return data.budget;
     } catch (error) {
-        console.error('Fehler beim Laden des Budgets:', error);
+
         showError('Budget konnte nicht geladen werden');
         return [];
     }
@@ -341,7 +341,7 @@ async function addBudgetItem(budgetData) {
         showSuccess('Budget-Position erfolgreich hinzugefügt');
         return true;
     } catch (error) {
-        console.error('Fehler beim Hinzufügen der Budget-Position:', error);
+
         showError('Budget-Position konnte nicht hinzugefügt werden');
         return false;
     } finally {
@@ -365,7 +365,7 @@ async function updateBudgetItem(kategorie, budgetData) {
         showSuccess('Budget-Position erfolgreich aktualisiert');
         return true;
     } catch (error) {
-        console.error('Fehler beim Aktualisieren der Budget-Position:', error);
+
         showError('Budget-Position konnte nicht aktualisiert werden');
         return false;
     } finally {
@@ -394,7 +394,7 @@ async function generateAutoBudget() {
         
         return true;
     } catch (error) {
-        console.error('Fehler beim Erstellen des automatischen Budgets:', error);
+
         showError('Automatisches Budget konnte nicht erstellt werden');
         return false;
     } finally {
@@ -429,7 +429,7 @@ async function exportToExcel() {
         showSuccess('Excel-Export erfolgreich heruntergeladen');
         return true;
     } catch (error) {
-        console.error('Fehler beim Excel-Export:', error);
+
         showError('Excel-Export fehlgeschlagen');
         return false;
     } finally {
@@ -531,7 +531,7 @@ document.addEventListener('click', function(e) {
 // Form Submit Prevention (für AJAX)
 document.addEventListener('submit', function(e) {
     e.preventDefault();
-    console.log('Form submission intercepted');
+
 });
 
 // =============================================================================
@@ -561,3 +561,4 @@ function debounce(func, wait) {
         timeout = setTimeout(later, wait);
     };
 }
+

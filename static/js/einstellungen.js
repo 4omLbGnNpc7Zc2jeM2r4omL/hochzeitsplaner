@@ -1,7 +1,7 @@
 // Einstellungen JavaScript
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Einstellungen.js geladen');
-    console.log('🔍 OpenStreetMap verfügbar:', typeof window.openStreetMap !== 'undefined');
+
+
     
     const settingsForm = document.getElementById('settingsForm');
     const resetButton = document.getElementById('resetSettings');
@@ -10,16 +10,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const mapsPreviewRow = document.getElementById('mapsPreviewRow');
     const closeMapsPreview = document.getElementById('closeMapsPreview');
     const backupButton = document.getElementById('backupData');
-    
-    console.log('📋 Element-Status:', {
-        settingsForm: !!settingsForm,
-        resetButton: !!resetButton,
-        openMapsBtn: !!openMapsBtn,
-        hochzeitsortField: !!hochzeitsortField,
-        mapsPreviewRow: !!mapsPreviewRow,
-        closeMapsPreview: !!closeMapsPreview,
-        backupButton: !!backupButton
-    });
     
     // Einstellungen laden
     loadSettings();
@@ -160,13 +150,13 @@ async function loadSettings() {
             if (result.success && result.settings) {
                 populateSettingsForm(result.settings);
             } else {
-                console.error('Fehler beim Laden der Einstellungen:', result.error);
+
             }
         } else {
-            console.error('Fehler beim Laden der Einstellungen');
+
         }
     } catch (error) {
-        console.error('Fehler beim Laden der Einstellungen:', error);
+
     }
 }
 
@@ -449,7 +439,7 @@ async function handleSaveSettings(event) {
             showAlert('Fehler beim Speichern: ' + (result.error || 'Unbekannter Fehler'), 'danger');
         }
     } catch (error) {
-        console.error('Fehler beim Speichern der Einstellungen:', error);
+
         showAlert('Fehler beim Speichern der Einstellungen', 'danger');
     }
 }
@@ -477,7 +467,7 @@ async function loadSystemInfo() {
             document.getElementById('totalBudgetItems').textContent = budgetCategories;
         }
     } catch (error) {
-        console.error('Fehler beim Laden der System Info:', error);
+
     }
 }
 
@@ -521,11 +511,11 @@ function showAlert(message, type) {
 
 // OpenStreetMap Integration für Locations
 function showLocationOnMap(locationType, inputId) {
-    console.log(`🔍 Zeige Location auf Karte: ${locationType}, Input: ${inputId}`);
+
     
     const addressInput = document.getElementById(inputId);
     if (!addressInput) {
-        console.error(`❌ Input-Element nicht gefunden: ${inputId}`);
+
         showAlert('Input-Element nicht gefunden', 'danger');
         return;
     }
@@ -536,13 +526,13 @@ function showLocationOnMap(locationType, inputId) {
         return;
     }
     
-    console.log(`📍 Adresse gefunden: "${addressInput.value.trim()}"`);
+
     updateLocationMapPreview(locationType);
 }
 
 // Neue Kartenvorschau für Locations mit OpenStreetMap
 async function updateLocationMapPreview(locationType) {
-    console.log(`🗺️ Aktualisiere Kartenvorschau für: ${locationType}`);
+
     
     const addressInputId = locationType === 'standesamt' ? 'standesamtAdresse' : 'hochzeitslocationAdresse';
     const nameInputId = locationType === 'standesamt' ? 'standesamtName' : 'hochzeitslocationName';
@@ -555,17 +545,13 @@ async function updateLocationMapPreview(locationType) {
     const mapPreviewsSection = document.getElementById('mapPreviewsSection');
     
     if (!addressInput || !mapPreview) {
-        console.error(`❌ Elemente nicht gefunden für ${locationType}:`, {
-            addressInput: !!addressInput,
-            mapPreview: !!mapPreview
-        });
         return;
     }
     
     const address = addressInput.value.trim();
     const locationName = nameInput ? nameInput.value.trim() : '';
     
-    console.log(`📍 Adresse: "${address}", Name: "${locationName}"`);
+
     
     if (!address) {
         mapPreview.style.display = 'none';
@@ -577,7 +563,7 @@ async function updateLocationMapPreview(locationType) {
     try {
         // Entferne alte Karte falls vorhanden
         if (window.openStreetMap && window.openStreetMap.maps && window.openStreetMap.maps.has(mapContainerId)) {
-            console.log(`🧹 Entferne alte Karte: ${mapContainerId}`);
+
             window.openStreetMap.removeMap(mapContainerId);
         }
 
@@ -586,25 +572,25 @@ async function updateLocationMapPreview(locationType) {
         if (mapPreviewsSection) {
             mapPreviewsSection.style.display = 'block';
         }
-        console.log(`👁️ Karten-Container sichtbar gemacht`);
+
 
         // Warte kurz damit Container sichtbar ist
         await new Promise(resolve => setTimeout(resolve, 200));
 
         // Prüfe ob OpenStreetMap verfügbar ist
         if (typeof window.openStreetMap === 'undefined') {
-            console.error('❌ OpenStreetMap Integration nicht geladen');
+
             showFallbackMap(mapContainerId, address, locationName);
             return;
         }
 
         // Erstelle neue Karte
-        console.log(`🗺️ Erstelle OpenStreetMap für Container: ${mapContainerId}`);
+
         await window.openStreetMap.createSimpleLocationMap(mapContainerId, address, locationName);
-        console.log(`✅ Karte für ${locationType} erfolgreich erstellt`);
+
 
     } catch (error) {
-        console.error(`❌ Fehler beim Erstellen der Karte für ${locationType}:`, error);
+
         showFallbackMap(mapContainerId, address, locationName);
     }
 }
@@ -663,20 +649,15 @@ function checkMapPreviewsVisibility() {
         }
         
         // Debug-Log für Layout
-        console.log('🗺️ Karten-Layout:', {
-            standesamtVisible,
-            hochzeitslocationVisible,
-            sectionVisible: true
-        });
-    } else {
+        } else {
         mapPreviewsSection.style.display = 'none';
-        console.log('🗺️ Alle Karten versteckt');
+
     }
 }
 
 // Kartenvorschau ausblenden
 function hideMapPreview(locationType) {
-    console.log(`❌ Verstecke Kartenvorschau: ${locationType}`);
+
     
     const mapPreviewId = locationType + 'MapPreview';
     const mapContainerId = locationType + 'Map';
@@ -684,18 +665,18 @@ function hideMapPreview(locationType) {
     
     if (mapPreview) {
         mapPreview.style.display = 'none';
-        console.log(`👁️ Karten-Container versteckt: ${mapPreviewId}`);
+
         
         // Entferne Karte aus OpenStreetMap
         if (window.openStreetMap && window.openStreetMap.maps && window.openStreetMap.maps.has(mapContainerId)) {
-            console.log(`🧹 Entferne Karte: ${mapContainerId}`);
+
             window.openStreetMap.removeMap(mapContainerId);
         }
         
         // Prüfe ob andere Karten noch sichtbar sind
         checkMapPreviewsVisibility();
     } else {
-        console.error(`❌ Karten-Preview Element nicht gefunden: ${mapPreviewId}`);
+
     }
 }
 
@@ -716,7 +697,7 @@ function openInGoogleMaps() {
 }
 
 function updateMapPreview() {
-    console.log('⚠️ updateMapPreview (Legacy Google Maps) - deaktiviert');
+
     // Diese Funktion ist deaktiviert - OpenStreetMap wird jetzt verwendet
     return;
     
@@ -726,7 +707,7 @@ function updateMapPreview() {
     
     // Prüfe ob Elemente existieren
     if (!hochzeitsort || !mapsPreviewRow || !mapFrame) {
-        console.log('⚠️ Legacy Google Maps Elemente nicht gefunden - wird übersprungen');
+
         return;
     }
     
@@ -814,7 +795,7 @@ async function createBackup() {
             showAlert('Fehler beim Erstellen des Backups: ' + (error.error || 'Unbekannter Fehler'), 'danger');
         }
     } catch (error) {
-        console.error('Fehler beim Erstellen des Backups:', error);
+
         showAlert('Fehler beim Erstellen des Backups', 'danger');
     } finally {
                 // Button zurücksetzen
@@ -995,7 +976,7 @@ function showUploadedImagePreview(base64Data) {
  * Zeigt eine Vorschau des First-Login-Modals mit den aktuell konfigurierten Werten
  */
 function showFirstLoginModalPreview() {
-    console.log('🔍 Zeige First-Login-Modal Vorschau');
+
     
     // Aktuelle Werte aus den Einstellungen holen
     const imageUrl = document.getElementById('firstLoginImage').value.trim();
@@ -1082,7 +1063,7 @@ function formatWeddingDateForPreview(dateString) {
         
         return `${day}. ${month} ${year}`;
     } catch (error) {
-        console.log('⚠️ Fehler beim Formatieren des Datums:', error);
+
         return dateString || '25. Juli 2026'; // Fallback
     }
 }
@@ -1091,7 +1072,7 @@ function formatWeddingDateForPreview(dateString) {
  * Setzt den First-Login-Status für alle Gäste zurück
  */
 async function resetFirstLoginForAllGuests() {
-    console.log('🔄 Reset First-Login für alle Gäste');
+
     
     // Bestätigung vom Benutzer einholen
     if (!confirm('Möchten Sie wirklich den First-Login-Status für ALLE Gäste zurücksetzen?\n\nDadurch wird beim nächsten Login aller Gäste wieder das Willkommens-Modal angezeigt.')) {
@@ -1122,7 +1103,7 @@ async function resetFirstLoginForAllGuests() {
         }
         
     } catch (error) {
-        console.error('Fehler beim Zurücksetzen des First-Login-Status:', error);
+
         showToast('Fehler', 'Fehler beim Zurücksetzen: ' + error.message, 'danger');
     } finally {
         // Button zurücksetzen
@@ -1227,7 +1208,7 @@ function convertImageToBlackAndWhite(imageSource, callback) {
     };
     
     img.onerror = function() {
-        console.error('Fehler beim Laden des Bildes für Schwarz-Weiß-Konvertierung');
+
         showToast('Fehler bei der Bildverarbeitung.', 'error');
         // Fallback: Originalbild verwenden
         callback(imageSource);
@@ -1299,7 +1280,7 @@ function convertCurrentImageToBlackWhite() {
  * Zeigt eine Vorschau der konfigurierten Einladungstexte
  */
 function showInvitationTextsPreview() {
-    console.log('🔍 Zeige Einladungstexte Vorschau');
+
     
     // Aktuelle Werte aus den Einstellungen holen
     const singularText = document.getElementById('invitationTextSingular').value.trim();
@@ -1410,7 +1391,7 @@ function showInvitationTextsPreview() {
  * Testet die Template-Generierung mit Beispieldaten
  */
 async function testInvitationGeneration() {
-    console.log('🧪 Teste Einladungs-Template-Generierung');
+
     
     const button = document.getElementById('testInvitationGeneration');
     const originalText = button.innerHTML;
@@ -1467,7 +1448,7 @@ async function testInvitationGeneration() {
         showTestResults(results);
         
     } catch (error) {
-        console.error('Fehler beim Testen der Template-Generierung:', error);
+
         showToast('Fehler beim Testen der Template-Generierung', 'danger');
     } finally {
         // Button zurücksetzen
@@ -1495,7 +1476,7 @@ function getCurrentWeddingDate() {
         // Fallback auf Standarddatum
         return '25. Juli 2026';
     } catch (error) {
-        console.warn('Fehler beim Laden des Hochzeitsdatums:', error);
+
         return '25. Juli 2026';
     }
 }
@@ -1834,10 +1815,10 @@ async function loadUploadSettings() {
             if (uploadMaxSize) uploadMaxSize.value = config.max_size_mb || 50;
             if (uploadAllowedExtensions) uploadAllowedExtensions.value = config.allowed_extensions || 'jpg,jpeg,png,gif,mp4,mov,avi';
             
-            console.log('✅ Upload-Einstellungen geladen');
+
         }
     } catch (error) {
-        console.error('❌ Fehler beim Laden der Upload-Einstellungen:', error);
+
     }
 }
 
@@ -1875,7 +1856,7 @@ async function testUploadPath() {
         }, 1000);
         
     } catch (error) {
-        console.error('❌ Fehler beim Testen des Upload-Pfads:', error);
+
         showToast('Fehler', 'Fehler beim Testen des Upload-Pfads.', 'danger');
     }
 }
@@ -2175,13 +2156,13 @@ async function loadDirectoryContents(path) {
             }
             
         } else {
-            console.error('Fehler beim Laden der Verzeichnisse:', result.error);
+
             const directoryList = document.getElementById('directoryList');
             directoryList.innerHTML = `<div class="text-danger p-3">❌ ${result.error}</div>`;
         }
         
     } catch (error) {
-        console.error('Fehler beim Laden der Verzeichnisse:', error);
+
         const directoryList = document.getElementById('directoryList');
         directoryList.innerHTML = '<div class="text-danger p-3">❌ Fehler beim Laden der Verzeichnisse</div>';
     }
@@ -2251,7 +2232,7 @@ async function createNewDirectory() {
         }
         
     } catch (error) {
-        console.error('Fehler beim Erstellen des Verzeichnisses:', error);
+
         showAlert('Fehler beim Erstellen des Verzeichnisses', 'danger');
     }
 }
@@ -2284,7 +2265,7 @@ async function testUploadPath() {
         }
         
     } catch (error) {
-        console.error('Fehler beim Testen des Upload-Pfads:', error);
+
         showAlert('❌ Fehler beim Testen des Upload-Pfads', 'danger');
     }
 }
@@ -2365,6 +2346,7 @@ async function loadUploadSettings() {
             }
         }
     } catch (error) {
-        console.error('Fehler beim Laden der Upload-Einstellungen:', error);
+
     }
 }
+

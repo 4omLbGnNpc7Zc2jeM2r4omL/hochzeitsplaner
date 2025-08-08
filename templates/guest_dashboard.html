@@ -1505,8 +1505,8 @@ function attemptImmediateLoad() {
     const galleryPane = document.getElementById('gallery-pane');
     if (galleryPane) {
         const isVisible = galleryPane.classList.contains('show') || galleryPane.classList.contains('active');
-        console.log('🔍 GUEST GALLERY: Gallery pane visible:', isVisible);
-        console.log('🔍 GUEST GALLERY: Gallery pane classes:', galleryPane.className);
+
+
         
         if (isVisible && !guestGalleryLoaded) {
             loadGuestGalleryNow();
@@ -1527,28 +1527,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const galleryTab = document.getElementById('gallery-tab');
     const galleryPane = document.getElementById('gallery-pane');
     
-    console.log('🔍 GUEST GALLERY: Tab elements found:', {
-        galleryTab: !!galleryTab,
-        galleryPane: !!galleryPane
-    });
-    
     if (galleryTab) {
         // Enhanced Bootstrap tab event listener
         galleryTab.addEventListener('shown.bs.tab', function (e) {
-            console.log('🎯 GUEST: Gallery tab activated via Bootstrap shown.bs.tab event!');
-            console.log('🎯 GUEST: Event target:', e.target);
-            console.log('📡 GUEST: Loading gallery from tab activation...');
+
+
+
             loadGuestGalleryNow();
         });
         
         // ENHANCED click event listener - trigger immediately on click
         galleryTab.addEventListener('click', function(e) {
-            console.log('🖱️ GUEST: Gallery tab clicked!');
-            console.log('🖱️ GUEST: Click target:', e.target);
-            console.log('🖱️ GUEST: Current guestGalleryLoaded flag:', guestGalleryLoaded);
+
+
+
             
             // IMMEDIATE load attempt - don't wait for tab switch
-            console.log('� GUEST: IMMEDIATE gallery load from click event...');
+
             setTimeout(() => {
                 loadGuestGalleryNow();
             }, 100); // Very short delay to ensure DOM is ready
@@ -1557,21 +1552,15 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if gallery tab is already active on load
         const isActive = galleryTab.classList.contains('active') || 
                          galleryTab.getAttribute('aria-selected') === 'true';
-        console.log('🔍 GUEST: Gallery tab initial state:', {
-            hasActiveClass: galleryTab.classList.contains('active'),
-            ariaSelected: galleryTab.getAttribute('aria-selected'),
-            classList: galleryTab.className,
-            isActive: isActive
-        });
         
         if (isActive) {
-            console.log('� GUEST: Gallery tab already active on load, loading immediately...');
+
             setTimeout(() => {
                 loadGuestGalleryNow();
             }, 100);
         }
     } else {
-        console.error('❌ GUEST: Gallery tab element NOT FOUND!');
+
     }
     
     // UNIVERSAL Tab Observer - watches for any tab changes
@@ -1587,7 +1576,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                        target.getAttribute('aria-selected') === 'true';
                     
                     if (isNowActive) {
-                        console.log('� GUEST: Gallery tab became active (mutation observer)');
+
                         setTimeout(() => {
                             loadGuestGalleryNow();
                         }, 200);
@@ -1610,7 +1599,7 @@ document.addEventListener('DOMContentLoaded', function() {
     forceLoadingAttempts.forEach((delay, index) => {
         setTimeout(() => {
             if (!guestGalleryLoaded) {
-                console.log(`🚀 GUEST: Force loading attempt ${index + 1} after ${delay}ms...`);
+
                 loadGuestGalleryNow();
             }
         }, delay);
@@ -1626,10 +1615,10 @@ document.addEventListener('DOMContentLoaded', function() {
                               target.closest('[data-bs-target="#gallery-pane"]');
         
         if (isGalleryClick) {
-            console.log('🎯 GUEST: Gallery tab clicked via global listener!');
-            console.log('🎯 GUEST: Clicked element:', target);
+
+
             setTimeout(() => {
-                console.log('📡 GUEST: Loading gallery from global click detection...');
+
                 loadGuestGalleryNow();
             }, 150);
         }
@@ -1670,7 +1659,7 @@ window.openGuestFullscreen = function(uploadId, fileType, filename, guestName, u
         
         // Ensure proper loading and sizing
         fullscreenImage.onload = function() {
-            console.log('🖼️ GUEST: Image loaded and sized properly');
+
             // FORCE AGAIN after loading
             this.style.maxHeight = '75vh';
             this.style.maxWidth = '75vw';
@@ -1740,7 +1729,7 @@ window.openGuestFullscreen = function(uploadId, fileType, filename, guestName, u
 };
 
 window.closeGuestFullscreen = function() {
-    console.log('🚪 GUEST: Attempting to close fullscreen modal...');
+
     
     // Clear focus from any buttons before hiding
     if (document.activeElement && document.activeElement.blur) {
@@ -1749,10 +1738,10 @@ window.closeGuestFullscreen = function() {
     
     const modal = bootstrap.Modal.getInstance(document.getElementById('guestFullscreenModal'));
     if (modal) {
-        console.log('📱 GUEST: Using Bootstrap modal instance to close');
+
         modal.hide();
     } else {
-        console.log('⚠️ GUEST: No Bootstrap modal instance found, using manual close');
+
         // Fallback: manually hide modal
         const modalElement = document.getElementById('guestFullscreenModal');
         if (modalElement) {
@@ -1763,7 +1752,7 @@ window.closeGuestFullscreen = function() {
             // Remove ALL backdrops
             const backdrops = document.querySelectorAll('.modal-backdrop');
             backdrops.forEach(backdrop => {
-                console.log('🗑️ GUEST: Removing backdrop:', backdrop);
+
                 backdrop.remove();
             });
             
@@ -1772,7 +1761,7 @@ window.closeGuestFullscreen = function() {
             document.body.style.overflow = '';
             document.body.style.paddingRight = '';
             
-            console.log('🧹 GUEST: Manual cleanup completed');
+
         }
     }
     
@@ -1780,7 +1769,7 @@ window.closeGuestFullscreen = function() {
     setTimeout(function() {
         const remainingBackdrops = document.querySelectorAll('.modal-backdrop');
         if (remainingBackdrops.length > 0) {
-            console.log('🚨 GUEST: Found remaining backdrops, force removing...');
+
             remainingBackdrops.forEach(backdrop => backdrop.remove());
             document.body.classList.remove('modal-open');
             document.body.style.overflow = '';
@@ -2052,7 +2041,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Clean up when modal is hidden
         modal.addEventListener('hidden.bs.modal', function () {
-            console.log('🚪 GUEST: Modal closed properly');
+
             // Reset auto-hide state
             modal.classList.remove('auto-hide');
             clearTimeout(hideTimeout);
@@ -2084,22 +2073,22 @@ document.addEventListener('DOMContentLoaded', function() {
             if (window.guestCurrentSizeForceInterval) {
                 clearInterval(window.guestCurrentSizeForceInterval);
                 window.guestCurrentSizeForceInterval = null;
-                console.log('🔧 GUEST: Size force interval cleared');
+
             }
             
-            console.log('🧹 GUEST: Forced cleanup completed');
+
         });
         
         // Handle modal show event
         modal.addEventListener('shown.bs.modal', function () {
-            console.log('🖼️ GUEST: Modal opened properly');
+
             // Start auto-hide timer
             showControls();
         });
         
         // Add additional cleanup on hide start
         modal.addEventListener('hide.bs.modal', function () {
-            console.log('🚪 GUEST: Modal starting to close...');
+
             // Clear focus immediately
             if (document.activeElement && document.activeElement.blur) {
                 document.activeElement.blur();
@@ -2113,3 +2102,4 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 {% endblock %}
+

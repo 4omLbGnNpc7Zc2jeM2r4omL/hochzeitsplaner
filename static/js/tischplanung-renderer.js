@@ -266,7 +266,7 @@ window.TischplanungRenderer = {
             
             // Nur bei Problemen loggen
         } catch (error) {
-            console.warn('Fehler beim Laden der Gäste-Zuordnungen:', error);
+
             // Fallback: verwende die alte Methode
             assignedGuests = this.getAssignedGuestsForTable(table.id);
         }
@@ -435,7 +435,7 @@ window.TischplanungRenderer = {
         const guestCountElement = document.getElementById('guestCount');
         
         if (!guestListContainer) {
-            console.warn('⚠️ guestList Container nicht gefunden');
+
             return;
         }
 
@@ -575,7 +575,7 @@ window.TischplanungRenderer = {
     },
 
     editTable(table) {
-        console.log('✏️ Bearbeite Tisch:', table.name);
+
         
         // Entferne vorheriges Modal falls vorhanden
         const existingModal = document.getElementById('editTableModal');
@@ -729,7 +729,7 @@ window.TischplanungRenderer = {
                             await window.tischplanung.loadTables();
                             window.tischplanung.render();
                         } catch (error) {
-                            console.warn('Fehler beim Neuladen der Daten:', error);
+
                         }
                     }, 100);
                     
@@ -746,7 +746,7 @@ window.TischplanungRenderer = {
                 saveButton.innerHTML = originalText;
                 saveButton.disabled = false;
                 
-                console.error('Fehler beim Aktualisieren des Tisches:', error);
+
                 if (window.showError) {
                     window.showError('Fehler beim Aktualisieren: ' + error.message);
                 } else {
@@ -789,7 +789,7 @@ window.TischplanungRenderer = {
                             await window.tischplanung.loadTables();
                             window.tischplanung.render();
                         } catch (error) {
-                            console.warn('Fehler beim Neuladen der Daten:', error);
+
                         }
                     }, 100);
                     
@@ -806,7 +806,7 @@ window.TischplanungRenderer = {
                 deleteButton.innerHTML = originalText;
                 deleteButton.disabled = false;
                 
-                console.error('Fehler beim Löschen des Tisches:', error);
+
                 if (window.showError) {
                     window.showError('Fehler beim Löschen: ' + error.message);
                 } else {
@@ -826,7 +826,7 @@ window.TischplanungRenderer = {
     },
 
     saveTablePosition(table, newX, newY) {
-        console.log(`💾 Speichere Position für Tisch ${table.name}: (${newX}, ${newY})`);
+
         
         const updateData = {
             x_position: newX,
@@ -849,7 +849,7 @@ window.TischplanungRenderer = {
                 if (window.TischplanungAPI) {
                     const result = await window.TischplanungAPI.updateTable(table.id, updateData);
                     if (!result.message && result.success === false) {
-                        console.error('Fehler beim Speichern der Position:', result.error);
+
                         if (window.showError) {
                             window.showError('Position konnte nicht gespeichert werden: ' + result.error);
                         }
@@ -857,10 +857,10 @@ window.TischplanungRenderer = {
 
                     }
                 } else {
-                    console.warn('⚠️ TischplanungAPI nicht verfügbar');
+
                 }
             } catch (error) {
-                console.error('Fehler beim Speichern der Tisch-Position:', error);
+
                 if (window.showError) {
                     window.showError('Fehler beim Speichern: ' + error.message);
                 }
@@ -898,7 +898,7 @@ window.TischplanungRenderer = {
     getAssignedGuestsForTable(tableId) {
         // Hole alle Zuordnungen für diesen Tisch
         if (!this.core || !this.core.assignments) {
-            console.warn('Core oder assignments nicht verfügbar');
+
             return [];
         }
         
@@ -957,3 +957,4 @@ window.TischplanungRenderer = {
         };
     }
 };
+

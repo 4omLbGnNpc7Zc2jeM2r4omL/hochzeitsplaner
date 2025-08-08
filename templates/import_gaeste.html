@@ -141,7 +141,7 @@
                     showAlert(result.error || 'Import fehlgeschlagen', 'danger');
                 }
             } catch (error) {
-                console.error('Import-Fehler:', error);
+
                 showAlert('Fehler beim Import: ' + error.message, 'danger');
             } finally {
                 // UI zurücksetzen
@@ -170,3 +170,4 @@
     </script>
 </body>
 </html>
+

@@ -10,7 +10,7 @@ const DEBUG_OPENSTREETMAP = false;
 // Debug-Helper-Funktion
 function debugLog(...args) {
     if (DEBUG_OPENSTREETMAP) {
-        console.log(...args);
+
     }
 }
 
@@ -36,13 +36,13 @@ class OpenStreetMapIntegration {
             // WICHTIG: loadLeafletJS ist async, aber Constructor kann nicht async sein
             // Daher wird initialized erst später auf true gesetzt
             this.loadLeafletJS().catch(error => {
-                console.error('❌ Fehler beim Laden von Leaflet.js:', error);
+
             });
             debugLog('✅ loadLeafletJS gestartet (async)');
             
             debugLog('✅ OpenStreetMapIntegration Constructor abgeschlossen');
         } catch (error) {
-            console.error('❌ Fehler im OpenStreetMapIntegration Constructor:', error);
+
             throw error;
         }
     }
@@ -73,7 +73,7 @@ class OpenStreetMapIntegration {
                     resolve();
                 };
                 script.onerror = () => {
-                    console.error('❌ Fehler beim Laden von Leaflet.js');
+
                     reject();
                 };
                 document.head.appendChild(script);
@@ -93,13 +93,13 @@ class OpenStreetMapIntegration {
             await this.loadLeafletJS();
             
             if (!this.initialized || typeof L === 'undefined') {
-                console.error('❌ Leaflet.js nicht verfügbar');
+
                 return null;
             }
 
             const container = document.getElementById(containerId);
             if (!container) {
-                console.error(`❌ Container ${containerId} nicht gefunden`);
+
                 return null;
             }
 
@@ -154,7 +154,7 @@ class OpenStreetMapIntegration {
             return map;
 
         } catch (error) {
-            console.error(`❌ Fehler beim Erstellen der Karte ${containerId}:`, error);
+
             return null;
         }
     }
@@ -173,7 +173,7 @@ class OpenStreetMapIntegration {
             }
 
             if (!map) {
-                console.error('❌ Karte nicht gefunden');
+
                 return null;
             }
 
@@ -186,7 +186,7 @@ class OpenStreetMapIntegration {
             return marker;
 
         } catch (error) {
-            console.error('❌ Fehler beim Hinzufügen des Markers:', error);
+
             return null;
         }
     }
@@ -197,7 +197,7 @@ class OpenStreetMapIntegration {
     async geocodeAddress(address) {
         try {
             if (!address || typeof address !== 'string') {
-                console.error('❌ Ungültige Adresse für Geocoding:', address);
+
                 return null;
             }
 
@@ -256,15 +256,15 @@ class OpenStreetMapIntegration {
                         return result;
                     }
                 } catch (strategyError) {
-                    console.warn(`⚠️ Strategie ${i + 1} fehlgeschlagen:`, strategyError.message);
+
                 }
             }
 
-            console.warn(`⚠️ Alle Geocoding-Strategien fehlgeschlagen für: "${originalAddress}"`);
+
             return null;
 
         } catch (error) {
-            console.error('❌ Geocoding Fehler für "' + address + '":', error);
+
             return null;
         }
     }
@@ -333,7 +333,7 @@ class OpenStreetMapIntegration {
             if (typeof mapOrContainerId === 'string') {
                 map = this.maps.get(mapOrContainerId);
                 if (!map) {
-                    console.error(`❌ Karte nicht gefunden: ${mapOrContainerId}`);
+
                     return false;
                 }
             } else {
@@ -341,7 +341,7 @@ class OpenStreetMapIntegration {
             }
 
             if (!map) {
-                console.error('❌ Keine gültige Karte für centerOnAddress');
+
                 return false;
             }
 
@@ -372,7 +372,7 @@ class OpenStreetMapIntegration {
                 return true;
                 
             } else {
-                console.warn(`⚠️ Adresse nicht gefunden: "${address}"`);
+
                 
                 // Fallback: Zeige Deutschland-Übersicht
                 map.setView([51.1657, 10.4515], 6);
@@ -391,7 +391,7 @@ class OpenStreetMapIntegration {
             }
 
         } catch (error) {
-            console.error('❌ Fehler beim Zentrieren der Karte:', error);
+
             
             // Notfall-Fallback
             if (map) {
@@ -458,7 +458,7 @@ class OpenStreetMapIntegration {
             return map;
 
         } catch (error) {
-            console.error('❌ Fehler beim Erstellen der Multi-Location Karte:', error);
+
             return null;
         }
     }
@@ -485,7 +485,7 @@ class OpenStreetMapIntegration {
             // Prüfe ob Container existiert
             const container = document.getElementById(containerId);
             if (!container) {
-                console.error(`❌ Container nicht gefunden: ${containerId}`);
+
                 return null;
             }
 
@@ -495,7 +495,7 @@ class OpenStreetMapIntegration {
             });
 
             if (!map) {
-                console.error(`❌ Karte konnte nicht erstellt werden für Container: ${containerId}`);
+
                 return null;
             }
 
@@ -537,7 +537,7 @@ class OpenStreetMapIntegration {
                         return map;
                         
                     } else {
-                        console.warn(`⚠️ Geocoding fehlgeschlagen für: "${address}" - Zeige Fallback`);
+
                         
                         // Fallback: Aachen Region anzeigen (lokaler Bezug)
                         map.setView([50.7753, 6.0839], 12);
@@ -565,7 +565,7 @@ class OpenStreetMapIntegration {
                     }
                     
                 } catch (geocodingError) {
-                    console.error(`❌ Geocoding Fehler für "${address}":`, geocodingError);
+
                     
                     // Fallback bei Geocoding-Fehler
                     map.setView([50.7753, 6.0839], 12);
@@ -592,7 +592,7 @@ class OpenStreetMapIntegration {
                 }
                 
             } else {
-                console.warn(`⚠️ Keine Adresse angegeben für Container: ${containerId}`);
+
                 // Fallback: Zeige Aachen Region
                 map.setView([50.7753, 6.0839], 12);
                 
@@ -617,7 +617,7 @@ class OpenStreetMapIntegration {
             }
 
         } catch (error) {
-            console.error('❌ Fehler beim Erstellen der einfachen Karte:', error);
+
             return null;
         }
     }
@@ -662,21 +662,21 @@ window.testGeocoding = async function(address) {
                         debugLog(`✅ Test ${i + 1} erfolgreich: ${result.lat}, ${result.lon}`);
                         return { lat: parseFloat(result.lat), lng: parseFloat(result.lon), display_name: result.display_name };
                     } else {
-                        console.warn(`⚠️ Test ${i + 1}: Keine Ergebnisse`);
+
                     }
                 } else {
-                    console.error(`❌ Test ${i + 1} HTTP Fehler: ${response.status}`);
+
                 }
             } catch (testError) {
-                console.error(`❌ Test ${i + 1} Fehler:`, testError);
+
             }
         }
         
-        console.warn(`⚠️ Alle Geocoding Tests fehlgeschlagen für: "${address}"`);
+
         return null;
         
     } catch (error) {
-        console.error('❌ Geocoding Test Fehler:', error);
+
         return null;
     }
 }
@@ -692,8 +692,8 @@ try {
     debugLog('🔍 window.openStreetMap type:', typeof window.openStreetMap);
     debugLog('🔍 window.openStreetMap instanceof OpenStreetMapIntegration:', window.openStreetMap instanceof OpenStreetMapIntegration);
 } catch (error) {
-    console.error('❌ Fehler beim Erstellen der OpenStreetMap Instanz:', error);
-    console.error('❌ Error stack:', error.stack);
+
+
 }
 
 // Helper-Funktionen für einfache Nutzung
@@ -709,7 +709,7 @@ try {
     };
     debugLog('✅ window.createMultiLocationMap erstellt');
 } catch (error) {
-    console.error('❌ Fehler beim Erstellen der Helper-Funktionen:', error);
+
 }
 
 // Neue Helper-Funktion: Erstellt Karte mit Backend-Koordinaten
@@ -729,14 +729,14 @@ try {
             });
 
             if (!response.ok) {
-                console.error(`❌ Backend-Request fehlgeschlagen: ${response.status} ${response.statusText}`);
+
                 return null;
             }
 
             const data = await response.json();
             
             if (!data.success || !data.coordinates || !data.coordinates[locationType]) {
-                console.error(`❌ Keine Koordinaten für ${locationType} verfügbar:`, data);
+
                 return null;
             }
 
@@ -754,7 +754,7 @@ try {
             const map = await window.openStreetMap.createMap(containerId, mapOptions);
             
             if (!map) {
-                console.error(`❌ Karte ${containerId} konnte nicht erstellt werden`);
+
                 return null;
             }
 
@@ -768,13 +768,13 @@ try {
             return map;
 
         } catch (error) {
-            console.error(`❌ Fehler beim Erstellen der Karte ${containerId} mit Backend-Koordinaten:`, error);
+
             return null;
         }
     };
     debugLog('✅ window.createLocationMapFromBackend erstellt');
 } catch (error) {
-    console.error('❌ Fehler beim Erstellen der Backend-Helper-Funktion:', error);
+
 }
 
 // Instanz erstellen nur falls noch nicht vorhanden (redundante Prüfung für Sicherheit)
@@ -785,7 +785,7 @@ if (!window.openStreetMap) {
         window.openStreetMap = new OpenStreetMapIntegration();
         debugLog('🔄 Redundante OpenStreetMap Instanz erstellt');
     } catch (error) {
-        console.error('❌ Fehler bei redundanter Instanzerstellung:', error);
+
     }
 } else {
     debugLog('✅ window.openStreetMap bereits vorhanden');
@@ -796,3 +796,4 @@ debugLog('📊 Final Status:');
 debugLog('  - window.openStreetMap:', typeof window.openStreetMap);
 debugLog('  - window.createLocationMap:', typeof window.createLocationMap);
 debugLog('  - window.createLocationMapFromBackend:', typeof window.createLocationMapFromBackend);
+
