@@ -6,7 +6,7 @@
     <title>Hochzeitsplaner - Login</title>
     
     <!-- Favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💕</text></svg>">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
     
     <!-- Optimiertes CSS ohne CDN-Abhängigkeiten - Guest Dashboard Stil -->
     <style>
@@ -49,54 +49,53 @@
             margin-bottom: 2rem;
             padding: 1.5rem;
             background: linear-gradient(135deg, #d4af37, #f4e4bc);
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            color: #8b7355;
         }
         
         .wedding-icon {
             font-size: 3.5rem;
-            margin-bottom: 0.5rem;
-            display: block;
+            margin-bottom: 1rem;
         }
         
         .login-title {
             font-size: 1.75rem;
             font-weight: 600;
-            color: #8b7355;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.5rem;
         }
         
         .login-subtitle {
-            color: #8b7355;
-            font-size: 0.95rem;
-            margin: 0;
+            font-size: 1rem;
+            opacity: 0.8;
         }
         
-        /* Typography */
-        .text-center { text-align: center; }
-        .mb-1 { margin-bottom: 0.25rem; }
-        .mb-3 { margin-bottom: 1rem; }
-        .mb-4 { margin-bottom: 1.5rem; }
-        .mt-3 { margin-top: 1rem; }
-        .text-muted { color: #6c757d; }
+        /* Input Styles - Guest Dashboard Style */
+        .input-group {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
         
-        /* Form Styles - Guest Dashboard Style */
-        .form-label {
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-            display: block;
-            color: #8b7355;
-            font-size: 0.95rem;
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            z-index: 2;
         }
         
         .form-control {
             width: 100%;
             padding: 0.75rem 1rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
             font-size: 1rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            background: #f8f9fa;
             transition: all 0.15s ease-in-out;
-            background: rgba(255, 255, 255, 0.9);
+        }
+        
+        .form-control-with-icon {
+            padding-left: 3rem;
         }
         
         .form-control:focus {
@@ -149,54 +148,38 @@
         
         .alert-danger {
             color: #721c24;
-            background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+            background-color: #f8d7da;
             border-color: #f5c6cb;
         }
         
         .alert-icon {
-            font-size: 1.1rem;
             margin-right: 0.5rem;
+            font-size: 1.2rem;
         }
         
-        /* Input Group Styles */
-        .input-group {
-            position: relative;
+        /* 2FA Specific Styles */
+        .two-fa-section {
+            text-align: center;
+        }
+        
+        .two-fa-section h3 {
+            color: #d4af37;
             margin-bottom: 1rem;
         }
         
-        .input-icon {
-            position: absolute;
-            left: 1rem;
-            top: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #8b7355;
-            font-size: 1rem;
-            z-index: 2;
-            pointer-events: none;
-            width: 2rem;
-        }
-        
-        .form-control-with-icon {
-            padding-left: 2.5rem;
+        .two-fa-section p {
+            color: #666;
+            margin-bottom: 1.5rem;
         }
         
         /* Responsive Design */
         @media (max-width: 480px) {
             .container {
-                max-width: 100%;
                 padding: 0 10px;
             }
             
             .login-card {
-                padding: 1.5rem;
-            }
-            
-            .login-header {
-                padding: 1rem;
-                margin-bottom: 1.5rem;
+                padding: 2rem 1.5rem;
             }
             
             .wedding-icon {
@@ -243,7 +226,123 @@
             </div>
             {% endif %}
             
-            <!-- Login Form -->
+            <!-- 2FA Verification Form -->
+            {% if requires_2fa %}
+            <div class="two-fa-section">
+                <h3>🔐 Zwei-Faktor-Authentifizierung</h3>
+                <p>Geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein:</p>
+                
+                <form id="twoFaForm">
+                    <div class="input-group">
+                        <span class="input-icon">🔑</span>
+                        <input type="text" 
+                               class="form-control form-control-with-icon" 
+                               id="verification_code" 
+                               name="verification_code" 
+                               placeholder="123456"
+                               maxlength="6"
+                               pattern="[0-9]{6}"
+                               autocomplete="off"
+                               required>
+                    </div>
+                    
+                    <!-- "Gerät merken" Checkbox -->
+                    <div class="input-group" style="margin-bottom: 1rem;">
+                        <label style="display: flex; align-items: center; color: #666; font-size: 0.9rem; cursor: pointer;">
+                            <input type="checkbox" 
+                                   id="remember_device" 
+                                   name="remember_device" 
+                                   style="margin-right: 0.5rem; transform: scale(1.2);">
+                            <span>🛡️ Dieses Gerät für 30 Tage merken</span>
+                        </label>
+                        <p style="color: #888; font-size: 0.8rem; margin: 0.25rem 0 0 1.7rem;">
+                            Sie benötigen dann keine 2FA-Codes mehr auf diesem Gerät
+                        </p>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <span style="margin-right: 0.5rem;">✅</span>
+                        Verifizieren
+                    </button>
+                </form>
+                
+                <div style="text-align: center; margin-top: 1rem;">
+                    <p style="color: #666; font-size: 0.9rem;">
+                        Alternativ können Sie einen Backup-Code verwenden
+                    </p>
+                </div>
+                
+                <input type="hidden" id="session_token" value="{{ session_token }}">
+                <input type="hidden" id="username" value="{{ username }}">
+            </div>
+            
+            <script>
+                document.getElementById('twoFaForm').addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const sessionToken = document.getElementById('session_token').value;
+                    const verificationCode = document.getElementById('verification_code').value;
+                    const rememberDevice = document.getElementById('remember_device').checked;
+                    
+                    if (verificationCode.length !== 6) {
+                        alert('Bitte geben Sie einen 6-stelligen Code ein');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('/admin/2fa/verify', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                session_token: sessionToken,
+                                verification_code: verificationCode,
+                                remember_device: rememberDevice
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            if (rememberDevice) {
+                                // Kurze Bestätigung anzeigen
+                                const notification = document.createElement('div');
+                                notification.style.cssText = `
+                                    position: fixed; top: 20px; right: 20px; 
+                                    background: #d4af37; color: white; 
+                                    padding: 1rem; border-radius: 8px; 
+                                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                                    z-index: 1000;
+                                `;
+                                notification.innerHTML = '🛡️ Gerät wurde als vertrauenswürdig gespeichert';
+                                document.body.appendChild(notification);
+                                
+                                setTimeout(() => {
+                                    notification.remove();
+                                }, 2000);
+                            }
+                            
+                            setTimeout(() => {
+                                window.location.href = result.redirect_url;
+                            }, rememberDevice ? 1000 : 0);
+                        } else {
+                            alert(result.error || 'Verifikation fehlgeschlagen');
+                            document.getElementById('verification_code').value = '';
+                            document.getElementById('verification_code').focus();
+                        }
+                    } catch (error) {
+                        console.error('2FA Verification error:', error);
+                        alert('Fehler bei der Verifikation. Bitte versuchen Sie es erneut.');
+                    }
+                });
+                
+                // Auto-focus auf Verifikationscode-Feld
+                document.getElementById('verification_code').focus();
+            </script>
+            
+            {% else %}
+            <!-- Normal Login Form -->
             <form method="POST" action="{{ url_for('login') }}">
                 <div class="input-group">
                     <span class="input-icon">👤</span>
@@ -270,8 +369,8 @@
                     Anmelden
                 </button>
             </form>
+            {% endif %}
         </div>
     </div>
 </body>
 </html>
-

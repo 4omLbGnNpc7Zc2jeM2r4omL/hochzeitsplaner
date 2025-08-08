@@ -701,7 +701,61 @@
         </div>
     </div>
     
+    <!-- 2FA Security Settings Card -->
     <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-shield-lock me-2"></i>Sicherheit</h5>
+            </div>
+            <div class="card-body">
+                <h6 class="text-primary mb-3">
+                    <i class="bi bi-key me-2"></i>
+                    Zwei-Faktor-Authentifizierung (2FA)
+                </h6>
+                
+                <div id="twoFaStatus">
+                    <!-- Status wird per JavaScript geladen -->
+                    <div class="d-flex justify-content-center mb-3">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Lade 2FA-Status...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 2FA Setup Modal Trigger (hidden by default) -->
+                <div id="twoFaControls" style="display: none;">
+                    <div id="twoFaDisabled" style="display: none;">
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <strong>2FA ist deaktiviert</strong><br>
+                            <small>Ihre Admin-Anmeldung ist nur durch Passwort geschützt.</small>
+                        </div>
+                        <button class="btn btn-success w-100" onclick="setup2FA()">
+                            <i class="bi bi-shield-plus me-2"></i>2FA aktivieren
+                        </button>
+                    </div>
+                    
+                    <div id="twoFaEnabled" style="display: none;">
+                        <div class="alert alert-success">
+                            <i class="bi bi-shield-check me-2"></i>
+                            <strong>2FA ist aktiviert</strong><br>
+                            <small>Ihre Anmeldung ist zusätzlich durch 2FA geschützt.</small>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-danger" onclick="disable2FA()">
+                                <i class="bi bi-shield-x me-2"></i>2FA deaktivieren
+                            </button>
+                            <a href="{{ url_for('admin_trusted_devices') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-device-hdd me-2"></i>🛡️ Vertrauenswürdige Geräte verwalten
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4"&gt;
         <div class="card">
             <div class="card-header">
                 <h5>Aktionen</h5>
@@ -918,9 +972,250 @@
     </div>
 </div>
 
+<!-- 2FA Setup Modal -->
+<div class="modal fade" id="twoFaSetupModal" tabindex="-1" aria-labelledby="twoFaSetupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="twoFaSetupModalLabel">
+                    <i class="bi bi-shield-plus me-2"></i>Zwei-Faktor-Authentifizierung einrichten
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="twoFaSetupStep1">
+                    <h6>Schritt 1: Authenticator-App</h6>
+                    <p>Installieren Sie eine Authenticator-App wie Google Authenticator, Microsoft Authenticator oder Authy auf Ihrem Smartphone.</p>
+                    
+                    <h6>Schritt 2: QR-Code scannen</h6>
+                    <div class="text-center mb-3">
+                        <div id="qrCodeContainer">
+                            <div class="d-flex justify-content-center mb-3">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">QR-Code wird geladen...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Alternativer Setup-Code:</strong><br>
+                        Falls Sie den QR-Code nicht scannen können, geben Sie diesen Code manuell in Ihre App ein:<br>
+                        <code id="manualSetupCode">Wird geladen...</code>
+                    </div>
+                    
+                    <h6>Schritt 3: Code verifizieren</h6>
+                    <p>Geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein:</p>
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" id="verificationCode" 
+                               placeholder="123456" maxlength="6" pattern="[0-9]{6}">
+                        <button class="btn btn-success" type="button" onclick="verify2FASetup()">
+                            <i class="bi bi-check-lg me-2"></i>Verifizieren
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="twoFaSetupStep2" style="display: none;">
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        <strong>2FA erfolgreich aktiviert!</strong>
+                    </div>
+                    
+                    <h6>Backup-Codes</h6>
+                    <p>Bewahren Sie diese Backup-Codes an einem sicheren Ort auf. Sie können jeden Code nur einmal verwenden:</p>
+                    <div class="alert alert-warning">
+                        <div id="backupCodes" class="font-monospace">
+                            <!-- Backup codes will be inserted here -->
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button class="btn btn-primary" onclick="downloadBackupCodes()">
+                            <i class="bi bi-download me-2"></i>Backup-Codes herunterladen
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/einstellungen.js') }}"></script>
+<script>
+// 2FA JavaScript Funktionen
+let currentTwoFASecret = null;
+let currentBackupCodes = null;
+
+// 2FA Status beim Laden der Seite prüfen
+document.addEventListener('DOMContentLoaded', function() {
+    check2FAStatus();
+});
+
+async function check2FAStatus() {
+    try {
+        const response = await fetch('/admin/2fa/status');
+        const data = await response.json();
+        
+        const statusContainer = document.getElementById('twoFaStatus');
+        const controlsContainer = document.getElementById('twoFaControls');
+        const enabledDiv = document.getElementById('twoFaEnabled');
+        const disabledDiv = document.getElementById('twoFaDisabled');
+        
+        statusContainer.innerHTML = ''; // Spinner entfernen
+        controlsContainer.style.display = 'block';
+        
+        if (data.is_2fa_enabled) {
+            enabledDiv.style.display = 'block';
+            disabledDiv.style.display = 'none';
+        } else {
+            enabledDiv.style.display = 'none';
+            disabledDiv.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Fehler beim Laden des 2FA-Status:', error);
+        document.getElementById('twoFaStatus').innerHTML = 
+            '<div class="alert alert-danger">Fehler beim Laden des 2FA-Status</div>';
+    }
+}
+
+async function setup2FA() {
+    try {
+        // QR-Code und Secret von Server holen
+        const response = await fetch('/admin/2fa/setup', {
+            method: 'GET'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Fehler beim Laden der 2FA-Setup-Daten');
+        }
+        
+        const data = await response.json();
+        currentTwoFASecret = data.secret;
+        
+        // QR-Code anzeigen
+        document.getElementById('qrCodeContainer').innerHTML = 
+            `<img src="${data.qr_code}" alt="QR Code" class="img-fluid" style="max-width: 200px;">`;
+        
+        // Setup-Code anzeigen
+        document.getElementById('manualSetupCode').textContent = data.secret;
+        
+        // Modal anzeigen
+        const modal = new bootstrap.Modal(document.getElementById('twoFaSetupModal'));
+        modal.show();
+        
+    } catch (error) {
+        console.error('Fehler beim 2FA-Setup:', error);
+        alert('Fehler beim Einrichten von 2FA: ' + error.message);
+    }
+}
+
+async function verify2FASetup() {
+    const verificationCode = document.getElementById('verificationCode').value;
+    
+    if (verificationCode.length !== 6) {
+        alert('Bitte geben Sie einen 6-stelligen Code ein');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/admin/2fa/setup', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                secret: currentTwoFASecret,
+                verification_code: verificationCode
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentBackupCodes = data.backup_codes;
+            
+            // Backup-Codes anzeigen
+            const backupCodesHtml = data.backup_codes.map(code => 
+                `<div class="mb-1">${code}</div>`
+            ).join('');
+            document.getElementById('backupCodes').innerHTML = backupCodesHtml;
+            
+            // Zu Schritt 2 wechseln
+            document.getElementById('twoFaSetupStep1').style.display = 'none';
+            document.getElementById('twoFaSetupStep2').style.display = 'block';
+            
+            // Status aktualisieren
+            setTimeout(() => {
+                check2FAStatus();
+            }, 1000);
+            
+        } else {
+            alert(data.error || 'Verifikation fehlgeschlagen');
+            document.getElementById('verificationCode').value = '';
+        }
+    } catch (error) {
+        console.error('Fehler bei 2FA-Verifikation:', error);
+        alert('Fehler bei der Verifikation: ' + error.message);
+    }
+}
+
+async function disable2FA() {
+    if (!confirm('Sind Sie sicher, dass Sie die Zwei-Faktor-Authentifizierung deaktivieren möchten?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/admin/2fa/disable', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('2FA wurde erfolgreich deaktiviert');
+            check2FAStatus(); // Status aktualisieren
+        } else {
+            alert(data.error || 'Fehler beim Deaktivieren von 2FA');
+        }
+    } catch (error) {
+        console.error('Fehler beim Deaktivieren von 2FA:', error);
+        alert('Fehler beim Deaktivieren von 2FA: ' + error.message);
+    }
+}
+
+function downloadBackupCodes() {
+    if (!currentBackupCodes) {
+        alert('Keine Backup-Codes verfügbar');
+        return;
+    }
+    
+    const content = 'Hochzeitsplaner 2FA Backup-Codes\n' +
+                   '================================\n\n' +
+                   'Diese Codes können jeweils nur einmal verwendet werden.\n' +
+                   'Bewahren Sie sie an einem sicheren Ort auf.\n\n' +
+                   currentBackupCodes.join('\n') + '\n\n' +
+                   'Generiert am: ' + new Date().toLocaleString();
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'hochzeitsplaner-2fa-backup-codes.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+</script>
 {% endblock %}
 

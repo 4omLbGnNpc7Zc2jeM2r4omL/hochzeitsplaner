@@ -19,6 +19,15 @@ import requests # type: ignore
 import re
 from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for, flash, send_from_directory, make_response
 
+# 2FA Import
+try:
+    import pyotp
+    import qrcode
+    PYOTP_AVAILABLE = True
+except ImportError as e:
+    PYOTP_AVAILABLE = False
+    print(f"⚠️ 2FA libraries not available: {e}")
+
 # PIL import für Thumbnail-Generierung
 try:
     from PIL import Image
@@ -140,8 +149,53 @@ def load_auth_config():
 # Auth-Config laden
 auth_config = load_auth_config()
 
-def authenticate_user(username, password):
-    """Authentifiziert einen Benutzer gegen die Konfiguration"""
+def authenticate_user(username, password, request_obj=None):
+    """Authentifiziert einen Benutzer gegen die Konfiguration und Datenbank"""
+    
+    # 1. PRIORITÄT: Admin-Benutzer aus Datenbank prüfen (für 2FA-fähige Admins)
+    if data_manager:
+        admin_auth = data_manager.verify_admin_credentials(username, password)
+        if admin_auth['valid']:
+            if admin_auth['is_2fa_enabled']:
+                # Prüfen ob Gerät bereits vertrauenswürdig ist
+                device_trusted = False
+                if request_obj:
+                    user_agent = request_obj.headers.get('User-Agent', '')
+                    ip_address = request_obj.remote_addr or 'unknown'
+                    device_fingerprint = data_manager.create_device_fingerprint(user_agent, ip_address)
+                    device_trusted = data_manager.is_trusted_device(admin_auth['admin_id'], device_fingerprint)
+                
+                if device_trusted:
+                    # Vertrauenswürdiges Gerät - 2FA überspringen
+                    return {
+                        'username': username,
+                        'role': 'admin',
+                        'display_name': username.title(),
+                        'admin_id': admin_auth['admin_id'],
+                        'trusted_device': True
+                    }
+                else:
+                    # 2FA erforderlich - erstelle Session für 2FA-Verifikation
+                    session_token = data_manager.create_2fa_session(admin_auth['admin_id'])
+                    if session_token:
+                        return {
+                            'username': username,
+                            'role': 'admin',
+                            'display_name': username.title(),
+                            'requires_2fa': True,
+                            'session_token': session_token,
+                            'admin_id': admin_auth['admin_id']
+                        }
+            else:
+                # 2FA nicht aktiviert - normale Anmeldung
+                return {
+                    'username': username,
+                    'role': 'admin',
+                    'display_name': username.title(),
+                    'admin_id': admin_auth['admin_id']
+                }
+    
+    # 2. PRIORITÄT: Benutzer aus auth_config.json (Legacy-System)
     users = auth_config.get('auth', {}).get('users', [])
     
     # Fallback für alte Konfiguration (einzelner Benutzer)
@@ -164,7 +218,7 @@ def authenticate_user(username, password):
                 'display_name': user.get('display_name', username.title())
             }
     
-    # Gäste-Login prüfen
+    # 3. PRIORITÄT: Gäste-Login prüfen
     guest_user = authenticate_guest(username, password)
     if guest_user:
         return guest_user
@@ -1318,7 +1372,7 @@ def login():
         # Auto-Login mit URL-Parametern
         if guest_code and password:
             logger.info(f"LOGIN DEBUG: Versuche Auto-Login für guest_code='{guest_code}'")
-            user = authenticate_user(guest_code, password)
+            user = authenticate_user(guest_code, password, request)
             logger.info(f"LOGIN DEBUG: authenticate_user result: {user}")
             
             if user and user['role'] == 'guest':
@@ -1365,14 +1419,27 @@ def login():
         password = request.form.get('password')
         
         # Benutzer authentifizieren
-        user = authenticate_user(username, password)
+        user = authenticate_user(username, password, request)
         if user:
+            # Prüfen ob 2FA erforderlich ist
+            if user.get('requires_2fa', False):
+                # 2FA erforderlich - weiterleiten zur 2FA-Verifikationsseite
+                return render_template('login.html', 
+                                     requires_2fa=True,
+                                     session_token=user['session_token'],
+                                     username=user['username'])
+            
+            # Normale Anmeldung ohne 2FA (auch für vertrauenswürdige Geräte)
             session['logged_in'] = True
             session['username'] = user['username']
             session['user_role'] = user['role']
             session['display_name'] = user['display_name']
             session['login_time'] = datetime.now().isoformat()
             session.permanent = True
+            
+            # Admin-ID für Datenbankadmins setzen
+            if user.get('admin_id'):
+                session['admin_id'] = user['admin_id']
             
             # Zusätzliche Daten für Gäste
             if user['role'] == 'guest':
@@ -8096,6 +8163,356 @@ def start_server_with_ssl():
         
         print("\n👋 Auf Wiedersehen!")
         print("=" * 60)
+
+# =============================================================================
+# 2FA Admin Authentication Routes
+# =============================================================================
+
+@app.route('/admin/2fa/setup', methods=['GET', 'POST'])
+@require_auth
+@require_role(['admin'])
+def admin_2fa_setup():
+    """2FA-Setup für Admin-Benutzer"""
+    if not PYOTP_AVAILABLE:
+        return jsonify({'error': '2FA libraries not available'}), 500
+    
+    if request.method == 'GET':
+        # QR-Code für 2FA-Setup generieren
+        import io
+        import base64
+        
+        # Admin-ID aus Session holen
+        admin_id = session.get('admin_id')
+        if not admin_id:
+            return jsonify({'error': 'Admin-ID nicht gefunden'}), 400
+        
+        # Prüfen ob 2FA bereits aktiviert
+        admin_2fa = data_manager.get_admin_2fa_secret(admin_id)
+        if admin_2fa and admin_2fa['is_2fa_enabled']:
+            return jsonify({'error': '2FA ist bereits aktiviert'}), 400
+        
+        # TOTP-Secret generieren
+        secret = pyotp.random_base32()
+        
+        # QR-Code generieren
+        totp_uri = pyotp.totp.TOTP(secret).provisioning_uri(
+            name=session.get('username', 'admin'),
+            issuer_name="Hochzeitsplaner"
+        )
+        
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(totp_uri)
+        qr.make(fit=True)
+        
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # QR-Code zu Base64 konvertieren
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        qr_code_data = base64.b64encode(buffer.getvalue()).decode()
+        
+        return jsonify({
+            'secret': secret,
+            'qr_code': f"data:image/png;base64,{qr_code_data}",
+            'totp_uri': totp_uri
+        })
+    
+    elif request.method == 'POST':
+        # 2FA aktivieren mit Verifikation
+        data = request.get_json()
+        secret = data.get('secret')
+        verification_code = data.get('verification_code')
+        
+        if not secret or not verification_code:
+            return jsonify({'error': 'Secret und Verifikationscode erforderlich'}), 400
+        
+        # Verifikationscode prüfen
+        totp = pyotp.TOTP(secret)
+        if not totp.verify(verification_code, valid_window=1):
+            return jsonify({'error': 'Ungültiger Verifikationscode'}), 400
+        
+        # Backup-Codes generieren
+        import secrets
+        backup_codes = [secrets.token_hex(4).upper() for _ in range(10)]
+        
+        # Admin-ID aus Session
+        admin_id = session.get('admin_id')
+        if not admin_id:
+            return jsonify({'error': 'Admin-ID nicht gefunden'}), 400
+        
+        # 2FA in Datenbank aktivieren
+        success = data_manager.setup_admin_2fa(admin_id, secret, backup_codes)
+        if success:
+            return jsonify({
+                'success': True,
+                'backup_codes': backup_codes,
+                'message': '2FA erfolgreich aktiviert'
+            })
+        else:
+            return jsonify({'error': 'Fehler beim Aktivieren von 2FA'}), 500
+
+@app.route('/admin/2fa/verify', methods=['POST'])
+def admin_2fa_verify():
+    """2FA-Token-Verifikation für Admin-Login"""
+    data = request.get_json()
+    session_token = data.get('session_token')
+    verification_code = data.get('verification_code')
+    remember_device = data.get('remember_device', False)  # Checkbox für "Gerät merken"
+    
+    if not session_token or not verification_code:
+        return jsonify({'error': 'Session-Token und Verifikationscode erforderlich'}), 400
+    
+    # Session-Token prüfen und Admin-ID holen
+    with data_manager._lock:
+        conn = data_manager._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT admin_id FROM admin_2fa_sessions
+            WHERE session_token = ? AND is_verified = 0 AND expires_at > ?
+        """, (session_token, datetime.now().isoformat()))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result:
+            return jsonify({'error': 'Ungültiger oder abgelaufener Session-Token'}), 400
+        
+        admin_id = result[0]
+    
+    # 2FA-Token verifizieren
+    if data_manager.verify_admin_2fa_token(admin_id, verification_code):
+        # Session als verifiziert markieren
+        verified_admin_id = data_manager.verify_2fa_session(session_token)
+        
+        if verified_admin_id:
+            # Wenn "Gerät merken" aktiviert ist, Gerät als vertrauenswürdig speichern
+            if remember_device:
+                user_agent = request.headers.get('User-Agent', '')
+                ip_address = request.remote_addr or 'unknown'
+                device_fingerprint = data_manager.create_device_fingerprint(user_agent, ip_address)
+                
+                # Gerätename aus User-Agent extrahieren
+                import re
+                device_name = "Unbekanntes Gerät"
+                if 'Chrome' in user_agent:
+                    device_name = "Chrome Browser"
+                elif 'Firefox' in user_agent:
+                    device_name = "Firefox Browser"
+                elif 'Safari' in user_agent:
+                    device_name = "Safari Browser"
+                elif 'Edge' in user_agent:
+                    device_name = "Edge Browser"
+                
+                # Betriebssystem hinzufügen
+                if 'Windows' in user_agent:
+                    device_name += " (Windows)"
+                elif 'Mac' in user_agent:
+                    device_name += " (macOS)"
+                elif 'Linux' in user_agent:
+                    device_name += " (Linux)"
+                elif 'Android' in user_agent:
+                    device_name += " (Android)"
+                elif 'iPhone' in user_agent or 'iPad' in user_agent:
+                    device_name += " (iOS)"
+                
+                # Gerät als vertrauenswürdig speichern (30 Tage)
+                data_manager.add_trusted_device(
+                    admin_id=admin_id,
+                    device_fingerprint=device_fingerprint,
+                    device_name=device_name,
+                    user_agent=user_agent,
+                    ip_address=ip_address,
+                    trust_days=30
+                )
+            
+            # Admin-Session erstellen
+            session['logged_in'] = True
+            session['user_role'] = 'admin'
+            session['admin_id'] = admin_id
+            session['username'] = 'admin'  # TODO: Aus DB holen
+            session['display_name'] = 'Administrator'
+            session['login_time'] = datetime.now().isoformat()
+            session.permanent = True
+            
+            return jsonify({
+                'success': True,
+                'redirect_url': url_for('index')
+            })
+        else:
+            return jsonify({'error': 'Fehler bei Session-Verifikation'}), 500
+    else:
+        return jsonify({'error': 'Ungültiger Verifikationscode'}), 400
+
+@app.route('/admin/2fa/disable', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def admin_2fa_disable():
+    """2FA für Admin deaktivieren"""
+    admin_id = session.get('admin_id')
+    if not admin_id:
+        return jsonify({'error': 'Admin-ID nicht gefunden'}), 400
+    
+    success = data_manager.disable_admin_2fa(admin_id)
+    if success:
+        return jsonify({
+            'success': True,
+            'message': '2FA erfolgreich deaktiviert'
+        })
+    else:
+        return jsonify({'error': 'Fehler beim Deaktivieren von 2FA'}), 500
+
+@app.route('/admin/2fa/status', methods=['GET'])
+@require_auth
+@require_role(['admin'])
+def admin_2fa_status():
+    """2FA-Status für aktuellen Admin abrufen"""
+    admin_id = session.get('admin_id')
+    if not admin_id:
+        return jsonify({'error': 'Admin-ID nicht gefunden'}), 400
+    
+    admin_2fa = data_manager.get_admin_2fa_secret(admin_id)
+    if admin_2fa:
+        return jsonify({
+            'is_2fa_enabled': admin_2fa['is_2fa_enabled']
+        })
+    else:
+        return jsonify({'is_2fa_enabled': False})
+
+# ============= TRUSTED DEVICES MANAGEMENT =============
+
+@app.route('/admin/trusted-devices', methods=['GET'])
+@require_auth
+@require_role(['admin'])
+def admin_trusted_devices():
+    """Verwaltung vertrauenswürdiger Geräte"""
+    admin_id = session.get('admin_id')
+    if not admin_id:
+        return redirect(url_for('login'))
+    
+    devices = data_manager.get_trusted_devices(admin_id)
+    
+    # Geräte-Informationen aufbereiten
+    for device in devices:
+        from datetime import datetime
+        try:
+            expires_dt = datetime.fromisoformat(device['expires_at'])
+            device['expires_formatted'] = expires_dt.strftime('%d.%m.%Y %H:%M')
+            device['is_expired'] = expires_dt < datetime.now()
+            
+            last_used_dt = datetime.fromisoformat(device['last_used'])
+            device['last_used_formatted'] = last_used_dt.strftime('%d.%m.%Y %H:%M')
+            
+            created_dt = datetime.fromisoformat(device['created_at'])
+            device['created_formatted'] = created_dt.strftime('%d.%m.%Y %H:%M')
+        except:
+            device['expires_formatted'] = 'Unbekannt'
+            device['last_used_formatted'] = 'Unbekannt'
+            device['created_formatted'] = 'Unbekannt'
+            device['is_expired'] = False
+    
+    return render_template('trusted_devices.html', devices=devices)
+
+@app.route('/admin/trusted-devices/remove/<int:device_id>', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def remove_trusted_device(device_id):
+    """Vertrauenswürdiges Gerät entfernen"""
+    admin_id = session.get('admin_id')
+    if not admin_id:
+        return jsonify({'error': 'Nicht authentifiziert'}), 401
+    
+    success = data_manager.remove_trusted_device(admin_id, device_id=device_id)
+    
+    if success:
+        return jsonify({
+            'success': True,
+            'message': 'Gerät erfolgreich entfernt'
+        })
+    else:
+        return jsonify({'error': 'Fehler beim Entfernen des Geräts'}), 500
+
+@app.route('/admin/trusted-devices/cleanup', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def cleanup_trusted_devices():
+    """Abgelaufene vertrauenswürdige Geräte entfernen"""
+    data_manager.cleanup_expired_trusted_devices()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Abgelaufene Geräte wurden entfernt'
+    })
+
+@app.route('/admin/register', methods=['GET', 'POST'])
+def admin_register():
+    """Admin-Registrierung (nur wenn noch kein Admin existiert oder von bestehendem Admin)"""
+    if request.method == 'GET':
+        # Prüfen ob bereits Admins existieren
+        with data_manager._lock:
+            conn = data_manager._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM admin_users WHERE is_active = 1")
+            admin_count = cursor.fetchone()[0]
+            conn.close()
+        
+        # Nur erlauben wenn kein Admin existiert oder aktueller User Admin ist
+        if admin_count > 0 and not (session.get('logged_in') and session.get('user_role') == 'admin'):
+            return redirect(url_for('login'))
+        
+        return render_template('admin_register.html', first_admin=(admin_count == 0))
+    
+    elif request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        password_confirm = request.form.get('password_confirm')
+        
+        if not username or not password:
+            return render_template('admin_register.html', 
+                                 error='Benutzername und Passwort sind erforderlich')
+        
+        if password != password_confirm:
+            return render_template('admin_register.html', 
+                                 error='Passwörter stimmen nicht überein')
+        
+        if len(password) < 6:
+            return render_template('admin_register.html', 
+                                 error='Passwort muss mindestens 6 Zeichen lang sein')
+        
+        # Prüfen ob bereits Admins existieren
+        with data_manager._lock:
+            conn = data_manager._get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT COUNT(*) FROM admin_users WHERE is_active = 1")
+            admin_count = cursor.fetchone()[0]
+            
+            # Nur erlauben wenn kein Admin existiert oder aktueller User Admin ist
+            if admin_count > 0 and not (session.get('logged_in') and session.get('user_role') == 'admin'):
+                conn.close()
+                return redirect(url_for('login'))
+            
+            # Prüfen ob Benutzername bereits existiert
+            cursor.execute("SELECT COUNT(*) FROM admin_users WHERE username = ?", (username,))
+            if cursor.fetchone()[0] > 0:
+                conn.close()
+                return render_template('admin_register.html', 
+                                     error='Benutzername bereits vergeben')
+            
+            # Admin erstellen
+            import hashlib
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            
+            cursor.execute("""
+                INSERT INTO admin_users (username, password_hash, is_active)
+                VALUES (?, ?, ?)
+            """, (username, password_hash, 1))
+            
+            conn.commit()
+            conn.close()
+        
+        flash('Admin-Benutzer erfolgreich erstellt!', 'success')
+        return redirect(url_for('login'))
 
 if __name__ == '__main__':
     if not data_manager:

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Registrierung - Hochzeitsplaner</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    
+    <style>
+        /* CSS Reset und Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        .register-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            padding: 2.5rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .register-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #d4af37, #f4e4bc);
+            border-radius: 10px;
+            color: #8b7355;
+        }
+        
+        .wedding-icon {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .register-title {
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .register-subtitle {
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+        
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            background: #f8f9fa;
+            transition: all 0.15s ease-in-out;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #d4af37;
+            box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.25);
+            background: white;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 2rem;
+            font-size: 1rem;
+            font-weight: 500;
+            text-align: center;
+            text-decoration: none;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+            width: 100%;
+        }
+        
+        .btn-primary {
+            color: white;
+            background: linear-gradient(135deg, #d4af37, #f4e4bc);
+            border: 2px solid #d4af37;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
+            background: linear-gradient(135deg, #c19b26, #e6d3a5);
+        }
+        
+        .btn-secondary {
+            color: #666;
+            background: #f8f9fa;
+            border: 2px solid #e1e5e9;
+            margin-top: 1rem;
+        }
+        
+        .btn-secondary:hover {
+            background: #e9ecef;
+            text-decoration: none;
+            color: #333;
+        }
+        
+        .alert {
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .alert-danger {
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        
+        .alert-warning {
+            color: #856404;
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+        }
+        
+        .alert-icon {
+            margin-right: 0.5rem;
+            font-size: 1.2rem;
+        }
+        
+        .password-strength {
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .strength-weak {
+            color: #dc3545;
+        }
+        
+        .strength-medium {
+            color: #ffc107;
+        }
+        
+        .strength-strong {
+            color: #28a745;
+        }
+        
+        .form-text {
+            font-size: 0.875rem;
+            color: #6c757d;
+            margin-top: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="register-card">
+            <div class="register-header">
+                <div class="wedding-icon">🔐</div>
+                <h1 class="register-title">Admin-Registrierung</h1>
+                {% if first_admin %}
+                <p class="register-subtitle">Erstellen Sie den ersten Admin-Benutzer</p>
+                {% else %}
+                <p class="register-subtitle">Neuen Admin-Benutzer hinzufügen</p>
+                {% endif %}
+            </div>
+            
+            {% if first_admin %}
+            <div class="alert alert-warning" role="alert">
+                <span class="alert-icon">ℹ️</span>
+                Dies ist der erste Admin-Benutzer. Bewahren Sie die Anmeldedaten sicher auf!
+            </div>
+            {% endif %}
+            
+            {% if error %}
+            <div class="alert alert-danger" role="alert">
+                <span class="alert-icon">⚠️</span>
+                {{ error }}
+            </div>
+            {% endif %}
+            
+            <form method="POST" action="{{ url_for('admin_register') }}">
+                <div class="input-group">
+                    <label for="username">Benutzername</label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="username" 
+                           name="username" 
+                           placeholder="admin"
+                           required
+                           autocomplete="username">
+                    <div class="form-text">Mindestens 3 Zeichen, keine Leerzeichen</div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="password">Passwort</label>
+                    <input type="password" 
+                           class="form-control" 
+                           id="password" 
+                           name="password" 
+                           placeholder="Sicheres Passwort eingeben"
+                           required
+                           autocomplete="new-password">
+                    <div id="passwordStrength" class="password-strength"></div>
+                    <div class="form-text">Mindestens 6 Zeichen empfohlen</div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="password_confirm">Passwort bestätigen</label>
+                    <input type="password" 
+                           class="form-control" 
+                           id="password_confirm" 
+                           name="password_confirm" 
+                           placeholder="Passwort wiederholen"
+                           required
+                           autocomplete="new-password">
+                    <div id="passwordMatch" class="form-text"></div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    <span style="margin-right: 0.5rem;">👤</span>
+                    Admin-Benutzer erstellen
+                </button>
+                
+                <a href="{{ url_for('login') }}" class="btn btn-secondary">
+                    <span style="margin-right: 0.5rem;">🔙</span>
+                    Zurück zur Anmeldung
+                </a>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        // Passwort-Stärke-Anzeige
+        const passwordInput = document.getElementById('password');
+        const passwordConfirm = document.getElementById('password_confirm');
+        const strengthDiv = document.getElementById('passwordStrength');
+        const matchDiv = document.getElementById('passwordMatch');
+        
+        passwordInput.addEventListener('input', function() {
+            const password = this.value;
+            const strength = checkPasswordStrength(password);
+            
+            strengthDiv.textContent = strength.text;
+            strengthDiv.className = 'password-strength ' + strength.class;
+        });
+        
+        passwordConfirm.addEventListener('input', function() {
+            const password = passwordInput.value;
+            const confirm = this.value;
+            
+            if (confirm.length > 0) {
+                if (password === confirm) {
+                    matchDiv.textContent = '✅ Passwörter stimmen überein';
+                    matchDiv.style.color = '#28a745';
+                } else {
+                    matchDiv.textContent = '❌ Passwörter stimmen nicht überein';
+                    matchDiv.style.color = '#dc3545';
+                }
+            } else {
+                matchDiv.textContent = '';
+            }
+        });
+        
+        function checkPasswordStrength(password) {
+            if (password.length < 6) {
+                return {
+                    text: '🔴 Schwach - Mindestens 6 Zeichen',
+                    class: 'strength-weak'
+                };
+            }
+            
+            let score = 0;
+            if (password.length >= 8) score++;
+            if (/[A-Z]/.test(password)) score++;
+            if (/[a-z]/.test(password)) score++;
+            if (/[0-9]/.test(password)) score++;
+            if (/[^A-Za-z0-9]/.test(password)) score++;
+            
+            if (score < 2) {
+                return {
+                    text: '🟡 Mittel - Mehr Zeichen/Sonderzeichen empfohlen',
+                    class: 'strength-medium'
+                };
+            } else if (score >= 3) {
+                return {
+                    text: '🟢 Stark - Gutes Passwort!',
+                    class: 'strength-strong'
+                };
+            } else {
+                return {
+                    text: '🟡 Mittel - Könnte stärker sein',
+                    class: 'strength-medium'
+                };
+            }
+        }
+    </script>
+</body>
+</html>

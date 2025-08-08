@@ -8,3 +8,4 @@ qrcode[pil]==8.0
 gunicorn==23.0.0
 gevent==25.5.1
 requests==2.31.0
+pyotp==2.9.0

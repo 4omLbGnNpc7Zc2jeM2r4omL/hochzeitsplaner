@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Vertrauenswürdige Geräte{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">🛡️ Vertrauenswürdige Geräte</h4>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cleanupExpiredDevices()">
+                            🧹 Aufräumen
+                        </button>
+                        <a href="{{ url_for('einstellungen') }}" class="btn btn-outline-primary btn-sm">
+                            ← Zurück zu Einstellungen
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if devices %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Info:</strong> Vertrauenswürdige Geräte benötigen keine 2FA-Codes für 30 Tage. 
+                        Sie können jederzeit einzelne Geräte entfernen, wenn Sie den Zugriff widerrufen möchten.
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Gerät</th>
+                                    <th>IP-Adresse</th>
+                                    <th>Hinzugefügt</th>
+                                    <th>Letzter Zugriff</th>
+                                    <th>Läuft ab</th>
+                                    <th>Status</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for device in devices %}
+                                <tr {% if device.is_expired %}class="table-warning"{% endif %}>
+                                    <td>
+                                        <div>
+                                            <strong>{{ device.device_name or 'Unbekanntes Gerät' }}</strong>
+                                        </div>
+                                        <small class="text-muted">
+                                            {{ device.user_agent[:60] }}{% if device.user_agent|length > 60 %}...{% endif %}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <code>{{ device.ip_address or 'Unbekannt' }}</code>
+                                    </td>
+                                    <td>
+                                        <small>{{ device.created_formatted }}</small>
+                                    </td>
+                                    <td>
+                                        <small>{{ device.last_used_formatted }}</small>
+                                    </td>
+                                    <td>
+                                        <small {% if device.is_expired %}class="text-danger"{% endif %}>
+                                            {{ device.expires_formatted }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        {% if device.is_expired %}
+                                            <span class="badge bg-warning">⏰ Abgelaufen</span>
+                                        {% else %}
+                                            <span class="badge bg-success">✅ Aktiv</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button type="button" 
+                                                class="btn btn-outline-danger btn-sm remove-device-btn" 
+                                                data-device-id="{{ device.id }}"
+                                                data-device-name="{{ device.device_name or 'Unbekanntes Gerät' }}">
+                                            🗑️ Entfernen
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-shield-alt"></i>
+                            Gesamt: {{ devices|length }} Gerät(e) registriert
+                        </small>
+                    </div>
+                    
+                    {% else %}
+                    <div class="alert alert-info">
+                        <div class="text-center">
+                            <i class="fas fa-mobile-alt fa-3x text-muted mb-3"></i>
+                            <h5>Keine vertrauenswürdigen Geräte</h5>
+                            <p class="text-muted">
+                                Sie haben noch keine Geräte als vertrauenswürdig markiert. 
+                                Bei der nächsten 2FA-Anmeldung können Sie die Option "Gerät merken" verwenden.
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-4">
+                        <h6>💡 Tipps zur Gerätesicherheit:</h6>
+                        <ul class="list-unstyled">
+                            <li>✅ Markieren Sie nur persönliche und sichere Geräte als vertrauenswürdig</li>
+                            <li>🚫 Verwenden Sie diese Funktion nicht auf öffentlichen Computern</li>
+                            <li>🔄 Entfernen Sie Geräte, die Sie nicht mehr verwenden</li>
+                            <li>⏰ Vertrauenswürdige Geräte laufen automatisch nach 30 Tagen ab</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Event-Listener für Remove-Buttons
+document.addEventListener('DOMContentLoaded', function() {
+    const removeButtons = document.querySelectorAll('.remove-device-btn');
+    removeButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const deviceId = this.getAttribute('data-device-id');
+            const deviceName = this.getAttribute('data-device-name');
+            removeDevice(deviceId, deviceName);
+        });
+    });
+});
+
+async function removeDevice(deviceId, deviceName) {
+    if (!confirm(`Möchten Sie das Gerät "${deviceName}" wirklich als nicht mehr vertrauenswürdig markieren?\n\nSie benötigen dann wieder 2FA-Codes auf diesem Gerät.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/admin/trusted-devices/remove/${deviceId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showAlert('success', '✅ Gerät erfolgreich entfernt');
+            // Seite neu laden um aktualisierte Liste zu zeigen
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert('danger', '❌ ' + (result.error || 'Fehler beim Entfernen des Geräts'));
+        }
+    } catch (error) {
+        console.error('Error removing device:', error);
+        showAlert('danger', '❌ Netzwerkfehler beim Entfernen des Geräts');
+    }
+}
+
+async function cleanupExpiredDevices() {
+    if (!confirm('Möchten Sie alle abgelaufenen vertrauenswürdigen Geräte entfernen?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/admin/trusted-devices/cleanup', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showAlert('success', '🧹 Abgelaufene Geräte wurden aufgeräumt');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert('danger', '❌ Fehler beim Aufräumen');
+        }
+    } catch (error) {
+        console.error('Error cleaning up devices:', error);
+        showAlert('danger', '❌ Netzwerkfehler beim Aufräumen');
+    }
+}
+
+function showAlert(type, message) {
+    // Bestehende Alerts entfernen
+    const existingAlerts = document.querySelectorAll('.alert-temporary');
+    existingAlerts.forEach(alert => alert.remove());
+    
+    // Neuen Alert erstellen
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-temporary`;
+    alertDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1050;
+        min-width: 300px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    `;
+    alertDiv.innerHTML = message;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Alert nach 3 Sekunden automatisch entfernen
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

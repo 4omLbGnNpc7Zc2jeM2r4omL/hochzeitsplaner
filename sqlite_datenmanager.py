@@ -70,6 +70,9 @@ class SQLiteHochzeitsDatenManager:
                 conn.execute("PRAGMA busy_timeout = 30000")  # 30 Sekunden
                 conn.execute("PRAGMA journal_mode = WAL")     # Write-Ahead Logging für bessere Concurrency
                 
+                # 2FA Admin-Tabelle erstellen falls nicht vorhanden
+                self._ensure_2fa_admin_table(conn)
+                
                 # Prüfe, ob tischplanung_config bereits existiert und welches Schema es hat
                 cursor = conn.cursor()
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tischplanung_config'")
@@ -293,6 +296,89 @@ class SQLiteHochzeitsDatenManager:
             
         except Exception as e:
             logger.error(f"Fehler bei Legacy-Migration: {e}")
+    
+    # =============================================================================
+    # 2FA Admin Authentication Methods
+    # =============================================================================
+    
+    def _ensure_2fa_admin_table(self, conn):
+        """Stellt sicher, dass die 2FA Admin-Tabelle existiert"""
+        try:
+            cursor = conn.cursor()
+            
+            # Admin-Benutzer Tabelle für 2FA
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS admin_users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    totp_secret TEXT,
+                    is_2fa_enabled INTEGER DEFAULT 0,
+                    backup_codes TEXT,
+                    failed_2fa_attempts INTEGER DEFAULT 0,
+                    last_failed_2fa DATETIME,
+                    is_active INTEGER DEFAULT 1,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # 2FA Session Tracking
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS admin_2fa_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    admin_id INTEGER NOT NULL,
+                    session_token TEXT NOT NULL UNIQUE,
+                    is_verified INTEGER DEFAULT 0,
+                    verification_attempts INTEGER DEFAULT 0,
+                    expires_at DATETIME NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (admin_id) REFERENCES admin_users(id) ON DELETE CASCADE
+                )
+            """)
+            
+            # Trusted Devices Tabelle für "Dieses Gerät merken" Funktionalität
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS admin_trusted_devices (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    admin_id INTEGER NOT NULL,
+                    device_fingerprint TEXT NOT NULL,
+                    device_name TEXT,
+                    user_agent TEXT,
+                    ip_address TEXT,
+                    expires_at DATETIME NOT NULL,
+                    last_used DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (admin_id) REFERENCES admin_users(id) ON DELETE CASCADE,
+                    UNIQUE(admin_id, device_fingerprint)
+                )
+            """)
+            
+            # Default Admin erstellen falls noch keiner existiert
+            cursor.execute("SELECT COUNT(*) FROM admin_users")
+            admin_count = cursor.fetchone()[0]
+            
+            if admin_count == 0:
+                import hashlib
+                import secrets
+                
+                # Default Admin-Benutzer erstellen
+                default_password = "admin123"  # WARNUNG: In Produktion ändern!
+                password_hash = hashlib.sha256(default_password.encode()).hexdigest()
+                
+                cursor.execute("""
+                    INSERT INTO admin_users (username, password_hash, is_active)
+                    VALUES (?, ?, ?)
+                """, ("admin", password_hash, 1))
+                
+                logger.info("🔑 Default Admin-Benutzer erstellt (Benutzername: admin, Passwort: admin123)")
+                logger.warning("⚠️  WARNUNG: Ändern Sie das Standard-Admin-Passwort sofort!")
+            
+            conn.commit()
+            
+        except Exception as e:
+            logger.error(f"Fehler beim Erstellen der 2FA Admin-Tabelle: {e}")
+            raise
     
     # =============================================================================
     # Gäste-Management
@@ -4963,3 +5049,523 @@ class SQLiteHochzeitsDatenManager:
         except Exception as e:
             logger.error(f"Fehler beim Aktualisieren der Konfiguration: {e}")
             return False
+
+    # =============================================================================
+    # 2FA Admin Authentication Methods
+    # =============================================================================
+    
+    def verify_admin_credentials(self, username, password):
+        """Überprüft Admin-Anmeldedaten und gibt Admin-ID zurück"""
+        try:
+            import hashlib
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT id, is_2fa_enabled FROM admin_users 
+                    WHERE username = ? AND password_hash = ? AND is_active = 1
+                """, (username, password_hash))
+                
+                result = cursor.fetchone()
+                conn.close()
+                
+                if result:
+                    return {
+                        'admin_id': result[0],
+                        'is_2fa_enabled': bool(result[1]),
+                        'valid': True
+                    }
+                else:
+                    return {'valid': False}
+                    
+        except Exception as e:
+            logger.error(f"Fehler bei Admin-Anmeldung: {e}")
+            return {'valid': False}
+    
+    def get_admin_2fa_secret(self, admin_id):
+        """Holt das 2FA-Secret eines Admins"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT totp_secret, is_2fa_enabled FROM admin_users 
+                    WHERE id = ? AND is_active = 1
+                """, (admin_id,))
+                
+                result = cursor.fetchone()
+                conn.close()
+                
+                if result:
+                    return {
+                        'totp_secret': result[0],
+                        'is_2fa_enabled': bool(result[1])
+                    }
+                else:
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Fehler beim Abrufen des 2FA-Secrets: {e}")
+            return None
+    
+    def setup_admin_2fa(self, admin_id, totp_secret, backup_codes):
+        """Aktiviert 2FA für einen Admin"""
+        try:
+            import json
+            
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    UPDATE admin_users 
+                    SET totp_secret = ?, is_2fa_enabled = 1, backup_codes = ?, 
+                        failed_2fa_attempts = 0, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND is_active = 1
+                """, (totp_secret, json.dumps(backup_codes), admin_id))
+                
+                conn.commit()
+                conn.close()
+                
+                logger.info(f"✅ 2FA aktiviert für Admin-ID: {admin_id}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Aktivieren von 2FA: {e}")
+            return False
+    
+    def disable_admin_2fa(self, admin_id):
+        """Deaktiviert 2FA für einen Admin"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    UPDATE admin_users 
+                    SET totp_secret = NULL, is_2fa_enabled = 0, backup_codes = NULL,
+                        failed_2fa_attempts = 0, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND is_active = 1
+                """, (admin_id,))
+                
+                conn.commit()
+                conn.close()
+                
+                logger.info(f"✅ 2FA deaktiviert für Admin-ID: {admin_id}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Deaktivieren von 2FA: {e}")
+            return False
+    
+    def verify_admin_2fa_token(self, admin_id, token):
+        """Überprüft einen 2FA-Token oder Backup-Code"""
+        try:
+            import json
+            import pyotp
+            from datetime import datetime, timedelta
+            
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Admin-Daten abrufen
+                cursor.execute("""
+                    SELECT totp_secret, backup_codes, failed_2fa_attempts, last_failed_2fa
+                    FROM admin_users 
+                    WHERE id = ? AND is_active = 1 AND is_2fa_enabled = 1
+                """, (admin_id,))
+                
+                result = cursor.fetchone()
+                if not result:
+                    conn.close()
+                    return False
+                
+                totp_secret, backup_codes_json, failed_attempts, last_failed = result
+                
+                # Rate Limiting prüfen
+                if failed_attempts >= 5:
+                    if last_failed:
+                        last_failed_dt = datetime.fromisoformat(last_failed.replace('Z', '+00:00'))
+                        if datetime.now() - last_failed_dt < timedelta(minutes=15):
+                            conn.close()
+                            logger.warning(f"2FA Rate Limit erreicht für Admin-ID: {admin_id}")
+                            return False
+                
+                # TOTP-Token prüfen
+                if totp_secret:
+                    totp = pyotp.TOTP(totp_secret)
+                    if totp.verify(token, valid_window=1):  # 30s Fenster
+                        # Erfolgreiche Verifikation - Fehlschläge zurücksetzen
+                        cursor.execute("""
+                            UPDATE admin_users 
+                            SET failed_2fa_attempts = 0, last_failed_2fa = NULL
+                            WHERE id = ?
+                        """, (admin_id,))
+                        conn.commit()
+                        conn.close()
+                        return True
+                
+                # Backup-Code prüfen
+                if backup_codes_json:
+                    backup_codes = json.loads(backup_codes_json)
+                    if token in backup_codes:
+                        # Backup-Code entfernen (einmalige Verwendung)
+                        backup_codes.remove(token)
+                        cursor.execute("""
+                            UPDATE admin_users 
+                            SET backup_codes = ?, failed_2fa_attempts = 0, last_failed_2fa = NULL
+                            WHERE id = ?
+                        """, (json.dumps(backup_codes), admin_id))
+                        conn.commit()
+                        conn.close()
+                        logger.info(f"Backup-Code verwendet für Admin-ID: {admin_id}")
+                        return True
+                
+                # Fehlgeschlagener Versuch
+                cursor.execute("""
+                    UPDATE admin_users 
+                    SET failed_2fa_attempts = failed_2fa_attempts + 1, 
+                        last_failed_2fa = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (admin_id,))
+                conn.commit()
+                conn.close()
+                
+                return False
+                
+        except Exception as e:
+            logger.error(f"Fehler bei 2FA-Verifikation: {e}")
+            return False
+    
+    def create_2fa_session(self, admin_id):
+        """Erstellt eine 2FA-Session für Admin-Login"""
+        try:
+            import secrets
+            from datetime import datetime, timedelta
+            
+            session_token = secrets.token_urlsafe(32)
+            expires_at = datetime.now() + timedelta(minutes=10)  # 10 Minuten
+            
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Alte Sessions löschen
+                cursor.execute("DELETE FROM admin_2fa_sessions WHERE admin_id = ?", (admin_id,))
+                
+                # Neue Session erstellen
+                cursor.execute("""
+                    INSERT INTO admin_2fa_sessions 
+                    (admin_id, session_token, expires_at)
+                    VALUES (?, ?, ?)
+                """, (admin_id, session_token, expires_at.isoformat()))
+                
+                conn.commit()
+                conn.close()
+                
+                return session_token
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Erstellen der 2FA-Session: {e}")
+            return None
+    
+    def verify_2fa_session(self, session_token):
+        """Überprüft und markiert eine 2FA-Session als verifiziert"""
+        try:
+            from datetime import datetime
+            
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Session finden und prüfen
+                cursor.execute("""
+                    SELECT admin_id, expires_at FROM admin_2fa_sessions
+                    WHERE session_token = ? AND is_verified = 0
+                """, (session_token,))
+                
+                result = cursor.fetchone()
+                if not result:
+                    conn.close()
+                    return None
+                
+                admin_id, expires_at_str = result
+                expires_at = datetime.fromisoformat(expires_at_str)
+                
+                # Prüfen ob Session noch gültig
+                if datetime.now() > expires_at:
+                    cursor.execute("DELETE FROM admin_2fa_sessions WHERE session_token = ?", (session_token,))
+                    conn.commit()
+                    conn.close()
+                    return None
+                
+                # Session als verifiziert markieren
+                cursor.execute("""
+                    UPDATE admin_2fa_sessions 
+                    SET is_verified = 1 
+                    WHERE session_token = ?
+                """, (session_token,))
+                
+                conn.commit()
+                conn.close()
+                
+                return admin_id
+                
+        except Exception as e:
+            logger.error(f"Fehler bei 2FA-Session-Verifikation: {e}")
+            return None
+    
+    def cleanup_expired_2fa_sessions(self):
+        """Entfernt abgelaufene 2FA-Sessions"""
+        try:
+            from datetime import datetime
+            
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    DELETE FROM admin_2fa_sessions 
+                    WHERE expires_at < ?
+                """, (datetime.now().isoformat(),))
+                
+                deleted_count = cursor.rowcount
+                conn.commit()
+                conn.close()
+                
+                if deleted_count > 0:
+                    logger.info(f"🧹 {deleted_count} abgelaufene 2FA-Sessions entfernt")
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Bereinigen der 2FA-Sessions: {e}")
+
+    # ================= TRUSTED DEVICES MANAGEMENT =================
+    
+    def create_device_fingerprint(self, user_agent: str, ip_address: str) -> str:
+        """
+        Erstellt einen eindeutigen Fingerprint für ein Gerät
+        
+        Args:
+            user_agent: Browser User-Agent String
+            ip_address: IP-Adresse des Clients
+            
+        Returns:
+            Eindeutiger Device-Fingerprint
+        """
+        import hashlib
+        
+        # Kombiniere verschiedene Eigenschaften für Fingerprinting
+        fingerprint_data = f"{user_agent}:{ip_address}"
+        
+        # SHA256 Hash für eindeutigen Fingerprint
+        fingerprint = hashlib.sha256(fingerprint_data.encode('utf-8')).hexdigest()
+        
+        return fingerprint
+    
+    def add_trusted_device(self, admin_id: int, device_fingerprint: str, 
+                          device_name: str = None, user_agent: str = None, 
+                          ip_address: str = None, trust_days: int = 30) -> bool:
+        """
+        Fügt ein vertrauenswürdiges Gerät hinzu
+        
+        Args:
+            admin_id: ID des Admin-Benutzers
+            device_fingerprint: Eindeutiger Device-Fingerprint
+            device_name: Benutzerfreundlicher Gerätename
+            user_agent: Browser User-Agent
+            ip_address: IP-Adresse
+            trust_days: Anzahl Tage, für die das Gerät vertrauenswürdig ist
+            
+        Returns:
+            True bei Erfolg, False bei Fehler
+        """
+        try:
+            from datetime import datetime, timedelta
+            
+            expires_at = datetime.now() + timedelta(days=trust_days)
+            
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Gerät hinzufügen oder aktualisieren
+                cursor.execute("""
+                    INSERT OR REPLACE INTO admin_trusted_devices 
+                    (admin_id, device_fingerprint, device_name, user_agent, ip_address, expires_at, last_used)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (admin_id, device_fingerprint, device_name, user_agent, ip_address, 
+                      expires_at.isoformat(), datetime.now().isoformat()))
+                
+                conn.commit()
+                conn.close()
+                
+                logger.info(f"✅ Vertrauenswürdiges Gerät hinzugefügt für Admin ID {admin_id}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Hinzufügen des vertrauenswürdigen Geräts: {e}")
+            return False
+    
+    def is_trusted_device(self, admin_id: int, device_fingerprint: str) -> bool:
+        """
+        Prüft, ob ein Gerät als vertrauenswürdig markiert ist
+        
+        Args:
+            admin_id: ID des Admin-Benutzers  
+            device_fingerprint: Device-Fingerprint zum Prüfen
+            
+        Returns:
+            True wenn Gerät vertrauenswürdig und nicht abgelaufen
+        """
+        try:
+            from datetime import datetime
+            
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT id, expires_at FROM admin_trusted_devices
+                    WHERE admin_id = ? AND device_fingerprint = ? AND expires_at > ?
+                """, (admin_id, device_fingerprint, datetime.now().isoformat()))
+                
+                result = cursor.fetchone()
+                
+                if result:
+                    # Letzten Zugriff aktualisieren
+                    cursor.execute("""
+                        UPDATE admin_trusted_devices 
+                        SET last_used = ?
+                        WHERE id = ?
+                    """, (datetime.now().isoformat(), result[0]))
+                    
+                    conn.commit()
+                    conn.close()
+                    
+                    logger.info(f"✅ Vertrauenswürdiges Gerät erkannt für Admin ID {admin_id}")
+                    return True
+                else:
+                    conn.close()
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"Fehler beim Prüfen des vertrauenswürdigen Geräts: {e}")
+            return False
+    
+    def get_trusted_devices(self, admin_id: int) -> List[Dict[str, Any]]:
+        """
+        Holt alle vertrauenswürdigen Geräte für einen Admin
+        
+        Args:
+            admin_id: ID des Admin-Benutzers
+            
+        Returns:
+            Liste der vertrauenswürdigen Geräte
+        """
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT id, device_fingerprint, device_name, user_agent, 
+                           ip_address, expires_at, last_used, created_at
+                    FROM admin_trusted_devices
+                    WHERE admin_id = ?
+                    ORDER BY last_used DESC
+                """, (admin_id,))
+                
+                devices = []
+                for row in cursor.fetchall():
+                    devices.append({
+                        'id': row[0],
+                        'device_fingerprint': row[1],
+                        'device_name': row[2],
+                        'user_agent': row[3],
+                        'ip_address': row[4],
+                        'expires_at': row[5],
+                        'last_used': row[6],
+                        'created_at': row[7]
+                    })
+                
+                conn.close()
+                return devices
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Abrufen der vertrauenswürdigen Geräte: {e}")
+            return []
+    
+    def remove_trusted_device(self, admin_id: int, device_id: int = None, 
+                             device_fingerprint: str = None) -> bool:
+        """
+        Entfernt ein vertrauenswürdiges Gerät
+        
+        Args:
+            admin_id: ID des Admin-Benutzers
+            device_id: ID des zu entfernenden Geräts
+            device_fingerprint: Fingerprint des zu entfernenden Geräts
+            
+        Returns:
+            True bei Erfolg
+        """
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                if device_id:
+                    cursor.execute("""
+                        DELETE FROM admin_trusted_devices
+                        WHERE admin_id = ? AND id = ?
+                    """, (admin_id, device_id))
+                elif device_fingerprint:
+                    cursor.execute("""
+                        DELETE FROM admin_trusted_devices
+                        WHERE admin_id = ? AND device_fingerprint = ?
+                    """, (admin_id, device_fingerprint))
+                else:
+                    conn.close()
+                    return False
+                
+                removed_count = cursor.rowcount
+                conn.commit()
+                conn.close()
+                
+                if removed_count > 0:
+                    logger.info(f"🗑️ Vertrauenswürdiges Gerät entfernt für Admin ID {admin_id}")
+                    return True
+                else:
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"Fehler beim Entfernen des vertrauenswürdigen Geräts: {e}")
+            return False
+    
+    def cleanup_expired_trusted_devices(self):
+        """Entfernt abgelaufene vertrauenswürdige Geräte"""
+        try:
+            from datetime import datetime
+            
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    DELETE FROM admin_trusted_devices 
+                    WHERE expires_at < ?
+                """, (datetime.now().isoformat(),))
+                
+                deleted_count = cursor.rowcount
+                conn.commit()
+                conn.close()
+                
+                if deleted_count > 0:
+                    logger.info(f"🧹 {deleted_count} abgelaufene vertrauenswürdige Geräte entfernt")
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Bereinigen der vertrauenswürdigen Geräte: {e}")
