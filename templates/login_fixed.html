@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hochzeitsplaner - Login</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    
+    <!-- Optimiertes CSS ohne CDN-Abhängigkeiten - Guest Dashboard Stil -->
+    <style>
+        /* CSS Reset und Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        /* Container Styles - Guest Dashboard Style */
+        .container {
+            width: 100%;
+            max-width: 450px;
+        }
+        
+        .login-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            padding: 2.5rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Header Section - Guest Dashboard Style */
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #d4af37, #f4e4bc);
+            border-radius: 10px;
+            color: #8b7355;
+        }
+        
+        .wedding-icon {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .login-title {
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .login-subtitle {
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+        
+        /* Input Styles - Guest Dashboard Style */
+        .input-group {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+        
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            z-index: 2;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            background: #f8f9fa;
+            transition: all 0.15s ease-in-out;
+        }
+        
+        .form-control-with-icon {
+            padding-left: 3rem;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #d4af37;
+            box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.25);
+            background: white;
+        }
+        
+        /* Button Styles - Guest Dashboard Style */
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 2rem;
+            font-size: 1rem;
+            font-weight: 500;
+            text-align: center;
+            text-decoration: none;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+            width: 100%;
+        }
+        
+        .btn-primary {
+            color: white;
+            background: linear-gradient(135deg, #d4af37, #f4e4bc);
+            border: 2px solid #d4af37;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
+            background: linear-gradient(135deg, #c19b26, #e6d3a5);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        
+        /* Alert Styles - Guest Dashboard Style */
+        .alert {
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .alert-danger {
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        
+        .alert-icon {
+            margin-right: 0.5rem;
+            font-size: 1.2rem;
+        }
+        
+        /* 2FA Specific Styles */
+        .two-fa-section {
+            text-align: center;
+        }
+        
+        .two-fa-section h3 {
+            color: #d4af37;
+            margin-bottom: 1rem;
+        }
+        
+        .two-fa-section p {
+            color: #666;
+            margin-bottom: 1.5rem;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 10px;
+            }
+            
+            .login-card {
+                padding: 2rem 1.5rem;
+            }
+            
+            .wedding-icon {
+                font-size: 3rem;
+            }
+            
+            .login-title {
+                font-size: 1.5rem;
+            }
+        }
+        
+        /* Animation für smooth loading */
+        .login-card {
+            animation: fadeInUp 0.5s ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="login-card">
+            <!-- Header im Guest Dashboard Stil -->
+            <div class="login-header">
+                <div class="wedding-icon">💕</div>
+                <h1 class="login-title">Hochzeitsplaner</h1>
+                <p class="login-subtitle">Bitte melden Sie sich an</p>
+            </div>
+            
+            <!-- Error Alert -->
+            {% if error %}
+            <div class="alert alert-danger" role="alert">
+                <span class="alert-icon">⚠️</span>
+                {{ error }}
+            </div>
+            {% endif %}
+            
+            <!-- 2FA Verification Form -->
+            {% if requires_2fa %}
+            <div class="two-fa-section">
+                <h3>🔐 Zwei-Faktor-Authentifizierung</h3>
+                <p>Geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein:</p>
+                
+                <form id="twoFaForm">
+                    <div class="input-group">
+                        <span class="input-icon">🔑</span>
+                        <input type="text" 
+                               class="form-control form-control-with-icon" 
+                               id="verification_code" 
+                               name="verification_code" 
+                               placeholder="123456"
+                               maxlength="6"
+                               pattern="[0-9]{6}"
+                               autocomplete="off"
+                               required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <span style="margin-right: 0.5rem;">✅</span>
+                        Verifizieren
+                    </button>
+                </form>
+                
+                <div style="text-align: center; margin-top: 1rem;">
+                    <p style="color: #666; font-size: 0.9rem;">
+                        Alternativ können Sie einen Backup-Code verwenden
+                    </p>
+                </div>
+                
+                <input type="hidden" id="session_token" value="{{ session_token }}">
+                <input type="hidden" id="username" value="{{ username }}">
+            </div>
+            
+            <script>
+                document.getElementById('twoFaForm').addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const sessionToken = document.getElementById('session_token').value;
+                    const verificationCode = document.getElementById('verification_code').value;
+                    
+                    if (verificationCode.length !== 6) {
+                        alert('Bitte geben Sie einen 6-stelligen Code ein');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('/admin/2fa/verify', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                session_token: sessionToken,
+                                verification_code: verificationCode
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            window.location.href = result.redirect_url;
+                        } else {
+                            alert(result.error || 'Verifikation fehlgeschlagen');
+                            document.getElementById('verification_code').value = '';
+                            document.getElementById('verification_code').focus();
+                        }
+                    } catch (error) {
+                        console.error('2FA Verification error:', error);
+                        alert('Fehler bei der Verifikation. Bitte versuchen Sie es erneut.');
+                    }
+                });
+                
+                // Auto-focus auf Verifikationscode-Feld
+                document.getElementById('verification_code').focus();
+            </script>
+            
+            {% else %}
+            <!-- Normal Login Form -->
+            <form method="POST" action="{{ url_for('login') }}">
+                <div class="input-group">
+                    <span class="input-icon">👤</span>
+                    <input type="text" 
+                           class="form-control form-control-with-icon" 
+                           id="username" 
+                           name="username" 
+                           placeholder="Ihr Benutzername"
+                           required>
+                </div>
+                
+                <div class="input-group">
+                    <span class="input-icon">🔒</span>
+                    <input type="password" 
+                           class="form-control form-control-with-icon" 
+                           id="password" 
+                           name="password" 
+                           placeholder="Ihr Passwort"
+                           required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    <span style="margin-right: 0.5rem;">🚪</span>
+                    Anmelden
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

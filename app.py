@@ -280,8 +280,10 @@ def authenticate_guest(username, password):
             
             # Passwort-Prüfung
             if password.lower() in [p for p in expected_passwords if p]:
-                # First Login Check
-                is_first_login = guest_data.get('first_login', 1) == 1
+                # First Login Check - Prüfe sowohl 1 als auch NULL (für Fallback)
+                is_first_login = guest_data.get('first_login') in [1, '1', None]
+                
+                logger.info(f"🔐 Guest Login: {username} - First Login: {is_first_login} (DB-Wert: {guest_data.get('first_login')})")
                 
                 # First Login vermerken (nur wenn es der erste ist)
                 if is_first_login:
@@ -292,6 +294,7 @@ def authenticate_guest(username, password):
                                 SET first_login = 0, first_login_at = CURRENT_TIMESTAMP 
                                 WHERE id = ?
                             """, (guest_data['id'],))
+                            logger.info(f"✅ First Login für Gast {guest_data['id']} vermerkt")
                     except Exception as e:
                         logger.error(f"Fehler beim First-Login-Tracking: {e}")
                 
@@ -3693,10 +3696,148 @@ def api_settings_get():
             'invitation_texts', 'gaeste_informationen'
         ]
         
+        # Lade alle Settings einzeln und stelle sicher, dass sie verfügbar sind
         for setting_key in basic_settings:
             value = data_manager.get_setting(setting_key, '')
-            if value and setting_key not in settings:
+            if value:
                 settings[setting_key] = value
+        
+        # Spezielle Behandlung für First Login Daten - Debug-Logging
+        first_login_fields = ['first_login_image', 'first_login_image_data', 'first_login_text']
+        for field in first_login_fields:
+            field_value = settings.get(field, '')
+            if field == 'first_login_image_data' and field_value:
+                # Für Base64-Bilder zeige nur die Länge an
+                logger.info(f"🔍 First Login Field '{field}': Base64 vorhanden (Länge: {len(field_value)} Zeichen)")
+                # Entferne zu große Base64-Daten aus der Settings-Response um HTTP 414 zu vermeiden
+                if len(field_value) > 100000:  # 100KB Limit für inline Übertragung
+                    logger.info(f"⚠️ Base64-Bild zu groß für inline Übertragung, verwende separaten Endpunkt")
+                    settings[field] = None  # Entferne aus Settings
+                    settings['first_login_image_large'] = True  # Markiere als groß
+            else:
+                logger.info(f"🔍 First Login Field '{field}': {'Vorhanden' if field_value else 'Leer'}")
+        
+        # Stelle sicher, dass Hochzeitsdatum in verschiedenen Formaten verfügbar ist
+        if 'hochzeitsdatum' not in settings or not settings['hochzeitsdatum']:
+            # Versuche aus anderen Quellen zu laden
+            alt_date = data_manager.get_setting('hochzeitsdatum', '')
+            if alt_date:
+                settings['hochzeitsdatum'] = alt_date
+                logger.info(f"📅 Hochzeitsdatum aus Fallback geladen: {alt_date}")
+        
+        # Prüfe ob 'hochzeit' Objekt existiert und erstelle falls nötig
+        if 'hochzeit' not in settings and settings.get('hochzeitsdatum'):
+            settings['hochzeit'] = {
+                'datum': settings['hochzeitsdatum'],
+                'zeit': settings.get('hochzeitszeit', ''),
+                'ort': settings.get('hochzeitsort', '')
+            }
+            logger.info(f"📝 Hochzeit-Objekt erstellt mit Datum: {settings['hochzeitsdatum']}")
+        
+        # Location-Daten aus SQLite-Einstellungen laden und strukturieren
+        locations = {}
+        
+        # Standesamt-Daten laden
+        standesamt_name = data_manager.get_setting('standesamt_name', '')
+        if standesamt_name:
+            locations['standesamt'] = {
+                'name': standesamt_name,
+                'adresse': data_manager.get_setting('standesamt_adresse', ''),
+                'beschreibung': data_manager.get_setting('standesamt_beschreibung', '')
+            }
+        
+        # Hochzeitslocation-Daten laden
+        hochzeitslocation_name = data_manager.get_setting('hochzeitslocation_name', '')
+        if hochzeitslocation_name:
+            locations['hochzeitslocation'] = {
+                'name': hochzeitslocation_name,
+                'adresse': data_manager.get_setting('hochzeitslocation_adresse', ''),
+                'beschreibung': data_manager.get_setting('hochzeitslocation_beschreibung', '')
+            }
+        
+        # Locations zu Settings hinzufügen wenn vorhanden
+        if locations:
+            settings['locations'] = locations
+        
+        # Legacy-Support: hochzeitsort für alte Kompatibilität
+        if hochzeitslocation_name:
+            settings['hochzeitsort'] = locations.get('hochzeitslocation', {})
+        
+        cleaned_settings = clean_json_data(settings)
+        
+        # Response mit Cache-Control Headers erstellen
+        response_data = {"success": True, "settings": cleaned_settings}
+        response = make_response(jsonify(response_data))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        return response
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Einstellungen aus SQLite: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/settings/first-login-image")
+@require_auth
+@require_role(['admin', 'user', 'guest'])
+def api_first_login_image():
+    """Separater Endpunkt für große First Login Bilder"""
+    try:
+        if not data_manager:
+            return jsonify({"error": "DataManager nicht initialisiert"}), 500
+        
+        # Lade das First Login Bild direkt
+        image_data = data_manager.get_setting('first_login_image_data', '')
+        
+        if image_data:
+            logger.info(f"🖼️ First Login Bild geladen (Länge: {len(image_data)} Zeichen)")
+            
+            # Response mit Cache-Control Headers erstellen
+            response_data = {"success": True, "image_data": image_data}
+            response = make_response(jsonify(response_data))
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            
+            return response
+        else:
+            return jsonify({"success": False, "message": "Kein First Login Bild verfügbar"})
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Laden des First Login Bildes: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/debug/reset-first-login/<int:guest_id>", methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def api_debug_reset_first_login(guest_id):
+    """Debug-Endpunkt zum Zurücksetzen des First Login Status eines Gastes"""
+    try:
+        if not data_manager:
+            return jsonify({"error": "DataManager nicht initialisiert"}), 500
+        
+        with data_manager._get_connection() as conn:
+            cursor = conn.execute("""
+                UPDATE gaeste 
+                SET first_login = 1, first_login_at = NULL 
+                WHERE id = ?
+            """, (guest_id,))
+            
+            if cursor.rowcount > 0:
+                logger.info(f"🔄 First Login für Gast {guest_id} zurückgesetzt")
+                return jsonify({
+                    "success": True, 
+                    "message": f"First Login für Gast {guest_id} zurückgesetzt"
+                })
+            else:
+                return jsonify({
+                    "success": False, 
+                    "message": f"Gast {guest_id} nicht gefunden"
+                })
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Zurücksetzen des First Login: {str(e)}")
+        return jsonify({"error": str(e)}), 500
         
         # Location-Daten aus SQLite-Einstellungen laden und strukturieren
         locations = {}
