@@ -105,6 +105,7 @@ function initializeNotizen() {
     // Prüfe ob wichtige Elemente existieren
     const notizForm = document.getElementById('notizForm');
     const notizModal = document.getElementById('notizModal');
+    const notizenContainer = document.getElementById('notizen-container');
     
     if (!notizForm) {
         console.error('notizForm Element nicht gefunden!');
@@ -113,6 +114,11 @@ function initializeNotizen() {
     
     if (!notizModal) {
         console.error('notizModal Element nicht gefunden!');
+        return;
+    }
+    
+    if (!notizenContainer) {
+        console.error('notizen-container Element nicht gefunden!');
         return;
     }
     
@@ -185,7 +191,15 @@ function setupEventListeners() {
     // Modal Event Listeners
     const notizModal = document.getElementById('notizModal');
     if (notizModal) {
-        notizModal.addEventListener('show.bs.modal', function() {
+        notizModal.addEventListener('show.bs.modal', function(event) {
+            // Nur leeren wenn es eine neue Notiz ist (nicht beim Bearbeiten)
+            if (!currentNotizId) {
+                clearNotizForm();
+            }
+        });
+        
+        notizModal.addEventListener('hidden.bs.modal', function() {
+            // Nach dem Schließen immer leeren
             clearNotizForm();
         });
     }
@@ -194,25 +208,73 @@ function setupEventListeners() {
 // Notizen laden
 function loadNotizen() {
     fetch('/api/notizen')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
-            notizen = data;
+            // API gibt jetzt direkt ein Array zurück
+            if (Array.isArray(data)) {
+                notizen = data;
+            } else {
+                console.error('API Response ist kein Array:', data);
+                notizen = [];
+            }
             displayNotizen(notizen);
             updateStatistics();
         })
         .catch(error => {
             console.error('Fehler beim Laden der Notizen:', error);
             showError('Fehler beim Laden der Notizen');
+            notizen = []; // Fallback auf leeres Array
+            displayNotizen(notizen);
+            
+            // Loading-State auch bei Fehlern verstecken
+            const loadingState = document.getElementById('loading-state');
+            if (loadingState) {
+                loadingState.style.display = 'none';
+            }
         });
 }
 
 // Notizen anzeigen
 function displayNotizen(notizenToShow) {
     const container = document.getElementById('notizen-container');
+    const loadingState = document.getElementById('loading-state');
+    const emptyState = document.getElementById('empty-state');
     
-    if (!notizenToShow || notizenToShow.length === 0) {
-        container.innerHTML = '<div class="col-12"><div class="alert alert-info">Keine Notizen vorhanden.</div></div>';
+    // Loading-State verstecken
+    if (loadingState) {
+        loadingState.style.display = 'none';
+    }
+    
+    // Prüfe ob Container existiert
+    if (!container) {
+        console.error('notizen-container Element nicht gefunden!');
         return;
+    }
+    
+    // Sicherheitscheck: Stelle sicher, dass notizenToShow ein Array ist
+    if (!Array.isArray(notizenToShow)) {
+        console.error('displayNotizen: Parameter ist kein Array:', notizenToShow);
+        notizenToShow = [];
+    }
+    
+    if (notizenToShow.length === 0) {
+        container.innerHTML = '';
+        if (emptyState) {
+            emptyState.style.display = 'block';
+        } else {
+            container.innerHTML = '<div class="col-12"><div class="alert alert-info">Keine Notizen vorhanden.</div></div>';
+        }
+        return;
+    }
+    
+    // Empty-State verstecken wenn Notizen vorhanden
+    if (emptyState) {
+        emptyState.style.display = 'none';
     }
     
     container.innerHTML = notizenToShow.map(notiz => `
@@ -223,7 +285,7 @@ function displayNotizen(notizenToShow) {
                     <span class="badge badge-priority-${notiz.prioritaet}">${getPrioritaetText(notiz.prioritaet)}</span>
                 </div>
                 <div class="card-body">
-                    <p class="card-text">${escapeHtml(notiz.inhalt).substring(0, 100)}${notiz.inhalt.length > 100 ? '...' : ''}</p>
+                    <p class="card-text" style="white-space: pre-line;">${escapeHtml(notiz.inhalt).substring(0, 100)}${notiz.inhalt.length > 100 ? '...' : ''}</p>
                     <small class="text-muted">
                         <i class="fas fa-tag"></i> ${escapeHtml(notiz.kategorie)}<br>
                         <i class="fas fa-calendar"></i> ${formatDate(notiz.erstellt_am)}
@@ -313,24 +375,58 @@ function updateStatistics() {
         kategorien[notiz.kategorie] = (kategorien[notiz.kategorie] || 0) + 1;
     });
     
-    document.getElementById('total-notizen').textContent = totalCount;
-    document.getElementById('hoch-prioritaet').textContent = hochCount;
-    document.getElementById('mittel-prioritaet').textContent = mittelCount;
-    document.getElementById('niedrig-prioritaet').textContent = niedrigCount;
+    // Sichere Update der Statistik-Elemente (nur wenn sie existieren)
+    const totalElement = document.getElementById('total-notizen');
+    const hochElement = document.getElementById('hoch-prioritaet');
+    const mittelElement = document.getElementById('mittel-prioritaet');
+    const niedrigElement = document.getElementById('niedrig-prioritaet');
+    
+    if (totalElement) totalElement.textContent = totalCount;
+    if (hochElement) hochElement.textContent = hochCount;
+    if (mittelElement) mittelElement.textContent = mittelCount;
+    if (niedrigElement) niedrigElement.textContent = niedrigCount;
+}
+
+// Neue Notiz erstellen
+function newNotiz() {
+    currentNotizId = null;
+    clearNotizForm();
+    
+    // Modal-Titel setzen
+    const modalTitle = document.getElementById('notizModalLabel');
+    if (modalTitle) {
+        modalTitle.textContent = 'Neue Notiz erstellen';
+    }
 }
 
 // Notiz bearbeiten
 function editNotiz(id) {
     const notiz = notizen.find(n => n.id === id);
-    if (!notiz) return;
+    if (!notiz) {
+        console.error('Notiz mit ID', id, 'nicht gefunden');
+        return;
+    }
     
-    document.getElementById('notiz-titel').value = notiz.titel;
-    document.getElementById('notiz-kategorie').value = notiz.kategorie;
-    document.getElementById('notiz-prioritaet').value = notiz.prioritaet;
-    document.getElementById('notiz-inhalt').value = notiz.inhalt;
-    document.getElementById('notiz-id').value = notiz.id;
+    // Formular-Felder füllen
+    const titelElement = document.getElementById('notiz-titel');
+    const kategorieElement = document.getElementById('notiz-kategorie');
+    const prioritaetElement = document.getElementById('notiz-prioritaet');
+    const inhaltElement = document.getElementById('notiz-inhalt');
+    const notizIdElement = document.getElementById('notiz-id');
+    
+    if (titelElement) titelElement.value = notiz.titel;
+    if (kategorieElement) kategorieElement.value = notiz.kategorie;
+    if (prioritaetElement) prioritaetElement.value = notiz.prioritaet;
+    if (inhaltElement) inhaltElement.value = notiz.inhalt;
+    if (notizIdElement) notizIdElement.value = notiz.id;
     
     currentNotizId = id;
+    
+    // Modal-Titel ändern
+    const modalTitle = document.getElementById('notizModalLabel');
+    if (modalTitle) {
+        modalTitle.textContent = 'Notiz bearbeiten';
+    }
     
     // Modal öffnen
     const modal = new bootstrap.Modal(document.getElementById('notizModal'));
@@ -364,11 +460,20 @@ function showNotizDetails(id) {
     const notiz = notizen.find(n => n.id === id);
     if (!notiz) return;
     
-    document.getElementById('detail-titel').textContent = notiz.titel;
-    document.getElementById('detail-kategorie').textContent = notiz.kategorie;
-    document.getElementById('detail-prioritaet').textContent = getPrioritaetText(notiz.prioritaet);
-    document.getElementById('detail-inhalt').textContent = notiz.inhalt;
-    document.getElementById('detail-erstellt').textContent = formatDate(notiz.erstellt_am);
+    const titelElement = document.getElementById('detail-titel');
+    const kategorieElement = document.getElementById('detail-kategorie');
+    const prioritaetElement = document.getElementById('detail-prioritaet');
+    const inhaltElement = document.getElementById('detail-inhalt');
+    const erstelltElement = document.getElementById('detail-erstellt');
+    
+    if (titelElement) titelElement.textContent = notiz.titel;
+    if (kategorieElement) kategorieElement.textContent = notiz.kategorie;
+    if (prioritaetElement) prioritaetElement.textContent = getPrioritaetText(notiz.prioritaet);
+    if (inhaltElement) {
+        inhaltElement.innerHTML = escapeHtmlWithLineBreaks(notiz.inhalt);
+        inhaltElement.style.whiteSpace = 'pre-line';
+    }
+    if (erstelltElement) erstelltElement.textContent = formatDate(notiz.erstellt_am);
     
     const modal = new bootstrap.Modal(document.getElementById('notizDetailModal'));
     modal.show();
@@ -376,9 +481,23 @@ function showNotizDetails(id) {
 
 // Formular leeren
 function clearNotizForm() {
-    document.getElementById('notizForm').reset();
-    document.getElementById('notiz-id').value = '';
+    const form = document.getElementById('notizForm');
+    if (form) {
+        form.reset();
+    }
+    
+    const notizIdElement = document.getElementById('notiz-id');
+    if (notizIdElement) {
+        notizIdElement.value = '';
+    }
+    
     currentNotizId = null;
+    
+    // Modal-Titel zurücksetzen
+    const modalTitle = document.getElementById('notizModalLabel');
+    if (modalTitle) {
+        modalTitle.textContent = 'Neue Notiz erstellen';
+    }
 }
 
 // Hilfsfunktionen
@@ -456,6 +575,13 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
+function escapeHtmlWithLineBreaks(unsafe) {
+    return escapeHtml(unsafe)
+        .replace(/\n/g, "<br>")
+        .replace(/\r\n/g, "<br>")
+        .replace(/\r/g, "<br>");
+}
+
 function showSuccess(message) {
     // Toast oder Alert für Erfolgsmeldungen
     const alertDiv = document.createElement('div');
@@ -493,6 +619,7 @@ function showError(message) {
 }
 
 // Globale Funktionen für onclick Handler
+window.newNotiz = newNotiz;
 window.editNotiz = editNotiz;
 window.deleteNotiz = deleteNotiz;
 window.showNotizDetails = showNotizDetails;
