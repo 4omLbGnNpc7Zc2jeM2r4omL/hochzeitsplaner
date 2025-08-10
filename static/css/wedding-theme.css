@@ -455,6 +455,13 @@
     margin: 8px 16px;
 }
 
+/* Desktop Progress Bar Styling (Standard ohne Media Query) */
+.budget-status-card .progress {
+    height: 12px !important;
+    border-radius: 8px !important;
+    position: relative !important;
+}
+
 /* Mobile Navigation Dropdown Anpassungen */
 @media (max-width: 991.98px) {
     .navbar-nav .dropdown-menu {
@@ -853,10 +860,229 @@
 
 /* ===== RESPONSIVE ANPASSUNGEN ===== */
 
-/* Tablets and small screens */
+/* Desktop und große Bildschirme (1201px+) */
+@media (min-width: 1201px) {
+    .dashboard-card .card-title {
+        font-size: 0.9rem;
+    }
+    
+    .dashboard-card h3 {
+        font-size: 1.6rem;
+    }
+    
+    .dashboard-card small {
+        font-size: 0.8rem;
+    }
+}
+
+/* Tablet Querformat (993px - 1200px) */
+@media (min-width: 993px) and (max-width: 1200px) {
+    .dashboard-card {
+        min-height: 125px;
+    }
+    
+    .dashboard-card .card-title {
+        font-size: 0.85rem;
+    }
+    
+    .dashboard-card h3 {
+        font-size: clamp(1.3rem, 2.5vw, 1.5rem);
+    }
+    
+    .dashboard-card small {
+        font-size: 0.75rem;
+    }
+    
+    .event-card {
+        min-height: 120px;
+    }
+    
+    .budget-status-card .progress {
+        height: 18px;
+    }
+    
+    .budget-status-card .progress-text {
+        font-size: 0.75rem;
+    }
+}
+
+/* Tablet Hochformat (769px - 992px) */
+@media (min-width: 769px) and (max-width: 992px) {
+    .dashboard-card {
+        min-height: 110px;
+        max-height: 110px;
+    }
+    
+    .dashboard-card .card-body {
+        padding: 0.75rem;
+        overflow: hidden;
+    }
+    
+    .dashboard-card .card-title {
+        font-size: 0.7rem;
+        line-height: 1.1;
+        margin-bottom: 0.25rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .dashboard-card h3 {
+        font-size: 1.1rem;
+        line-height: 1.1;
+        margin-bottom: 0.1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .dashboard-card small {
+        font-size: 0.6rem;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .dashboard-card .fs-1 {
+        font-size: 1.4rem !important;
+    }
+    
+    .event-card {
+        min-height: 110px;
+        max-height: 110px;
+    }
+    
+    .event-card .card-body {
+        padding: 0.75rem;
+        overflow: hidden;
+    }
+    
+    .budget-status-card {
+        min-height: 115px;
+        max-height: 115px;
+    }
+    
+    .budget-status-card .card-body {
+        padding: 0.75rem;
+        overflow: hidden;
+    }
+    
+    .budget-status-card .progress {
+        height: 7px;
+        margin-top: -8px;
+        width: 85%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .budget-status-card .progress-text {
+        font-size: 0.6rem;
+        margin-top: 0.1rem;
+    }
+    
+    .budget-status-card .bi-graph-up-arrow {
+        font-size: 1.4rem !important;
+    }
+}
+
+/* Tablet 1024px Breakpoint (mobile-ähnliche Schriftgrößen) */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .dashboard-card {
+        min-height: 105px;
+        max-height: 105px;
+    }
+    
+    .dashboard-card .card-body {
+        padding: 0.7rem;
+        overflow: hidden;
+    }
+    
+    .dashboard-card .card-title {
+        font-size: 0.65rem;
+        line-height: 1.1;
+        margin-bottom: 0.2rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .dashboard-card h3 {
+        font-size: 1rem;
+        line-height: 1.1;
+        margin-bottom: 0.1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .dashboard-card small {
+        font-size: 0.55rem;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .dashboard-card .fs-1 {
+        font-size: 1.3rem !important;
+    }
+    
+    .event-card {
+        min-height: 105px;
+        max-height: 105px;
+    }
+    
+    .event-card .card-body {
+        padding: 0.7rem;
+        overflow: hidden;
+    }
+    
+    .budget-status-card {
+        min-height: 110px;
+        max-height: 110px;
+    }
+    
+    .budget-status-card .card-body {
+        padding: 0.7rem;
+        overflow: hidden;
+    }
+    
+    .budget-status-card .progress {
+        height: 4px;
+        margin-top: -8px;
+        width: 82%;
+        margin-left: auto;
+        margin-right: auto;
+        border-radius: 2px;
+    }
+    
+    .budget-status-card .progress-text {
+        font-size: 0.55rem;
+        margin-top: 0.1rem;
+    }
+    
+    .budget-status-card .bi-graph-up-arrow {
+        font-size: 1.3rem !important;
+    }
+}
+
+/* Tablets and small screens (max-width: 768px) */
 @media (max-width: 768px) {
     .dashboard-card {
         min-height: 100px;
+    }
+    
+    .dashboard-card .card-title {
+        font-size: 0.75rem;
+    }
+    
+    .dashboard-card h3 {
+        font-size: clamp(1.1rem, 3.5vw, 1.3rem);
+    }
+    
+    .dashboard-card small {
+        font-size: 0.65rem;
     }
     
     .dashboard-card .card-body {
@@ -883,46 +1109,108 @@
         flex: none;
         width: 100%;
     }
+    
+    .budget-status-card .progress {
+        height: 16px;
+    }
+    
+    .budget-status-card .progress-text {
+        font-size: 0.65rem;
+    }
 }
 
-/* Mobile phones and small devices */
+/* Mobile phones and small devices (max-width: 576px) */
 @media (max-width: 576px) {
     .dashboard-card {
         min-height: 85px;
+    }
+    
+    .dashboard-card .card-title {
+        font-size: clamp(0.7rem, 2.5vw, 0.8rem);
+        margin-bottom: 0.25rem;
+    }
+    
+    .dashboard-card h3 {
+        font-size: clamp(1rem, 3.5vw, 1.2rem);
+        margin-bottom: 0.25rem;
+    }
+    
+    .dashboard-card small {
+        font-size: clamp(0.6rem, 2vw, 0.7rem);
     }
     
     .dashboard-card .card-body {
         padding: 0.75rem;
     }
     
-    .dashboard-card h3 {
-        font-size: clamp(1rem, 3vw, 1.5rem);
-        margin-bottom: 0.25rem;
-    }
-    
     .dashboard-card .fs-1 {
-        font-size: clamp(1.25rem, 3vw, 1.75rem) !important;
+        font-size: clamp(1.1rem, 3vw, 1.4rem) !important;
     }
     
-    .dashboard-card .card-title {
-        font-size: clamp(0.75rem, 2.5vw, 0.875rem);
-        margin-bottom: 0.25rem;
-    }
-    
-    .dashboard-card small {
-        font-size: clamp(0.65rem, 1.8vw, 0.75rem);
+    .event-card {
+        min-height: 75px;
     }
     
     .event-card h4 {
-        font-size: clamp(0.9rem, 3vw, 1.25rem);
+        font-size: clamp(0.9rem, 3vw, 1.1rem);
+    }
+    
+    .budget-status-card .progress {
+        height: 7px !important;
+        margin-top: -8px;
+        width: 78% !important;
+        margin-left: auto;
+        margin-right: auto;
+        border-radius: 3px !important;
+    }
+    
+    .budget-status-card .progress-text {
+        font-size: clamp(0.55rem, 1.8vw, 0.65rem);
+    }
+    
+    .budget-status-card .bi-graph-up-arrow {
+        font-size: clamp(1.2rem, 3vw, 1.5rem) !important;
     }
 }
 
-/* iPhone specific optimizations */
+/* iPhone 12 Pro und ähnliche Geräte (390px) */
+@media (max-width: 390px) {
+    .budget-status-card .progress {
+        height: 5px !important;
+        margin-top: -8px;
+        width: 72% !important;
+        margin-left: auto;
+        margin-right: auto;
+        border-radius: 2px !important;
+    }
+    
+    .budget-status-card .progress-text {
+        font-size: clamp(0.5rem, 1.6vw, 0.6rem);
+    }
+}
+
+/* iPhone und sehr kleine Geräte (max-width: 414px) */
 @media (max-width: 414px) {
     .dashboard-card {
         min-height: 75px;
         margin-bottom: 0.75rem;
+    }
+    
+    .dashboard-card .card-title {
+        font-size: clamp(0.65rem, 2.2vw, 0.75rem);
+        margin-bottom: 0.2rem;
+        line-height: 1.2;
+    }
+    
+    .dashboard-card h3 {
+        font-size: clamp(0.9rem, 2.8vw, 1.1rem);
+        line-height: 1.1;
+        margin-bottom: 0.2rem;
+    }
+    
+    .dashboard-card small {
+        font-size: clamp(0.55rem, 1.8vw, 0.65rem);
+        line-height: 1.1;
     }
     
     .dashboard-card .card-body {
@@ -931,25 +1219,67 @@
         text-align: left;
     }
     
-    .dashboard-card h3 {
-        font-size: clamp(0.9rem, 2.8vw, 1.3rem);
+    .dashboard-card .fs-1 {
+        font-size: clamp(1rem, 2.8vw, 1.3rem) !important;
         line-height: 1.1;
     }
     
-    .dashboard-card .fs-1 {
-        font-size: clamp(1.1rem, 2.8vw, 1.5rem) !important;
-        line-height: 1.1;
+    .event-card {
+        min-height: 70px;
+    }
+    
+    .event-card h4 {
+        font-size: clamp(0.8rem, 2.5vw, 1rem);
+    }
+    
+    .budget-status-card .progress {
+        height: 6px !important;
+        margin-top: -8px;
+        width: 75% !important;
+        margin-left: auto;
+        margin-right: auto;
+        border-radius: 3px !important;
+    }
+    
+    .budget-status-card .progress-text {
+        font-size: clamp(0.5rem, 1.5vw, 0.6rem);
+    }
+    
+    .budget-status-card .bi-graph-up-arrow {
+        font-size: clamp(1rem, 2.5vw, 1.3rem) !important;
+    }
+}
+
+/* Very small screens (iPhone SE, etc.) */
+@media (max-width: 375px) {
+    .dashboard-card {
+        min-height: 70px;
+        margin-bottom: 0.5rem;
     }
     
     .dashboard-card .card-title {
-        font-size: clamp(0.7rem, 2.2vw, 0.8rem);
+        font-size: clamp(0.65rem, 2vw, 0.75rem);
         margin-bottom: 0.15rem;
         line-height: 1.2;
     }
     
+    .dashboard-card h3 {
+        font-size: clamp(0.8rem, 2.5vw, 1rem);
+        line-height: 1.1;
+        margin-bottom: 0.1rem;
+    }
+    
     .dashboard-card small {
-        font-size: clamp(0.6rem, 1.6vw, 0.7rem);
+        font-size: clamp(0.55rem, 1.5vw, 0.65rem);
         line-height: 1.2;
+    }
+    
+    .dashboard-card .card-body {
+        padding: 0.5rem;
+    }
+    
+    .dashboard-card .fs-1 {
+        font-size: clamp(0.9rem, 2.5vw, 1.2rem) !important;
     }
     
     .dashboard-card .align-self-center {
@@ -965,40 +1295,28 @@
     
     /* Budget status cards on iPhone */
     .budget-status-card .card-body {
-        padding: 0.6rem;
-    }
-    
-    .budget-status-card h3 {
-        font-size: clamp(0.9rem, 2.5vw, 1.2rem);
-    }
-}
-
-/* Very small screens (iPhone SE, etc.) */
-@media (max-width: 375px) {
-    .dashboard-card {
-        min-height: 70px;
-        margin-bottom: 0.5rem;
-    }
-    
-    .dashboard-card .card-body {
         padding: 0.5rem;
     }
     
-    .dashboard-card h3 {
-        font-size: clamp(0.8rem, 2.5vw, 1.2rem);
+    .budget-status-card h3 {
+        font-size: clamp(0.8rem, 2.5vw, 1rem);
     }
     
-    .dashboard-card .fs-1 {
-        font-size: clamp(1rem, 2.5vw, 1.4rem) !important;
+    .budget-status-card .progress {
+        height: 5px !important;
+        margin-top: -8px;
+        width: 70% !important;
+        margin-left: auto;
+        margin-right: auto;
+        border-radius: 2px !important;
     }
     
-    .dashboard-card .card-title {
-        font-size: clamp(0.65rem, 2vw, 0.75rem);
-        margin-bottom: 0.1rem;
+    .budget-status-card .progress-text {
+        font-size: clamp(0.45rem, 1.3vw, 0.55rem);
     }
     
-    .dashboard-card small {
-        font-size: clamp(0.55rem, 1.5vw, 0.65rem);
+    .budget-status-card .bi-graph-up-arrow {
+        font-size: clamp(0.9rem, 2.2vw, 1.1rem) !important;
     }
     
     .container-fluid {

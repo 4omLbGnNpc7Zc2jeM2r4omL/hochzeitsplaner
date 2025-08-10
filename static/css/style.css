@@ -778,11 +778,15 @@
 }
 
 .budget-status-card .progress {
-    border-radius: 10px;
+    border-radius: 8px !important;
     background-color: rgba(255, 255, 255, 0.3);
-    height: 20px;
-    position: relative;
+    height: 12px !important;
+    position: relative !important;
     overflow: visible;
+    margin-top: -8px;
+    width: 90%;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .budget-status-card .progress-bar {
@@ -818,34 +822,185 @@
     align-items: center;
 }
 
-/* Responsive für kleinere Bildschirme */
-@media (max-width: 768px) {
+/* Responsive Design - Tablet Hochformat (768px - 992px) */
+@media (min-width: 769px) and (max-width: 992px) {
     .dashboard-card {
         height: 110px;
+        min-height: 110px;
+    }
+    
+    .dashboard-card .card-body {
+        padding: 0.75rem;
+    }
+    
+    .dashboard-card .card-title {
+        font-size: 0.7rem;
+        line-height: 1.1;
+        margin-bottom: 0.25rem;
     }
     
     .dashboard-card h3 {
-        font-size: 1.25rem;
+        font-size: 1.1rem;
+        line-height: 1.1;
+        margin-bottom: 0.1rem;
+    }
+    
+    .dashboard-card small {
+        font-size: 0.6rem;
+        line-height: 1.2;
+    }
+    
+    .dashboard-card .fs-1 {
+        font-size: 1.4rem !important;
+    }
+    
+    .dashboard-card .align-self-center {
+        margin-left: 0.5rem;
+    }
+    
+    .budget-status-card {
+        height: 115px;
+        min-height: 115px;
+    }
+    
+    .budget-status-card .card-body {
+        padding: 0.75rem;
+    }
+    
+    .budget-status-card .card-title {
+        font-size: 0.7rem;
+        line-height: 1.1;
+        margin-bottom: 0.25rem;
+    }
+    
+    .budget-status-card h3 {
+        font-size: 1.1rem;
+        line-height: 1.1;
+        margin-bottom: 0.25rem;
+    }
+    
+    .budget-status-card small {
+        font-size: 0.6rem;
+        line-height: 1.2;
+    }
+    
+    .budget-status-card .progress {
+        height: 7px;
+        margin-top: -8px;
+        width: 85%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .budget-status-card .progress-text {
+        font-size: 0.6rem;
+        margin-top: 0.1rem;
+    }
+    
+    .budget-status-card .bi-graph-up-arrow {
+        font-size: 1.4rem !important;
+    }
+    
+    .event-card {
+        height: 110px;
+        min-height: 110px;
+    }
+    
+    .event-card .card-body {
+        padding: 0.75rem;
+    }
+    
+    .event-card .card-title {
+        font-size: 0.7rem;
+        line-height: 1.1;
+        margin-bottom: 0.25rem;
+    }
+    
+    .event-card h3 {
+        font-size: 1.1rem;
+        line-height: 1.1;
+        margin-bottom: 0.1rem;
+    }
+    
+    .container-fluid {
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+}
+
+/* Responsive Design - Tablet Querformat (992px - 1200px) */
+@media (min-width: 993px) and (max-width: 1200px) {
+    .dashboard-card {
+        height: 115px;
+        min-height: 115px;
+    }
+    
+    .dashboard-card .card-body {
+        padding: 0.8rem;
+    }
+    
+    .dashboard-card .card-title {
+        font-size: 0.75rem;
+        line-height: 1.2;
+        margin-bottom: 0.3rem;
+    }
+    
+    .dashboard-card h3 {
+        font-size: 1.2rem;
+        line-height: 1.1;
+        margin-bottom: 0.1rem;
+    }
+    
+    .dashboard-card small {
+        font-size: 0.65rem;
+        line-height: 1.2;
     }
     
     .dashboard-card .fs-1 {
         font-size: 1.5rem !important;
     }
     
+    .dashboard-card .align-self-center {
+        margin-left: 0.6rem;
+    }
+    
     .budget-status-card {
         height: 120px;
+        min-height: 120px;
+    }
+    
+    .budget-status-card .card-body {
+        padding: 0.8rem;
+    }
+    
+    .budget-status-card .card-title {
+        font-size: 0.75rem;
+        line-height: 1.2;
+        margin-bottom: 0.3rem;
     }
     
     .budget-status-card h3 {
-        font-size: 1.25rem;
+        font-size: 1.2rem;
+        line-height: 1.1;
+        margin-bottom: 0.3rem;
+    }
+    
+    .budget-status-card small {
+        font-size: 0.65rem;
+        line-height: 1.2;
     }
     
     .budget-status-card .progress {
-        height: 16px;
+        height: 8px;
+        margin-top: -8px;
+        width: 88%;
+        margin-left: auto;
+        margin-right: auto;
     }
     
     .budget-status-card .progress-text {
         font-size: 0.65rem;
+        margin-top: 0.1rem;
     }
     
     .budget-status-card .bi-graph-up-arrow {
@@ -853,7 +1008,286 @@
     }
     
     .event-card {
+        height: 115px;
+        min-height: 115px;
+    }
+    
+    .event-card .card-body {
+        padding: 0.8rem;
+    }
+    
+    .event-card .card-title {
+        font-size: 0.75rem;
+        line-height: 1.2;
+        margin-bottom: 0.3rem;
+    }
+    
+    .event-card h3 {
+        font-size: 1.2rem;
+        line-height: 1.1;
+        margin-bottom: 0.1rem;
+    }
+}
+
+/* Responsive für Tablets bei genau 1024px (mobile Schriftgrößen) */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .dashboard-card {
+        height: 105px;
+        min-height: 105px;
+    }
+    
+    .dashboard-card .card-body {
+        padding: 0.7rem;
+        overflow: hidden;
+    }
+    
+    .dashboard-card .card-title {
+        font-size: 0.65rem;
+        line-height: 1.1;
+        margin-bottom: 0.2rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .dashboard-card h3 {
+        font-size: 1rem;
+        line-height: 1.1;
+        margin-bottom: 0.1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .dashboard-card small {
+        font-size: 0.55rem;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .dashboard-card .fs-1 {
+        font-size: 1.3rem !important;
+    }
+    
+    .dashboard-card .align-self-center {
+        margin-left: 0.4rem;
+    }
+    
+    .budget-status-card {
         height: 110px;
+        min-height: 110px;
+    }
+    
+    .budget-status-card .card-body {
+        padding: 0.7rem;
+        overflow: hidden;
+    }
+    
+    .budget-status-card .card-title {
+        font-size: 0.65rem;
+        line-height: 1.1;
+        margin-bottom: 0.2rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .budget-status-card h3 {
+        font-size: 1rem;
+        line-height: 1.1;
+        margin-bottom: 0.2rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .budget-status-card small {
+        font-size: 0.55rem;
+        line-height: 1.2;
+    }
+    
+    .budget-status-card .progress {
+        height: 4px;
+        margin-top: -8px;
+        width: 82%;
+        margin-left: auto;
+        margin-right: auto;
+        border-radius: 2px;
+    }
+    
+    .budget-status-card .progress-text {
+        font-size: 0.55rem;
+        margin-top: 0.1rem;
+    }
+    
+    .budget-status-card .bi-graph-up-arrow {
+        font-size: 1.3rem !important;
+    }
+    
+    .event-card {
+        height: 105px;
+        min-height: 105px;
+    }
+    
+    .event-card .card-body {
+        padding: 0.7rem;
+        overflow: hidden;
+    }
+    
+    .event-card .card-title {
+        font-size: 0.65rem;
+        line-height: 1.1;
+        margin-bottom: 0.2rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .event-card h3 {
+        font-size: 1rem;
+        line-height: 1.1;
+        margin-bottom: 0.1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .container-fluid {
+        padding-left: 1.2rem;
+        padding-right: 1.2rem;
+    }
+}
+
+/* Responsive für Mobile Geräte (max-width: 768px) */
+@media (max-width: 768px) {
+    .dashboard-card {
+        height: 110px;
+    }
+    
+    .dashboard-card .card-title {
+        font-size: 0.75rem;
+    }
+    
+    .dashboard-card h3 {
+        font-size: 1.1rem;
+    }
+    
+    .dashboard-card small {
+        font-size: 0.65rem;
+    }
+    
+    .dashboard-card .fs-1 {
+        font-size: 1.3rem !important;
+    }
+    
+    .budget-status-card {
+        height: 110px;
+    }
+    
+    .budget-status-card .card-title {
+        font-size: 0.75rem;
+    }
+    
+    .budget-status-card h3 {
+        font-size: 1.1rem;
+    }
+    
+    .budget-status-card small {
+        font-size: 0.65rem;
+    }
+    
+    .budget-status-card .progress {
+        height: 16px;
+    }
+    
+    .budget-status-card .progress-text {
+        font-size: 0.6rem;
+    }
+    
+    .budget-status-card .bi-graph-up-arrow {
+        font-size: 1.3rem !important;
+    }
+    
+    .event-card {
+        height: 100px;
+    }
+    
+    .event-card .card-title {
+        font-size: 0.75rem;
+    }
+    
+    .event-card h3 {
+        font-size: 1.1rem;
+    }
+}
+
+/* Extra kleine Mobile Geräte (max-width: 576px) */
+@media (max-width: 576px) {
+    .dashboard-card {
+        height: 100px;
+    }
+    
+    .dashboard-card .card-title {
+        font-size: 0.7rem;
+    }
+    
+    .dashboard-card h3 {
+        font-size: 1rem;
+    }
+    
+    .dashboard-card small {
+        font-size: 0.6rem;
+    }
+    
+    .dashboard-card .fs-1 {
+        font-size: 1.1rem !important;
+    }
+    
+    .budget-status-card {
+        height: 100px;
+    }
+    
+    .budget-status-card .card-title {
+        font-size: 0.7rem;
+    }
+    
+    .budget-status-card h3 {
+        font-size: 1rem;
+    }
+    
+    .budget-status-card small {
+        font-size: 0.6rem;
+    }
+    
+    .budget-status-card .progress {
+        height: 14px;
+    }
+    
+    .budget-status-card .progress-text {
+        font-size: 0.55rem;
+    }
+    
+    .budget-status-card .bi-graph-up-arrow {
+        font-size: 1.1rem !important;
+    }
+    
+    .event-card {
+        height: 90px;
+    }
+    
+    .event-card .card-title {
+        font-size: 0.7rem;
+    }
+    
+    .event-card h3 {
+        font-size: 1rem;
+    }
+    
+    .container-fluid {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
     }
 }
 

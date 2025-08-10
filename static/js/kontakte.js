@@ -186,6 +186,18 @@ function createKontaktCard(kontakt) {
                         <button class="btn btn-outline-wedding-primary btn-sm" onclick="zeigeKontaktDetails(this)">
                             <i class="fas fa-info-circle me-2"></i>Details anzeigen
                         </button>
+                        <div class="row g-1">
+                            <div class="col-6">
+                                <button class="btn btn-outline-secondary btn-sm w-100" onclick="bearbeiteKontakt(this)">
+                                    <i class="fas fa-edit me-1"></i>Bearbeiten
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-outline-danger btn-sm w-100" onclick="loescheKontakt(this)">
+                                    <i class="fas fa-trash me-1"></i>Löschen
+                                </button>
+                            </div>
+                        </div>
                         <button class="btn btn-success btn-sm" onclick="direkteKontaktaufnahme(this)">
                             <i class="fas fa-envelope me-2"></i>Kontakt aufnehmen
                         </button>
@@ -680,6 +692,323 @@ function showNotification(message, type = 'info') {
             notification.remove();
         }
     }, 5000);
+}
+
+// Kontakt bearbeiten
+function bearbeiteKontakt(button) {
+    const card = button.closest('.contact-card');
+    const kontakt = JSON.parse(card.dataset.contact);
+    
+    // Hier können Sie ein Modal oder eine Bearbeitung-Seite öffnen
+    // Für jetzt zeigen wir eine einfache Prompt-Lösung
+    const neuerName = prompt('Neuer Name:', kontakt.name);
+    if (neuerName && neuerName !== kontakt.name) {
+        updateKontakt(kontakt.id, { name: neuerName });
+    }
+}
+
+// Kontakt löschen
+function loescheKontakt(button) {
+    const card = button.closest('.contact-card');
+    const kontakt = JSON.parse(card.dataset.contact);
+    
+    // Direkt löschen ohne Bestätigung
+    deleteKontakt(kontakt.id);
+}
+
+// Kontakt aktualisieren (API Call)
+async function updateKontakt(kontaktId, updateData) {
+    try {
+        const response = await fetch(`/api/kontakte/update/${kontaktId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification('Kontakt wurde erfolgreich aktualisiert.', 'success');
+            ladeKontakte(); // Kontakte neu laden
+        } else {
+            throw new Error(result.error || 'Unbekannter Fehler');
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Aktualisieren des Kontakts:', error);
+        showNotification('Fehler beim Aktualisieren des Kontakts: ' + error.message, 'error');
+    }
+}
+
+// Kontakt bearbeiten
+function bearbeiteKontakt(button) {
+    try {
+        const card = button.closest('.contact-card');
+        const kontaktData = JSON.parse(card.dataset.contact);
+        
+        // Prüfe ob Modal vorhanden ist, falls nicht erstelle eins
+        let editModal = document.getElementById('editContactModal');
+        if (!editModal) {
+            createEditContactModal();
+            editModal = document.getElementById('editContactModal');
+        }
+        
+        // Formular mit Kontakt-Daten füllen
+        populateEditForm(kontaktData);
+        
+        // Modal öffnen
+        const modal = new bootstrap.Modal(editModal);
+        modal.show();
+        
+    } catch (error) {
+        console.error('Fehler beim Bearbeiten des Kontakts:', error);
+        showNotification('Fehler beim Laden des Kontakts.', 'error');
+    }
+}
+
+// Kontakt löschen
+function loescheKontakt(button) {
+    try {
+        const card = button.closest('.contact-card');
+        const kontaktData = JSON.parse(card.dataset.contact);
+        
+        // Direkt löschen ohne Bestätigung
+        deleteKontakt(kontaktData.id);
+        
+    } catch (error) {
+        console.error('Fehler beim Löschen des Kontakts:', error);
+        showNotification('Fehler beim Löschen des Kontakts.', 'error');
+    }
+}
+
+// Edit Modal erstellen
+function createEditContactModal() {
+    const modalHtml = `
+        <div class="modal fade" id="editContactModal" tabindex="-1" aria-labelledby="editContactModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editContactModalLabel">
+                            <i class="fas fa-edit me-2"></i>Kontakt bearbeiten
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form id="editContactForm">
+                        <div class="modal-body">
+                            <input type="hidden" id="edit-kontakt-id" name="kontakt_id">
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="edit-name" class="form-label">Name *</label>
+                                        <input type="text" class="form-control" id="edit-name" name="name" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="edit-kategorie" class="form-label">Kategorie *</label>
+                                        <select class="form-select" id="edit-kategorie" name="kategorie" required>
+                                            <option value="">Bitte wählen...</option>
+                                            <option value="Fotograf">Fotograf</option>
+                                            <option value="DJ">DJ/Musik</option>
+                                            <option value="Caterer">Caterer</option>
+                                            <option value="Location">Location</option>
+                                            <option value="Florist">Florist</option>
+                                            <option value="Band">Band</option>
+                                            <option value="Videograf">Videograf</option>
+                                            <option value="Konditor">Konditor/Torte</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="edit-telefon" class="form-label">Telefon</label>
+                                        <input type="tel" class="form-control" id="edit-telefon" name="telefon">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="edit-email" class="form-label">E-Mail</label>
+                                        <input type="email" class="form-control" id="edit-email" name="email">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="edit-adresse" class="form-label">Adresse</label>
+                                <input type="text" class="form-control" id="edit-adresse" name="adresse">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="edit-website" class="form-label">Website</label>
+                                <input type="url" class="form-control" id="edit-website" name="website" placeholder="https://">
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="edit-preis-von" class="form-label">Preis von (€)</label>
+                                        <input type="number" class="form-control" id="edit-preis-von" name="preis_von" min="0" step="10">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="edit-preis-bis" class="form-label">Preis bis (€)</label>
+                                        <input type="number" class="form-control" id="edit-preis-bis" name="preis_bis" min="0" step="10">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="edit-bewertung" class="form-label">Bewertung</label>
+                                        <select class="form-select" id="edit-bewertung" name="bewertung">
+                                            <option value="">Nicht bewertet</option>
+                                            <option value="1">⭐ (1 Stern)</option>
+                                            <option value="2">⭐⭐ (2 Sterne)</option>
+                                            <option value="3">⭐⭐⭐ (3 Sterne)</option>
+                                            <option value="4">⭐⭐⭐⭐ (4 Sterne)</option>
+                                            <option value="5">⭐⭐⭐⭐⭐ (5 Sterne)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="edit-bild-url" class="form-label">Bild-URL</label>
+                                <input type="url" class="form-control" id="edit-bild-url" name="bild_url" placeholder="https://">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="edit-notizen" class="form-label">Notizen</label>
+                                <textarea class="form-control" id="edit-notizen" name="notizen" rows="3"></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-2"></i>Abbrechen
+                            </button>
+                            <button type="submit" class="btn btn-wedding-primary">
+                                <i class="fas fa-save me-2"></i>Speichern
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Event Listener für das Edit-Formular
+    document.getElementById('editContactForm').addEventListener('submit', handleEditContactSubmit);
+}
+
+// Edit Form mit Daten füllen
+function populateEditForm(kontakt) {
+    document.getElementById('edit-kontakt-id').value = kontakt.id;
+    document.getElementById('edit-name').value = kontakt.name || '';
+    document.getElementById('edit-kategorie').value = kontakt.kategorie || '';
+    document.getElementById('edit-telefon').value = kontakt.telefon || '';
+    document.getElementById('edit-email').value = kontakt.email || '';
+    document.getElementById('edit-adresse').value = kontakt.adresse || '';
+    document.getElementById('edit-website').value = kontakt.website || '';
+    document.getElementById('edit-preis-von').value = kontakt.preis_von || '';
+    document.getElementById('edit-preis-bis').value = kontakt.preis_bis || '';
+    document.getElementById('edit-bewertung').value = kontakt.bewertung || '';
+    document.getElementById('edit-bild-url').value = kontakt.bild_url || '';
+    document.getElementById('edit-notizen').value = kontakt.notizen || '';
+}
+
+// Edit Form Submit Handler
+async function handleEditContactSubmit(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const kontaktId = formData.get('kontakt_id');
+    
+    const kontaktData = {
+        name: formData.get('name'),
+        kategorie: formData.get('kategorie'),
+        telefon: formData.get('telefon'),
+        email: formData.get('email'),
+        adresse: formData.get('adresse'),
+        website: formData.get('website'),
+        preis_von: formData.get('preis_von') ? parseInt(formData.get('preis_von')) : null,
+        preis_bis: formData.get('preis_bis') ? parseInt(formData.get('preis_bis')) : null,
+        bewertung: formData.get('bewertung') ? parseInt(formData.get('bewertung')) : null,
+        bild_url: formData.get('bild_url'),
+        notizen: formData.get('notizen')
+    };
+    
+    try {
+        const response = await fetch(`/api/kontakte/update/${kontaktId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(kontaktData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Modal schließen
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editContactModal'));
+            modal.hide();
+            
+            // Kontakte neu laden
+            ladeKontakte();
+            
+            showNotification('Kontakt wurde erfolgreich aktualisiert.', 'success');
+        } else {
+            throw new Error(result.error || 'Unbekannter Fehler');
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Aktualisieren des Kontakts:', error);
+        showNotification('Fehler beim Aktualisieren des Kontakts: ' + error.message, 'error');
+    }
+}
+
+// Kontakt löschen (API Call)
+async function deleteKontakt(kontaktId) {
+    try {
+        const response = await fetch(`/api/kontakte/delete/${kontaktId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification('Kontakt wurde erfolgreich gelöscht.', 'success');
+            ladeKontakte(); // Kontakte neu laden
+        } else {
+            throw new Error(result.error || 'Unbekannter Fehler');
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Löschen des Kontakts:', error);
+        showNotification('Fehler beim Löschen des Kontakts: ' + error.message, 'error');
+    }
 }
 
 // Event Listener für das Modal aktualisieren

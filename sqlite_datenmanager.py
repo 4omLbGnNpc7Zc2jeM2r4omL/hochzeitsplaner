@@ -134,6 +134,9 @@ class SQLiteHochzeitsDatenManager:
                 # Tischplanung-Tabellen initialisieren
                 self._init_tischplanung_tables()
                 
+                # Alle wichtigen Tabellen sicherstellen
+                self._ensure_all_tables()
+                
         except Exception as e:
             logger.error(f"Fehler bei Datenbankinitialisierung: {e}")
             raise
@@ -186,6 +189,19 @@ class SQLiteHochzeitsDatenManager:
                 ('hochzeitszeit', '15:00', 'time', 'Uhrzeit der Hochzeit'),
                 ('braut_name', 'Käthe', 'string', 'Name der Braut'),
                 ('braeutigam_name', 'Pascal', 'string', 'Name des Bräutigams');
+            
+            -- Notizliste Tabelle
+            CREATE TABLE IF NOT EXISTS notizen (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                titel TEXT NOT NULL,
+                inhalt TEXT,
+                kategorie TEXT DEFAULT 'Allgemein',
+                prioritaet TEXT DEFAULT 'Normal',
+                erstellt_von TEXT,
+                erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+                bearbeitet_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT chk_prioritaet CHECK (prioritaet IN ('Niedrig', 'Normal', 'Hoch', 'Dringend'))
+            );
         """)
     
     def _migrate_tischplanung_config(self, conn):
@@ -229,6 +245,98 @@ class SQLiteHochzeitsDatenManager:
             
         except Exception as e:
             logger.error(f"Fehler bei Migration von tischplanung_config: {e}")
+            raise
+    
+    def _ensure_all_tables(self):
+        """Stellt sicher, dass alle wichtigen Tabellen existieren"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Prüfe welche Tabellen existieren
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                existing_tables = {row[0] for row in cursor.fetchall()}
+                
+                logger.info(f"Vorhandene Tabellen: {existing_tables}")
+                
+                # Notizen-Tabelle sicherstellen
+                if 'notizen' not in existing_tables:
+                    logger.info("🔄 Erstelle Notizen-Tabelle...")
+                    cursor.execute("""
+                        CREATE TABLE notizen (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            titel TEXT NOT NULL,
+                            inhalt TEXT,
+                            kategorie TEXT DEFAULT 'Allgemein',
+                            prioritaet TEXT DEFAULT 'Normal',
+                            erstellt_von TEXT,
+                            erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            bearbeitet_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT chk_prioritaet CHECK (prioritaet IN ('Niedrig', 'Normal', 'Hoch', 'Dringend'))
+                        )
+                    """)
+                    logger.info("✅ Notizen-Tabelle erstellt")
+                
+                # Weitere wichtige Tabellen überprüfen
+                required_tables = {
+                    'gaeste': """
+                        CREATE TABLE gaeste (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            vorname TEXT NOT NULL,
+                            nachname TEXT,
+                            kategorie TEXT DEFAULT 'Familie',
+                            seite TEXT DEFAULT 'Käthe',
+                            status TEXT DEFAULT 'Offen',
+                            anzahl_personen INTEGER DEFAULT 1,
+                            kind INTEGER DEFAULT 0,
+                            begleitung INTEGER DEFAULT 0,
+                            optional INTEGER DEFAULT 0,
+                            weisser_saal INTEGER DEFAULT 0,
+                            anzahl_essen INTEGER DEFAULT 0,
+                            anzahl_party INTEGER DEFAULT 0,
+                            zum_weisser_saal TEXT DEFAULT 'Nein',
+                            zum_essen TEXT DEFAULT 'Nein',
+                            zur_party TEXT DEFAULT 'Nein',
+                            zum_standesamt TEXT DEFAULT 'Nein',
+                            email TEXT,
+                            kontakt TEXT,
+                            adresse TEXT,
+                            bemerkungen TEXT,
+                            guest_code TEXT UNIQUE,
+                            guest_password TEXT,
+                            max_personen INTEGER,
+                            last_modified INTEGER,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """,
+                    'einstellungen': """
+                        CREATE TABLE einstellungen (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            schluessel TEXT NOT NULL UNIQUE,
+                            wert TEXT,
+                            typ TEXT DEFAULT 'string',
+                            beschreibung TEXT,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """
+                }
+                
+                for table_name, create_sql in required_tables.items():
+                    if table_name not in existing_tables:
+                        logger.info(f"🔄 Erstelle {table_name}-Tabelle...")
+                        cursor.execute(create_sql)
+                        logger.info(f"✅ {table_name}-Tabelle erstellt")
+                
+                conn.commit()
+                conn.close()
+                
+                logger.info("✅ Alle wichtigen Tabellen überprüft und sichergestellt")
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Sicherstellen der Tabellen: {e}")
             raise
     
     def _get_connection(self, timeout: float = 30.0) -> sqlite3.Connection:
@@ -5569,3 +5677,176 @@ class SQLiteHochzeitsDatenManager:
                 
         except Exception as e:
             logger.error(f"Fehler beim Bereinigen der vertrauenswürdigen Geräte: {e}")
+
+    # =============================================================================
+    # NOTIZLISTE FUNKTIONEN
+    # =============================================================================
+
+    def get_notizen(self):
+        """Lädt alle Notizen"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT id, titel, inhalt, kategorie, prioritaet, erstellt_von, 
+                           erstellt_am, bearbeitet_am
+                    FROM notizen 
+                    ORDER BY 
+                        CASE prioritaet 
+                            WHEN 'Dringend' THEN 1 
+                            WHEN 'Hoch' THEN 2 
+                            WHEN 'Normal' THEN 3 
+                            WHEN 'Niedrig' THEN 4 
+                            ELSE 5 
+                        END,
+                        bearbeitet_am DESC
+                """)
+                
+                notizen = []
+                for row in cursor.fetchall():
+                    notizen.append({
+                        'id': row[0],
+                        'titel': row[1],
+                        'inhalt': row[2] or '',
+                        'kategorie': row[3] or 'Allgemein',
+                        'prioritaet': row[4] or 'Normal',
+                        'erstellt_von': row[5] or '',
+                        'erstellt_am': row[6],
+                        'aktualisiert_am': row[7]  # JavaScript erwartet aktualisiert_am
+                    })
+                
+                conn.close()
+                return notizen
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Laden der Notizen: {e}")
+            return []
+
+    def add_notiz(self, notiz_data):
+        """Fügt eine neue Notiz hinzu"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    INSERT INTO notizen (titel, inhalt, kategorie, prioritaet, erstellt_von, erstellt_am, bearbeitet_am)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    notiz_data['titel'],
+                    notiz_data.get('inhalt', ''),
+                    notiz_data.get('kategorie', 'Allgemein'),
+                    notiz_data.get('prioritaet', 'Normal'),
+                    notiz_data.get('erstellt_von', ''),
+                    notiz_data.get('erstellt_am'),
+                    notiz_data.get('bearbeitet_am')
+                ))
+                
+                notiz_id = cursor.lastrowid
+                conn.commit()
+                conn.close()
+                
+                logger.info(f"✅ Neue Notiz erstellt: {notiz_data['titel']} (ID: {notiz_id})")
+                return notiz_id
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Hinzufügen der Notiz: {e}")
+            return None
+
+    def update_notiz(self, notiz_id, notiz_data):
+        """Aktualisiert eine bestehende Notiz"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Prüfe ob Notiz existiert
+                cursor.execute("SELECT id FROM notizen WHERE id = ?", (notiz_id,))
+                if not cursor.fetchone():
+                    conn.close()
+                    return False
+                
+                cursor.execute("""
+                    UPDATE notizen 
+                    SET titel = ?, inhalt = ?, kategorie = ?, prioritaet = ?, bearbeitet_am = ?
+                    WHERE id = ?
+                """, (
+                    notiz_data['titel'],
+                    notiz_data.get('inhalt', ''),
+                    notiz_data.get('kategorie', 'Allgemein'),
+                    notiz_data.get('prioritaet', 'Normal'),
+                    notiz_data.get('bearbeitet_am'),
+                    notiz_id
+                ))
+                
+                conn.commit()
+                conn.close()
+                
+                logger.info(f"✅ Notiz aktualisiert: ID {notiz_id}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Aktualisieren der Notiz: {e}")
+            return False
+
+    def delete_notiz(self, notiz_id):
+        """Löscht eine Notiz"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Hole Titel für Logging
+                cursor.execute("SELECT titel FROM notizen WHERE id = ?", (notiz_id,))
+                result = cursor.fetchone()
+                if not result:
+                    conn.close()
+                    return False
+                
+                titel = result[0]
+                
+                cursor.execute("DELETE FROM notizen WHERE id = ?", (notiz_id,))
+                conn.commit()
+                conn.close()
+                
+                logger.info(f"✅ Notiz gelöscht: {titel} (ID: {notiz_id})")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Löschen der Notiz: {e}")
+            return False
+
+    def get_notiz_by_id(self, notiz_id):
+        """Lädt eine spezifische Notiz"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT id, titel, inhalt, kategorie, prioritaet, erstellt_von, 
+                           erstellt_am, bearbeitet_am
+                    FROM notizen WHERE id = ?
+                """, (notiz_id,))
+                
+                row = cursor.fetchone()
+                conn.close()
+                
+                if row:
+                    return {
+                        'id': row[0],
+                        'titel': row[1],
+                        'inhalt': row[2] or '',
+                        'kategorie': row[3] or 'Allgemein',
+                        'prioritaet': row[4] or 'Normal',
+                        'erstellt_von': row[5] or '',
+                        'erstellt_am': row[6],
+                        'bearbeitet_am': row[7]
+                    }
+                return None
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Laden der Notiz: {e}")
+            return None

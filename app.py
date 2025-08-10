@@ -2174,6 +2174,291 @@ def api_kontakte_contact():
             'error': f'Fehler bei Kontaktaufnahme: {str(e)}'
         }), 500
 
+@app.route('/api/kontakte/update/<int:kontakt_id>', methods=['PUT'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_kontakte_update(kontakt_id):
+    """Kontakt in CSV-Datei bearbeiten"""
+    try:
+        import csv
+        import os
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Keine Daten empfangen'}), 400
+        
+        # Pflichtfelder prüfen
+        required_fields = ['name', 'kategorie', 'telefon']
+        missing_fields = [field for field in required_fields if not data.get(field, '').strip()]
+        
+        if missing_fields:
+            return jsonify({
+                'success': False, 
+                'error': f'Fehlende Pflichtfelder: {", ".join(missing_fields)}'
+            }), 400
+        
+        # CSV-Datei Pfad
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        csv_file_path = os.path.join(base_dir, 'data', 'kontakte.csv')
+        
+        if not os.path.exists(csv_file_path):
+            return jsonify({'success': False, 'error': 'Kontakte CSV-Datei nicht gefunden'}), 404
+        
+        # Alle Kontakte laden
+        kontakte = []
+        fieldnames = []
+        
+        with open(csv_file_path, 'r', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            fieldnames = reader.fieldnames
+            for i, row in enumerate(reader):
+                if i + 1 == kontakt_id:  # ID ist 1-basiert
+                    # Kontakt aktualisieren
+                    row['name'] = data.get('name', '').strip()
+                    row['kategorie'] = data.get('kategorie', '').strip()
+                    row['telefon'] = data.get('telefon', '').strip()
+                    row['email'] = data.get('email', '').strip()
+                    row['adresse'] = data.get('adresse', '').strip()
+                    row['website'] = data.get('website', '').strip()
+                    row['notizen'] = data.get('notizen', '').strip()
+                    row['bewertung'] = data.get('bewertung', '').strip()
+                    row['kosten'] = data.get('kosten', '').strip()
+                    row['bild_url'] = data.get('bild_url', '').strip()
+                kontakte.append(row)
+        
+        # CSV-Datei neu schreiben
+        with open(csv_file_path, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(kontakte)
+        
+        logger.info(f"✅ Kontakt aktualisiert: ID {kontakt_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Kontakt erfolgreich aktualisiert'
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Aktualisieren des Kontakts: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Fehler beim Aktualisieren des Kontakts: {str(e)}'
+        }), 500
+
+@app.route('/api/kontakte/delete/<int:kontakt_id>', methods=['DELETE'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_kontakte_delete(kontakt_id):
+    """Kontakt aus CSV-Datei löschen"""
+    try:
+        import csv
+        import os
+        
+        # CSV-Datei Pfad
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        csv_file_path = os.path.join(base_dir, 'data', 'kontakte.csv')
+        
+        if not os.path.exists(csv_file_path):
+            return jsonify({'success': False, 'error': 'Kontakte CSV-Datei nicht gefunden'}), 404
+        
+        # Alle Kontakte laden (außer dem zu löschenden)
+        kontakte = []
+        fieldnames = []
+        kontakt_name = ''
+        
+        with open(csv_file_path, 'r', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            fieldnames = reader.fieldnames
+            for i, row in enumerate(reader):
+                if i + 1 == kontakt_id:  # ID ist 1-basiert
+                    kontakt_name = row.get('name', 'Unbekannt')
+                    continue  # Diesen Kontakt überspringen (löschen)
+                kontakte.append(row)
+        
+        if not kontakt_name:
+            return jsonify({'success': False, 'error': 'Kontakt nicht gefunden'}), 404
+        
+        # CSV-Datei neu schreiben
+        with open(csv_file_path, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(kontakte)
+        
+        logger.info(f"✅ Kontakt gelöscht: {kontakt_name} (ID: {kontakt_id})")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Kontakt "{kontakt_name}" erfolgreich gelöscht'
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Löschen des Kontakts: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Fehler beim Löschen des Kontakts: {str(e)}'
+        }), 500
+
+# =============================================================================
+# Notizen Routen
+# =============================================================================
+
+@app.route('/notizen')
+@require_auth
+@require_role(['admin', 'user'])
+def notizen():
+    """Notizen Verwaltung Seite"""
+    return render_template('notizen.html')
+
+@app.route('/api/notizen')
+@app.route('/api/notizen/list')
+@require_auth
+@require_role(['admin', 'user'])
+def api_notizen_list():
+    """Alle Notizen laden"""
+    try:
+        if not data_manager:
+            return jsonify({'success': False, 'error': 'DataManager nicht verfügbar'}), 500
+        
+        notizen = data_manager.get_notizen()
+        return jsonify({
+            'success': True,
+            'notizen': notizen,
+            'count': len(notizen)
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Notizen: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Fehler beim Laden der Notizen: {str(e)}'
+        }), 500
+
+@app.route('/api/notizen/add', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_notizen_add():
+    """Neue Notiz hinzufügen"""
+    try:
+        if not data_manager:
+            return jsonify({'success': False, 'error': 'DataManager nicht verfügbar'}), 500
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Keine Daten empfangen'}), 400
+        
+        titel = data.get('titel', '').strip()
+        inhalt = data.get('inhalt', '').strip()
+        kategorie = data.get('kategorie', 'Allgemein').strip()
+        prioritaet = data.get('prioritaet', 'Normal').strip()
+        
+        if not titel:
+            return jsonify({'success': False, 'error': 'Titel ist erforderlich'}), 400
+        
+        notiz_data = {
+            'titel': titel,
+            'inhalt': inhalt,
+            'kategorie': kategorie,
+            'prioritaet': prioritaet,
+            'erstellt_von': session.get('username', 'Unbekannt'),
+            'erstellt_am': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'bearbeitet_am': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        notiz_id = data_manager.add_notiz(notiz_data)
+        
+        if notiz_id:
+            return jsonify({
+                'success': True,
+                'message': 'Notiz erfolgreich erstellt',
+                'notiz_id': notiz_id
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Fehler beim Erstellen der Notiz'}), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Erstellen der Notiz: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Fehler beim Erstellen der Notiz: {str(e)}'
+        }), 500
+
+@app.route('/api/notizen/update/<int:notiz_id>', methods=['PUT'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_notizen_update(notiz_id):
+    """Notiz bearbeiten"""
+    try:
+        if not data_manager:
+            return jsonify({'success': False, 'error': 'DataManager nicht verfügbar'}), 500
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Keine Daten empfangen'}), 400
+        
+        titel = data.get('titel', '').strip()
+        if not titel:
+            return jsonify({'success': False, 'error': 'Titel ist erforderlich'}), 400
+        
+        notiz_data = {
+            'titel': titel,
+            'inhalt': data.get('inhalt', '').strip(),
+            'kategorie': data.get('kategorie', 'Allgemein').strip(),
+            'prioritaet': data.get('prioritaet', 'Normal').strip(),
+            'bearbeitet_am': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        success = data_manager.update_notiz(notiz_id, notiz_data)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Notiz erfolgreich aktualisiert'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Notiz nicht gefunden'}), 404
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Aktualisieren der Notiz: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Fehler beim Aktualisieren der Notiz: {str(e)}'
+        }), 500
+
+@app.route('/api/notizen/delete/<int:notiz_id>', methods=['DELETE'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_notizen_delete(notiz_id):
+    """Notiz löschen"""
+    try:
+        if not data_manager:
+            return jsonify({'success': False, 'error': 'DataManager nicht verfügbar'}), 500
+        
+        success = data_manager.delete_notiz(notiz_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Notiz erfolgreich gelöscht'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Notiz nicht gefunden'}), 404
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Löschen der Notiz: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Fehler beim Löschen der Notiz: {str(e)}'
+        }), 500
+
 # =============================================================================
 # Gäste-spezifische Routen
 # =============================================================================

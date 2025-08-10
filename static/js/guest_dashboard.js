@@ -3,7 +3,7 @@
  */
 
 // Debug-Modus - auf false setzen um alle Debug-Ausgaben zu deaktivieren
-const DEBUG_GUEST_DASHBOARD = true;
+const DEBUG_GUEST_DASHBOARD = false;
 
 // Debug-Helper-Funktion
 function debugLog(...args) {

@@ -298,3 +298,16 @@ INSERT OR IGNORE INTO tischplanung_config (key, value, beschreibung) VALUES
     ('min_tisch_groesse', '4', 'Minimale Anzahl Personen pro Tisch'),
     ('max_tisch_groesse', '12', 'Maximale Anzahl Personen pro Tisch'),
     ('auto_assign_enabled', 'true', 'Automatische Zuweisung aktiviert');
+
+-- Notizliste Tabelle
+CREATE TABLE IF NOT EXISTS notizen (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    titel TEXT NOT NULL,
+    inhalt TEXT,
+    kategorie TEXT DEFAULT 'Allgemein',
+    prioritaet TEXT DEFAULT 'Normal',
+    erstellt_von TEXT,
+    erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+    bearbeitet_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_prioritaet CHECK (prioritaet IN ('Niedrig', 'Normal', 'Hoch', 'Dringend'))
+);
