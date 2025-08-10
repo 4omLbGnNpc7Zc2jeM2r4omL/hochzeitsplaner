@@ -6,8 +6,6 @@ let currentSort = 'prioritaet';
 
 // Globale Funktion für Submit Button - MUSS außerhalb von DOMContentLoaded sein
 function submitNotizForm() {
-    console.log('submitNotizForm wurde aufgerufen!'); // Debug
-    
     try {
         // Prüfe ob DOM-Elemente existieren
         const titelElement = document.getElementById('notiz-titel');
@@ -107,7 +105,6 @@ function initializeNotizen() {
     // Prüfe ob wichtige Elemente existieren
     const notizForm = document.getElementById('notizForm');
     const notizModal = document.getElementById('notizModal');
-    const notizenContainer = document.getElementById('notizen-container');
     
     if (!notizForm) {
         console.error('notizForm Element nicht gefunden!');
@@ -116,11 +113,6 @@ function initializeNotizen() {
     
     if (!notizModal) {
         console.error('notizModal Element nicht gefunden!');
-        return;
-    }
-    
-    if (!notizenContainer) {
-        console.error('notizen-container Element nicht gefunden!');
         return;
     }
     
@@ -171,7 +163,7 @@ function setupEventListeners() {
     }
 
     // Submit Button explizit suchen und Event Listener hinzufügen
-    const submitButton = document.getElementById('submit-button');
+    const submitButton = document.querySelector('[onclick="submitNotizForm()"]');
     if (submitButton) {
         submitButton.addEventListener('click', function(e) {
             e.preventDefault();
@@ -181,7 +173,7 @@ function setupEventListeners() {
         // Fallback: alle Buttons in der Modal durchsuchen
         const allButtons = document.querySelectorAll('#notizModal button');
         allButtons.forEach((btn, index) => {
-            if (btn.textContent && btn.textContent.includes('erstellen')) {
+            if (btn.textContent && btn.textContent.includes('Speichern')) {
                 btn.addEventListener('click', function(e) {
                     e.preventDefault();
                     submitNotizForm();
@@ -193,15 +185,7 @@ function setupEventListeners() {
     // Modal Event Listeners
     const notizModal = document.getElementById('notizModal');
     if (notizModal) {
-        notizModal.addEventListener('show.bs.modal', function(event) {
-            // Nur leeren wenn es eine neue Notiz ist (nicht beim Bearbeiten)
-            if (!currentNotizId) {
-                clearNotizForm();
-            }
-        });
-        
-        notizModal.addEventListener('hidden.bs.modal', function() {
-            // Nach dem Schließen immer leeren
+        notizModal.addEventListener('show.bs.modal', function() {
             clearNotizForm();
         });
     }
@@ -210,75 +194,25 @@ function setupEventListeners() {
 // Notizen laden
 function loadNotizen() {
     fetch('/api/notizen')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
-            // API gibt jetzt ein Objekt mit notizen Property zurück
-            if (Array.isArray(data)) {
-                notizen = data;
-            } else if (data && data.notizen && Array.isArray(data.notizen)) {
-                notizen = data.notizen;
-            } else {
-                console.error('API Response ist kein Array:', data);
-                notizen = [];
-            }
+            notizen = data;
             displayNotizen(notizen);
             updateStatistics();
         })
         .catch(error => {
             console.error('Fehler beim Laden der Notizen:', error);
             showError('Fehler beim Laden der Notizen');
-            notizen = []; // Fallback auf leeres Array
-            displayNotizen(notizen);
-            
-            // Loading-State auch bei Fehlern verstecken
-            const loadingState = document.getElementById('loading-state');
-            if (loadingState) {
-                loadingState.style.display = 'none';
-            }
         });
 }
 
 // Notizen anzeigen
 function displayNotizen(notizenToShow) {
     const container = document.getElementById('notizen-container');
-    const loadingState = document.getElementById('loading-state');
-    const emptyState = document.getElementById('empty-state');
     
-    // Loading-State verstecken
-    if (loadingState) {
-        loadingState.style.display = 'none';
-    }
-    
-    // Prüfe ob Container existiert
-    if (!container) {
-        console.error('notizen-container Element nicht gefunden!');
+    if (!notizenToShow || notizenToShow.length === 0) {
+        container.innerHTML = '<div class="col-12"><div class="alert alert-info">Keine Notizen vorhanden.</div></div>';
         return;
-    }
-    
-    // Sicherheitscheck: Stelle sicher, dass notizenToShow ein Array ist
-    if (!Array.isArray(notizenToShow)) {
-        console.error('displayNotizen: Parameter ist kein Array:', notizenToShow);
-        notizenToShow = [];
-    }
-    
-    if (notizenToShow.length === 0) {
-        container.innerHTML = '';
-        if (emptyState) {
-            emptyState.style.display = 'block';
-        } else {
-            container.innerHTML = '<div class="col-12"><div class="alert alert-info">Keine Notizen vorhanden.</div></div>';
-        }
-        return;
-    }
-    
-    // Empty-State verstecken wenn Notizen vorhanden
-    if (emptyState) {
-        emptyState.style.display = 'none';
     }
     
     container.innerHTML = notizenToShow.map(notiz => `
@@ -289,7 +223,7 @@ function displayNotizen(notizenToShow) {
                     <span class="badge badge-priority-${notiz.prioritaet}">${getPrioritaetText(notiz.prioritaet)}</span>
                 </div>
                 <div class="card-body">
-                    <p class="card-text" style="white-space: pre-line;">${escapeHtml(notiz.inhalt).substring(0, 100)}${notiz.inhalt.length > 100 ? '...' : ''}</p>
+                    <p class="card-text">${escapeHtml(notiz.inhalt).substring(0, 100)}${notiz.inhalt.length > 100 ? '...' : ''}</p>
                     <small class="text-muted">
                         <i class="fas fa-tag"></i> ${escapeHtml(notiz.kategorie)}<br>
                         <i class="fas fa-calendar"></i> ${formatDate(notiz.erstellt_am)}
@@ -379,70 +313,24 @@ function updateStatistics() {
         kategorien[notiz.kategorie] = (kategorien[notiz.kategorie] || 0) + 1;
     });
     
-    // Sichere Update der Statistik-Elemente (nur wenn sie existieren)
-    const totalElement = document.getElementById('total-notizen');
-    const hochElement = document.getElementById('hoch-prioritaet');
-    const mittelElement = document.getElementById('mittel-prioritaet');
-    const niedrigElement = document.getElementById('niedrig-prioritaet');
-    
-    if (totalElement) totalElement.textContent = totalCount;
-    if (hochElement) hochElement.textContent = hochCount;
-    if (mittelElement) mittelElement.textContent = mittelCount;
-    if (niedrigElement) niedrigElement.textContent = niedrigCount;
-}
-
-// Neue Notiz erstellen
-function newNotiz() {
-    currentNotizId = null;
-    clearNotizForm();
-    
-    // Modal-Titel setzen
-    const modalTitle = document.getElementById('notizModalLabel');
-    if (modalTitle) {
-        modalTitle.innerHTML = '<i class="bi bi-sticky me-2"></i><span id="modal-title-text">Neue Notiz erstellen</span>';
-    }
-    
-    // Submit-Button Text ändern
-    const submitText = document.getElementById('submit-text');
-    if (submitText) {
-        submitText.textContent = 'Notiz erstellen';
-    }
+    document.getElementById('total-notizen').textContent = totalCount;
+    document.getElementById('hoch-prioritaet').textContent = hochCount;
+    document.getElementById('mittel-prioritaet').textContent = mittelCount;
+    document.getElementById('niedrig-prioritaet').textContent = niedrigCount;
 }
 
 // Notiz bearbeiten
 function editNotiz(id) {
     const notiz = notizen.find(n => n.id === id);
-    if (!notiz) {
-        console.error('Notiz mit ID', id, 'nicht gefunden');
-        return;
-    }
+    if (!notiz) return;
     
-    // Formular-Felder füllen
-    const titelElement = document.getElementById('notiz-titel');
-    const kategorieElement = document.getElementById('notiz-kategorie');
-    const prioritaetElement = document.getElementById('notiz-prioritaet');
-    const inhaltElement = document.getElementById('notiz-inhalt');
-    const notizIdElement = document.getElementById('notiz-id');
-    
-    if (titelElement) titelElement.value = notiz.titel;
-    if (kategorieElement) kategorieElement.value = notiz.kategorie;
-    if (prioritaetElement) prioritaetElement.value = notiz.prioritaet;
-    if (inhaltElement) inhaltElement.value = notiz.inhalt;
-    if (notizIdElement) notizIdElement.value = notiz.id;
+    document.getElementById('notiz-titel').value = notiz.titel;
+    document.getElementById('notiz-kategorie').value = notiz.kategorie;
+    document.getElementById('notiz-prioritaet').value = notiz.prioritaet;
+    document.getElementById('notiz-inhalt').value = notiz.inhalt;
+    document.getElementById('notiz-id').value = notiz.id;
     
     currentNotizId = id;
-    
-    // Modal-Titel ändern
-    const modalTitle = document.getElementById('notizModalLabel');
-    if (modalTitle) {
-        modalTitle.innerHTML = '<i class="bi bi-sticky me-2"></i><span id="modal-title-text">Notiz bearbeiten</span>';
-    }
-    
-    // Submit-Button Text ändern
-    const submitText = document.getElementById('submit-text');
-    if (submitText) {
-        submitText.textContent = 'Notiz aktualisieren';
-    }
     
     // Modal öffnen
     const modal = new bootstrap.Modal(document.getElementById('notizModal'));
@@ -451,58 +339,24 @@ function editNotiz(id) {
 
 // Notiz löschen
 function deleteNotiz(id) {
-    const notiz = notizen.find(n => n.id === id);
-    if (!notiz) {
-        showError('Notiz nicht gefunden');
-        return;
-    }
-    
-    // Modal-Inhalte füllen
-    const titelElement = document.getElementById('delete-notiz-titel');
-    const kategorieElement = document.getElementById('delete-notiz-kategorie');
-    
-    if (titelElement) titelElement.textContent = notiz.titel;
-    if (kategorieElement) kategorieElement.textContent = notiz.kategorie;
-    
-    // Event-Listener für Bestätigung-Button
-    const confirmBtn = document.getElementById('confirm-delete-btn');
-    if (confirmBtn) {
-        // Alte Event-Listener entfernen
-        const newBtn = confirmBtn.cloneNode(true);
-        confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
-        
-        // Neuen Event-Listener hinzufügen
-        newBtn.addEventListener('click', function() {
-            performDelete(id);
-            // Modal schließen
-            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal'));
-            if (modal) modal.hide();
+    if (confirm('Sind Sie sicher, dass Sie diese Notiz löschen möchten?')) {
+        fetch(`/api/notizen/delete/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                loadNotizen();
+                showSuccess('Notiz erfolgreich gelöscht!');
+            } else {
+                showError('Fehler beim Löschen: ' + result.error);
+            }
+        })
+        .catch(error => {
+            console.error('Fehler beim Löschen:', error);
+            showError('Fehler beim Löschen der Notiz');
         });
     }
-    
-    // Modal anzeigen
-    const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
-    modal.show();
-}
-
-// Tatsächliches Löschen durchführen
-function performDelete(id) {
-    fetch(`/api/notizen/delete/${id}`, {
-        method: 'DELETE'
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            loadNotizen();
-            showSuccess('Notiz erfolgreich gelöscht!');
-        } else {
-            showError('Fehler beim Löschen: ' + result.error);
-        }
-    })
-    .catch(error => {
-        console.error('Fehler beim Löschen:', error);
-        showError('Fehler beim Löschen der Notiz');
-    });
 }
 
 // Notiz Details anzeigen
@@ -510,20 +364,11 @@ function showNotizDetails(id) {
     const notiz = notizen.find(n => n.id === id);
     if (!notiz) return;
     
-    const titelElement = document.getElementById('detail-titel');
-    const kategorieElement = document.getElementById('detail-kategorie');
-    const prioritaetElement = document.getElementById('detail-prioritaet');
-    const inhaltElement = document.getElementById('detail-inhalt');
-    const erstelltElement = document.getElementById('detail-erstellt');
-    
-    if (titelElement) titelElement.textContent = notiz.titel;
-    if (kategorieElement) kategorieElement.textContent = notiz.kategorie;
-    if (prioritaetElement) prioritaetElement.textContent = getPrioritaetText(notiz.prioritaet);
-    if (inhaltElement) {
-        inhaltElement.innerHTML = escapeHtmlWithLineBreaks(notiz.inhalt);
-        inhaltElement.style.whiteSpace = 'pre-line';
-    }
-    if (erstelltElement) erstelltElement.textContent = formatDate(notiz.erstellt_am);
+    document.getElementById('detail-titel').textContent = notiz.titel;
+    document.getElementById('detail-kategorie').textContent = notiz.kategorie;
+    document.getElementById('detail-prioritaet').textContent = getPrioritaetText(notiz.prioritaet);
+    document.getElementById('detail-inhalt').textContent = notiz.inhalt;
+    document.getElementById('detail-erstellt').textContent = formatDate(notiz.erstellt_am);
     
     const modal = new bootstrap.Modal(document.getElementById('notizDetailModal'));
     modal.show();
@@ -531,29 +376,9 @@ function showNotizDetails(id) {
 
 // Formular leeren
 function clearNotizForm() {
-    const form = document.getElementById('notizForm');
-    if (form) {
-        form.reset();
-    }
-    
-    const notizIdElement = document.getElementById('notiz-id');
-    if (notizIdElement) {
-        notizIdElement.value = '';
-    }
-    
+    document.getElementById('notizForm').reset();
+    document.getElementById('notiz-id').value = '';
     currentNotizId = null;
-    
-    // Modal-Titel zurücksetzen
-    const modalTitle = document.getElementById('notizModalLabel');
-    if (modalTitle) {
-        modalTitle.innerHTML = '<i class="bi bi-sticky me-2"></i><span id="modal-title-text">Neue Notiz erstellen</span>';
-    }
-    
-    // Submit-Button Text zurücksetzen
-    const submitText = document.getElementById('submit-text');
-    if (submitText) {
-        submitText.textContent = 'Notiz erstellen';
-    }
 }
 
 // Hilfsfunktionen
@@ -631,13 +456,6 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
-function escapeHtmlWithLineBreaks(unsafe) {
-    return escapeHtml(unsafe)
-        .replace(/\n/g, "<br>")
-        .replace(/\r\n/g, "<br>")
-        .replace(/\r/g, "<br>");
-}
-
 function showSuccess(message) {
     // Toast oder Alert für Erfolgsmeldungen
     const alertDiv = document.createElement('div');
@@ -675,7 +493,6 @@ function showError(message) {
 }
 
 // Globale Funktionen für onclick Handler
-window.newNotiz = newNotiz;
 window.editNotiz = editNotiz;
 window.deleteNotiz = deleteNotiz;
 window.showNotizDetails = showNotizDetails;

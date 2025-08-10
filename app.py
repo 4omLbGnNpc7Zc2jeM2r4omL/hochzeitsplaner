@@ -2331,15 +2331,17 @@ def api_notizen_list():
         notizen = data_manager.get_notizen()
         return jsonify({
             'success': True,
-            'notizen': notizen,
-            'count': len(notizen)
+            'notizen': notizen if notizen else [],
+            'count': len(notizen) if notizen else 0
         })
         
     except Exception as e:
         logger.error(f"Fehler beim Laden der Notizen: {str(e)}")
         return jsonify({
             'success': False,
-            'error': f'Fehler beim Laden der Notizen: {str(e)}'
+            'error': f'Fehler beim Laden der Notizen: {str(e)}',
+            'notizen': [],
+            'count': 0
         }), 500
 
 @app.route('/api/notizen/add', methods=['POST'])

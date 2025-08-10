@@ -65,7 +65,7 @@
             </p>
         </div>
         <div class="col-md-4 text-end">
-            <button type="button" class="btn btn-wedding-primary" data-bs-toggle="modal" data-bs-target="#notizModal">
+            <button type="button" class="btn btn-wedding-primary" data-bs-toggle="modal" data-bs-target="#notizModal" onclick="newNotiz()">
                 <i class="bi bi-plus-circle me-1"></i> Neue Notiz
             </button>
         </div>
@@ -142,7 +142,7 @@
     </div>
 
     <!-- Notizen Grid -->
-    <div id="notizen-container" class="row g-3" style="display: none;">
+    <div id="notizen-container" class="row g-3">
         <!-- Notizen werden hier dynamisch geladen -->
     </div>
 
@@ -275,6 +275,85 @@
                 </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="bi bi-x-circle me-1"></i> Schließen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notiz Details Modal -->
+<div class="modal fade" id="notizDetailModal" tabindex="-1" aria-labelledby="notizDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="notizDetailModalLabel">
+                    <i class="fas fa-eye me-2"></i>Notiz Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h4 id="detail-titel" class="mb-3"></h4>
+                        <div class="mb-3">
+                            <h6>Inhalt:</h6>
+                            <p id="detail-inhalt" class="text-muted"></p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <h6>Kategorie:</h6>
+                            <span id="detail-kategorie" class="badge bg-secondary"></span>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Priorität:</h6>
+                            <span id="detail-prioritaet" class="badge bg-primary"></span>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Erstellt am:</h6>
+                            <small id="detail-erstellt" class="text-muted"></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i> Schließen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lösch-Bestätigung Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteConfirmModalLabel">
+                    <i class="fas fa-trash me-2"></i>Notiz löschen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex align-items-center mb-3">
+                    <i class="fas fa-exclamation-triangle text-warning me-3" style="font-size: 2rem;"></i>
+                    <div>
+                        <h6 class="mb-1">Sind Sie sicher?</h6>
+                        <p class="mb-0 text-muted">Diese Aktion kann nicht rückgängig gemacht werden.</p>
+                    </div>
+                </div>
+                <div class="alert alert-light border">
+                    <strong>Notiz:</strong> <span id="delete-notiz-titel"></span><br>
+                    <small class="text-muted">Kategorie: <span id="delete-notiz-kategorie"></span></small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i> Abbrechen
+                </button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-btn">
+                    <i class="bi bi-trash me-1"></i> Löschen
                 </button>
             </div>
         </div>
