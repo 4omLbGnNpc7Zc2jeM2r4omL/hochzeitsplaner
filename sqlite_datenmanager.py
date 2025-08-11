@@ -5887,3 +5887,272 @@ class SQLiteHochzeitsDatenManager:
         except Exception as e:
             logger.error(f"Fehler beim Laden der Notiz: {e}")
             return None
+
+    # =============================================================================
+    # Hochzeitstag-Checkliste Methoden
+    # =============================================================================
+
+    def get_hochzeitstag_checkliste(self, show_completed=False, only_completed=False):
+        """Lädt die Hochzeitstag-Checkliste"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # SQL Query basierend auf den Parametern
+                if only_completed:
+                    # Nur erledigte Aufgaben (für Archiv)
+                    where_clause = "WHERE erledigt = 1"
+                elif show_completed:
+                    # Alle Aufgaben
+                    where_clause = ""
+                else:
+                    # Nur offene Aufgaben (Standard)
+                    where_clause = "WHERE erledigt = 0"
+                
+                cursor.execute(f"""
+                    SELECT id, titel, beschreibung, kategorie, prioritaet, uhrzeit,
+                           erledigt, erledigt_am, erledigt_von, created_at, updated_at,
+                           sort_order
+                    FROM hochzeitstag_checkliste 
+                    {where_clause}
+                    ORDER BY erledigt ASC, prioritaet DESC, sort_order ASC, uhrzeit ASC
+                """)
+                
+                rows = cursor.fetchall()
+                conn.close()
+                
+                items = []
+                for row in rows:
+                    items.append({
+                        'id': row[0],
+                        'titel': row[1],
+                        'beschreibung': row[2] or '',
+                        'kategorie': row[3] or 'Allgemein',
+                        'prioritaet': row[4] or 2,
+                        'uhrzeit': row[5] or '',
+                        'erledigt': bool(row[6]),
+                        'erledigt_am': row[7],
+                        'erledigt_von': row[8] or '',
+                        'created_at': row[9],
+                        'updated_at': row[10],
+                        'sort_order': row[11] or 999
+                    })
+                
+                logger.info(f"📋 Checkliste geladen: {len(items)} Einträge ({'alle' if show_completed else 'nur erledigte' if only_completed else 'nur offene'})")
+                return items
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Laden der Checkliste: {e}")
+            return []
+
+    def add_hochzeitstag_checkliste_item(self, data):
+        """Fügt einen neuen Checkliste-Eintrag hinzu"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Nächste sort_order bestimmen
+                cursor.execute("SELECT MAX(sort_order) FROM hochzeitstag_checkliste")
+                max_sort = cursor.fetchone()[0] or 0
+                
+                now = datetime.now().isoformat()
+                
+                cursor.execute("""
+                    INSERT INTO hochzeitstag_checkliste 
+                    (titel, beschreibung, kategorie, prioritaet, uhrzeit, 
+                     erledigt, sort_order, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
+                """, (
+                    data.get('titel', '').strip(),
+                    data.get('beschreibung', '').strip() or None,
+                    data.get('kategorie', 'Allgemein'),
+                    int(data.get('prioritaet', 2)),
+                    data.get('uhrzeit', '').strip() or None,
+                    max_sort + 1,
+                    now,
+                    now
+                ))
+                
+                item_id = cursor.lastrowid
+                conn.commit()
+                conn.close()
+                
+                logger.info(f"✅ Checkliste-Eintrag hinzugefügt: {data.get('titel')} (ID: {item_id})")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Hinzufügen des Checkliste-Eintrags: {e}")
+            return False
+
+    def update_hochzeitstag_checkliste_item(self, item_id, data):
+        """Aktualisiert einen Checkliste-Eintrag"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Prüfen ob Eintrag existiert
+                cursor.execute("SELECT titel FROM hochzeitstag_checkliste WHERE id = ?", (item_id,))
+                existing = cursor.fetchone()
+                if not existing:
+                    conn.close()
+                    logger.warning(f"⚠️ Checkliste-Eintrag nicht gefunden: ID {item_id}")
+                    return False
+                
+                now = datetime.now().isoformat()
+                
+                cursor.execute("""
+                    UPDATE hochzeitstag_checkliste SET
+                        titel = ?, beschreibung = ?, kategorie = ?, prioritaet = ?,
+                        uhrzeit = ?, sort_order = ?, updated_at = ?
+                    WHERE id = ?
+                """, (
+                    data.get('titel', '').strip(),
+                    data.get('beschreibung', '').strip() or None,
+                    data.get('kategorie', 'Allgemein'),
+                    int(data.get('prioritaet', 2)),
+                    data.get('uhrzeit', '').strip() or None,
+                    int(data.get('sort_order', 999)),
+                    now,
+                    item_id
+                ))
+                
+                conn.commit()
+                conn.close()
+                
+                logger.info(f"✅ Checkliste-Eintrag aktualisiert: {data.get('titel')} (ID: {item_id})")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Aktualisieren des Checkliste-Eintrags: {e}")
+            return False
+
+    def toggle_hochzeitstag_checkliste_item(self, item_id, current_user):
+        """Ändert den Status (erledigt/unerledigt) eines Checkliste-Eintrags"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Aktuellen Status laden
+                cursor.execute("SELECT titel, erledigt FROM hochzeitstag_checkliste WHERE id = ?", (item_id,))
+                result = cursor.fetchone()
+                if not result:
+                    conn.close()
+                    logger.warning(f"⚠️ Checkliste-Eintrag nicht gefunden: ID {item_id}")
+                    return False
+                
+                titel, current_status = result
+                new_status = 0 if current_status else 1
+                now = datetime.now().isoformat()
+                
+                if new_status:
+                    # Als erledigt markieren
+                    cursor.execute("""
+                        UPDATE hochzeitstag_checkliste SET
+                            erledigt = 1, erledigt_am = ?, erledigt_von = ?, updated_at = ?
+                        WHERE id = ?
+                    """, (now, current_user, now, item_id))
+                    logger.info(f"✅ Checkliste-Eintrag als erledigt markiert: {titel} von {current_user}")
+                else:
+                    # Als unerledigt markieren
+                    cursor.execute("""
+                        UPDATE hochzeitstag_checkliste SET
+                            erledigt = 0, erledigt_am = NULL, erledigt_von = NULL, updated_at = ?
+                        WHERE id = ?
+                    """, (now, item_id))
+                    logger.info(f"📋 Checkliste-Eintrag als unerledigt markiert: {titel}")
+                
+                conn.commit()
+                conn.close()
+                return True
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Ändern des Checkliste-Status: {e}")
+            return False
+
+    def delete_hochzeitstag_checkliste_item(self, item_id):
+        """Löscht einen Checkliste-Eintrag"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Titel für Logging laden
+                cursor.execute("SELECT titel FROM hochzeitstag_checkliste WHERE id = ?", (item_id,))
+                result = cursor.fetchone()
+                if not result:
+                    conn.close()
+                    logger.warning(f"⚠️ Checkliste-Eintrag nicht gefunden: ID {item_id}")
+                    return False
+                
+                titel = result[0]
+                
+                cursor.execute("DELETE FROM hochzeitstag_checkliste WHERE id = ?", (item_id,))
+                conn.commit()
+                conn.close()
+                
+                logger.info(f"🗑️ Checkliste-Eintrag gelöscht: {titel} (ID: {item_id})")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Löschen des Checkliste-Eintrags: {e}")
+            return False
+
+    def reactivate_hochzeitstag_checkliste_item(self, item_id):
+        """Reaktiviert einen archivierten (erledigten) Checkliste-Eintrag"""
+        try:
+            logger.info(f"🔄 DB: Starte Reaktivierung für Item ID: {item_id}")
+            
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Prüfen ob Eintrag existiert und archiviert ist
+                cursor.execute("SELECT titel, erledigt FROM hochzeitstag_checkliste WHERE id = ?", (item_id,))
+                result = cursor.fetchone()
+                if not result:
+                    conn.close()
+                    logger.warning(f"⚠️ Checkliste-Eintrag nicht gefunden: ID {item_id}")
+                    return False
+                
+                titel, erledigt = result
+                logger.info(f"🔄 DB: Gefundener Eintrag: '{titel}', erledigt={erledigt}")
+                
+                if not erledigt:
+                    conn.close()
+                    logger.warning(f"⚠️ Checkliste-Eintrag ist bereits aktiv: {titel}")
+                    return False
+                
+                # Als nicht erledigt (aktiv) markieren
+                from datetime import datetime
+                now = datetime.now().isoformat()
+                logger.info(f"🔄 DB: Setze Eintrag auf aktiv mit timestamp: {now}")
+                
+                cursor.execute("""
+                    UPDATE hochzeitstag_checkliste SET
+                        erledigt = 0, erledigt_am = NULL, erledigt_von = NULL, updated_at = ?
+                    WHERE id = ?
+                """, (now, item_id))
+                
+                rows_affected = cursor.rowcount
+                logger.info(f"🔄 DB: Rows affected: {rows_affected}")
+                
+                conn.commit()
+                conn.close()
+                
+                if rows_affected > 0:
+                    logger.info(f"✅ Checkliste-Eintrag reaktiviert: {titel} (ID: {item_id})")
+                    return True
+                else:
+                    logger.error(f"❌ Keine Zeilen betroffen bei Reaktivierung: {titel} (ID: {item_id})")
+                    return False
+                
+        except Exception as e:
+            logger.error(f"❌ DB: Fehler beim Reaktivieren des Checkliste-Eintrags {item_id}: {str(e)}")
+            logger.error(f"❌ DB: Exception Type: {type(e).__name__}")
+            import traceback
+            logger.error(f"❌ DB: Traceback: {traceback.format_exc()}")
+            return False

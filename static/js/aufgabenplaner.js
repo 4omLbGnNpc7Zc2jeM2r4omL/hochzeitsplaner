@@ -223,6 +223,8 @@ function getZustaendigBadge(zustaendig) {
         'Bräutigam': '<span class="badge" style="background: linear-gradient(135deg, #2196f3, #64b5f6); color: white; padding: 6px 12px; border-radius: 12px; font-weight: 500;">Bräutigam</span>',
         'Beide': '<span class="badge" style="background: linear-gradient(135deg, #9c27b0, #ba68c8); color: white; padding: 6px 12px; border-radius: 12px; font-weight: 500;">Beide</span>'
     };
+    
+    // Nur Badge zurückgeben, keine zusätzliche Zeile
     return badges[zustaendig] || '<span class="badge" style="background: linear-gradient(135deg, #6c757d, #495057); color: white; padding: 6px 12px; border-radius: 12px; font-weight: 500;">' + zustaendig + '</span>';
 }
 

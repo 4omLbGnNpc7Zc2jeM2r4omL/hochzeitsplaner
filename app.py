@@ -458,9 +458,110 @@ def init_data_manager():
         # Stelle sicher, dass das Verzeichnis existiert
         os.makedirs(DATA_DIR, exist_ok=True)
         
+        # 🔄 AUTOMATISCHE DATENBANK-SCHEMA-AKTUALISIERUNG
+        update_database_schema()
+        
         return True
     except Exception as e:
         print(f"Fehler beim Initialisieren des DataManagers: {e}")
+        return False
+
+def update_database_schema():
+    """Aktualisiert das Datenbank-Schema automatisch beim Start"""
+    try:
+        logger.info("🔄 Prüfe Datenbank-Schema...")
+        
+        schema_file = os.path.join(os.path.dirname(__file__), 'database', 'schema.sql')
+        
+        if not os.path.exists(schema_file):
+            logger.warning(f"⚠️ Schema-Datei nicht gefunden: {schema_file}")
+            return False
+        
+        # Schema-Datei lesen
+        with open(schema_file, 'r', encoding='utf-8') as f:
+            schema_content = f.read()
+        
+        # Verbindung zur Datenbank
+        import sqlite3
+        conn = sqlite3.connect(data_manager.db_path)
+        cursor = conn.cursor()
+        
+        # Alle existierenden Tabellen auflisten
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        existing_tables = {row[0] for row in cursor.fetchall()}
+        
+        # Tabellen aus Schema extrahieren
+        schema_tables = set()
+        table_definitions = {}
+        
+        lines = schema_content.split('\n')
+        current_table = None
+        current_sql = []
+        
+        for line in lines:
+            line = line.strip()
+            
+            if line.startswith('CREATE TABLE'):
+                # Tabellenname extrahieren
+                table_name = line.split()[2]
+                if table_name.startswith('IF'):
+                    table_name = line.split()[5]  # "CREATE TABLE IF NOT EXISTS tablename"
+                
+                current_table = table_name
+                schema_tables.add(table_name)
+                current_sql = [line]
+                
+            elif current_table and line:
+                current_sql.append(line)
+                
+                if line.endswith(');'):
+                    # Tabellendefinition abgeschlossen
+                    table_definitions[current_table] = '\n'.join(current_sql)
+                    current_table = None
+                    current_sql = []
+        
+        # Fehlende Tabellen erstellen
+        missing_tables = schema_tables - existing_tables
+        
+        if missing_tables:
+            logger.info(f"📋 Erstelle fehlende Tabellen: {', '.join(missing_tables)}")
+            
+            for table_name in missing_tables:
+                if table_name in table_definitions:
+                    try:
+                        cursor.execute(table_definitions[table_name])
+                        logger.info(f"✅ Tabelle '{table_name}' erfolgreich erstellt")
+                    except Exception as e:
+                        logger.error(f"❌ Fehler beim Erstellen der Tabelle '{table_name}': {e}")
+        else:
+            logger.info("✅ Alle erforderlichen Tabellen sind vorhanden")
+        
+        # Spezielle Prüfung für hochzeitstag_checkliste Tabelle
+        if 'hochzeitstag_checkliste' in existing_tables:
+            # Prüfe Spalten der Checkliste-Tabelle
+            cursor.execute("PRAGMA table_info(hochzeitstag_checkliste)")
+            columns = {row[1] for row in cursor.fetchall()}
+            
+            required_columns = {
+                'id', 'titel', 'beschreibung', 'kategorie', 'prioritaet', 
+                'uhrzeit', 'erledigt', 'erledigt_am', 'erledigt_von', 
+                'created_at', 'updated_at', 'sort_order'
+            }
+            
+            missing_columns = required_columns - columns
+            if missing_columns:
+                logger.warning(f"⚠️ Checkliste-Tabelle unvollständig, fehlende Spalten: {missing_columns}")
+            else:
+                logger.info("✅ Checkliste-Tabelle vollständig vorhanden")
+        
+        conn.commit()
+        conn.close()
+        
+        logger.info("🔄 Datenbank-Schema-Prüfung abgeschlossen")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Fehler bei der Schema-Aktualisierung: {e}")
         return False
 
 def init_config_files():
@@ -3604,19 +3705,18 @@ def get_guest_zeitplan():
                 logger.debug(f"📋 Event '{event.get('titel')}' - keine Eventteile definiert, zeige allen Gästen")
             
             if should_show:
-                # Korrigierte Struktur für Frontend-Kompatibilität
+                # Korrigierte Struktur für Frontend-Kompatibilität - OHNE beschreibung für Gäste
                 event_dict = {
                     'id': event.get('id'),
                     'titel': event.get('titel', ''),  # Frontend erwartet 'titel'
-                    'beschreibung': event.get('beschreibung', ''),  # Frontend erwartet 'beschreibung'
+                    'beschreibung': '',  # Immer leer für Gäste - Programmpunkte haben keine Beschreibung
                     'uhrzeit': event.get('uhrzeit', ''),  # Frontend erwartet 'uhrzeit' (lowercase)
                     'ort': event.get('ort', ''),
                     'dauer': event.get('dauer', ''),  # Frontend erwartet 'dauer'
                     'eventteile': event.get('eventteile', []),
                     'public': not bool(event.get('nur_brautpaar', 0)),
-                    # Legacy-Kompatibilität für andere Teile des Systems
+                    # Legacy-Kompatibilität für andere Teile des Systems (ohne Verantwortlich für Gäste)
                     'Programmpunkt': event.get('titel', ''),
-                    'Verantwortlich': event.get('beschreibung', ''),
                     'Status': event.get('kategorie', ''),
                     'Uhrzeit': event.get('uhrzeit', ''),
                     'start_zeit': event.get('start_zeit'),
@@ -5128,6 +5228,324 @@ def aufgabenplaner():
 @app.route('/api/aufgaben/list')
 @require_auth
 @require_role(['admin', 'user'])
+def api_aufgaben_list():
+    """Aufgaben-Liste abrufen"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        aufgaben = data_manager.get_aufgaben()
+        cleaned_aufgaben = clean_json_data(aufgaben)
+        
+        return jsonify({
+            'success': True,
+            'aufgaben': cleaned_aufgaben
+        })
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Aufgaben: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# =============================================================================
+# Hochzeitstag-Checkliste API Routen
+# =============================================================================
+
+@app.route('/api/checkliste/list')
+@require_auth
+@require_role(['admin', 'user'])
+def api_checkliste_list():
+    """Hochzeitstag-Checkliste abrufen"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        # Nur noch offene (nicht erledigte) Aufgaben laden
+        show_completed = request.args.get('show_completed', 'false').lower() == 'true'
+        
+        items = data_manager.get_hochzeitstag_checkliste(show_completed=show_completed)
+        cleaned_items = clean_json_data(items)
+        
+        return jsonify({
+            'success': True,
+            'items': cleaned_items,
+            'count': len(cleaned_items)
+        })
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Checkliste: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/checkliste/add', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_checkliste_add():
+    """Neuen Checkliste-Eintrag hinzufügen"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Keine Daten empfangen'}), 400
+        
+        # Validierung
+        if not data.get('titel', '').strip():
+            return jsonify({'error': 'Titel ist erforderlich'}), 400
+        
+        # Neue Aufgabe erstellen
+        success = data_manager.add_hochzeitstag_checkliste_item(data)
+        
+        if success:
+            return jsonify({'success': True, 'message': 'Checkliste-Eintrag hinzugefügt'})
+        else:
+            return jsonify({'error': 'Fehler beim Hinzufügen'}), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Hinzufügen des Checkliste-Eintrags: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/checkliste/update/<int:item_id>', methods=['PUT'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_checkliste_update(item_id):
+    """Checkliste-Eintrag bearbeiten"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Keine Daten empfangen'}), 400
+        
+        success = data_manager.update_hochzeitstag_checkliste_item(item_id, data)
+        
+        if success:
+            return jsonify({'success': True, 'message': 'Checkliste-Eintrag aktualisiert'})
+        else:
+            return jsonify({'error': 'Fehler beim Aktualisieren'}), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Aktualisieren des Checkliste-Eintrags: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/checkliste/toggle/<int:item_id>', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_checkliste_toggle(item_id):
+    """Checkliste-Eintrag als erledigt/unerledigt markieren"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        # Aktueller Benutzer für "erledigt_von" Feld
+        current_user = session.get('user', 'Unbekannt')
+        
+        success = data_manager.toggle_hochzeitstag_checkliste_item(item_id, current_user)
+        
+        if success:
+            return jsonify({'success': True, 'message': 'Status aktualisiert'})
+        else:
+            return jsonify({'error': 'Fehler beim Aktualisieren des Status'}), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Aktualisieren des Checkliste-Status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/checkliste/delete/<int:item_id>', methods=['DELETE'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_checkliste_delete(item_id):
+    """Checkliste-Eintrag löschen"""
+    try:
+        logger.info(f"🗑️ API Delete Request für Item ID: {item_id}")
+        
+        if not data_manager:
+            logger.error("❌ DataManager nicht initialisiert")
+            return jsonify({'success': False, 'error': 'DataManager nicht initialisiert'}), 500
+        
+        # Detailliertes Logging
+        logger.info(f"🗑️ Versuche Löschung von Item {item_id}")
+        success = data_manager.delete_hochzeitstag_checkliste_item(item_id)
+        logger.info(f"🗑️ Löschung Ergebnis: {success}")
+        
+        if success:
+            logger.info(f"✅ Item {item_id} erfolgreich gelöscht")
+            return jsonify({'success': True, 'message': 'Checkliste-Eintrag gelöscht'})
+        else:
+            logger.warning(f"⚠️ Item {item_id} nicht gefunden oder bereits gelöscht")
+            return jsonify({'success': False, 'error': 'Checkliste-Eintrag nicht gefunden'}), 404
+            
+    except Exception as e:
+        logger.error(f"❌ Exception beim Löschen des Checkliste-Eintrags {item_id}: {str(e)}")
+        logger.error(f"❌ Exception Type: {type(e).__name__}")
+        import traceback
+        logger.error(f"❌ Traceback: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': f'Server-Fehler: {str(e)}'}), 500
+
+@app.route('/api/checkliste/archive')
+@require_auth
+@require_role(['admin', 'user'])
+def api_checkliste_archive():
+    """Archivierte (erledigte) Checkliste-Einträge abrufen"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        # Nur erledigte Aufgaben laden
+        items = data_manager.get_hochzeitstag_checkliste(show_completed=True, only_completed=True)
+        cleaned_items = clean_json_data(items)
+        
+        return jsonify({
+            'success': True,
+            'items': cleaned_items,
+            'count': len(cleaned_items)
+        })
+    except Exception as e:
+        logger.error(f"Fehler beim Laden des Checkliste-Archivs: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/checkliste/reactivate/<int:item_id>', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_checkliste_reactivate(item_id):
+    """Checkliste-Eintrag aus dem Archiv wieder aktivieren"""
+    try:
+        logger.info(f"🔄 API Reactivate Request für Item ID: {item_id}")
+        
+        if not data_manager:
+            logger.error("❌ DataManager nicht initialisiert")
+            return jsonify({'success': False, 'error': 'DataManager nicht initialisiert'}), 500
+        
+        # Detailliertes Logging
+        logger.info(f"🔄 Versuche Reaktivierung von Item {item_id}")
+        success = data_manager.reactivate_hochzeitstag_checkliste_item(item_id)
+        logger.info(f"🔄 Reaktivierung Ergebnis: {success}")
+        
+        if success:
+            logger.info(f"✅ Item {item_id} erfolgreich reaktiviert")
+            return jsonify({'success': True, 'message': 'Checkliste-Eintrag wieder aktiviert'})
+        else:
+            logger.warning(f"⚠️ Item {item_id} nicht gefunden oder kann nicht reaktiviert werden")
+            return jsonify({'success': False, 'error': 'Checkliste-Eintrag nicht gefunden oder bereits aktiv'}), 404
+            
+    except Exception as e:
+        logger.error(f"❌ Exception beim Reaktivieren des Checkliste-Eintrags {item_id}: {str(e)}")
+        logger.error(f"❌ Exception Type: {type(e).__name__}")
+        import traceback
+        logger.error(f"❌ Traceback: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': f'Server-Fehler: {str(e)}'}), 500
+
+@app.route('/api/checkliste/create-defaults', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_checkliste_create_defaults():
+    """Erstellt Standard-Checkliste-Einträge für den Hochzeitstag"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        # Standard Checkliste-Einträge
+        default_items = [
+            {
+                'titel': 'Brautstrauß abholen',
+                'beschreibung': 'Brautstrauß beim Floristen abholen',
+                'kategorie': 'Dekoration',
+                'prioritaet': 3,
+                'uhrzeit': '08:00'
+            },
+            {
+                'titel': 'Trauzeugen informieren',
+                'beschreibung': 'Trauzeugen über finale Details informieren',
+                'kategorie': 'Allgemein',
+                'prioritaet': 3,
+                'uhrzeit': '09:00'
+            },
+            {
+                'titel': 'Friseur & Make-up',
+                'beschreibung': 'Termin beim Friseur und Make-up Artist',
+                'kategorie': 'Brautpaar',
+                'prioritaet': 4,
+                'uhrzeit': '10:00'
+            },
+            {
+                'titel': 'Eheringe überprüfen',
+                'beschreibung': 'Sicherstellen dass die Eheringe vorhanden sind',
+                'kategorie': 'Trauung',
+                'prioritaet': 4,
+                'uhrzeit': '11:00'
+            },
+            {
+                'titel': 'Notfall-Kit packen',
+                'beschreibung': 'Notfall-Kit mit Nadel, Faden, Fleckenentferner etc.',
+                'kategorie': 'Allgemein',
+                'prioritaet': 2,
+                'uhrzeit': '11:30'
+            },
+            {
+                'titel': 'Standesamt/Kirche anfahren',
+                'beschreibung': 'Rechtzeitig zur Trauungslocation fahren',
+                'kategorie': 'Trauung',
+                'prioritaet': 4,
+                'uhrzeit': '13:30'
+            },
+            {
+                'titel': 'Fotograf koordinieren',
+                'beschreibung': 'Finale Absprache mit dem Fotografen',
+                'kategorie': 'Fotograf',
+                'prioritaet': 3,
+                'uhrzeit': '14:00'
+            },
+            {
+                'titel': 'Gäste begrüßen',
+                'beschreibung': 'Gäste vor der Location begrüßen',
+                'kategorie': 'Gäste',
+                'prioritaet': 3,
+                'uhrzeit': '14:30'
+            },
+            {
+                'titel': 'Sektempfang vorbereiten',
+                'beschreibung': 'Sektempfang nach der Trauung organisieren',
+                'kategorie': 'Catering',
+                'prioritaet': 2,
+                'uhrzeit': '15:30'
+            },
+            {
+                'titel': 'DJ/Musik-Setup prüfen',
+                'beschreibung': 'Technik und Playlist mit DJ durchgehen',
+                'kategorie': 'Musik',
+                'prioritaet': 3,
+                'uhrzeit': '17:00'
+            },
+            {
+                'titel': 'Hochzeitstorte anschneiden',
+                'beschreibung': 'Traditionelles Anschneiden der Hochzeitstorte',
+                'kategorie': 'Feier',
+                'prioritaet': 2,
+                'uhrzeit': '20:00'
+            },
+            {
+                'titel': 'Dankesrede halten',
+                'beschreibung': 'Dankesrede an alle Gäste',
+                'kategorie': 'Feier',
+                'prioritaet': 2,
+                'uhrzeit': '21:00'
+            }
+        ]
+        
+        created_count = 0
+        for item in default_items:
+            success = data_manager.add_hochzeitstag_checkliste_item(item)
+            if success:
+                created_count += 1
+        
+        return jsonify({
+            'success': True,
+            'message': f'{created_count} Standard-Aufgaben erstellt',
+            'created_count': created_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Erstellen der Standard-Checkliste: {e}")
+        return jsonify({'error': str(e)}), 500
+
 def api_aufgaben_list():
     """Aufgabenliste abrufen"""
     try:

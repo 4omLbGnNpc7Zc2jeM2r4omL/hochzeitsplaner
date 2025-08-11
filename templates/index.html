@@ -177,6 +177,41 @@
     </div>
 </div>
 
+<!-- Hochzeitstag-Checkliste -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="checkliste-container" id="checkliste-container">
+            <div class="checkliste-header">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="mb-1">
+                            <i class="fas fa-clipboard-list me-2"></i>
+                            Hochzeitstag-Checkliste
+                        </h5>
+                        <p class="checkliste-counter mb-0" id="checkliste-counter">Lade Aufgaben...</p>
+                    </div>
+                    <div class="checkliste-actions-header">
+                        <button class="btn btn-outline-secondary btn-sm" id="checkliste-archive-toggle">
+                            <i class="fas fa-archive me-1"></i> Archiv anzeigen
+                        </button>
+                        <button class="btn btn-primary btn-sm" id="checkliste-add-btn">
+                            <i class="fas fa-plus me-1"></i> Neue Aufgabe
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="checkliste-items">
+                <!-- Items werden hier dynamisch geladen -->
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+                    <p>Lade Checkliste...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Quick Actions -->
 <div class="row mt-4">
     <div class="col-12">
@@ -203,9 +238,81 @@
         </div>
     </div>
 </div>
+
+<!-- Checkliste Modal -->
+<div class="modal fade" id="checklisteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="checklisteModalLabel">Neue Checkliste-Aufgabe</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="checklisteForm">
+                    <input type="hidden" id="checkliste-item-id">
+                    
+                    <div class="mb-3">
+                        <label for="checkliste-titel" class="form-label">Titel *</label>
+                        <input type="text" class="form-control" id="checkliste-titel" 
+                               placeholder="z.B. Ringe abholen" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="checkliste-beschreibung" class="form-label">Beschreibung</label>
+                        <textarea class="form-control" id="checkliste-beschreibung" rows="3" 
+                                  placeholder="Optionale Details zur Aufgabe..."></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="checkliste-kategorie" class="form-label">Kategorie</label>
+                            <select class="form-select" id="checkliste-kategorie">
+                                <option value="Allgemein">Allgemein</option>
+                                <option value="Trauung">Trauung</option>
+                                <option value="Feier">Feier</option>
+                                <option value="Location">Location</option>
+                                <option value="Catering">Catering</option>
+                                <option value="Fotograf">Fotograf</option>
+                                <option value="Musik">Musik</option>
+                                <option value="Dekoration">Dekoration</option>
+                                <option value="Gäste">Gäste</option>
+                                <option value="Brautpaar">Brautpaar</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="checkliste-prioritaet" class="form-label">Priorität</label>
+                            <select class="form-select" id="checkliste-prioritaet">
+                                <option value="1">Niedrig</option>
+                                <option value="2" selected>Normal</option>
+                                <option value="3">Hoch</option>
+                                <option value="4">Kritisch</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="checkliste-uhrzeit" class="form-label">Uhrzeit (optional)</label>
+                        <input type="time" class="form-control" id="checkliste-uhrzeit">
+                        <div class="form-text">Wann soll diese Aufgabe am Hochzeitstag erledigt werden?</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-wedding-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-wedding-primary" id="checkliste-save-btn">
+                    <i class="bi bi-plus-circle me-1"></i>Hinzufügen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/hochzeitstag_checkliste.js') }}"></script>
 {% endblock %}
 
