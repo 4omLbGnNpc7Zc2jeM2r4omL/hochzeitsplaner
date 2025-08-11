@@ -834,15 +834,15 @@ function displayGuestInformationen() {
     
     let html = '';
     
+    // Personenanzahl ermitteln für richtige Textauswahl (wird für alle Sektionen benötigt)
+    const personenAnzahlInput = document.getElementById('personenAnzahl');
+    const currentPersonen = personenAnzahlInput ? 
+        (parseInt(personenAnzahlInput.max) || parseInt(personenAnzahlInput.value) || 1) : 1;
+    const isPlural = currentPersonen > 1;
+    
     // Kontakt Information
     if (guestInformationen.kontakt) {
         html += '<h6><i class="bi bi-envelope me-2"></i>Kontakt</h6>';
-        
-        // Personenanzahl ermitteln für richtige Textauswahl
-        const personenAnzahlInput = document.getElementById('personenAnzahl');
-        const currentPersonen = personenAnzahlInput ? 
-            (parseInt(personenAnzahlInput.max) || parseInt(personenAnzahlInput.value) || 1) : 1;
-        const isPlural = currentPersonen > 1;
         
         const kontaktText = isPlural ? 
             (guestInformationen.kontakt.mehrere || 'Bei Fragen könnt ihr euch gerne an uns wenden.') :
