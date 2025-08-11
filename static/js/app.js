@@ -2,6 +2,69 @@
    Hochzeitsplaner Web - JavaScript Funktionen
    ============================================================================= */
 
+// =============================================================================
+// Cache-Busting Utilities
+// =============================================================================
+
+/**
+ * Cache-Busting für API-Aufrufe
+ * Fügt Timestamp-Parameter hinzu um Browser-Cache zu umgehen
+ */
+function cacheBustUrl(url) {
+    const timestamp = Date.now();
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}_cb=${timestamp}&_t=${Math.random()}`;
+}
+
+/**
+ * Erweiterte Fetch-Funktion mit automatischem Cache-Busting
+ * @param {string} url - URL für den Request
+ * @param {object} options - Fetch-Optionen
+ * @returns {Promise} - Fetch-Promise
+ */
+function fetchNoCacheJSON(url, options = {}) {
+    // Cache-Busting URL erstellen
+    const cacheBustedUrl = cacheBustUrl(url);
+    
+    // Default-Headers für No-Cache setzen
+    const defaultHeaders = {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'X-Requested-With': 'XMLHttpRequest'
+    };
+    
+    // Merge Headers
+    const headers = { ...defaultHeaders, ...(options.headers || {}) };
+    
+    // Fetch mit Cache-Busting
+    return fetch(cacheBustedUrl, {
+        ...options,
+        headers,
+        cache: 'no-store'  // Browser-Cache explizit deaktivieren
+    });
+}
+
+/**
+ * Lädt JSON-Daten ohne Cache
+ * @param {string} url - API-URL
+ * @returns {Promise<object>} - JSON-Daten
+ */
+async function loadJSONNoCache(url) {
+    try {
+        const response = await fetchNoCacheJSON(url);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('🚫 Cache-free JSON load failed:', error);
+        throw error;
+    }
+}
+
 // Globale Variablen
 let currentSettings = {};
 
@@ -163,13 +226,25 @@ async function apiRequest(endpoint, options = {}) {
     try {
         const defaultOptions = {
             headers: {
-                'Content-Type': 'application/json'
-            }
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            cache: 'no-store'  // Browser-Cache explizit deaktivieren
         };
         
-        const response = await fetch(`/api${endpoint}`, {
+        // Cache-Busting URL erstellen
+        const apiUrl = cacheBustUrl(`/api${endpoint}`);
+        
+        const response = await fetch(apiUrl, {
             ...defaultOptions,
-            ...options
+            ...options,
+            headers: {
+                ...defaultOptions.headers,
+                ...(options.headers || {})
+            }
         });
         
         const data = await response.json();
@@ -180,7 +255,7 @@ async function apiRequest(endpoint, options = {}) {
         
         return data;
     } catch (error) {
-
+        console.error('🚫 API Request failed:', endpoint, error);
         throw error;
     }
 }

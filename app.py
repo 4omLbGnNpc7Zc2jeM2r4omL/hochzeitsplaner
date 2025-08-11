@@ -415,6 +415,37 @@ app.logger.disabled = True
 
 CORS(app)
 
+# Globaler After-Request Handler für Cache-Busting
+@app.after_request
+def after_request(response):
+    """Globaler After-Request Handler um Browser-Caching zu verhindern"""
+    
+    # Für alle API-Endpunkte: Aggressives No-Cache
+    if request.path.startswith('/api/'):
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        # ETags entfernen (verhindert conditional requests)
+        response.headers.pop('ETag', None)
+        
+        # Zusätzliche Browser-Cache-Busting Headers
+        response.headers['X-Cache-Control'] = 'no-cache'
+        response.headers['Surrogate-Control'] = 'no-store'
+        
+        # Verhindere Preflight-Cache für CORS
+        response.headers['Access-Control-Max-Age'] = '0'
+        
+    # Für dynamische HTML-Seiten: Kurzer Cache nur
+    elif request.path.endswith('.html') or request.path in ['/', '/guest', '/gaesteliste', '/budget', '/zeitplan']:
+        response.headers['Cache-Control'] = 'private, no-cache, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        
+    # Für statische Assets: Normaler Cache erlaubt
+    # (JS, CSS, Bilder bleiben unverändert für bessere Performance)
+    
+    return response
+
 # Favicon Route
 @app.route('/favicon.ico')
 def favicon():
@@ -805,7 +836,8 @@ def inject_global_vars():
                     'brautpaar_namen': brautpaar_namen,
                     'admin_header': admin_header,
                     'bride_name': braut_name,
-                    'groom_name': braeutigam_name
+                    'groom_name': braeutigam_name,
+                    'cache_bust': int(time.time())  # Cache-Busting für alle URLs
                 }
     except Exception as e:
         logger.warning(f"Fehler beim Laden der globalen Template-Variablen: {e}")
@@ -813,7 +845,8 @@ def inject_global_vars():
     return {
         'brautpaar_namen': "Brautpaar heiratet",
         'bride_name': "",
-        'groom_name': ""
+        'groom_name': "",
+        'cache_bust': int(time.time())  # Cache-Busting für alle URLs
     }
 
 # Globaler Before-Request Handler für API-Schutz
