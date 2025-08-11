@@ -20,7 +20,7 @@
         "display_name": "Administrator"
       }
     ],
-    "session_timeout_hours": 1
+    "session_timeout_hours": 720
   },
   "app": {
     "secret_key": "hochzeit-secret-key-change-in-production-2025"

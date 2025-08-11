@@ -424,6 +424,29 @@ def favicon():
         mimetype='image/vnd.microsoft.icon'
     )
 
+# PWA Manifest Route
+@app.route('/manifest.json')
+def manifest():
+    """PWA Manifest bereitstellen"""
+    return send_file(
+        os.path.join(app.root_path, 'static', 'manifest.json'),
+        mimetype='application/manifest+json'
+    )
+
+# Service Worker Route
+@app.route('/sw.js')
+def service_worker():
+    """Service Worker bereitstellen"""
+    response = make_response(send_file(
+        os.path.join(app.root_path, 'static', 'sw.js'),
+        mimetype='application/javascript'
+    ))
+    # Service Worker sollte nicht gecacht werden
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 # DataManager initialisieren (WICHTIG: Immer initialisieren, nicht nur bei direktem Start)
 def init_data_manager():
     """Initialisiert den DataManager"""
