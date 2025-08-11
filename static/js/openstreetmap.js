@@ -892,19 +892,7 @@ try {
 
 }
 
-// Instanz erstellen nur falls noch nicht vorhanden (redundante Prüfung für Sicherheit)
-debugLog('🔍 Redundante Prüfung...');
-if (!window.openStreetMap) {
-    debugLog('⚠️ window.openStreetMap nicht gefunden, erstelle redundante Instanz');
-    try {
-        window.openStreetMap = new OpenStreetMapIntegration();
-        debugLog('🔄 Redundante OpenStreetMap Instanz erstellt');
-    } catch (error) {
 
-    }
-} else {
-    debugLog('✅ window.openStreetMap bereits vorhanden');
-}
 
 debugLog('✅ OpenStreetMap Integration geladen');
 debugLog('📊 Final Status:');

@@ -4036,11 +4036,19 @@ def api_settings_get():
         # Hochzeitslocation-Daten laden
         hochzeitslocation_name = data_manager.get_setting('hochzeitslocation_name', '')
         if hochzeitslocation_name:
-            locations['hochzeitslocation'] = {
+            hochzeitslocation_data = {
                 'name': hochzeitslocation_name,
                 'adresse': data_manager.get_setting('hochzeitslocation_adresse', ''),
                 'beschreibung': data_manager.get_setting('hochzeitslocation_beschreibung', '')
             }
+            
+            # Parkpl�tze f�r Hochzeitslocation laden
+            parkplaetze_data = data_manager.get_setting('hochzeitslocation_parkplaetze', [])
+            if parkplaetze_data:
+                hochzeitslocation_data['parkplaetze'] = parkplaetze_data
+                logger.info(f"Parkpl�tze f�r Hochzeitslocation geladen: {len(parkplaetze_data) if isinstance(parkplaetze_data, list) else 0} Parkpl�tze")
+            
+            locations['hochzeitslocation'] = hochzeitslocation_data
         
         # Locations zu Settings hinzufügen wenn vorhanden
         if locations:
@@ -4141,11 +4149,19 @@ def api_debug_reset_first_login(guest_id):
         # Hochzeitslocation-Daten laden
         hochzeitslocation_name = data_manager.get_setting('hochzeitslocation_name', '')
         if hochzeitslocation_name:
-            locations['hochzeitslocation'] = {
+            hochzeitslocation_data = {
                 'name': hochzeitslocation_name,
                 'adresse': data_manager.get_setting('hochzeitslocation_adresse', ''),
                 'beschreibung': data_manager.get_setting('hochzeitslocation_beschreibung', '')
             }
+            
+            # Parkpl�tze f�r Hochzeitslocation laden
+            parkplaetze_data = data_manager.get_setting('hochzeitslocation_parkplaetze', [])
+            if parkplaetze_data:
+                hochzeitslocation_data['parkplaetze'] = parkplaetze_data
+                logger.info(f"Parkpl�tze f�r Hochzeitslocation geladen: {len(parkplaetze_data) if isinstance(parkplaetze_data, list) else 0} Parkpl�tze")
+            
+            locations['hochzeitslocation'] = hochzeitslocation_data
         
         # Locations zu Settings hinzufügen wenn vorhanden
         if locations:
@@ -4371,6 +4387,12 @@ def api_settings_save():
                     data_manager.set_setting('hochzeitslocation_name', hochzeitslocation.get('name', ''))
                     data_manager.set_setting('hochzeitslocation_adresse', hochzeitslocation.get('adresse', ''))
                     data_manager.set_setting('hochzeitslocation_beschreibung', hochzeitslocation.get('beschreibung', ''))
+                    
+                    # Parkplätze für Hochzeitslocation speichern
+                    if 'parkplaetze' in hochzeitslocation:
+                        parkplaetze_data = hochzeitslocation['parkplaetze']
+                        data_manager.set_setting('hochzeitslocation_parkplaetze', parkplaetze_data)
+                        logger.info(f"Parkplätze für Hochzeitslocation gespeichert: {len(parkplaetze_data) if isinstance(parkplaetze_data, list) else 0} Parkplätze")
         
         # First Login Modal Einstellungen - immer speichern um Überschreibung zu ermöglichen
         for key in ['first_login_image', 'first_login_image_data', 'first_login_text']:
@@ -4762,6 +4784,64 @@ def api_gaeste_mass_update():
     except Exception as e:
         logger.error(f"Fehler bei der Masseneditierung: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/parkplaetze/save', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def api_parkplaetze_save():
+    """Speichere Parkplatz-Daten für eine Location"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        data = request.json
+        location_type = data.get('location_type', 'hochzeitslocation')  # Default: hochzeitslocation
+        parkplaetze = data.get('parkplaetze', [])
+        
+        # Validiere die Parkplatz-Daten
+        validated_parkplaetze = []
+        for parkplatz in parkplaetze:
+            if isinstance(parkplatz, dict) and 'name' in parkplatz and 'lat' in parkplatz and 'lng' in parkplatz:
+                validated_parkplaetze.append({
+                    'name': str(parkplatz['name']),
+                    'lat': float(parkplatz['lat']),
+                    'lng': float(parkplatz['lng']),
+                    'beschreibung': str(parkplatz.get('beschreibung', ''))
+                })
+        
+        # Speichere in Datenbank
+        setting_key = f'{location_type}_parkplaetze'
+        success = data_manager.set_setting(setting_key, validated_parkplaetze)
+        
+        if success:
+            logger.info(f"✅ Parkplätze für {location_type} gespeichert: {len(validated_parkplaetze)} Parkplätze")
+            return jsonify({'success': True, 'message': f'{len(validated_parkplaetze)} Parkplätze gespeichert'})
+        else:
+            return jsonify({'error': 'Fehler beim Speichern der Parkplätze'}), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Speichern der Parkplätze: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/parkplaetze/get')
+@require_auth
+@require_role(['admin', 'user', 'guest'])
+def api_parkplaetze_get():
+    """Lade Parkplatz-Daten für eine Location"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        location_type = request.args.get('location_type', 'hochzeitslocation')
+        setting_key = f'{location_type}_parkplaetze'
+        
+        parkplaetze = data_manager.get_setting(setting_key, [])
+        
+        return jsonify({'success': True, 'parkplaetze': parkplaetze})
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Parkplätze: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     # Direkter Start der app.py (nicht über Launcher)
@@ -8948,4 +9028,5 @@ if __name__ == '__main__':
         exit(1)
     
     start_server_with_ssl()
+
 
