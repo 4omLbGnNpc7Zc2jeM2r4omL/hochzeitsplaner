@@ -279,6 +279,24 @@
         {% block content %}{% endblock %}
     </div>
 
+    <!-- PWA Install Banner (global) -->
+    <div id="pwaInstallBanner" class="pwa-install-banner">
+        <div class="banner-content">
+            <div class="banner-text">
+                <div class="banner-title">📱 App installieren</div>
+                <div class="banner-subtitle">Installiere die Hochzeitsplaner-App für ein besseres Erlebnis</div>
+            </div>
+            <div class="banner-actions">
+                <button class="btn btn-install" onclick="installPWA()">
+                    <i class="bi bi-download me-1"></i>Installieren
+                </button>
+                <button class="btn btn-dismiss" onclick="dismissInstallBanner()">
+                    <i class="bi bi-x me-1"></i>Später
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay d-none">
         <div class="spinner-border text-primary" role="status">
@@ -301,49 +319,20 @@
     <!-- Custom JavaScript -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     
+    <!-- PWA Install JavaScript -->
+    <script src="{{ url_for('static', filename='js/pwa-install.js') }}"></script>
+    
     <!-- PWA Service Worker Registration -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/static/sw.js')
+                navigator.serviceWorker.register('/sw.js')
                     .then(function(registration) {
                         console.log('ServiceWorker registration successful with scope: ', registration.scope);
                     }, function(err) {
                         console.log('ServiceWorker registration failed: ', err);
                     });
             });
-        }
-        
-        // PWA Install Prompt
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            // Prevent Chrome 67 and earlier from automatically showing the prompt
-            e.preventDefault();
-            // Stash the event so it can be triggered later.
-            deferredPrompt = e;
-            
-            // Show install button (optional - you can create a custom install banner)
-            showInstallPromotion();
-        });
-        
-        function showInstallPromotion() {
-            // You could show a custom install banner here
-            console.log('PWA install available');
-        }
-        
-        // Handle PWA install
-        function installPWA() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        console.log('User accepted the A2HS prompt');
-                    } else {
-                        console.log('User dismissed the A2HS prompt');
-                    }
-                    deferredPrompt = null;
-                });
-            }
         }
     </script>
     

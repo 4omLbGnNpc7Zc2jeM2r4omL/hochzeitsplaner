@@ -21,6 +21,9 @@ class PWAInstallManager {
         
         // Initialize install banner
         this.initInstallBanner();
+        
+        // Debug PWA requirements
+        this.debugPWARequirements();
     }
 
     checkInstallStatus() {
@@ -62,10 +65,13 @@ class PWAInstallManager {
 
     initInstallBanner() {
         this.installBanner = document.getElementById('pwaInstallBanner');
+        console.log('PWA Install Banner Element:', this.installBanner);
         
         // Hide banner if already installed
         if (this.isInstalled && this.installBanner) {
             this.installBanner.style.display = 'none';
+            console.log('Banner versteckt - App bereits installiert');
+            return;
         }
 
         // Check if user has previously dismissed the banner
@@ -75,11 +81,19 @@ class PWAInstallManager {
             const now = new Date();
             const daysSinceDismissed = (now - dismissedTime) / (1000 * 60 * 60 * 24);
             
+            console.log('Banner wurde vor', daysSinceDismissed.toFixed(1), 'Tagen dismissed');
+            
             // Show banner again after 7 days
             if (daysSinceDismissed < 7 && this.installBanner) {
                 this.installBanner.style.display = 'none';
+                console.log('Banner versteckt - zu früh nach Dismiss');
+                return;
             }
         }
+        
+        // Show banner for testing (remove this in production)
+        console.log('Banner wird für Tests angezeigt...');
+        this.showInstallBanner();
     }
 
     showInstallBanner() {
@@ -94,11 +108,14 @@ class PWAInstallManager {
             if (daysSinceDismissed < 7) return;
         }
 
+        // Debug: Zeige Banner sofort für Tests
+        console.log('PWA Install Banner wird angezeigt');
         setTimeout(() => {
             if (this.installBanner) {
                 this.installBanner.classList.add('show');
+                console.log('Banner hinzugefügt:', this.installBanner);
             }
-        }, 3000); // Show after 3 seconds
+        }, 1000); // Reduziert auf 1 Sekunde für schnellere Tests
     }
 
     hideInstallBanner() {
@@ -275,6 +292,29 @@ class PWAInstallManager {
             this.modalActions[index]();
         }
     }
+
+    debugPWARequirements() {
+        console.log('=== PWA Debug Information ===');
+        console.log('Service Worker Support:', 'serviceWorker' in navigator);
+        console.log('Manifest:', document.querySelector('link[rel="manifest"]'));
+        console.log('HTTPS:', location.protocol === 'https:' || location.hostname === 'localhost');
+        console.log('Install Prompt Support:', 'BeforeInstallPromptEvent' in window);
+        console.log('Current URL:', window.location.href);
+        console.log('User Agent:', navigator.userAgent);
+        
+        // Check if manifest is accessible
+        fetch('/static/manifest.json')
+            .then(response => {
+                console.log('Manifest Response:', response.status, response.ok);
+                return response.json();
+            })
+            .then(manifest => {
+                console.log('Manifest Content:', manifest);
+            })
+            .catch(error => {
+                console.error('Manifest Error:', error);
+            });
+    }
 }
 
 // Global functions for template usage
@@ -289,6 +329,16 @@ function installPWA() {
 function dismissInstallBanner() {
     if (pwaManager) {
         pwaManager.dismissInstallBanner();
+    }
+}
+
+// Test function for development
+function showInstallBannerTest() {
+    if (pwaManager && pwaManager.installBanner) {
+        // Reset dismissed status for testing
+        localStorage.removeItem('pwa-install-dismissed');
+        pwaManager.showInstallBanner();
+        console.log('Test: Banner manuell angezeigt');
     }
 }
 
