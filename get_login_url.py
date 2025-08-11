@@ -14,7 +14,7 @@ sys.path.append('.')
 # App importieren
 from app import app, data_manager
 
-def get_login_url_for_guest(guest_id, base_url="https://hochzeitsplaner.dyndns-home.com"):
+def get_login_url_for_guest(guest_id, base_url="https://pascalundkäthe-heiraten.de"):
     """Generiert Login-URL für einen Gast"""
     try:
         # Gast-Daten aus der Datenbank laden

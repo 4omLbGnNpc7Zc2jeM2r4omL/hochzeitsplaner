@@ -2576,12 +2576,13 @@ def get_first_login_message():
         anzahl_party = guest_data.get('anzahl_party', 0) or guest_data.get('Anzahl_Party', 0)
         anzahl_personen = guest_data.get('anzahl_personen', 1) or guest_data.get('Anzahl_Personen', 1)
         
-        # Gästename für Template
+        # Gästename und Vorname für Template
         guest_name = f"{guest_data.get('vorname', '')} {guest_data.get('nachname', '')}".strip()
+        guest_firstname = guest_data.get('vorname', '').strip()
         
         # Personalisierte Nachricht generieren
         message = generate_personalized_welcome_message(
-            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, formatted_date, guest_name
+            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, formatted_date, guest_name, guest_firstname
         )
         
         # Response mit Cache-Control Headers erstellen
@@ -2610,7 +2611,7 @@ def format_wedding_date_for_message(date_string):
     except:
         return date_string
 
-def generate_personalized_welcome_message(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date, guest_name=""):
+def generate_personalized_welcome_message(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date, guest_name="", guest_firstname=""):
     """Generiert eine personalisierte Willkommensnachricht basierend auf den Event-Teilnahmen"""
     
     # Lade die konfigurierten Einladungstexte aus den Einstellungen
@@ -2620,13 +2621,13 @@ def generate_personalized_welcome_message(anzahl_personen, weisser_saal, anzahl_
     # Prüfe ob personalisierte Texte konfiguriert sind
     if invitation_texts and (invitation_texts.get('singular') or invitation_texts.get('plural')):
         return generate_personalized_message_from_settings(
-            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date, invitation_texts, guest_name
+            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date, invitation_texts, guest_name, guest_firstname
         )
     
     # Fallback auf die ursprüngliche hart kodierte Logik
     return generate_legacy_welcome_message(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date)
 
-def generate_personalized_message_from_settings(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date, invitation_texts, guest_name=""):
+def generate_personalized_message_from_settings(anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, wedding_date, invitation_texts, guest_name="", guest_firstname=""):
     """Generiert die Nachricht basierend auf den konfigurierten Settings"""
     
     # Bestimme ob Singular oder Plural
@@ -2673,6 +2674,7 @@ def generate_personalized_message_from_settings(anzahl_personen, weisser_saal, a
     # Template-Variablen ersetzen
     message = base_template
     message = message.replace('{{guest_name}}', guest_name)
+    message = message.replace('{{guest_firstname}}', guest_firstname)
     message = message.replace('{{wedding_date}}', wedding_date)
     message = message.replace('{{event_parts}}', '\n'.join(event_parts))
     message = message.replace('{{special_notes}}', special_notes_text)
@@ -2760,6 +2762,11 @@ def get_guest_wedding_photo():
             # Entferne "data:image/jpeg;base64," oder ähnliches
             if ',' in photo_data:
                 photo_data = photo_data.split(',', 1)[1]
+        
+        # Stelle sicher, dass das Base64-Bild das korrekte data:image Format hat
+        if photo_data and not photo_data.startswith('data:image/'):
+            # Füge den data:image Header hinzu (standardmäßig JPEG angenommen)
+            photo_data = f"data:image/jpeg;base64,{photo_data}"
         
         return jsonify({
             'success': True,
@@ -2901,11 +2908,15 @@ def get_guest_location():
             standesamt_adresse = get_setting_direct('standesamt_adresse')
             standesamt_beschreibung = get_setting_direct('standesamt_beschreibung')
             
+            # Parkplätze für Standesamt laden
+            standesamt_parkplaetze = data_manager.get_setting('standesamt_parkplaetze', [])
+            
             if standesamt_name:  # Nur hinzufügen wenn Name vorhanden ist
                 locations['standesamt'] = {
                     'name': standesamt_name,
                     'adresse': standesamt_adresse,
-                    'beschreibung': standesamt_beschreibung
+                    'beschreibung': standesamt_beschreibung,
+                    'parkplaetze': standesamt_parkplaetze
                 }
             else:
                 pass  # Standesamt-Daten nicht in SQLite-Einstellungen gefunden
@@ -2917,11 +2928,15 @@ def get_guest_location():
         hochzeitslocation_adresse = get_setting_direct('hochzeitslocation_adresse')
         hochzeitslocation_beschreibung = get_setting_direct('hochzeitslocation_beschreibung')
         
+        # Parkplätze für Hochzeitslocation laden
+        hochzeitslocation_parkplaetze = data_manager.get_setting('hochzeitslocation_parkplaetze', [])
+        
         if hochzeitslocation_name:  # Nur hinzufügen wenn Name vorhanden ist
             locations['hochzeitslocation'] = {
                 'name': hochzeitslocation_name,
                 'adresse': hochzeitslocation_adresse,
-                'beschreibung': hochzeitslocation_beschreibung
+                'beschreibung': hochzeitslocation_beschreibung,
+                'parkplaetze': hochzeitslocation_parkplaetze
             }
         else:
             logger.warning("Hochzeitslocation-Daten nicht in SQLite-Einstellungen gefunden")
@@ -3132,13 +3147,18 @@ def generate_guest_credentials():
         if not data_manager:
             return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
         
-        success = data_manager.generate_all_guest_credentials()
+        # Parameter aus Request lesen
+        request_data = request.get_json() or {}
+        force_regenerate = request_data.get('force_regenerate', True)  # Default: überschreibe bestehende
+        
+        success = data_manager.generate_all_guest_credentials(force_regenerate=force_regenerate)
         
         if success:
             credentials_list = data_manager.get_guest_credentials_list()
+            action_text = 'neu generiert' if force_regenerate else 'generiert'
             return jsonify({
                 'success': True,
-                'message': 'Login-Credentials erfolgreich generiert',
+                'message': f'Login-Credentials erfolgreich {action_text}',
                 'credentials': credentials_list
             })
         else:
@@ -3458,6 +3478,9 @@ def test_invitation_generation():
         anzahl_party = test_data.get('anzahl_party', 0)
         guest_name = test_data.get('name', 'Max Mustermann')  # Der Parameter heißt 'name' im Frontend
         
+        # Vorname aus dem guest_name extrahieren (für {{guest_firstname}} Platzhalter)
+        guest_firstname = guest_name.split(' ')[0] if guest_name else 'Max'
+        
         # Hochzeitsdatum aus Settings laden
         settings = data_manager.load_settings()
         hochzeitsdatum = settings.get('hochzeitsdatum') or settings.get('hochzeit', {}).get('datum', '25.07.2026')
@@ -3465,7 +3488,7 @@ def test_invitation_generation():
         
         # Personalisierte Nachricht generieren
         message = generate_personalized_welcome_message(
-            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, formatted_date, guest_name
+            anzahl_personen, weisser_saal, anzahl_essen, anzahl_party, formatted_date, guest_name, guest_firstname
         )
         
         return jsonify({
@@ -3996,11 +4019,11 @@ def api_settings_get():
             if field == 'first_login_image_data' and field_value:
                 # Für Base64-Bilder zeige nur die Länge an
                 logger.info(f"🔍 First Login Field '{field}': Base64 vorhanden (Länge: {len(field_value)} Zeichen)")
-                # Entferne zu große Base64-Daten aus der Settings-Response um HTTP 414 zu vermeiden
-                if len(field_value) > 100000:  # 100KB Limit für inline Übertragung
-                    logger.info(f"⚠️ Base64-Bild zu groß für inline Übertragung, verwende separaten Endpunkt")
-                    settings[field] = None  # Entferne aus Settings
-                    settings['first_login_image_large'] = True  # Markiere als groß
+                # IMMER große Base64-Daten aus der Settings-Response entfernen um HTTP 414/Request Too Large zu vermeiden
+                # Das Bild wird über separaten Endpunkt geladen
+                logger.info(f"🚀 Base64-Bild wird über separaten Endpunkt bereitgestellt")
+                settings[field] = None  # Entferne aus Settings
+                settings['first_login_image_large'] = True  # Markiere als groß
             else:
                 logger.info(f"🔍 First Login Field '{field}': {'Vorhanden' if field_value else 'Leer'}")
         
@@ -4076,7 +4099,7 @@ def api_settings_get():
 @require_auth
 @require_role(['admin', 'user', 'guest'])
 def api_first_login_image():
-    """Separater Endpunkt für große First Login Bilder"""
+    """Separater Endpunkt für große First Login Bilder - optimiert für Zuverlässigkeit"""
     try:
         if not data_manager:
             return jsonify({"error": "DataManager nicht initialisiert"}), 500
@@ -4087,20 +4110,30 @@ def api_first_login_image():
         if image_data:
             logger.info(f"🖼️ First Login Bild geladen (Länge: {len(image_data)} Zeichen)")
             
-            # Response mit Cache-Control Headers erstellen
+            # Stelle sicher, dass das Base64-Bild das korrekte data:image Format hat
+            if not image_data.startswith('data:image/'):
+                # Füge den data:image Header hinzu (standardmäßig JPEG angenommen)
+                image_data = f"data:image/jpeg;base64,{image_data}"
+            
+            # Response mit optimalen Headers für Bildübertragung
             response_data = {"success": True, "image_data": image_data}
             response = make_response(jsonify(response_data))
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-            response.headers['Pragma'] = 'no-cache'
-            response.headers['Expires'] = '0'
+            
+            # Cache-Control für bessere Performance bei wiederholten Requests
+            response.headers['Cache-Control'] = 'private, max-age=300'  # 5 Minuten Cache
+            response.headers['Content-Type'] = 'application/json; charset=utf-8'
+            
+            # Kompression aktivieren falls möglich
+            response.headers['Vary'] = 'Accept-Encoding'
             
             return response
         else:
+            logger.info("ℹ️ Kein First Login Bild in der Datenbank gefunden")
             return jsonify({"success": False, "message": "Kein First Login Bild verfügbar"})
             
     except Exception as e:
-        logger.error(f"Fehler beim Laden des First Login Bildes: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"❌ Fehler beim Laden des First Login Bildes: {str(e)}")
+        return jsonify({"error": "Fehler beim Laden des Bildes", "details": str(e)}), 500
 
 @app.route("/api/debug/reset-first-login/<int:guest_id>", methods=['POST'])
 @require_auth
@@ -5114,7 +5147,7 @@ def send_task_assignment_notification(aufgabe_data, aufgabe_id, is_new=True):
             return
         
         # Erstelle direkten Link zum Hochzeitsplaner
-        hochzeitsplaner_url = "https://pascalundkäthe-heiraten.de:8443/aufgabenplaner"
+        hochzeitsplaner_url = "https://pascalundkäthe-heiraten.de/aufgabenplaner"
         
         # E-Mail-Betreff
         if is_new:

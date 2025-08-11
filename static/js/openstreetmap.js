@@ -478,9 +478,17 @@ class OpenStreetMapIntegration {
     /**
      * Erstellt eine erweiterte Karte für Location mit optionalen Parkplätzen
      */
-    async createLocationMapWithParking(containerId, locationData) {
+    async createLocationMapWithParking(containerId, locationData, options = {}) {
         try {
             debugLog(`🗺️ Erstelle Location-Karte mit Parkplätzen für Container: ${containerId}`);
+            
+            // Standard-Optionen
+            const defaultOptions = {
+                showRoutes: true,  // Standardmäßig Routen anzeigen
+                routeType: 'walking'  // 'walking' für echte Routen, 'straight' für Luftlinie
+            };
+            
+            const mapOptions = { ...defaultOptions, ...options };
             
             // Prüfe ob Container existiert
             const container = document.getElementById(containerId);
@@ -502,9 +510,10 @@ class OpenStreetMapIntegration {
             const markers = [];
             const bounds = L.latLngBounds();
 
-            // Haupt-Location hinzufügen
-            if (locationData.address) {
-                const result = await this.geocodeAddress(locationData.address);
+            // Haupt-Location hinzufügen (unterstützt sowohl 'address' als auch 'adresse')
+            const mainAddress = locationData.address || locationData.adresse;
+            if (mainAddress) {
+                const result = await this.geocodeAddress(mainAddress);
                 if (result && result.lat && result.lng) {
                     const mainMarker = L.marker([result.lat, result.lng], {
                         icon: L.icon({
@@ -520,7 +529,7 @@ class OpenStreetMapIntegration {
                     const popupContent = `
                         <div style="text-align: center; font-family: system-ui;">
                             <strong style="color: #2c5aa0;">${locationData.name || 'Hochzeitslocation'}</strong><br>
-                            <small style="color: #666;">${locationData.address}</small>
+                            <small style="color: #666;">${mainAddress}</small>
                             ${locationData.beschreibung ? `<br><em style="color: #999;">${locationData.beschreibung}</em>` : ''}
                         </div>
                     `;
@@ -528,23 +537,40 @@ class OpenStreetMapIntegration {
                     
                     markers.push(mainMarker);
                     bounds.extend([result.lat, result.lng]);
+                    debugLog(`✅ Hauptlocation-Marker erstellt für: ${mainAddress}`);
+                } else {
+                    debugLog(`❌ Geocoding fehlgeschlagen für Hauptlocation: ${mainAddress}`);
                 }
+            } else {
+                debugLog(`⚠️ Keine Hauptadresse gefunden in locationData:`, locationData);
             }
 
             // Parkplätze hinzufügen (falls konfiguriert)
             if (locationData.parkplaetze && Array.isArray(locationData.parkplaetze)) {
+                debugLog(`🅿️ Verarbeite ${locationData.parkplaetze.length} Parkplätze`);
+                
                 for (const parkplatz of locationData.parkplaetze) {
                     let parkingLat, parkingLng;
                     
-                    if (parkplatz.address) {
-                        const parkingResult = await this.geocodeAddress(parkplatz.address);
+                    // Unterstütze sowohl 'address' als auch 'adresse'
+                    const parkingAddress = parkplatz.address || parkplatz.adresse;
+                    
+                    if (parkingAddress) {
+                        debugLog(`🔍 Geocode Parkplatz-Adresse: ${parkingAddress}`);
+                        const parkingResult = await this.geocodeAddress(parkingAddress);
                         if (parkingResult) {
                             parkingLat = parkingResult.lat;
                             parkingLng = parkingResult.lng;
+                            debugLog(`✅ Parkplatz geocodiert: ${parkingLat}, ${parkingLng}`);
+                        } else {
+                            debugLog(`❌ Geocoding fehlgeschlagen für Parkplatz: ${parkingAddress}`);
                         }
                     } else if (parkplatz.lat && parkplatz.lng) {
                         parkingLat = parkplatz.lat;
                         parkingLng = parkplatz.lng;
+                        debugLog(`📍 Verwende direkte Koordinaten für Parkplatz: ${parkingLat}, ${parkingLng}`);
+                    } else {
+                        debugLog(`⚠️ Keine Adresse oder Koordinaten für Parkplatz gefunden:`, parkplatz);
                     }
                     
                     if (parkingLat && parkingLng) {
@@ -560,7 +586,7 @@ class OpenStreetMapIntegration {
                         const parkingPopup = `
                             <div style="text-align: center; font-family: system-ui;">
                                 <strong style="color: #007BFF;">🅿️ ${parkplatz.name || 'Parkplatz'}</strong><br>
-                                ${parkplatz.address ? `<small style="color: #666;">${parkplatz.address}</small><br>` : ''}
+                                ${parkingAddress ? `<small style="color: #666;">${parkingAddress}</small><br>` : ''}
                                 ${parkplatz.beschreibung ? `<em style="color: #999;">${parkplatz.beschreibung}</em><br>` : ''}
                                 ${parkplatz.kostenlos ? '<span style="color: #28a745;">💚 Kostenlos</span>' : ''}
                                 ${parkplatz.kostenpflichtig ? '<span style="color: #ffc107;">💰 Kostenpflichtig</span>' : ''}
@@ -570,15 +596,42 @@ class OpenStreetMapIntegration {
                         
                         markers.push(parkingMarker);
                         bounds.extend([parkingLat, parkingLng]);
+                        debugLog(`✅ Parkplatz-Marker erstellt: ${parkplatz.name || 'Parkplatz'}`);
                     }
                 }
+            } else {
+                debugLog(`ℹ️ Keine Parkplätze konfiguriert`);
             }
 
             // Karte auf alle Marker zoomen
             if (markers.length > 1) {
-                map.fitBounds(bounds, { padding: [20, 20] });
+                // Bei mehreren Markern: Passe den Zoom an um alle zu zeigen
+                map.fitBounds(bounds, { 
+                    padding: [30, 30], 
+                    maxZoom: 16  // Nicht zu weit hineinzoomen
+                });
+                debugLog(`✅ Karte auf ${markers.length} Marker angepasst`);
+                
+                // Zeichne Wege zwischen Parkplätzen und Hauptlocation (falls aktiviert)
+                if (mapOptions.showRoutes && markers.length > 1) {
+                    console.log('🛣️ Starte Routen-Zeichnung...');
+                    await this.drawSimpleRoutes(map, markers);
+                }
+                
             } else if (markers.length === 1) {
+                // Bei nur einem Marker: Setze einen festen Zoom
                 map.setView(bounds.getCenter(), 17);
+                debugLog(`✅ Karte auf einzelnen Marker zentriert`);
+            } else {
+                debugLog(`⚠️ Keine Marker erstellt - Standardansicht verwenden`);
+                // Fallback auf eine Standardansicht wenn möglich
+                const mainAddress = locationData.address || locationData.adresse;
+                if (mainAddress) {
+                    const result = await this.geocodeAddress(mainAddress);
+                    if (result) {
+                        map.setView([result.lat, result.lng], 15);
+                    }
+                }
             }
 
             debugLog(`✅ Location-Karte mit ${markers.length} Markern erstellt`);
@@ -588,6 +641,495 @@ class OpenStreetMapIntegration {
             debugLog(`❌ Fehler beim Erstellen der Location-Karte:`, error);
             return null;
         }
+    }
+
+    /**
+     * Zeichnet Routen zwischen Parkplätzen und der Hauptlocation
+     */
+    async drawRoutesToLocation(map, markers, locationData, routeType = 'straight') {
+        try {
+            console.log('🛣️ drawRoutesToLocation aufgerufen');
+            console.log('Markers:', markers);
+            console.log('RouteType:', routeType);
+            debugLog(`🛣️ Zeichne Routen zwischen Parkplätzen und Hauptlocation (Typ: ${routeType})`);
+            
+            if (!markers || markers.length === 0) {
+                console.log('❌ Keine Marker übergeben');
+                return;
+            }
+            
+            // Finde den Hauptlocation-Marker und Parkplätze
+            let mainLocationMarker = null;
+            const parkingMarkers = [];
+            
+            console.log('🔍 Analysiere Marker:');
+            for (let i = 0; i < markers.length; i++) {
+                const marker = markers[i];
+                console.log(`Marker ${i}:`, marker);
+                console.log(`Icon URL:`, marker.options?.icon?.options?.iconUrl);
+                
+                const icon = marker.options.icon;
+                if (icon && icon.options && icon.options.iconUrl) {
+                    if (icon.options.iconUrl.includes('marker-icon.png')) {
+                        mainLocationMarker = marker;
+                        console.log(`✅ Hauptlocation-Marker gefunden (Index ${i})`);
+                    } else if (icon.options.iconUrl.includes('data:image/svg+xml') || 
+                              icon.options.iconUrl.includes('svg')) {
+                        parkingMarkers.push(marker);
+                        console.log(`🅿️ Parkplatz-Marker gefunden (Index ${i})`);
+                    }
+                } else {
+                    console.log(`⚠️ Marker ${i} hat kein erkennbares Icon`);
+                }
+            }
+            
+            console.log(`Gefunden: ${mainLocationMarker ? 1 : 0} Hauptlocation, ${parkingMarkers.length} Parkplätze`);
+            
+            if (!mainLocationMarker) {
+                console.log('❌ Keine Hauptlocation gefunden');
+                debugLog('❌ Keine Hauptlocation gefunden - prüfe Marker-Icons');
+                return;
+            }
+            
+            if (parkingMarkers.length === 0) {
+                console.log('❌ Keine Parkplätze gefunden');
+                debugLog('❌ Keine Parkplätze gefunden - prüfe Parkplatz-Icons');
+                return;
+            }
+            
+            const mainLatLng = mainLocationMarker.getLatLng();
+            console.log(`🎯 Hauptlocation Koordinaten: ${mainLatLng.lat}, ${mainLatLng.lng}`);
+            debugLog(`🎯 Hauptlocation gefunden: ${mainLatLng.lat}, ${mainLatLng.lng}`);
+            
+            // Zeichne Routen zu allen Parkplätzen
+            for (let i = 0; i < parkingMarkers.length; i++) {
+                const parkingMarker = parkingMarkers[i];
+                const parkingLatLng = parkingMarker.getLatLng();
+                
+                console.log(`🅿️ Zeichne Route ${i + 1}: Parkplatz (${parkingLatLng.lat}, ${parkingLatLng.lng}) -> Hauptlocation`);
+                debugLog(`🅿️ Zeichne Route zu Parkplatz ${i + 1}: ${parkingLatLng.lat}, ${parkingLatLng.lng}`);
+                
+                // Zeichne Route basierend auf gewähltem Typ
+                if (routeType === 'walking') {
+                    await this.drawRoute(map, parkingLatLng, mainLatLng, i);
+                } else {
+                    console.log(`📏 Zeichne Luftlinie ${i + 1}`);
+                    this.drawStraightLine(map, parkingLatLng, mainLatLng, i);
+                }
+            }
+            
+            console.log('✅ Alle Routen gezeichnet');
+            
+        } catch (error) {
+            console.error('❌ Fehler beim Zeichnen der Routen:', error);
+            debugLog('❌ Fehler beim Zeichnen der Routen:', error);
+        }
+    }
+
+    /**
+     * Zeichnet eine Route zwischen zwei Punkten
+     */
+    async drawRoute(map, startLatLng, endLatLng, routeIndex = 0) {
+        try {
+            console.log(`🛣️ Zeichne Route ${routeIndex}: Lade echte Fußgängerroute...`);
+            
+            // Versuche echte Fußgängerroute zu bekommen
+            const route = await this.getWalkingRoute(startLatLng, endLatLng);
+            
+            if (route && route.coordinates && route.coordinates.length > 0) {
+                console.log('✅ Echte Fußgängerroute erhalten, zeichne detaillierte Route');
+                this.drawRealRoute(map, route, routeIndex);
+            } else {
+                console.log('⚠️ Keine echte Route verfügbar, verwende verbesserte Luftlinie');
+                // Fallback auf Luftlinie mit Fußgänger-Styling
+                this.drawWalkingStyleStraightLine(map, startLatLng, endLatLng, routeIndex);
+            }
+            
+        } catch (error) {
+            console.error('❌ Routing-Fehler, verwende Luftlinie:', error);
+            this.drawWalkingStyleStraightLine(map, startLatLng, endLatLng, routeIndex);
+        }
+    }
+
+    /**
+     * Holt eine echte Walking-Route von OpenRouteService
+     */
+    async getWalkingRoute(startLatLng, endLatLng) {
+        try {
+            // Verwende OSRM (Open Source Routing Machine) - kostenlos und ohne API-Key
+            const url = `https://router.project-osrm.org/route/v1/foot/${startLatLng.lng},${startLatLng.lat};${endLatLng.lng},${endLatLng.lat}?geometries=geojson&overview=full`;
+            
+            console.log(`🌐 Lade Fußgängerroute von OSRM: ${url}`);
+            
+            const response = await fetch(url);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ OSRM Response:', data);
+                
+                if (data.routes && data.routes.length > 0) {
+                    const route = data.routes[0];
+                    console.log(`🚶‍♀️ Route gefunden: ${Math.round(route.distance)}m, ${Math.round(route.duration/60)}min`);
+                    
+                    return {
+                        coordinates: route.geometry.coordinates,
+                        distance: Math.round(route.distance),
+                        duration: Math.round(route.duration / 60) // in Minuten
+                    };
+                }
+            } else {
+                console.log('⚠️ OSRM API Fehler:', response.status);
+            }
+            
+            return null;
+            
+        } catch (error) {
+            console.log('❌ OSRM API Fehler:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Zeichnet eine echte Route auf die Karte
+     */
+    drawRealRoute(map, route, routeIndex) {
+        const colors = ['#007BFF', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
+        const color = colors[routeIndex % colors.length];
+        
+        // Konvertiere Koordinaten von [lng, lat] zu [lat, lng] für Leaflet
+        const coordinates = route.coordinates.map(coord => [coord[1], coord[0]]);
+        
+        console.log(`🗺️ Zeichne echte Route mit ${coordinates.length} Punkten`);
+        
+        // Hauptroute als durchgehende Linie
+        const polyline = L.polyline(coordinates, {
+            color: color,
+            weight: 5,
+            opacity: 0.8
+        }).addTo(map);
+        
+        // Zusätzliche gestrichelte Linie für bessere Sichtbarkeit
+        const shadowLine = L.polyline(coordinates, {
+            color: '#FFFFFF',
+            weight: 7,
+            opacity: 0.5,
+            dashArray: '0'
+        }).addTo(map);
+        
+        // Bringe die Hauptlinie nach vorne
+        polyline.bringToFront();
+        
+        // Richtungspfeile alle 100m simulieren
+        if (coordinates.length > 10) {
+            const arrowInterval = Math.max(1, Math.floor(coordinates.length / 5));
+            for (let i = arrowInterval; i < coordinates.length; i += arrowInterval) {
+                const point = coordinates[i];
+                const prevPoint = coordinates[i - 1];
+                
+                // Berechne Richtung
+                const angle = Math.atan2(point[1] - prevPoint[1], point[0] - prevPoint[0]) * 180 / Math.PI;
+                
+                // Pfeil-Marker
+                const arrowMarker = L.marker(point, {
+                    icon: L.divIcon({
+                        html: `<div style="
+                            width: 0; 
+                            height: 0; 
+                            border-left: 6px solid transparent; 
+                            border-right: 6px solid transparent; 
+                            border-bottom: 12px solid ${color};
+                            transform: rotate(${angle + 90}deg);
+                            filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.3));
+                        "></div>`,
+                        className: 'route-arrow',
+                        iconSize: [12, 12],
+                        iconAnchor: [6, 6]
+                    })
+                }).addTo(map);
+            }
+        }
+        
+        // Detailliertes Popup mit Routeninformationen
+        polyline.bindPopup(`
+            <div style="text-align: center; font-family: system-ui;">
+                <strong style="color: ${color};">🚶‍♀️ Fußweg-Route</strong><br>
+                <div style="margin: 8px 0;">
+                    <span style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; margin: 2px;">
+                        📏 ${route.distance}m
+                    </span>
+                    <span style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; margin: 2px;">
+                        ⏱️ ca. ${route.duration}min
+                    </span>
+                </div>
+                <small style="color: #666;">Optimaler Fußweg zum Parkplatz</small>
+            </div>
+        `);
+        
+        // Startpunkt markieren
+        const startMarker = L.circleMarker(coordinates[0], {
+            radius: 6,
+            fillColor: '#28a745',
+            color: 'white',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.9
+        }).addTo(map);
+        
+        startMarker.bindTooltip('🚶‍♀️ Start', {
+            permanent: false,
+            direction: 'top'
+        });
+        
+        // Endpunkt markieren
+        const endMarker = L.circleMarker(coordinates[coordinates.length - 1], {
+            radius: 6,
+            fillColor: '#dc3545',
+            color: 'white',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.9
+        }).addTo(map);
+        
+        endMarker.bindTooltip('🎯 Ziel', {
+            permanent: false,
+            direction: 'top'
+        });
+        
+        console.log(`✅ Echte Route gezeichnet: ${route.distance}m, ${route.duration}min`);
+    }
+
+    /**
+     * Zeichnet eine gestrichelte Luftlinie zwischen zwei Punkten
+     */
+    drawStraightLine(map, startLatLng, endLatLng, routeIndex) {
+        try {
+            console.log(`📏 drawStraightLine aufgerufen für Route ${routeIndex}`);
+            console.log(`Start: ${startLatLng.lat}, ${startLatLng.lng}`);
+            console.log(`Ende: ${endLatLng.lat}, ${endLatLng.lng}`);
+            
+            const colors = ['#007BFF', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
+            const color = colors[routeIndex % colors.length];
+            
+            // Berechne Entfernung
+            const distance = Math.round(startLatLng.distanceTo(endLatLng));
+            console.log(`Entfernung: ${distance}m, Farbe: ${color}`);
+            
+            // Einfache gestrichelte Linie
+            const polyline = L.polyline([startLatLng, endLatLng], {
+                color: color,
+                weight: 4,
+                opacity: 0.8,
+                dashArray: '12, 8'
+            });
+            
+            console.log('Polyline erstellt, füge zur Karte hinzu...');
+            polyline.addTo(map);
+            console.log('✅ Polyline zur Karte hinzugefügt');
+            
+            // Popup für die Linie
+            polyline.bindPopup(`
+                <div style="text-align: center; font-family: system-ui;">
+                    <strong style="color: ${color};">🚶‍♀️ Fußweg</strong><br>
+                    <small>Ca. ${distance}m Luftlinie</small><br>
+                    <em style="color: #999; font-size: 12px;">Tatsächlicher Weg kann länger sein</em>
+                </div>
+            `);
+            
+            console.log(`✅ Route ${routeIndex} gezeichnet: ${distance}m mit Farbe ${color}`);
+            debugLog(`✅ Luftlinie gezeichnet: ${distance}m mit Farbe ${color}`);
+            
+        } catch (error) {
+            console.error(`❌ Fehler beim Zeichnen der Luftlinie ${routeIndex}:`, error);
+            debugLog(`❌ Fehler beim Zeichnen der Luftlinie ${routeIndex}:`, error);
+        }
+    }
+
+    /**
+     * Zeichnet eine verbesserte Luftlinie mit Fußgänger-Styling
+     */
+    drawWalkingStyleStraightLine(map, startLatLng, endLatLng, routeIndex) {
+        try {
+            const colors = ['#007BFF', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
+            const color = colors[routeIndex % colors.length];
+            
+            // Berechne Entfernung und geschätzte Gehzeit
+            const distance = Math.round(startLatLng.distanceTo(endLatLng));
+            const walkingTime = Math.round(distance / 80); // ca. 80m/min Gehgeschwindigkeit
+            
+            console.log(`🚶‍♀️ Zeichne Fußgänger-Luftlinie: ${distance}m, ca. ${walkingTime}min`);
+            
+            // Hauptlinie mit Fußgänger-Styling
+            const polyline = L.polyline([startLatLng, endLatLng], {
+                color: color,
+                weight: 5,
+                opacity: 0.8,
+                dashArray: '15, 10'
+            }).addTo(map);
+            
+            // Schatten-Linie für bessere Sichtbarkeit
+            const shadowLine = L.polyline([startLatLng, endLatLng], {
+                color: '#FFFFFF',
+                weight: 7,
+                opacity: 0.4
+            }).addTo(map);
+            
+            // Hauptlinie nach vorne bringen
+            polyline.bringToFront();
+            
+            // Richtungspfeil in der Mitte
+            const midPoint = L.latLng(
+                (startLatLng.lat + endLatLng.lat) / 2,
+                (startLatLng.lng + endLatLng.lng) / 2
+            );
+            
+            // Berechne Winkel für Richtungspfeil
+            const angle = Math.atan2(endLatLng.lat - startLatLng.lat, endLatLng.lng - startLatLng.lng) * 180 / Math.PI;
+            
+            const directionMarker = L.marker(midPoint, {
+                icon: L.divIcon({
+                    html: `<div style="
+                        width: 0; 
+                        height: 0; 
+                        border-left: 8px solid transparent; 
+                        border-right: 8px solid transparent; 
+                        border-bottom: 16px solid ${color};
+                        transform: rotate(${angle + 90}deg);
+                        filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+                    "></div>`,
+                    className: 'walking-arrow',
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8]
+                })
+            }).addTo(map);
+            
+            // Detailliertes Popup
+            polyline.bindPopup(`
+                <div style="text-align: center; font-family: system-ui;">
+                    <strong style="color: ${color};">🚶‍♀️ Geschätzter Fußweg</strong><br>
+                    <div style="margin: 8px 0;">
+                        <span style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; margin: 2px;">
+                            📏 ${distance}m Luftlinie
+                        </span>
+                        <span style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; margin: 2px;">
+                            ⏱️ ca. ${walkingTime}min
+                        </span>
+                    </div>
+                    <small style="color: #666;">Tatsächlicher Weg kann abweichen</small>
+                </div>
+            `);
+            
+            console.log(`✅ Fußgänger-Luftlinie gezeichnet: ${distance}m, ${walkingTime}min`);
+            
+        } catch (error) {
+            console.error(`❌ Fehler beim Zeichnen der Fußgänger-Luftlinie ${routeIndex}:`, error);
+        }
+    }
+
+    /**
+     * Einfache Routen-Funktion die garantiert funktioniert
+     */
+    async drawSimpleRoutes(map, markers) {
+        try {
+            console.log('🛣️ drawSimpleRoutes aufgerufen mit', markers.length, 'Markern');
+            
+            // Finde Hauptlocation und Parkplätze
+            let mainMarker = null;
+            const parkingMarkers = [];
+            
+            for (let i = 0; i < markers.length; i++) {
+                const marker = markers[i];
+                const iconUrl = marker.options?.icon?.options?.iconUrl || '';
+                
+                if (iconUrl.includes('marker-icon.png')) {
+                    mainMarker = marker;
+                    console.log('✅ Hauptlocation gefunden');
+                } else if (iconUrl.includes('svg') || iconUrl.includes('data:image')) {
+                    parkingMarkers.push(marker);
+                    console.log('🅿️ Parkplatz gefunden');
+                }
+            }
+            
+            if (!mainMarker || parkingMarkers.length === 0) {
+                console.log('❌ Keine passenden Marker für Routen gefunden');
+                return;
+            }
+            
+            const mainLatLng = mainMarker.getLatLng();
+            console.log(`Hauptlocation: ${mainLatLng.lat}, ${mainLatLng.lng}`);
+            
+            // Zeichne Routen zu allen Parkplätzen
+            for (let index = 0; index < parkingMarkers.length; index++) {
+                const parkingMarker = parkingMarkers[index];
+                const parkingLatLng = parkingMarker.getLatLng();
+                console.log(`Zeichne echte Route ${index + 1} zu: ${parkingLatLng.lat}, ${parkingLatLng.lng}`);
+                
+                // Verwende echte Routen-Funktion statt einfache Linie
+                await this.drawRoute(map, parkingLatLng, mainLatLng, index);
+            }
+            
+            console.log('✅ Alle Routen gezeichnet');
+            
+        } catch (error) {
+            console.error('❌ Fehler in drawSimpleRoutes:', error);
+        }
+    }
+
+    /**
+        const arrowSymbol = L.Symbol.arrowHead({
+            pixelSize: 15,
+            polygon: false,
+            pathOptions: { 
+                stroke: true,
+                color: color,
+                weight: 3
+            }
+        });
+        
+        const decorator = L.polylineDecorator(polyline, {
+            patterns: [
+                {
+                    offset: '70%',
+                    repeat: 0,
+                    symbol: arrowSymbol
+                }
+            ]
+        });
+        
+        // Nur hinzufügen wenn Decorator verfügbar ist
+        if (typeof L.polylineDecorator !== 'undefined') {
+            decorator.addTo(map);
+        }
+        
+        polyline.bindPopup(`
+            <div style="text-align: center; font-family: system-ui;">
+                <strong style="color: ${color};">�‍♀️ Fußweg</strong><br>
+                <small>Ca. ${distance}m Luftlinie</small><br>
+                <em style="color: #999; font-size: 12px;">Tatsächlicher Weg kann länger sein</em>
+            </div>
+        `);
+        
+        // Zusätzlich: Mittelpunkt-Marker mit Entfernung
+        const midPoint = L.latLng(
+            (startLatLng.lat + endLatLng.lat) / 2,
+            (startLatLng.lng + endLatLng.lng) / 2
+        );
+        
+        const distanceMarker = L.circleMarker(midPoint, {
+            radius: 8,
+            fillColor: color,
+            color: 'white',
+            weight: 2,
+            opacity: 0.9,
+            fillOpacity: 0.8
+        }).addTo(map);
+        
+        distanceMarker.bindTooltip(`${distance}m`, {
+            permanent: false,
+            direction: 'top',
+            className: 'distance-tooltip'
+        });
+        
+        debugLog(`✅ Luftlinie gezeichnet: ${distance}m mit Farbe ${color}`);
     }
 
     /**

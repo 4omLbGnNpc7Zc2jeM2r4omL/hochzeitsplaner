@@ -22,7 +22,7 @@ async function checkFirstLogin() {
 
         console.log('✅ First Login Parameter erkannt - lade Daten...');
 
-        // Alle benötigten Daten in einem Promise.all laden für bessere Performance
+        // Lade zunächst nur die Settings (ohne große Bilder) und personalisierte Nachricht
         const [settingsResponse, personalizedResponse] = await Promise.all([
             fetch('/api/settings/get?t=' + Date.now()), // Cache-buster
             fetch('/api/guest/first-login-message?t=' + Date.now()) // Cache-buster
@@ -38,44 +38,43 @@ async function checkFirstLogin() {
         }
 
         const settingsResult = await settingsResponse.json();
-        console.log('📋 Settings API Result:', settingsResult);
+        console.log('📋 Settings API Result erhalten');
         
         if (!settingsResult.success) {
             console.error('❌ Settings API Erfolg = false:', settingsResult);
             return;
         }
 
-        // First Login Modal Daten extrahieren - Verbessertes Mapping für verschiedene Datenstrukturen
+        // First Login Modal Daten extrahieren
         const settings = settingsResult.settings || {};
         
         // Debugging für bessere Fehlererkennung
-        console.log('🔍 First Login Modal - Geladene Settings:', settings);
+        console.log('🔍 First Login Modal - Geladene Settings (ohne große Bilder)');
         
-        // Flexible Extraktion der First Login Daten mit Fallback-Strategien
+        // Extraktion der First Login Daten
         const firstLoginImage = settings.first_login_image || settings['first_login_image'] || '';
-        let firstLoginImageData = settings.first_login_image_data || settings['first_login_image_data'] || '';
         const firstLoginText = settings.first_login_text || settings['first_login_text'] || '';
         const isLargeImage = settings.first_login_image_large || false;
         
-        // Wenn das Bild zu groß ist, lade es separat
-        if (isLargeImage && !firstLoginImageData) {
-            console.log('🖼️ Großes Bild erkannt - lade separat...');
-            try {
-                const imageResponse = await fetch('/api/settings/first-login-image?t=' + Date.now());
-                if (imageResponse.ok) {
-                    const imageResult = await imageResponse.json();
-                    if (imageResult.success && imageResult.image_data) {
-                        firstLoginImageData = imageResult.image_data;
-                        console.log('✅ Großes Bild erfolgreich geladen (Länge:', imageResult.image_data.length, ')');
-                    } else {
-                        console.warn('⚠️ Großes Bild konnte nicht geladen werden:', imageResult);
-                    }
+        let firstLoginImageData = settings.first_login_image_data || settings['first_login_image_data'] || '';
+        
+        // IMMER das Bild separat laden, um Probleme mit zu großen Responses zu vermeiden
+        console.log('🖼️ Lade Bild separat über dedicated API...');
+        try {
+            const imageResponse = await fetch('/api/settings/first-login-image?t=' + Date.now());
+            if (imageResponse.ok) {
+                const imageResult = await imageResponse.json();
+                if (imageResult.success && imageResult.image_data) {
+                    firstLoginImageData = imageResult.image_data;
+                    console.log('✅ Bild erfolgreich über separate API geladen (Länge:', imageResult.image_data.length, ')');
                 } else {
-                    console.error('❌ Fehler beim Laden des großen Bildes:', imageResponse.status);
+                    console.warn('⚠️ Bild konnte nicht über separate API geladen werden:', imageResult);
                 }
-            } catch (error) {
-                console.error('❌ Exception beim Laden des großen Bildes:', error);
+            } else {
+                console.error('❌ Fehler beim Laden des Bildes über separate API:', imageResponse.status);
             }
+        } catch (error) {
+            console.error('❌ Exception beim Laden des Bildes über separate API:', error);
         }
         
         // Hochzeitsdatum mit verschiedenen Strukturen unterstützen
@@ -266,40 +265,96 @@ function showFirstLoginModal(data) {
         console.warn('⚠️ Kein Text für das Modal verfügbar');
     }
     
-    // Bild konfigurieren - Priorisiere Base64-Daten über URL
-    if (data.imageData && data.imageData.trim()) {
-        // Base64-Bild direkt verwenden
-        console.log('🖼️ Verwende Base64-Bild (Länge:', data.imageData.length, ')');
-        welcomeImage.src = data.imageData.trim();
-        welcomeImage.onload = function() {
-            console.log('✅ Base64-Bild erfolgreich geladen');
-            welcomeImageContainer.classList.remove('d-none');
-            welcomeImagePlaceholder.classList.add('d-none');
-        };
-        welcomeImage.onerror = function() {
-            console.error('❌ Base64-Bild konnte nicht geladen werden');
+    // Bild konfigurieren - Verbesserte Fehlerbehandlung und Fallback-Strategien
+    console.log('🖼️ Konfiguriere Bild-Anzeige...');
+    console.log('  - Base64 Data:', data.imageData ? `Vorhanden (${data.imageData.length} Zeichen)` : 'Nicht vorhanden');
+    console.log('  - Image URL:', data.imageUrl ? `Vorhanden (${data.imageUrl})` : 'Nicht vorhanden');
+    
+    if (welcomeImage && welcomeImageContainer && welcomeImagePlaceholder) {
+        let imageLoaded = false;
+        
+        // Timeout für Bild-Ladevorgänge
+        const imageTimeout = setTimeout(() => {
+            if (!imageLoaded) {
+                console.warn('⏰ Bild-Ladevorgang unterbrochen (Timeout nach 10s)');
+                welcomeImageContainer.classList.add('d-none');
+                welcomeImagePlaceholder.classList.remove('d-none');
+            }
+        }, 10000); // 10 Sekunden Timeout
+        
+        const showImagePlaceholder = () => {
+            console.log('🖼️ Zeige Bild-Placeholder');
             welcomeImageContainer.classList.add('d-none');
             welcomeImagePlaceholder.classList.remove('d-none');
         };
-    } else if (data.imageUrl && data.imageUrl.trim()) {
-        // URL-Bild laden
-        console.log('🌐 Verwende Bild-URL:', data.imageUrl);
-        welcomeImage.src = data.imageUrl.trim();
-        welcomeImage.onerror = function() {
-            console.error('❌ URL-Bild konnte nicht geladen werden:', data.imageUrl);
-            welcomeImageContainer.classList.add('d-none');
-            welcomeImagePlaceholder.classList.remove('d-none');
+        
+        const tryLoadUrlImage = (imageUrl) => {
+            console.log('🌐 Verwende Bild-URL:', imageUrl);
+            
+            welcomeImage.onload = function() {
+                imageLoaded = true;
+                clearTimeout(imageTimeout);
+                console.log('✅ URL-Bild erfolgreich geladen');
+                welcomeImageContainer.classList.remove('d-none');
+                welcomeImagePlaceholder.classList.add('d-none');
+            };
+            
+            welcomeImage.onerror = function() {
+                imageLoaded = true;
+                clearTimeout(imageTimeout);
+                console.error('❌ URL-Bild konnte nicht geladen werden:', imageUrl);
+                showImagePlaceholder();
+            };
+            
+            try {
+                welcomeImage.src = imageUrl;
+            } catch (error) {
+                console.error('❌ Fehler beim Setzen der URL-Quelle:', error);
+                showImagePlaceholder();
+            }
         };
-        welcomeImage.onload = function() {
-            console.log('✅ URL-Bild erfolgreich geladen');
-            welcomeImageContainer.classList.remove('d-none');
-            welcomeImagePlaceholder.classList.add('d-none');
-        };
+        
+        if (data.imageData && data.imageData.trim()) {
+            // Base64-Bild direkt verwenden
+            console.log('🖼️ Verwende Base64-Bild (Länge:', data.imageData.length, ')');
+            
+            welcomeImage.onload = function() {
+                imageLoaded = true;
+                clearTimeout(imageTimeout);
+                console.log('✅ Base64-Bild erfolgreich geladen');
+                welcomeImageContainer.classList.remove('d-none');
+                welcomeImagePlaceholder.classList.add('d-none');
+            };
+            
+            welcomeImage.onerror = function() {
+                imageLoaded = true;
+                clearTimeout(imageTimeout);
+                console.error('❌ Base64-Bild konnte nicht geladen werden');
+                // Versuche URL-Fallback wenn verfügbar
+                if (data.imageUrl && data.imageUrl.trim()) {
+                    console.log('🔄 Versuche URL-Fallback...');
+                    tryLoadUrlImage(data.imageUrl.trim());
+                } else {
+                    showImagePlaceholder();
+                }
+            };
+            
+            try {
+                welcomeImage.src = data.imageData.trim();
+            } catch (error) {
+                console.error('❌ Fehler beim Setzen der Base64-Quelle:', error);
+                showImagePlaceholder();
+            }
+            
+        } else if (data.imageUrl && data.imageUrl.trim()) {
+            // URL-Bild laden
+            tryLoadUrlImage(data.imageUrl.trim());
+        } else {
+            // Kein Bild - zeige Placeholder
+            showImagePlaceholder();
+        }
     } else {
-        // Kein Bild - zeige Placeholder
-        console.log('🖼️ Kein Bild verfügbar - zeige Placeholder');
-        welcomeImageContainer.classList.add('d-none');
-        welcomeImagePlaceholder.classList.remove('d-none');
+        console.warn('⚠️ Bild-Elemente nicht gefunden - überspringe Bild-Konfiguration');
     }
     
     // Modal anzeigen

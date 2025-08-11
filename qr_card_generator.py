@@ -261,8 +261,16 @@ class WebQRCardGenerator:
         else:
             print("⚠️ Keine Datenbank-Einstellungen gefunden - verwende Standard-Einstellungen")
         
-        # Basis-URL für Login (ohne GET-Parameter)
-        self.base_url = "https://pascalundkäthe-heiraten.de:8443/login"
+        # Basis-URL für Login (ohne GET-Parameter) - dynamisch aus Konfiguration
+        try:
+            # Versuche Domain aus den Einstellungen zu laden
+            domain = self.data_manager.get_setting('domain', 'pascalundkäthe-heiraten.de')
+            self.base_url = f"https://{domain}/login"
+            print(f"✅ Domain aus Konfiguration geladen: {domain}")
+        except Exception as e:
+            # Fallback auf Standard-Domain
+            self.base_url = "https://pascalundkäthe-heiraten.de/login"
+            print(f"⚠️ Konnte Domain nicht aus Konfiguration laden, verwende Standard: {e}")
     
     def set_colors(self, primary=None, accent=None, background=None):
         """

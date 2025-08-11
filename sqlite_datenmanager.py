@@ -1491,36 +1491,54 @@ class SQLiteHochzeitsDatenManager:
     def get_guest_credentials_list(self) -> List[Dict[str, Any]]:
         """Gibt eine Liste aller Gast-Credentials zurück"""
         try:
-            with self._lock:
-                conn = sqlite3.connect(self.db_path)
+            with self._get_connection() as conn:
                 conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                
-                cursor.execute("""
+                cursor = conn.execute("""
                     SELECT id, vorname, nachname, guest_code, guest_password, email, status
                     FROM gaeste
-                    ORDER BY vorname, nachname
+                    ORDER BY id
                 """)
                 
                 rows = cursor.fetchall()
-                conn.close()
                 
                 credentials_list = []
                 for row in rows:
+                    guest_dict = dict(row)
+                    
                     credentials_list.append({
-                        'index': row['id'],
-                        'vorname': row['vorname'] or '',
-                        'nachname': row['nachname'] or '',
-                        'login_code': row['guest_code'] or '',
-                        'password': row['guest_password'] or '',
-                        'email': row['email'] or '',
-                        'status': row['status'] or 'Offen'
+                        'index': guest_dict['id'],
+                        'vorname': guest_dict.get('vorname', ''),
+                        'nachname': guest_dict.get('nachname', ''),
+                        'login_code': guest_dict.get('guest_code', ''),
+                        'password': guest_dict.get('guest_password', ''),
+                        'email': guest_dict.get('email', ''),
+                        'status': guest_dict.get('status', 'Offen')
                     })
                 
                 return credentials_list
                 
         except Exception as e:
             logger.error(f"Fehler beim Abrufen der Credentials-Liste: {e}")
+            return []
+    
+    def _get_credentials_from_sqlite(self) -> List[Dict[str, Any]]:
+        """Fallback: Lade Credentials aus SQLite"""
+        try:
+            guests = self.get_all_guests()
+            credentials_list = []
+            for guest in guests:
+                credentials_list.append({
+                    'index': guest.get('id'),
+                    'vorname': guest.get('vorname', ''),
+                    'nachname': guest.get('nachname', ''),
+                    'login_code': guest.get('guest_code', ''),
+                    'password': guest.get('guest_password', ''),
+                    'email': guest.get('email', ''),
+                    'status': guest.get('status', 'Offen')
+                })
+            return credentials_list
+        except Exception as e:
+            logger.error(f"Fehler beim Laden aus SQLite: {e}")
             return []
     
     def _generate_guest_code(self, vorname: str, nachname: str) -> str:
@@ -2030,27 +2048,46 @@ class SQLiteHochzeitsDatenManager:
             logger.error(f"Fehler beim Speichern der Kostenkonfiguration in SQLite: {e}")
             return False
     
-    def generate_all_guest_credentials(self) -> bool:
-        """Generiert Credentials für alle Gäste die noch keine haben"""
+    def generate_all_guest_credentials(self, force_regenerate=False) -> bool:
+        """
+        Generiert Credentials für alle Gäste
+        
+        Args:
+            force_regenerate (bool): Falls True, werden auch bestehende Credentials überschrieben
+        """
         try:
             updated_count = 0
-            guests = self.get_all_guests()
             
-            for guest in guests:
-                if not guest.get('guest_code') or not guest.get('guest_password'):
-                    # Generiere neue Credentials
-                    guest_code = self._generate_guest_code(guest.get('vorname', ''), guest.get('nachname', ''))
-                    guest_password = self._generate_guest_password(guest.get('nachname', ''))
+            with self._get_connection() as conn:
+                # Alle Gäste mit ihren aktuellen Credentials laden
+                conn.row_factory = sqlite3.Row  # Wichtig für dict() Konvertierung
+                cursor = conn.execute("""
+                    SELECT id, vorname, nachname, guest_code, guest_password 
+                    FROM gaeste
+                """)
+                guests = [dict(row) for row in cursor.fetchall()]
+            
+                for guest in guests:
+                    # Prüfe ob Credentials generiert werden sollen
+                    should_generate = force_regenerate or not guest.get('guest_code') or not guest.get('guest_password')
                     
-                    # Update Gast
-                    update_data = {
-                        'guest_code': guest_code,
-                        'guest_password': guest_password
-                    }
-                    
-                    if self.update_guest(guest['id'], update_data):
+                    if should_generate:
+                        # Generiere neue Credentials
+                        guest_code = self._generate_guest_code(guest.get('vorname', ''), guest.get('nachname', ''))
+                        guest_password = self._generate_guest_password(guest.get('nachname', ''))
+                        
+                        # Update Credentials direkt in der Datenbank
+                        cursor.execute("""
+                            UPDATE gaeste 
+                            SET guest_code = ?, guest_password = ? 
+                            WHERE id = ?
+                        """, (guest_code, guest_password, guest['id']))
+                        
                         updated_count += 1
+                
+                conn.commit()
             
+            logger.info(f"Credentials für {updated_count} Gäste {'neu generiert' if force_regenerate else 'generiert'}")
             return True
             
         except Exception as e:

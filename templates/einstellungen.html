@@ -391,6 +391,7 @@
                                                     <small>
                                                         <strong>{{wedding_date}}</strong> = Hochzeitsdatum (z.B. "25.07.2026")<br>
                                                         <strong>{{guest_name}}</strong> = Name des/der Gäste (automatisch eingefügt)<br>
+                                                        <strong>{{guest_firstname}}</strong> = Vorname des Gastes (automatisch eingefügt)<br>
                                                         <strong>{{event_parts}}</strong> = Dynamische Event-Teile (Trauung, Essen, Party)<br>
                                                         <strong>{{special_notes}}</strong> = Spezielle Hinweise (z.B. Weißer Saal Plätze)
                                                     </small>
@@ -408,7 +409,7 @@
                                                     Einladungstext für Einzelpersonen
                                                 </label>
                                                 <textarea class="form-control" id="invitationTextSingular" rows="12" 
-                                                    placeholder="💍💍&#10;💕 Persönliche Einladung 💒&#10;Hallo {{guest_name}},&#10;&#10;du gehörst zu den Menschen, die uns am wichtigsten sind - deshalb laden wir dich zu unserem kompletten Hochzeitstag am {{wedding_date}} ein:&#10;&#10;{{event_parts}}&#10;&#10;{{special_notes}}"></textarea>
+                                                    placeholder="💍💍&#10;💕 Persönliche Einladung 💒&#10;Hallo {{guest_firstname}},&#10;&#10;du gehörst zu den Menschen, die uns am wichtigsten sind - deshalb laden wir dich zu unserem kompletten Hochzeitstag am {{wedding_date}} ein:&#10;&#10;{{event_parts}}&#10;&#10;{{special_notes}}"></textarea>
                                                 <div class="form-text">Text für Gäste mit nur einer Person (du/dich/dir)</div>
                                             </div>
                                         </div>
@@ -421,7 +422,7 @@
                                                     Einladungstext für Gruppen
                                                 </label>
                                                 <textarea class="form-control" id="invitationTextPlural" rows="12" 
-                                                    placeholder="💍💍&#10;💕 Persönliche Einladung 💒&#10;Hallo {{guest_name}},&#10;&#10;ihr gehört zu den Menschen, die uns am wichtigsten sind - deshalb laden wir euch zu unserem kompletten Hochzeitstag am {{wedding_date}} ein:&#10;&#10;{{event_parts}}&#10;&#10;{{special_notes}}"></textarea>
+                                                    placeholder="💍💍&#10;💕 Persönliche Einladung 💒&#10;Hallo {{guest_name}},&#10;&#10;ihr gehört zu den Menschen, die uns am wichtigsten sind - deshalb laden wir euch zu unserem kompletten Hochzeitstag am {{wedding_date}} ein:&#10;&#10;{{event_parts}}&#10;&#10;{{special_notes}}&#10;&#10;Hinweis: Für Einzelpersonen verwende {{guest_firstname}}"></textarea>
                                                 <div class="form-text">Text für Gäste mit mehreren Personen (ihr/euch/euer)</div>
                                             </div>
                                         </div>
