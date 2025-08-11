@@ -840,7 +840,9 @@ function displayGuestInformationen() {
         
         // Personenanzahl ermitteln für richtige Textauswahl
         const personenAnzahlInput = document.getElementById('personenAnzahl');
-        const isPlural = personenAnzahlInput ? parseInt(personenAnzahlInput.max) > 1 : false;
+        const currentPersonen = personenAnzahlInput ? 
+            (parseInt(personenAnzahlInput.max) || parseInt(personenAnzahlInput.value) || 1) : 1;
+        const isPlural = currentPersonen > 1;
         
         const kontaktText = isPlural ? 
             (guestInformationen.kontakt.mehrere || 'Bei Fragen könnt ihr euch gerne an uns wenden.') :
@@ -866,13 +868,19 @@ function displayGuestInformationen() {
     // Geschenke Information
     if (guestInformationen.geschenke) {
         html += '<h6><i class="bi bi-gift me-2"></i>Geschenke</h6>';
-        html += `<div class="alert alert-success">${guestInformationen.geschenke.einzelperson || guestInformationen.geschenke.mehrere || 'Über euer Kommen freuen wir uns am meisten!'}</div>`;
+        const geschenkeText = isPlural ? 
+            (guestInformationen.geschenke.mehrere || guestInformationen.geschenke.einzelperson || 'Über euer Kommen freuen wir uns am meisten!') :
+            (guestInformationen.geschenke.einzelperson || guestInformationen.geschenke.mehrere || 'Über dein Kommen freuen wir uns am meisten!');
+        html += `<div class="alert alert-success">${geschenkeText}</div>`;
     }
     
     // Dresscode Information
     if (guestInformationen.dresscode) {
         html += '<h6><i class="bi bi-person-check me-2"></i>Dresscode</h6>';
-        html += `<div class="alert alert-warning">${guestInformationen.dresscode.einzelperson || guestInformationen.dresscode.mehrere || 'Festliche Kleidung erwünscht.'}</div>`;
+        const dresscodeText = isPlural ? 
+            (guestInformationen.dresscode.mehrere || guestInformationen.dresscode.einzelperson || 'Festliche Kleidung erwünscht.') :
+            (guestInformationen.dresscode.einzelperson || guestInformationen.dresscode.mehrere || 'Festliche Kleidung erwünscht.');
+        html += `<div class="alert alert-warning">${dresscodeText}</div>`;
     }
     
     if (html === '') {
