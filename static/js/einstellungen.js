@@ -370,9 +370,8 @@ async function handleSaveSettings(event) {
             }
         },
         
-        // First Login Modal Einstellungen
+        // First Login Modal Einstellungen - nur senden wenn sie verändert wurden
         first_login_image: getInputValue('firstLoginImage'),
-        first_login_image_data: getInputValue('firstLoginImageData'),
         first_login_text: getInputValue('firstLoginText'),
         
         // Einladungsheader und Ring-Emojis
@@ -427,6 +426,15 @@ async function handleSaveSettings(event) {
             beschreibung: getInputValue('hochzeitslocationBeschreibung')
         }
     };
+    
+    // First Login Image Data nur hinzufügen wenn es verändert wurde
+    const firstLoginImageData = getInputValue('firstLoginImageData');
+    if (firstLoginImageData && firstLoginImageData.trim() !== '') {
+        formData.first_login_image_data = firstLoginImageData;
+        console.log('First Login Image Data wird gespeichert (Länge:', firstLoginImageData.length, ')');
+    } else {
+        console.log('First Login Image Data leer - wird nicht überschrieben');
+    }
     
     try {
         const response = await fetch('/api/settings/save', {
@@ -947,6 +955,10 @@ function handleImageFileUpload(event) {
 
 // Hochgeladenes Bild löschen
 function clearUploadedImage() {
+    if (!confirm('Möchten Sie das hochgeladene Bild wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+        return;
+    }
+    
     // Hidden Field leeren
     document.getElementById('firstLoginImageData').value = '';
     
@@ -960,7 +972,35 @@ function clearUploadedImage() {
     // Vorschau aktualisieren
     updateFirstLoginImagePreview();
     
+    // Sofort in der Datenbank löschen
+    saveImageClearance();
+    
     showToast('Hochgeladenes Bild entfernt.', 'info');
+}
+
+// Separate Funktion zum Löschen des Bildes in der Datenbank
+async function saveImageClearance() {
+    try {
+        const response = await fetch('/api/settings/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                first_login_image_data: '',
+                first_login_image_data_clear: true
+            })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            console.log('Bild erfolgreich aus der Datenbank entfernt');
+        } else {
+            console.error('Fehler beim Entfernen des Bildes:', result.error);
+        }
+    } catch (error) {
+        console.error('Fehler beim Entfernen des Bildes:', error);
+    }
 }
 
 // Zeige Vorschau für hochgeladenes Bild (beim Laden der Settings)

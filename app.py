@@ -4450,13 +4450,20 @@ def api_settings_save():
                         data_manager.set_setting('hochzeitslocation_parkplaetze', parkplaetze_data)
                         logger.info(f"Parkplätze für Hochzeitslocation gespeichert: {len(parkplaetze_data) if isinstance(parkplaetze_data, list) else 0} Parkplätze")
         
-        # First Login Modal Einstellungen - immer speichern um Überschreibung zu ermöglichen
+        # First Login Modal Einstellungen - nur speichern wenn wirklich im Request enthalten
         for key in ['first_login_image', 'first_login_image_data', 'first_login_text']:
             if key in settings_data:
                 value = settings_data[key]
-                # Alle Werte speichern, auch leere, um bestehende Daten zu überschreiben
-                success = data_manager.set_setting(key, value if value is not None else '')
-                logger.info(f"First-Login-Modal Setting '{key}' saved: {success}")
+                clear_flag = settings_data.get(f'{key}_clear', False)
+                
+                if clear_flag or (value is not None and value != ''):
+                    # Speichern wenn explizit geleert oder wenn nicht-leer
+                    success = data_manager.set_setting(key, value if value is not None else '')
+                    action = "cleared" if clear_flag else "saved"
+                    logger.info(f"First-Login-Modal Setting '{key}' {action}: {success}")
+                else:
+                    # Leer gelassene Felder ohne Clear-Flag nicht überschreiben
+                    logger.info(f"First-Login-Modal Setting '{key}' skipped (empty value, keeping existing)")
         
         # Invitation Texts Einstellungen (als JSON speichern) - immer überschreiben
         if 'invitation_texts' in settings_data:
