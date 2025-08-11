@@ -265,6 +265,9 @@
                                                             <div class="form-text">JPG, PNG oder GIF (max. 5MB)</div>
                                                         </div>
                                                         <div class="d-flex gap-2">
+                                                            <button type="button" class="btn btn-outline-primary btn-sm" id="compressImage" style="display: none;">
+                                                                <i class="bi bi-arrows-angle-contract me-1"></i>Komprimieren (640x480, niedrige Qualität)
+                                                            </button>
                                                             <button type="button" class="btn btn-outline-secondary btn-sm" id="convertToBlackWhite" style="display: none;">
                                                                 <i class="bi bi-palette me-1"></i>Zu Schwarz-Weiß
                                                             </button>
@@ -1071,7 +1074,19 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/einstellungen.js') }}"></script>
+<script>
+// FORCE BROWSER CACHE REFRESH - 2025-08-11T20:20 - BRUTAL CACHE BREAK
+const cacheBustId = Date.now() + Math.random().toString(36).substr(2, 9);
+console.log('🔄 Loading einstellungen.js with cache bust ID:', cacheBustId);
+// FORCE RELOAD WITH NEW TIMESTAMP
+</script>
+<script>
+// ALLE HASH-FUNKTIONEN ELIMINIERT - CACHE BREAK v20250811202000
+window.NO_HASH_SYSTEM = true;
+window.VERSION = '20250811202000';
+console.log('🔥 BRUTALER CACHE BREAK AKTIV - VERSION:', window.VERSION);
+</script>
+<script src="{{ url_for('static', filename='js/einstellungen.js') }}?v={{ timestamp }}&cb={{ timestamp | string + '999' }}&brutal=20250811202000&force=true&nocache=1"></script>
 <script>
 // 2FA JavaScript Funktionen
 let currentTwoFASecret = null;

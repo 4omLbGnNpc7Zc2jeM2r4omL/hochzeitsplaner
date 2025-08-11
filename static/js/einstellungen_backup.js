@@ -1,40 +1,36 @@
-// Einstellungen JavaScript - ROBUSTES SYSTEM v2025-08-11-20:15 - NO HASH DEPENDENCIES
-// BROWSER CACHE BUSTER: 1723405030456
-// LAST MODIFIED: 2025-08-11T20:15:30.456Z
-// ROBUSTES SYSTEM OHNE HASH-ABHÄNGIGKEITEN - ALLE HASH-FUNKTIONEN ELIMINIERT
-
-console.log('🔄 JavaScript geladen - Version 2025-08-11-19:53 - FORCE REFRESH');
-
-// ROBUSTES SYSTEM OHNE HASH-ABHÄNGIGKEITEN
-// Einfache ID-Generierung basierend auf Zeitstempel und Zufallszahlen
-window.generateSimpleId = function(prefix = 'id') {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 1000);
-    return `${prefix}_${timestamp}_${random}`;
-};
-
-// Einfache Daten-Signatur basierend auf Länge und ersten/letzten Zeichen
-window.generateDataSignature = function(data) {
-    if (!data || typeof data !== 'string') return 'empty';
-    const length = data.length;
-    const start = data.substring(0, 10);
-    const end = data.substring(Math.max(0, length - 10));
-    return `len${length}_${start.replace(/[^a-zA-Z0-9]/g, '')}_${end.replace(/[^a-zA-Z0-9]/g, '')}`;
-};
-
-// Debugging-Information für das neue System
-console.log('✅ Robustes System ohne Hash-Abhängigkeiten initialisiert');
-console.log('✅ generateSimpleId verfügbar:', typeof window.generateSimpleId);
-console.log('✅ generateDataSignature verfügbar:', typeof window.generateDataSignature);
-console.log('✅ Test-ID:', window.generateSimpleId('test'));
-console.log('✅ Test-Signatur:', window.generateDataSignature('test-data-123'));
-
+// Einstellungen JavaScript - Cache Bust v2025-08-11-19:53
 document.addEventListener('DOMContentLoaded', function() {
 
     // 🔧 Utility Functions
     
-    // Das robuste System benötigt keine Hash-Funktionen mehr
-    console.log('🔧 Robustes System aktiv - keine Hash-Abhängigkeiten');
+    /**
+     * Generiert einen einfachen Hash für String-Vergleiche (für Debugging)
+     * CACHE-BUSTED VERSION - Global function definition
+     */
+    window.generateSimpleHash = function(str) {
+        if (!str) return '0';
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        return Math.abs(hash).toString(16);
+    };
+    
+    // ZUSÄTZLICHE GLOBALE DEFINITION für maximale Kompatibilität
+    if (typeof generateSimpleHash === 'undefined') {
+        window.generateSimpleHash = window.generateSimpleHash || function(str) {
+            if (!str) return '0';
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return Math.abs(hash).toString(16);
+        };
+    }
     
     // 🔧 Ende Utility Functions
     
@@ -250,37 +246,24 @@ function populateSettingsForm(settings) {
         setTimeout(() => updateMapPreview(), 500);
     }
     
-    // First Login Modal Einstellungen - KORREKTE LOGIK MIT LARGE FLAG PRIORITÄT
-    const hasLargeFlag = settings.first_login_image_large;
-    const hasBase64Data = settings.first_login_image_data && settings.first_login_image_data.trim();
-    const hasImageUrl = settings.first_login_image && settings.first_login_image.trim();
+    // First Login Modal Einstellungen
+    if (settings.first_login_image) {
+        setInputValue('firstLoginImage', settings.first_login_image);
+        updateFirstLoginImagePreview(); // Bildvorschau aktualisieren
+    }
     
-    console.log('🔄 Populiere First Login Bild:');
-    console.log('🔄   - Large Flag:', !!hasLargeFlag);
-    console.log('🔄   - Base64 vorhanden:', !!hasBase64Data, hasBase64Data ? `(${hasBase64Data.length} Zeichen)` : '');
-    console.log('🔄   - URL vorhanden:', !!hasImageUrl);
-    
-    if (hasLargeFlag) {
-        // PRIORITÄT 1: Large Flag gesetzt - lade via separaten Endpunkt (Backend entfernt Base64 aus Settings)
-        console.log('�️ Large Flag erkannt - lade Bild via separaten Endpunkt...');
+    // First Login Modal Base64 Daten
+    if (settings.first_login_image_data) {
+        document.getElementById('firstLoginImageData').value = settings.first_login_image_data;
+        // Zeige Upload-Tab und Preview für hochgeladenes Bild
+        showUploadedImagePreview(settings.first_login_image_data);
+    } else if (settings.first_login_image_large) {
+        // 🔍 PERFORMANCE OPTIMIERUNG: Separater Endpunkt nur bei Bedarf laden
+        // Verzögere den Load um den DOMContentLoaded Handler nicht zu blockieren
+        console.log('🖼️ First Login Image Large Flag erkannt - lade verzögert...');
         setTimeout(() => {
             loadFirstLoginImageFromEndpoint();
-        }, 100);
-    } else if (hasBase64Data) {
-        // PRIORITÄT 2: Base64-Daten direkt aus Settings verwenden (fallback für kleinere Bilder)
-        document.getElementById('firstLoginImageData').value = settings.first_login_image_data;
-        showUploadedImagePreview(settings.first_login_image_data);
-        console.log('✅ Base64-Bild direkt aus Settings angezeigt');
-        
-        // URL-Feld ebenfalls setzen für Vollständigkeit
-        if (hasImageUrl) {
-            setInputValue('firstLoginImage', settings.first_login_image);
-        }
-    } else if (hasImageUrl) {
-        // PRIORITÄT 3: NUR wenn keine Base64-Daten und kein Large Flag, verwende URL
-        setInputValue('firstLoginImage', settings.first_login_image);
-        updateFirstLoginImagePreview();
-        console.log('✅ URL-Bild wird geladen');
+        }, 100); // 100ms Verzögerung um den Load Handler nicht zu blockieren
     } else {
         console.log('📝 Kein First Login Bild konfiguriert - zeige Standard-Placeholder');
         // Setze explizit leeren Zustand
@@ -972,14 +955,6 @@ function updateFirstLoginImagePreview() {
     
     if (!imageInput || !imagePreview || !imagePlaceholder) {
         return;
-    }
-    
-    // ⚠️ WICHTIGER SCHUTZ: Prüfe ob Upload-Tab aktiv ist und Base64-Daten vorhanden sind
-    // Falls ja, dann NICHT das Bild überschreiben
-    const uploadTab = document.getElementById('upload-tab');
-    if (uploadTab && uploadTab.classList.contains('active') && imageData && imageData.value.trim()) {
-        console.log('🛡️ SCHUTZ: Upload-Tab ist aktiv und Base64-Daten vorhanden - ÜBERSPRINGE updateFirstLoginImagePreview');
-        return; // Frühzeitiger Exit um das hochgeladene Bild nicht zu überschreiben
     }
     
     // Prüfe zuerst auf hochgeladene Base64-Daten

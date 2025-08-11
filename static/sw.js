@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hochzeitsplaner-v2.5.9';
+const CACHE_NAME = 'hochzeitsplaner-v2.5.11';
 const urlsToCache = [
   '/',
   '/static/css/style.css',
@@ -27,6 +27,12 @@ self.addEventListener('install', (event) => {
 
 // Fetch events
 self.addEventListener('fetch', (event) => {
+  // Only handle GET requests from http/https schemes
+  if (event.request.method !== 'GET' || 
+      (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://'))) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -42,6 +48,12 @@ self.addEventListener('fetch', (event) => {
               return response;
             }
 
+            // Additional check: Don't cache non-GET requests or unsupported schemes
+            if (event.request.method !== 'GET' || 
+                (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://'))) {
+              return response;
+            }
+
             // IMPORTANT: Clone the response. A response is a stream
             // and because we want the browser to consume the response
             // as well as the cache consuming the response, we need
@@ -50,7 +62,15 @@ self.addEventListener('fetch', (event) => {
 
             caches.open(CACHE_NAME)
               .then((cache) => {
-                cache.put(event.request, responseToCache);
+                // Additional safety check before caching
+                try {
+                  cache.put(event.request, responseToCache);
+                } catch (error) {
+                  console.log('Cache put failed:', error);
+                }
+              })
+              .catch((error) => {
+                console.log('Cache open failed:', error);
               });
 
             return response;

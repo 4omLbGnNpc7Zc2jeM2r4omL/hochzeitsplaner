@@ -1554,7 +1554,11 @@ def einstellungen():
         # Hole brautpaar_namen für den Titel
         brautpaar_namen = settings.get('brautpaar_namen', 'Käthe & Pascal')
         
-        return render_template('einstellungen.html', brautpaar_namen=brautpaar_namen, settings=settings)
+        # Cache-Busting für JavaScript-Dateien
+        import time
+        timestamp = int(time.time())
+        
+        return render_template('einstellungen.html', brautpaar_namen=brautpaar_namen, settings=settings, timestamp=timestamp)
     except Exception as e:
         app.logger.error(f"Fehler in einstellungen(): {e}")
         return render_template('error.html', error_message=f"Fehler beim Laden der Einstellungen: {str(e)}")
@@ -2774,23 +2778,20 @@ def get_guest_wedding_photo():
         if not data_manager:
             return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
         
-        # Lade Einstellungen
-        settings = data_manager.load_settings()
+        # Lade das First Login Bild direkt aus der Datenbank (nicht über load_settings)
+        # da load_settings das first_login_image_data entfernt um HTTP 414 zu vermeiden
+        photo_data = data_manager.get_setting('first_login_image_data', '')
         
-        # Foto-Daten extrahieren und Base64-Teil isolieren
-        photo_data = settings.get('first_login_image_data', '')
-        
-        # Falls die Daten bereits ein Data-URL-Format haben, nur den Base64-Teil extrahieren
-        if photo_data.startswith('data:image/'):
-            # Entferne "data:image/jpeg;base64," oder ähnliches
-            if ',' in photo_data:
-                photo_data = photo_data.split(',', 1)[1]
-        
-        # Stelle sicher, dass das Base64-Bild das korrekte data:image Format hat
-        if photo_data and not photo_data.startswith('data:image/'):
-            # Füge den data:image Header hinzu (standardmäßig JPEG angenommen)
-            photo_data = f"data:image/jpeg;base64,{photo_data}"
-        
+        if photo_data:
+            logger.info(f"🖼️ Wedding Photo geladen (Länge: {len(photo_data)} Zeichen)")
+            
+            # Stelle sicher, dass das Base64-Bild das korrekte data:image Format hat
+            if not photo_data.startswith('data:image/'):
+                # Füge den data:image Header hinzu (standardmäßig JPEG angenommen)
+                photo_data = f"data:image/jpeg;base64,{photo_data}"
+        else:
+            logger.info("ℹ️ Kein Wedding Photo in Datenbank vorhanden")
+
         return jsonify({
             'success': True,
             'photo_data': photo_data
@@ -4127,16 +4128,79 @@ def api_first_login_image():
         if not data_manager:
             return jsonify({"error": "DataManager nicht initialisiert"}), 500
         
-        # Lade das First Login Bild direkt
-        image_data = data_manager.get_setting('first_login_image_data', '')
+        # 🔍 DETAILLIERTES BACKEND LOGGING FÜR BILD-LADEN
+        logger.info("📥 === BILD-LADEN ANALYSE ===")
+        
+        # Lade das First Login Bild direkt aus der Datenbank (Cache umgehen)
+        # Da der DataManager möglicherweise alte Daten cached, verwenden wir direkten DB-Zugriff
+        image_data = ''
+        try:
+            with data_manager._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT value FROM einstellungen WHERE key = 'first_login_image_data'")
+                db_result = cursor.fetchone()
+                if db_result:
+                    image_data = db_result[0] or ''
+                    logger.info(f"📥 - DIREKTER DB-ZUGRIFF: Erfolgreich geladen, Länge {len(image_data)}")
+                else:
+                    logger.warning("📥 - DIREKTER DB-ZUGRIFF: Kein Wert in DB gefunden")
+        except Exception as e:
+            logger.error(f"📥 - DB-DIREKTZUGRIFF FEHLER: {e}")
+            # Fallback auf DataManager wenn DB-Zugriff fehlschlägt
+            image_data = data_manager.get_setting('first_login_image_data', '')
+        
+        logger.info(f"📥 DB Query Ergebnis:")
+        logger.info(f"📥 - Data vorhanden: {image_data is not None}")
+        logger.info(f"📥 - Data Typ: {type(image_data)}")
+        logger.info(f"📥 - Data Länge: {len(image_data) if image_data else 0}")
+        
+        # 🔍 DEBUGGING: Cache-Bust Check
+        logger.info(f"📥 - Request Timestamp: {request.args.get('t', 'None')}")
+        logger.info(f"📥 - Request Cache Headers: {dict(request.headers)}")
         
         if image_data:
-            logger.info(f"🖼️ First Login Bild geladen (Länge: {len(image_data)} Zeichen)")
+            logger.info(f"� - Data ist String: {isinstance(image_data, str)}")
+            logger.info(f"📥 - Data startet mit 'data:': {image_data.startswith('data:') if isinstance(image_data, str) else False}")
+            
+            if len(image_data) > 50:
+                logger.info(f"📥 - Data Vorschau: {image_data[:50]}...")
+            else:
+                logger.info(f"📥 - Data komplett: '{image_data}'")
+                
+            # 🔍 TRUNCATION CHECK: Prüfe ob Daten verdächtig kurz sind
+            data_length = len(image_data)
+            is_suspicious = data_length < 500  # Reduziert von 1000 auf 500 für komprimierte Bilder
+            
+            # 🔧 WICHTIG: Flag NICHT löschen bei komprimierten Bildern (5.000+ Zeichen sind legitim)
+            if is_suspicious and data_length < 5000:
+                logger.warning(f"⚠️ TRUNCATION VERDACHT: Daten nur {data_length} Zeichen - möglicherweise truncated!")
+                logger.warning("⚠️ Resetze first_login_image_large Flag um Endlos-Lade-Schleifen zu vermeiden")
+                
+                # Setze das Large-Flag zurück um weitere Lade-Versuche zu stoppen
+                data_manager.set_setting('first_login_image_large', False)
+                
+                # Gib trotzdem die Daten zurück für Debugging
+                logger.info("⚠️ Gebe truncated Daten für Debugging zurück")
+            else:
+                status = "komprimiert" if 5000 <= data_length < 50000 else "normal" if data_length >= 50000 else "klein"
+                logger.info(f"✅ DATEN OK: {data_length} Zeichen - {status} ({data_length} Zeichen)")
+                logger.info("✅ first_login_image_large Flag bleibt gesetzt für zukünftige Loads")
+                
+            # Erstelle Hash für eindeutige Identifikation
+            data_hash = hash(str(image_data))
+            logger.info(f"📥 - Data Hash: {data_hash}")
             
             # Stelle sicher, dass das Base64-Bild das korrekte data:image Format hat
             if not image_data.startswith('data:image/'):
-                # Füge den data:image Header hinzu (standardmäßig JPEG angenommen)
+                logger.info("📥 TRANSFORMATION: Füge data:image Header hinzu")
+                original_length = len(image_data)
                 image_data = f"data:image/jpeg;base64,{image_data}"
+                logger.info(f"📥 - Vor Transformation: {original_length} Zeichen")
+                logger.info(f"📥 - Nach Transformation: {len(image_data)} Zeichen")
+            else:
+                logger.info("📥 KEIN HEADER NÖTIG: Bild hat bereits data:image Format")
+            
+            logger.info("📥 ANTWORT: Sende Bild an Frontend")
             
             # Response mit optimalen Headers für Bildübertragung
             response_data = {"success": True, "image_data": image_data}
@@ -4149,13 +4213,19 @@ def api_first_login_image():
             # Kompression aktivieren falls möglich
             response.headers['Vary'] = 'Accept-Encoding'
             
+            logger.info(f"📥 - Response Data Länge: {len(response_data['image_data'])}")
+            logger.info(f"📥 - Response Hash: {hash(str(response_data['image_data']))}")
+            logger.info("📥 === ENDE BILD-LADEN ANALYSE ===")
+            
             return response
         else:
-            logger.info("ℹ️ Kein First Login Bild in der Datenbank gefunden")
+            logger.info("📥 KEIN BILD: Keine Bilddaten in der Datenbank gefunden")
+            logger.info("📥 === ENDE BILD-LADEN ANALYSE (LEER) ===")
             return jsonify({"success": False, "message": "Kein First Login Bild verfügbar"})
             
     except Exception as e:
-        logger.error(f"❌ Fehler beim Laden des First Login Bildes: {str(e)}")
+        logger.error(f"📥 ❌ FEHLER beim Laden des First Login Bildes: {str(e)}")
+        logger.error("📥 === ENDE BILD-LADEN ANALYSE (FEHLER) ===")
         return jsonify({"error": "Fehler beim Laden des Bildes", "details": str(e)}), 500
 
 @app.route("/api/debug/reset-first-login/<int:guest_id>", methods=['POST'])
@@ -4412,6 +4482,22 @@ def api_settings_save():
         settings_data = request.json
         logger.info(f"Speichere Einstellungen: {list(settings_data.keys())}")
         
+        # Debug: Prüfe First Login Daten im Request
+        if 'first_login_image_data' in settings_data:
+            data_length = len(str(settings_data['first_login_image_data']))
+            logger.info(f"🖼️ First Login Image Data im Request gefunden (Länge: {data_length})")
+            if data_length > 100:
+                logger.info("✅ Sieht aus wie gültige Base64 Bilddaten")
+            else:
+                logger.warning("⚠️ Verdächtig kurze Bilddaten - möglicherweise leer")
+        
+        if 'first_login_image' in settings_data:
+            logger.info(f"🔗 First Login Image URL im Request: '{settings_data['first_login_image']}'")
+        
+        if 'first_login_text' in settings_data:
+            text_length = len(str(settings_data['first_login_text']))
+            logger.info(f"📝 First Login Text im Request (Länge: {text_length})")
+        
         # Konvertiere die Frontend-Settings in die strukturierte Form für save_settings
         structured_settings = {
             'hochzeit': {
@@ -4450,20 +4536,110 @@ def api_settings_save():
                         data_manager.set_setting('hochzeitslocation_parkplaetze', parkplaetze_data)
                         logger.info(f"Parkplätze für Hochzeitslocation gespeichert: {len(parkplaetze_data) if isinstance(parkplaetze_data, list) else 0} Parkplätze")
         
-        # First Login Modal Einstellungen - nur speichern wenn wirklich im Request enthalten
-        for key in ['first_login_image', 'first_login_image_data', 'first_login_text']:
+        # First Login Modal Einstellungen - verbesserte Logik
+        first_login_keys = ['first_login_image', 'first_login_image_data', 'first_login_text']
+        
+        for key in first_login_keys:
             if key in settings_data:
                 value = settings_data[key]
                 clear_flag = settings_data.get(f'{key}_clear', False)
                 
-                if clear_flag or (value is not None and value != ''):
-                    # Speichern wenn explizit geleert oder wenn nicht-leer
-                    success = data_manager.set_setting(key, value if value is not None else '')
-                    action = "cleared" if clear_flag else "saved"
-                    logger.info(f"First-Login-Modal Setting '{key}' {action}: {success}")
+                # Spezielle Behandlung für first_login_image_data (Base64 Bilddaten)
+                if key == 'first_login_image_data':
+                    force_save_flag = settings_data.get('first_login_image_data_force_save', False)
+                    
+                    # 🔍 DETAILLIERTES BACKEND LOGGING FÜR BILD-SPEICHERN
+                    logger.info(f"🖼️ === BILD-SPEICHERN ANALYSE === '{key}'")
+                    logger.info(f"🖼️ Force Save Flag: {force_save_flag}")
+                    logger.info(f"🖼️ Clear Flag: {clear_flag}")
+                    logger.info(f"🖼️ Value vorhanden: {value is not None}")
+                    logger.info(f"🖼️ Value Länge: {len(str(value)) if value else 0}")
+                    
+                    if value:
+                        value_str = str(value)
+                        logger.info(f"🖼️ Value Typ: {type(value)}")
+                        logger.info(f"🖼️ Value ist String: {isinstance(value, str)}")
+                        logger.info(f"🖼️ Value stripped Länge: {len(value_str.strip())}")
+                        logger.info(f"🖼️ Value startet mit 'data:': {value_str.startswith('data:')}")
+                        if len(value_str) > 50:
+                            logger.info(f"🖼️ Value Vorschau: {value_str[:50]}...")
+                        else:
+                            logger.info(f"🖼️ Value komplett: '{value_str}'")
+                    
+                    if clear_flag:
+                        # Explizit löschen
+                        logger.info("🖼️ AKTION: Bild wird gelöscht (clear_flag=True)")
+                        success = data_manager.set_setting(key, '')
+                        logger.info(f"🖼️ ERGEBNIS: Bild gelöscht, success={success}")
+                        
+                        # Verifikation: Prüfe was wirklich gespeichert wurde
+                        verification = data_manager.get_setting(key, '')
+                        logger.info(f"🖼️ VERIFIKATION: Nach Löschen in DB: '{verification}' (Länge: {len(verification)})")
+                        
+                    elif force_save_flag or (value and len(str(value).strip()) > 100):
+                        # Base64 Bilddaten speichern (mit explizitem Flag oder bei gültigen Daten)
+                        logger.info(f"🖼️ AKTION: Bild wird gespeichert (force_save={force_save_flag}, valid_data={value and len(str(value).strip()) > 100})")
+                        
+                        # VOR dem Speichern: aktueller DB-Zustand
+                        old_value = data_manager.get_setting(key, '')
+                        logger.info(f"🖼️ ALTER DB-WERT: Länge {len(old_value)}")
+                        
+                        success = data_manager.set_setting(key, value)
+                        logger.info(f"🖼️ ERGEBNIS: data_manager.set_setting() returned: {success}")
+                        
+                        # NACH dem Speichern: Verifikation
+                        new_value = data_manager.get_setting(key, '')
+                        logger.info(f"🖼️ NEUER DB-WERT: Länge {len(new_value)}")
+                        
+                        # Vergleiche die Werte
+                        if new_value == value:
+                            logger.info("🖼️ ✅ VERIFIKATION ERFOLGREICH: Gespeicherter Wert stimmt mit Input überein")
+                        else:
+                            logger.error("🖼️ ❌ VERIFIKATION FEHLGESCHLAGEN: Gespeicherter Wert stimmt NICHT mit Input überein")
+                            logger.error(f"🖼️ Input Hash: {hash(str(value)) if value else 'None'}")
+                            logger.error(f"🖼️ DB Hash: {hash(str(new_value)) if new_value else 'None'}")
+                        
+                        # Zusätzlich first_login_image_large Flag setzen für optimiertes Laden
+                        large_flag_success = data_manager.set_setting('first_login_image_large', True)
+                        logger.info(f"🖼️ Large Flag gesetzt: {large_flag_success}")
+                        
+                        # 🔧 WICHTIG: Auch first_login_image (URL) parallel speichern
+                        if 'first_login_image' in settings_data:
+                            image_url = settings_data['first_login_image']
+                            if image_url and str(image_url).strip():
+                                url_success = data_manager.set_setting('first_login_image', image_url)
+                                logger.info(f"🖼️ URL parallel gespeichert: '{image_url}' (success: {url_success})")
+                            else:
+                                # Wenn keine URL vorhanden, eine Standard-Referenz setzen
+                                url_success = data_manager.set_setting('first_login_image', 'data_stored')
+                                logger.info(f"🖼️ Standard-URL gespeichert: 'data_stored' (success: {url_success})")
+                        
+                    else:
+                        logger.info(f"🖼️ AKTION: Bild wird ÜBERSPRUNGEN (keine gültigen Daten oder force_save Flag)")
+                        logger.info(f"🖼️ Grund: force_save={force_save_flag}, valid_length={len(str(value).strip()) > 100 if value else False}")
+                    
+                    logger.info("🖼️ === ENDE BILD-SPEICHERN ANALYSE ===")
+                
+                # Behandlung für first_login_image (URL) und first_login_text
                 else:
-                    # Leer gelassene Felder ohne Clear-Flag nicht überschreiben
-                    logger.info(f"First-Login-Modal Setting '{key}' skipped (empty value, keeping existing)")
+                    if clear_flag or (value is not None and str(value).strip() != ''):
+                        # Speichern wenn explizit geleert oder wenn nicht-leer
+                        success = data_manager.set_setting(key, value if value is not None else '')
+                        action = "cleared" if clear_flag else "saved"
+                        logger.info(f"First-Login-Modal Setting '{key}' {action}: {success}")
+                        
+                        # 🔧 SPEZIAL: Wenn first_login_image gespeichert wird, prüfe ob auch _data vorhanden ist
+                        if key == 'first_login_image' and not clear_flag and 'first_login_image_data' in settings_data:
+                            image_data = settings_data['first_login_image_data']
+                            if image_data and len(str(image_data).strip()) > 100:
+                                data_success = data_manager.set_setting('first_login_image_data', image_data)
+                                logger.info(f"🖼️ Parallel Bilddaten gespeichert: Länge {len(str(image_data))} (success: {data_success})")
+                                # Large Flag setzen
+                                large_flag_success = data_manager.set_setting('first_login_image_large', True)
+                                logger.info(f"🖼️ Large Flag parallel gesetzt: {large_flag_success}")
+                    else:
+                        # Leer gelassene Felder ohne Clear-Flag nicht überschreiben
+                        logger.info(f"First-Login-Modal Setting '{key}' skipped (empty value, keeping existing)")
         
         # Invitation Texts Einstellungen (als JSON speichern) - immer überschreiben
         if 'invitation_texts' in settings_data:

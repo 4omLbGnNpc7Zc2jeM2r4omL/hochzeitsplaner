@@ -83,8 +83,8 @@ class PWAInstallManager {
             
             console.log('Banner wurde vor', daysSinceDismissed.toFixed(1), 'Tagen dismissed');
             
-            // Show banner again after 7 days
-            if (daysSinceDismissed < 7 && this.installBanner) {
+            // Show banner again after 0.1 days (2.4 hours) for testing - change to 7 for production
+            if (daysSinceDismissed < 0.1 && this.installBanner) {
                 this.installBanner.style.display = 'none';
                 console.log('Banner versteckt - zu früh nach Dismiss');
                 return;
@@ -93,6 +93,17 @@ class PWAInstallManager {
         
         // Show banner for testing (remove this in production)
         console.log('Banner wird für Tests angezeigt...');
+        
+        // For testing: Clear dismissal to always show banner during development
+        localStorage.removeItem('pwa-banner-dismissed');
+        console.log('PWA Dismissal Status für Tests zurückgesetzt');
+        
+        // Clear any previous dismissal to ensure banner shows for testing
+        const currentDismissed = localStorage.getItem('pwa-banner-dismissed');
+        if (currentDismissed) {
+            console.log('Überspringe Dismissal-Check für Tests');
+            localStorage.removeItem('pwa-banner-dismissed');
+        }
         this.showInstallBanner();
     }
 
