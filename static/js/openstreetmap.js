@@ -476,6 +476,121 @@ class OpenStreetMapIntegration {
     }
 
     /**
+     * Erstellt eine erweiterte Karte für Location mit optionalen Parkplätzen
+     */
+    async createLocationMapWithParking(containerId, locationData) {
+        try {
+            debugLog(`🗺️ Erstelle Location-Karte mit Parkplätzen für Container: ${containerId}`);
+            
+            // Prüfe ob Container existiert
+            const container = document.getElementById(containerId);
+            if (!container) {
+                debugLog(`❌ Container ${containerId} nicht gefunden`);
+                return null;
+            }
+
+            const map = await this.createMap(containerId, {
+                zoom: 15,
+                scrollWheelZoom: false
+            });
+
+            if (!map) {
+                debugLog(`❌ Karte konnte nicht erstellt werden`);
+                return null;
+            }
+
+            const markers = [];
+            const bounds = L.latLngBounds();
+
+            // Haupt-Location hinzufügen
+            if (locationData.address) {
+                const result = await this.geocodeAddress(locationData.address);
+                if (result && result.lat && result.lng) {
+                    const mainMarker = L.marker([result.lat, result.lng], {
+                        icon: L.icon({
+                            iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+                            iconSize: [25, 41],
+                            iconAnchor: [12, 41],
+                            popupAnchor: [1, -34],
+                            shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+                            shadowSize: [41, 41]
+                        })
+                    }).addTo(map);
+                    
+                    const popupContent = `
+                        <div style="text-align: center; font-family: system-ui;">
+                            <strong style="color: #2c5aa0;">${locationData.name || 'Hochzeitslocation'}</strong><br>
+                            <small style="color: #666;">${locationData.address}</small>
+                            ${locationData.beschreibung ? `<br><em style="color: #999;">${locationData.beschreibung}</em>` : ''}
+                        </div>
+                    `;
+                    mainMarker.bindPopup(popupContent);
+                    
+                    markers.push(mainMarker);
+                    bounds.extend([result.lat, result.lng]);
+                }
+            }
+
+            // Parkplätze hinzufügen (falls konfiguriert)
+            if (locationData.parkplaetze && Array.isArray(locationData.parkplaetze)) {
+                for (const parkplatz of locationData.parkplaetze) {
+                    let parkingLat, parkingLng;
+                    
+                    if (parkplatz.address) {
+                        const parkingResult = await this.geocodeAddress(parkplatz.address);
+                        if (parkingResult) {
+                            parkingLat = parkingResult.lat;
+                            parkingLng = parkingResult.lng;
+                        }
+                    } else if (parkplatz.lat && parkplatz.lng) {
+                        parkingLat = parkplatz.lat;
+                        parkingLng = parkplatz.lng;
+                    }
+                    
+                    if (parkingLat && parkingLng) {
+                        const parkingMarker = L.marker([parkingLat, parkingLng], {
+                            icon: L.icon({
+                                iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiByeD0iNCIgZmlsbD0iIzAwN0JGRiIvPgo8cGF0aCBkPSJNOCA2SDEyQzE0LjIwOTEgNiAxNiA3Ljc5MDg2IDE2IDEwQzE2IDEyLjIwOTEgMTQuMjA5MSAxNCAxMiAxNEg5VjE4SDhWNloiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=',
+                                iconSize: [24, 24],
+                                iconAnchor: [12, 24],
+                                popupAnchor: [0, -24]
+                            })
+                        }).addTo(map);
+                        
+                        const parkingPopup = `
+                            <div style="text-align: center; font-family: system-ui;">
+                                <strong style="color: #007BFF;">🅿️ ${parkplatz.name || 'Parkplatz'}</strong><br>
+                                ${parkplatz.address ? `<small style="color: #666;">${parkplatz.address}</small><br>` : ''}
+                                ${parkplatz.beschreibung ? `<em style="color: #999;">${parkplatz.beschreibung}</em><br>` : ''}
+                                ${parkplatz.kostenlos ? '<span style="color: #28a745;">💚 Kostenlos</span>' : ''}
+                                ${parkplatz.kostenpflichtig ? '<span style="color: #ffc107;">💰 Kostenpflichtig</span>' : ''}
+                            </div>
+                        `;
+                        parkingMarker.bindPopup(parkingPopup);
+                        
+                        markers.push(parkingMarker);
+                        bounds.extend([parkingLat, parkingLng]);
+                    }
+                }
+            }
+
+            // Karte auf alle Marker zoomen
+            if (markers.length > 1) {
+                map.fitBounds(bounds, { padding: [20, 20] });
+            } else if (markers.length === 1) {
+                map.setView(bounds.getCenter(), 17);
+            }
+
+            debugLog(`✅ Location-Karte mit ${markers.length} Markern erstellt`);
+            return map;
+
+        } catch (error) {
+            debugLog(`❌ Fehler beim Erstellen der Location-Karte:`, error);
+            return null;
+        }
+    }
+
+    /**
      * Erstellt eine einfache Karte für eine einzelne Adresse
      */
     async createSimpleLocationMap(containerId, address, locationName = '') {

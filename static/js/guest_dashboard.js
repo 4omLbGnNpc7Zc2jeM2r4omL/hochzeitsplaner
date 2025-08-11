@@ -270,12 +270,22 @@ async function createGuestLocationMap(locationType, locationData) {
         // Verwende die gleiche Logik wie in Einstellungen: direkte Adress-basierte Karten
         if (window.openStreetMap && locationData.adresse) {
             debugLog(`✅ Verwende Adress-basierte Karten für ${locationType}: ${locationData.adresse}`);
-            // Verwende die bewährte Adress-basierte Kartenfunktion aus Einstellungen
-            const map = await window.openStreetMap.createSimpleLocationMap(
-                mapContainerId, 
-                locationData.adresse, 
-                locationData.name
-            );
+            
+            let map;
+            
+            // Für Hochzeitslocation: Prüfe ob Parkplätze vorhanden sind
+            if (locationType === 'hochzeitslocation' && locationData.parkplaetze && locationData.parkplaetze.length > 0) {
+                debugLog(`🅿️ Erstelle Karte mit ${locationData.parkplaetze.length} Parkplätzen`);
+                // Verwende erweiterte Karte mit Parkplätzen
+                map = await window.openStreetMap.createLocationMapWithParking(mapContainerId, locationData);
+            } else {
+                // Standard-Karte ohne Parkplätze
+                map = await window.openStreetMap.createSimpleLocationMap(
+                    mapContainerId, 
+                    locationData.adresse, 
+                    locationData.name
+                );
+            }
             
             if (map) {
                 debugLog(`✅ Adress-Karte für ${locationType} erfolgreich erstellt`);

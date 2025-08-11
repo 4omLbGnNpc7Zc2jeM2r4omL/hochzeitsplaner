@@ -146,6 +146,29 @@
                                         <label for="hochzeitslocationBeschreibung" class="form-label">Beschreibung</label>
                                         <textarea class="form-control" id="hochzeitslocationBeschreibung" rows="2" placeholder="Hier feiern wir unsere Hochzeit"></textarea>
                                     </div>
+                                    
+                                    <!-- Parkplätze Konfiguration -->
+                                    <div class="mt-4">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="mb-0">
+                                                <i class="bi bi-car-front-fill me-2"></i>
+                                                Parkplätze für Gäste
+                                            </h6>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addParkplatz()">
+                                                <i class="bi bi-plus-circle me-1"></i>
+                                                Parkplatz hinzufügen
+                                            </button>
+                                        </div>
+                                        
+                                        <div id="parkplaetzeContainer" class="mb-3">
+                                            <!-- Parkplätze werden hier dynamisch hinzugefügt -->
+                                        </div>
+                                        
+                                        <div class="alert alert-info">
+                                            <i class="bi bi-info-circle me-2"></i>
+                                            <small>Parkplätze werden auf der Karte mit einem blauen 🅿️ Symbol angezeigt und helfen Ihren Gästen bei der Orientierung.</small>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

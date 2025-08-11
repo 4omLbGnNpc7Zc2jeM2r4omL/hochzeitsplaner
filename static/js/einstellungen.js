@@ -195,6 +195,11 @@ function populateSettingsForm(settings) {
             setInputValue('hochzeitslocationName', settings.locations.hochzeitslocation.name);
             setInputValue('hochzeitslocationAdresse', settings.locations.hochzeitslocation.adresse);
             setInputValue('hochzeitslocationBeschreibung', settings.locations.hochzeitslocation.beschreibung);
+            
+            // Parkplätze laden
+            if (settings.locations.hochzeitslocation.parkplaetze) {
+                loadParkplaetze(settings.locations.hochzeitslocation.parkplaetze);
+            }
         }
     }
     
@@ -360,7 +365,8 @@ async function handleSaveSettings(event) {
             hochzeitslocation: {
                 name: getInputValue('hochzeitslocationName'),
                 adresse: getInputValue('hochzeitslocationAdresse'),
-                beschreibung: getInputValue('hochzeitslocationBeschreibung')
+                beschreibung: getInputValue('hochzeitslocationBeschreibung'),
+                parkplaetze: collectParkplaetze()
             }
         },
         
@@ -584,9 +590,28 @@ async function updateLocationMapPreview(locationType) {
             return;
         }
 
-        // Erstelle neue Karte
-
-        await window.openStreetMap.createSimpleLocationMap(mapContainerId, address, locationName);
+        // Erstelle neue Karte basierend auf Location-Typ
+        if (locationType === 'hochzeitslocation') {
+            // Für Hochzeitslocation: Prüfe ob Parkplätze konfiguriert sind
+            const parkplaetze = collectParkplaetze();
+            
+            if (parkplaetze.length > 0) {
+                // Verwende erweiterte Karte mit Parkplätzen
+                const locationData = {
+                    name: locationName,
+                    address: address,
+                    parkplaetze: parkplaetze
+                };
+                
+                await window.openStreetMap.createLocationMapWithParking(mapContainerId, locationData);
+            } else {
+                // Standard-Karte ohne Parkplätze
+                await window.openStreetMap.createSimpleLocationMap(mapContainerId, address, locationName);
+            }
+        } else {
+            // Für andere Locations (Standesamt): Standard-Karte
+            await window.openStreetMap.createSimpleLocationMap(mapContainerId, address, locationName);
+        }
 
 
     } catch (error) {
@@ -2347,6 +2372,190 @@ async function loadUploadSettings() {
         }
     } catch (error) {
 
+    }
+}
+
+// Parkplatz-Verwaltung
+let parkplatzCounter = 0;
+
+function addParkplatz(parkplatzData = null) {
+    const container = document.getElementById('parkplaetzeContainer');
+    if (!container) return;
+    
+    parkplatzCounter++;
+    const parkplatzId = parkplatzData ? parkplatzData.id || parkplatzCounter : parkplatzCounter;
+    
+    const parkplatzHtml = `
+        <div class="card mb-3" id="parkplatz_${parkplatzId}" data-parkplatz-id="${parkplatzId}">
+            <div class="card-header bg-light py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="bi bi-car-front-fill me-2"></i>
+                        Parkplatz ${parkplatzId}
+                    </h6>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeParkplatz(${parkplatzId})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="parkplatz_name_${parkplatzId}" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="parkplatz_name_${parkplatzId}" 
+                                   placeholder="z.B. Hotelparkplatz, Öffentlicher Parkplatz" 
+                                   value="${parkplatzData ? parkplatzData.name || '' : ''}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="parkplatz_address_${parkplatzId}" class="form-label">Adresse (optional)</label>
+                            <input type="text" class="form-control" id="parkplatz_address_${parkplatzId}" 
+                                   placeholder="z.B. Parkstraße 10, 52074 Aachen" 
+                                   value="${parkplatzData ? parkplatzData.address || '' : ''}">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="parkplatz_lat_${parkplatzId}" class="form-label">Breitengrad (Latitude)</label>
+                            <input type="number" step="any" class="form-control" id="parkplatz_lat_${parkplatzId}" 
+                                   placeholder="z.B. 50.7753" 
+                                   value="${parkplatzData ? parkplatzData.lat || '' : ''}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="parkplatz_lng_${parkplatzId}" class="form-label">Längengrad (Longitude)</label>
+                            <input type="number" step="any" class="form-control" id="parkplatz_lng_${parkplatzId}" 
+                                   placeholder="z.B. 6.0839" 
+                                   value="${parkplatzData ? parkplatzData.lng || '' : ''}">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="parkplatz_beschreibung_${parkplatzId}" class="form-label">Beschreibung</label>
+                    <textarea class="form-control" id="parkplatz_beschreibung_${parkplatzId}" rows="2" 
+                              placeholder="z.B. Direkt beim Hotel, kostenlos für Hotelgäste">${parkplatzData ? parkplatzData.beschreibung || '' : ''}</textarea>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="parkplatz_kostenlos_${parkplatzId}" 
+                                   ${parkplatzData && parkplatzData.kostenlos ? 'checked' : ''}>
+                            <label class="form-check-label" for="parkplatz_kostenlos_${parkplatzId}">
+                                💚 Kostenlos
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="parkplatz_kostenpflichtig_${parkplatzId}" 
+                                   ${parkplatzData && parkplatzData.kostenpflichtig ? 'checked' : ''}>
+                            <label class="form-check-label" for="parkplatz_kostenpflichtig_${parkplatzId}">
+                                💰 Kostenpflichtig
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Füllen Sie entweder die Adresse oder die GPS-Koordinaten aus. Wenn beide vorhanden sind, werden die GPS-Koordinaten bevorzugt.
+                    </small>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', parkplatzHtml);
+    
+    // Event Listener für automatische Kartenaktualisierung
+    const addressInput = document.getElementById(`parkplatz_address_${parkplatzId}`);
+    const latInput = document.getElementById(`parkplatz_lat_${parkplatzId}`);
+    const lngInput = document.getElementById(`parkplatz_lng_${parkplatzId}`);
+    
+    if (addressInput) {
+        addressInput.addEventListener('blur', () => updateLocationMapPreview('hochzeitslocation'));
+    }
+    if (latInput || lngInput) {
+        [latInput, lngInput].forEach(input => {
+            if (input) {
+                input.addEventListener('blur', () => updateLocationMapPreview('hochzeitslocation'));
+            }
+        });
+    }
+}
+
+function removeParkplatz(parkplatzId) {
+    const parkplatzElement = document.getElementById(`parkplatz_${parkplatzId}`);
+    if (parkplatzElement) {
+        if (confirm('Möchten Sie diesen Parkplatz wirklich entfernen?')) {
+            parkplatzElement.remove();
+            // Karte aktualisieren
+            updateLocationMapPreview('hochzeitslocation');
+        }
+    }
+}
+
+function collectParkplaetze() {
+    const container = document.getElementById('parkplaetzeContainer');
+    if (!container) return [];
+    
+    const parkplaetze = [];
+    const parkplatzElements = container.querySelectorAll('[data-parkplatz-id]');
+    
+    parkplatzElements.forEach(element => {
+        const id = element.getAttribute('data-parkplatz-id');
+        const name = document.getElementById(`parkplatz_name_${id}`)?.value?.trim() || '';
+        const address = document.getElementById(`parkplatz_address_${id}`)?.value?.trim() || '';
+        const lat = parseFloat(document.getElementById(`parkplatz_lat_${id}`)?.value || '');
+        const lng = parseFloat(document.getElementById(`parkplatz_lng_${id}`)?.value || '');
+        const beschreibung = document.getElementById(`parkplatz_beschreibung_${id}`)?.value?.trim() || '';
+        const kostenlos = document.getElementById(`parkplatz_kostenlos_${id}`)?.checked || false;
+        const kostenpflichtig = document.getElementById(`parkplatz_kostenpflichtig_${id}`)?.checked || false;
+        
+        // Nur hinzufügen wenn Name vorhanden und entweder Adresse oder Koordinaten
+        if (name && (address || (lat && lng))) {
+            const parkplatz = {
+                id: parseInt(id),
+                name,
+                beschreibung
+            };
+            
+            if (address) parkplatz.address = address;
+            if (lat && lng) {
+                parkplatz.lat = lat;
+                parkplatz.lng = lng;
+            }
+            if (kostenlos) parkplatz.kostenlos = true;
+            if (kostenpflichtig) parkplatz.kostenpflichtig = true;
+            
+            parkplaetze.push(parkplatz);
+        }
+    });
+    
+    return parkplaetze;
+}
+
+function loadParkplaetze(parkplaetze) {
+    const container = document.getElementById('parkplaetzeContainer');
+    if (!container) return;
+    
+    // Container leeren
+    container.innerHTML = '';
+    parkplatzCounter = 0;
+    
+    if (parkplaetze && Array.isArray(parkplaetze)) {
+        parkplaetze.forEach(parkplatz => {
+            addParkplatz(parkplatz);
+        });
     }
 }
 
