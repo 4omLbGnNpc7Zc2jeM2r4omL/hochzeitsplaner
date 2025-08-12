@@ -12,6 +12,45 @@ function debugLog(...args) {
     }
 }
 
+/**
+ * Generisches API-Request für Guest Dashboard
+ */
+async function apiRequest(endpoint, options = {}) {
+    try {
+        const defaultOptions = {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        };
+        
+        // Add cache-busting for GET requests
+        let url = endpoint;
+        if (!url.startsWith('/api') && !url.startsWith('/settings')) {
+            url = `/api${endpoint}`;
+        }
+        if (!options.method || options.method.toUpperCase() === 'GET') {
+            const separator = endpoint.includes('?') ? '&' : '?';
+            url += `${separator}_cb=${Date.now()}`;
+        }
+        
+        const response = await fetch(url, {
+            ...defaultOptions,
+            ...options
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || `HTTP Error: ${response.status}`);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('API Request failed:', error);
+        throw error;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // First Login Check - sofort als erstes prüfen
     checkFirstLogin();
@@ -1514,6 +1553,13 @@ function loadCompleteZeitplan() {
         })
         .then(data => {
             debugLog('📅 Complete zeitplan data received:', data);
+            
+            // Speichere Locations-Daten für intelligente Location-Funktionalität
+            if (data.locations_info) {
+                zeitplanLocationsData = data.locations_info;
+                debugLog('✅ zeitplanLocationsData loaded:', zeitplanLocationsData);
+            }
+            
             displayCompleteZeitplan(data);
         })
         .catch(error => {
@@ -1566,8 +1612,13 @@ function displayCompleteZeitplan(response) {
         const startTime = event.uhrzeit || '00:00';
         const title = event.titel || 'Programmpunkt';
         const description = event.beschreibung || '';
-        const location = event.ort || '';
+        const originalLocation = event.ort || '';
         const duration = event.dauer || '';
+        
+        // Intelligente Location-Erkennung
+        debugLog(`Processing event: ${title}`);
+        const locationInfo = getIntelligentLocation(title, originalLocation);
+        debugLog('Location info for event:', locationInfo);
         
         // Berechne Endzeit falls Dauer vorhanden
         let endTimeDisplay = '';
@@ -1581,6 +1632,30 @@ function displayCompleteZeitplan(response) {
                 }
             } catch (e) {
                 // Fehler beim Berechnen der Endzeit ignorieren
+            }
+        }
+        
+        // Location-Anzeige erstellen
+        let locationHtml = '';
+        if (locationInfo) {
+            if (locationInfo.isClickable) {
+                locationHtml = `
+                    <div class="d-flex align-items-center mt-2">
+                        <i class="bi bi-geo-alt-fill me-2" style="color: #d4af37; font-size: 0.9rem;"></i>
+                        <a href="#" class="text-decoration-none" onclick="switchToOrteTab('${locationInfo.type}')" title="Zu Orte-Informationen wechseln">
+                            <small style="color: #8b7355; font-weight: 500;">${locationInfo.name}</small>
+                            <br><small class="text-muted">${locationInfo.address}</small>
+                        </a>
+                        <i class="bi bi-box-arrow-up-right ms-2 text-muted" style="font-size: 0.8rem;" title="Mehr Details im Orte-Tab"></i>
+                    </div>
+                `;
+            } else {
+                locationHtml = `
+                    <div class="d-flex align-items-center mt-2">
+                        <i class="bi bi-geo-alt-fill me-2" style="color: #d4af37; font-size: 0.9rem;"></i>
+                        <small class="text-muted">${locationInfo.name}</small>
+                    </div>
+                `;
             }
         }
         
@@ -1612,12 +1687,7 @@ function displayCompleteZeitplan(response) {
                             </p>
                         ` : ''}
                         
-                        ${location ? `
-                            <div class="d-flex align-items-center mt-2">
-                                <i class="bi bi-geo-alt-fill me-2" style="color: #d4af37; font-size: 0.9rem;"></i>
-                                <small class="text-muted">${location}</small>
-                            </div>
-                        ` : ''}
+                        ${locationHtml}
                     </div>
                 </div>
             </div>
@@ -1647,5 +1717,141 @@ function displayCompleteZeitplan(response) {
     }
     
     container.innerHTML = html;
+}
+
+// Globale Variablen für intelligente Location-Funktionalität
+let zeitplanLocationsData = {};
+
+/**
+ * Intelligente Location-Erkennung basierend auf Programmpunkt-Titel
+ */
+function getIntelligentLocation(programmpunkt, originalOrt) {
+    // Debug-Ausgaben
+    debugLog('=== getIntelligentLocation Debug ===');
+    debugLog('Input parameters:');
+    debugLog('  - programmpunkt:', programmpunkt);
+    debugLog('  - originalOrt:', originalOrt);
+    debugLog('  - zeitplanLocationsData:', zeitplanLocationsData);
+    debugLog('  - typeof zeitplanLocationsData:', typeof zeitplanLocationsData);
+    debugLog('  - zeitplanLocationsData keys:', Object.keys(zeitplanLocationsData || {}));
+    
+    // Prüfe ob zeitplanLocationsData verfügbar ist
+    if (!zeitplanLocationsData || typeof zeitplanLocationsData !== 'object') {
+        debugLog('❌ zeitplanLocationsData not available or not an object');
+        if (originalOrt && originalOrt.trim()) {
+            debugLog('✅ Using originalOrt as fallback:', originalOrt);
+            return {
+                name: originalOrt,
+                address: originalOrt,
+                isClickable: false,
+                type: 'custom'
+            };
+        }
+        debugLog('❌ No originalOrt available, returning null');
+        return null;
+    }
+    
+    // Bestimmt den Ort basierend auf dem Programmpunkt-Titel
+    const titel = programmpunkt.toLowerCase();
+    debugLog('Processing titel (lowercase):', titel);
+    
+    // Trauung → Standesamt
+    if (titel.includes('trauung')) {
+        debugLog('✅ Trauung detected in titel!');
+        debugLog('Checking standesamt data:', zeitplanLocationsData.standesamt);
+        
+        if (zeitplanLocationsData.standesamt) {
+            debugLog('✅ standesamt object exists');
+            debugLog('  - name:', zeitplanLocationsData.standesamt.name);
+            debugLog('  - adresse:', zeitplanLocationsData.standesamt.adresse);
+            
+            if (zeitplanLocationsData.standesamt.adresse) {
+                debugLog('✅ Using Standesamt address:', zeitplanLocationsData.standesamt.adresse);
+                return {
+                    name: zeitplanLocationsData.standesamt.name || 'Standesamt',
+                    address: zeitplanLocationsData.standesamt.adresse,
+                    isClickable: true,
+                    type: 'standesamt'
+                };
+            } else {
+                debugLog('❌ standesamt.adresse is empty/null');
+            }
+        } else {
+            debugLog('❌ standesamt object not found in zeitplanLocationsData');
+        }
+    } else {
+        debugLog('❌ "trauung" not found in titel');
+    }
+
+    // Sektempfang oder Location → Hochzeitslocation
+    if (titel.includes('sektempfang') || titel.includes('location')) {
+        debugLog('✅ Sektempfang/Location detected!');
+        debugLog('Checking hochzeitslocation data:', zeitplanLocationsData.hochzeitslocation);
+        
+        if (zeitplanLocationsData.hochzeitslocation) {
+            debugLog('✅ hochzeitslocation object exists');
+            debugLog('  - name:', zeitplanLocationsData.hochzeitslocation.name);
+            debugLog('  - adresse:', zeitplanLocationsData.hochzeitslocation.adresse);
+            
+            if (zeitplanLocationsData.hochzeitslocation.adresse) {
+                debugLog('✅ Using Hochzeitslocation address:', zeitplanLocationsData.hochzeitslocation.adresse);
+                return {
+                    name: zeitplanLocationsData.hochzeitslocation.name || 'Hochzeitslocation',
+                    address: zeitplanLocationsData.hochzeitslocation.adresse,
+                    isClickable: true,
+                    type: 'hochzeitslocation'
+                };
+            } else {
+                debugLog('❌ hochzeitslocation.adresse is empty/null');
+            }
+        } else {
+            debugLog('❌ hochzeitslocation object not found in zeitplanLocationsData');
+        }
+    } else {
+        debugLog('❌ "sektempfang" or "location" not found in titel');
+    }
+
+    // Fallback: Original-Ort verwenden
+    if (originalOrt && originalOrt.trim()) {
+        debugLog('ℹ️ Using originalOrt as fallback:', originalOrt);
+        return {
+            name: originalOrt,
+            address: originalOrt,
+            isClickable: false,
+            type: 'custom'
+        };
+    } else {
+        debugLog('❌ originalOrt is empty/null');
+    }
+
+    debugLog('❌ No location found - returning null');
+    return null;
+}
+
+/**
+ * Funktion zum Wechseln zum Orte-Tab im Gäste-Dashboard
+ */
+function switchToOrteTab(locationType) {
+    // Versuche zu den Orte-Tabs zu wechseln
+    const orteTab = document.querySelector('#locations-tab');
+    if (orteTab) {
+        // Bootstrap Tab aktivieren
+        const tab = new bootstrap.Tab(orteTab);
+        tab.show();
+        
+        // Optional: Zu einem spezifischen Ort scrollen
+        setTimeout(() => {
+            const targetElement = document.querySelector(`[data-location-type="${locationType}"]`);
+            if (targetElement) {
+                targetElement.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            }
+        }, 300);
+    } else {
+        // Fallback: Zeige eine Benachrichtigung
+        alert('Weitere Informationen zu diesem Ort finden Sie im Orte-Bereich des Dashboards.');
+    }
 }
 

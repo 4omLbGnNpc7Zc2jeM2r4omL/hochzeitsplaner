@@ -2579,14 +2579,6 @@ def guest_dashboard():
     # Die brautpaar_namen Variable wird automatisch durch inject_global_vars() bereitgestellt
     return render_template('guest_dashboard.html')
 
-@app.route('/guest/zeitplan')
-@require_auth
-@require_role(['guest'])
-def guest_zeitplan():
-    """Öffentlicher Zeitplan für Gäste"""
-    # Die brautpaar_namen Variable wird automatisch durch inject_global_vars() bereitgestellt
-    return render_template('guest_zeitplan.html')
-
 # Guest API-Endpunkte
 @app.route('/api/guest/data')
 @require_auth
@@ -3687,36 +3679,65 @@ def get_guest_zeitplan():
             
             if should_show:
                 # Korrigierte Struktur für Frontend-Kompatibilität
+                # Uhrzeit aus start_zeit extrahieren
+                uhrzeit_formatted = ''
+                if event.get('start_zeit'):
+                    try:
+                        # Extrahiere Zeit aus DATETIME (Format: YYYY-MM-DD HH:MM:SS)
+                        start_zeit_str = str(event.get('start_zeit'))
+                        if ' ' in start_zeit_str:
+                            uhrzeit_formatted = start_zeit_str.split(' ')[1][:5]  # HH:MM
+                        else:
+                            uhrzeit_formatted = start_zeit_str
+                    except:
+                        uhrzeit_formatted = ''
+                
                 event_dict = {
                     'id': event.get('id'),
                     'titel': event.get('titel', ''),  # Frontend erwartet 'titel'
-                    'beschreibung': event.get('beschreibung', ''),  # Frontend erwartet 'beschreibung'
-                    'uhrzeit': event.get('uhrzeit', ''),  # Frontend erwartet 'uhrzeit' (lowercase)
+                    'uhrzeit': uhrzeit_formatted,  # Formatierte Uhrzeit aus start_zeit
                     'ort': event.get('ort', ''),
                     'dauer': event.get('dauer', ''),  # Frontend erwartet 'dauer'
                     'eventteile': event.get('eventteile', []),
                     'public': not bool(event.get('nur_brautpaar', 0)),
                     # Legacy-Kompatibilität für andere Teile des Systems
                     'Programmpunkt': event.get('titel', ''),
-                    'Verantwortlich': event.get('beschreibung', ''),
+                    'programmpunkt': event.get('titel', ''),  # Für intelligente Orts-Erkennung
                     'Status': event.get('kategorie', ''),
-                    'Uhrzeit': event.get('uhrzeit', ''),
+                    'Uhrzeit': uhrzeit_formatted,
+                    'Ort': event.get('ort', ''),  # Groß geschrieben für Kompatibilität
                     'start_zeit': event.get('start_zeit'),
-                    'ende_zeit': event.get('ende_zeit')
+                    'ende_zeit': event.get('end_zeit'),
+                    'EndZeit': '',  # Für Gantt-View falls benötigt
+                    'Dauer': event.get('dauer', '')
                 }
                 filtered_events.append(event_dict)
         
         # Nach Startzeit sortieren
         filtered_events.sort(key=lambda x: x.get('uhrzeit', ''))
         
-        # Hochzeitsdatum laden für Frontend
+        # Hochzeitsdatum und Orte-Daten laden für Frontend
         settings = data_manager.load_settings() if data_manager else {}
         wedding_date = settings.get('hochzeitsdatum', '')
+        
+        # Lade Orte-Informationen für intelligente Anzeige
+        locations_info = {
+            'standesamt': {
+                'name': settings.get('standesamt_name', ''),
+                'adresse': settings.get('standesamt_adresse', '')
+            },
+            'hochzeitslocation': {
+                'name': settings.get('hochzeitslocation_name', ''),
+                'adresse': settings.get('hochzeitslocation_adresse', '')
+            }
+        }
         
         return jsonify({
             'success': True,
             'events': filtered_events,
-            'wedding_date': wedding_date
+            'wedding_date': wedding_date,
+            'locations': locations_info,
+            'locations_info': locations_info  # Zusätzlich für Kompatibilität
         })
         
     except Exception as e:
