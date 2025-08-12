@@ -138,14 +138,7 @@ let guestInformationen = null;
 function loadLocationData() {
     //debugLog('🔄 Loading location data...');
     
-    fetch('/api/guest/location')
-        .then(response => {
-            //debugLog('📡 Location API response status:', response.status);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
+    apiRequest('/guest/location')
         .then(data => {
             //debugLog('📍 Location data received:', data);
             locationsData = data;
@@ -785,12 +778,7 @@ function updateParkingDistanceDisplay(locationType, parkingIndex, routeInfo, err
 
 function loadGuestInformationen() {
     //debugLog('Loading guest informationen...');
-    fetch('/api/guest/informationen')
-        .then(response => {
-            //debugLog('Guest informationen API response status:', response.status);
-            return response.json();
-        })
-        .then(data => {
+    apiRequest('/guest/informationen').then(data  => {
             //debugLog('Guest informationen data received:', data);
             if (data.success && data.informationen) {
                 guestInformationen = data.informationen;
@@ -906,7 +894,7 @@ function loadGuestData() {
         return;
     }
     
-    fetch(`/api/guest/data?id=${guestId}`)
+    apiRequest(`/guest/data?id=${guestId}`)
         .then(response => {
             //debugLog('📊 Guest data API response status:', response.status);
             if (!response.ok) {
@@ -931,7 +919,7 @@ function loadGuestData() {
 function loadSessionGuestData() {
     //debugLog('🔄 Loading session-based guest data...');
     
-    fetch('/api/guest/data')
+    apiRequest('/guest/data')
         .then(response => {
             //debugLog('📊 Session guest data API response status:', response.status);
             if (!response.ok) {
@@ -1260,11 +1248,8 @@ function saveRsvp() {
     
     //debugLog('Saving RSVP data:', rsvpData);
     
-    fetch('/api/guest/rsvp', {
+    apiRequest('/guest/rsvp', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
         body: JSON.stringify(rsvpData)
     })
     .then(response => response.json())
@@ -1291,11 +1276,8 @@ function saveRsvp() {
                 rsvpData.last_modified = data.current_data.last_modified;
                 lastModified = data.current_data.last_modified;
                 
-                fetch('/api/guest/rsvp', {
+                apiRequest('/guest/rsvp', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
                     body: JSON.stringify(rsvpData)
                 })
                 .then(response => response.json())
@@ -1346,7 +1328,7 @@ function loadZeitplanPreview() {
     
     const zeitplanPreviewDiv = document.getElementById('zeitplanPreview');
     
-    fetch('/api/guest/zeitplan_preview')
+    apiRequest('/guest/zeitplan_preview')
         .then(response => {
             //debugLog('📅 Zeitplan API response status:', response.status);
             if (!response.ok) {
@@ -1427,7 +1409,7 @@ function displayZeitplanPreview(response) {
 function loadInvitationHeaders() {
     //debugLog('🔄 Loading invitation headers...');
     
-    fetch('/api/guest/invitation-headers')
+    apiRequest('/guest/invitation-headers')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -1470,7 +1452,7 @@ function loadInvitationHeaders() {
 function updatePersonalizedWelcome() {
     //debugLog('🔄 Updating personalized welcome message...');
     
-    fetch('/api/guest/data')
+    apiRequest('/guest/data')
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -1620,7 +1602,7 @@ function showInvitationModal() {
  */
 async function loadPersonalizedMessage() {
     try {
-        const response = await fetch("/api/guest/first-login-message");
+        const response = await apiRequest('/guest/first-login-message');
         
         if (response.ok) {
             const result = await response.json();
@@ -1657,7 +1639,7 @@ async function loadPersonalizedMessage() {
  */
 async function loadWeddingPhoto() {
     try {
-        const response = await fetch("/api/guest/wedding-photo");
+        const response = await apiRequest('/guest/wedding-photo');
         
         if (response.ok) {
             const result = await response.json();
@@ -1761,7 +1743,7 @@ function loadCompleteZeitplan() {
         return;
     }
     
-    fetch('/api/guest/zeitplan')
+    apiRequest('/guest/zeitplan')
         .then(response => {
             //debugLog('📅 Zeitplan API response status:', response.status);
             if (!response.ok) {

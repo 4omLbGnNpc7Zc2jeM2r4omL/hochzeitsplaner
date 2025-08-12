@@ -7,7 +7,7 @@
 async function initializeTischplanungGlobals() {
     try {
 
-        const response = await fetch('/api/settings/get');
+        const response = await apiRequest('/settings/get');
         if (response.ok) {
             const result = await response.json();
             if (result.success && result.settings) {

@@ -102,6 +102,38 @@
     border-radius: 8px;
 }
 
+/* Modal-Button Überschreibungen */
+.modal .btn-primary {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
+    border: none;
+    color: var(--wedding-text-dark);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px var(--wedding-shadow);
+    transition: all 0.3s ease;
+}
+
+.modal .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px var(--wedding-shadow);
+    color: var(--wedding-text-dark);
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-cream));
+}
+
+.modal .btn-secondary {
+    background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold));
+    border: none;
+    color: var(--wedding-text);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.modal .btn-secondary:hover {
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-cream));
+    color: var(--wedding-text-dark);
+}
+
 /* ===== BADGES UND LABELS ===== */
 .badge-wedding-primary {
     background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
@@ -252,157 +284,6 @@
     border-radius: 15px 15px 0 0 !important;
     border: none !important;
     color: var(--wedding-text) !important;
-}
-
-/* ===== WEDDING THEME DIALOGE UND BESTÄTIGUNGEN ===== */
-.wedding-dialog-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1050;
-    backdrop-filter: blur(3px);
-    animation: wedding-fadeIn 0.3s ease-out;
-}
-
-.wedding-dialog {
-    background: linear-gradient(135deg, var(--wedding-white), var(--wedding-light-gold));
-    border-radius: 20px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-    max-width: 500px;
-    width: 90%;
-    margin: 20px;
-    animation: wedding-slideIn 0.3s ease-out;
-    border: 3px solid var(--wedding-gold);
-}
-
-.wedding-dialog-header {
-    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-cream));
-    color: var(--wedding-text-dark);
-    padding: 1.5rem;
-    border-radius: 17px 17px 0 0;
-    border-bottom: 2px solid var(--wedding-gold);
-    text-align: center;
-}
-
-.wedding-dialog-header h5 {
-    margin: 0;
-    font-weight: 600;
-    font-size: 1.3rem;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.wedding-dialog-body {
-    padding: 2rem 1.5rem;
-    color: var(--wedding-text-dark);
-    text-align: center;
-    line-height: 1.6;
-    font-size: 1rem;
-}
-
-.wedding-dialog-footer {
-    padding: 1rem 1.5rem 1.5rem;
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
-    border-top: 1px solid var(--wedding-cream);
-}
-
-.wedding-notification-container {
-    position: fixed;
-    top: 80px;
-    right: 20px;
-    z-index: 1055;
-    max-width: 400px;
-    width: 100%;
-}
-
-.wedding-notification {
-    background: linear-gradient(135deg, var(--wedding-white), var(--wedding-light-gold));
-    border: 2px solid var(--wedding-gold);
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-    margin-bottom: 10px;
-    animation: wedding-slideInRight 0.3s ease-out;
-    overflow: hidden;
-}
-
-.wedding-notification.success {
-    border-left: 5px solid #28a745;
-}
-
-.wedding-notification.error {
-    border-left: 5px solid #dc3545;
-}
-
-.wedding-notification.warning {
-    border-left: 5px solid #ffc107;
-}
-
-.wedding-notification.info {
-    border-left: 5px solid #17a2b8;
-}
-
-.wedding-notification-header {
-    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-cream));
-    color: var(--wedding-text-dark);
-    padding: 0.75rem 1rem;
-    font-weight: 600;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.wedding-notification-body {
-    padding: 1rem;
-    color: var(--wedding-text-dark);
-}
-
-.wedding-notification-close {
-    background: none;
-    border: none;
-    color: var(--wedding-text-dark);
-    font-size: 1.2rem;
-    cursor: pointer;
-    opacity: 0.7;
-    transition: opacity 0.2s ease;
-}
-
-.wedding-notification-close:hover {
-    opacity: 1;
-}
-
-/* Animationen */
-@keyframes wedding-fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes wedding-slideIn {
-    from { 
-        opacity: 0;
-        transform: translateY(-30px) scale(0.9);
-    }
-    to { 
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-@keyframes wedding-slideInRight {
-    from { 
-        opacity: 0;
-        transform: translateX(100%);
-    }
-    to { 
-        opacity: 1;
-        transform: translateX(0);
-    }
 }
 
 /* Outline-Button für Wedding Theme */
@@ -733,6 +614,30 @@
 }
 
 /* ===== MODALS ===== */
+/* Standard Bootstrap Modalen mit Wedding-Theme überschreiben */
+.modal .modal-header {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
+    color: var(--wedding-text-dark);
+    border-bottom: none;
+    border-radius: 15px 15px 0 0;
+}
+
+.modal .modal-content {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+.modal .modal-title {
+    color: var(--wedding-text-dark);
+    font-weight: 600;
+}
+
+.modal .modal-body {
+    color: var(--wedding-text);
+}
+
+/* Spezielle Wedding-Modal Klasse (falls explizit gesetzt) */
 .modal-wedding .modal-header {
     background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
     color: var(--wedding-text);
@@ -744,6 +649,31 @@
     border: none;
     border-radius: 15px;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+/* Modal Form-Elemente */
+.modal .form-control:focus {
+    border-color: var(--wedding-gold);
+    box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.25);
+}
+
+.modal .form-select:focus {
+    border-color: var(--wedding-gold);
+    box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.25);
+}
+
+.modal .form-label {
+    color: var(--wedding-text-dark);
+    font-weight: 500;
+}
+
+/* Modal Links und Texte */
+.modal a {
+    color: var(--wedding-gold);
+}
+
+.modal a:hover {
+    color: var(--wedding-text-dark);
 }
 
 /* ===== PROGRESS BARS ===== */
@@ -774,6 +704,40 @@
 
 .text-wedding-gold {
     color: var(--wedding-gold) !important;
+}
+
+/* Bootstrap override: Ersetze blaue Texte durch Wedding-Theme */
+.text-primary {
+    color: var(--wedding-text-dark) !important;
+}
+
+.text-info {
+    color: var(--wedding-text) !important;
+}
+
+/* Modal-spezifische Überschreibungen für Wedding-Theme */
+.modal .text-primary {
+    color: var(--wedding-text-dark) !important;
+}
+
+.modal .text-info {
+    color: var(--wedding-text) !important;
+}
+
+/* Spinner mit Wedding-Theme Farben */
+.spinner-border.text-primary {
+    color: var(--wedding-gold) !important;
+}
+
+.spinner-border-sm.text-primary {
+    color: var(--wedding-gold) !important;
+}
+
+/* Weitere Bootstrap Überschreibungen */
+.text-blue,
+.text-info,
+.text-cyan {
+    color: var(--wedding-text) !important;
 }
 
 .bg-wedding-gradient {
@@ -851,8 +815,390 @@
 }*/
 
 /*Test*/
-.dashboard-card .fs-1 {
-    font-size: clamp(1.5rem, 3.5vw, 2rem); /* Statt 10cqw → 3.5vw */
+    .dashboard-card .fs-1 {
+        font-size: clamp(1.2rem, 4vw, 1.4rem) !important;
+        margin: 0;
+    }
+}
+
+/* ===== ZEITPLAN LISTENANSICHT ===== */
+/* Zeitplan Liste Container */
+.zeitplan-list-item {
+    background: var(--wedding-white);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    border-radius: 12px;
+    margin-bottom: 8px;
+    padding: 1rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.zeitplan-list-item:hover {
+    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-white));
+    border-color: var(--wedding-gold);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px var(--wedding-shadow);
+}
+
+.zeitplan-list-item.active {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
+    border-color: var(--wedding-text-dark);
+    color: var(--wedding-text-dark);
+    box-shadow: 0 6px 20px var(--wedding-shadow);
+}
+
+.zeitplan-list-item.active .zeitplan-title {
+    color: var(--wedding-text-dark);
+    font-weight: 600;
+}
+
+/* Quick Actions */
+.event-quick-actions {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.zeitplan-list-item:hover .event-quick-actions {
+    opacity: 1;
+}
+
+.btn-quick-edit {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    margin-left: 0.25rem;
+    border-radius: 6px;
+}
+
+/* Zeitplan Badges */
+.zeitplan-time-badge {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-cream)) !important;
+    color: var(--wedding-text-dark) !important;
+    border: none;
+    font-weight: 500;
+    border-radius: 8px;
+}
+
+.zeitplan-status-badge {
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+/* Status-spezifische Farben mit Wedding-Theme */
+.zeitplan-status-geplant {
+    background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text) !important;
+}
+
+.zeitplan-status-laufend {
+    background: linear-gradient(135deg, #d4af37, #f4e4bc) !important;
+    color: var(--wedding-text-dark) !important;
+}
+
+.zeitplan-status-abgeschlossen {
+    background: linear-gradient(135deg, #228b22, #90ee90) !important;
+    color: white !important;
+}
+
+/* Zusätzliche Status-Badge Überschreibungen für Event-Details */
+.event-details-card .zeitplan-status-geplant,
+.event-details-card .badge.zeitplan-status-geplant {
+    background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border: 1px solid var(--wedding-gold) !important;
+}
+
+.event-details-card .zeitplan-status-laufend,
+.event-details-card .badge.zeitplan-status-laufend {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border: 1px solid var(--wedding-text-dark) !important;
+}
+
+.event-details-card .zeitplan-status-abgeschlossen,
+.event-details-card .badge.zeitplan-status-abgeschlossen {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border: 1px solid var(--wedding-gold) !important;
+}
+
+/* Zusätzliche spezifische Überschreibung für alle Status-Badges in Details */
+.event-details-header .badge,
+.event-details-card .badge[class*="zeitplan-status-"],
+#eventDetails .badge {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border: 1px solid var(--wedding-gold) !important;
+}
+
+/* Spezifische Überschreibung für alle Zeitplan-Status-Badges */
+.badge.zeitplan-status-geplant,
+.badge.zeitplan-status-gebucht,
+.badge.zeitplan-status-bestaetigt,
+.badge.zeitplan-status-abgeschlossen,
+.badge.zeitplan-status-laufend,
+.event-details-header .badge.zeitplan-status-geplant,
+.event-details-header .badge.zeitplan-status-gebucht,
+.event-details-header .badge.zeitplan-status-bestaetigt,
+.event-details-header .badge.zeitplan-status-abgeschlossen,
+.event-details-header .badge.zeitplan-status-laufend {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border: 1px solid var(--wedding-gold) !important;
+    box-shadow: 0 2px 4px rgba(184, 134, 11, 0.2) !important;
+}
+
+/* Überschreibung für event-details-header - entfernt blauen Gradient */
+.event-details-header {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border-radius: 12px 12px 0 0 !important;
+    padding: 1.5rem !important;
+    border: 1px solid var(--wedding-gold) !important;
+}
+
+/* Überschreibung für alle blauen Elemente in der Zeitplan-Liste */
+.zeitplan-list-item .btn-outline-primary,
+.zeitplan-list-item .btn.btn-outline-primary {
+    color: var(--wedding-gold) !important;
+    border-color: var(--wedding-gold) !important;
+    background-color: transparent !important;
+}
+
+.zeitplan-list-item .btn-outline-primary:hover,
+.zeitplan-list-item .btn.btn-outline-primary:hover {
+    background-color: var(--wedding-gold) !important;
+    color: var(--wedding-text-dark) !important;
+    border-color: var(--wedding-gold) !important;
+}
+
+.zeitplan-list-item .badge.bg-secondary {
+    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-white)) !important;
+    color: var(--wedding-text-dark) !important;
+    border: 1px solid var(--wedding-gold) !important;
+}
+
+.zeitplan-list-item .badge.bg-success {
+    background: linear-gradient(135deg, var(--wedding-success), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border: 1px solid var(--wedding-success) !important;
+}
+
+/* Zeitplan Titel und Meta */
+.zeitplan-title {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--wedding-text-dark);
+    margin-bottom: 0.5rem;
+}
+
+.zeitplan-meta {
+    font-size: 0.875rem;
+    color: var(--wedding-text);
+}
+
+.zeitplan-meta span {
+    margin-right: 1rem;
+}
+
+.zeitplan-meta i {
+    margin-right: 0.25rem;
+    color: var(--wedding-gold);
+}
+
+/* Event Details Card */
+.event-details-card {
+    background: var(--wedding-white) !important;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+/* Überschreibung für das Details-Container-Element */
+#eventDetails {
+    background: var(--wedding-white) !important;
+}
+
+#eventDetails .event-details-card {
+    background: linear-gradient(135deg, var(--wedding-white), var(--wedding-light-gold)) !important;
+    border: 2px solid var(--wedding-gold) !important;
+    border-radius: 15px !important;
+    box-shadow: 0 8px 25px var(--wedding-shadow) !important;
+}
+
+/* Direkter Override für alle blauen Bootstrap-Klassen im Details-Bereich */
+#eventDetails .bg-primary,
+#eventDetails [class*="bg-primary"],
+#eventDetails .card-primary,
+#eventDetails [class*="card-primary"] {
+    background: linear-gradient(135deg, var(--wedding-white), var(--wedding-light-gold)) !important;
+    border-color: var(--wedding-gold) !important;
+}
+
+.event-details-header {
+    border-bottom: 2px solid var(--wedding-light-gold);
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.event-details-header h5 {
+    color: var(--wedding-text-dark);
+    font-weight: 600;
+}
+
+/* Status Badge im Header - Wichtige Überschreibung */
+.event-details-header .badge {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border: 1px solid var(--wedding-gold) !important;
+    font-weight: 500 !important;
+    padding: 0.4rem 0.8rem !important;
+    border-radius: 8px !important;
+}
+
+.event-details-body {
+    color: var(--wedding-text);
+}
+
+/* Detail Items */
+.detail-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: linear-gradient(135deg, var(--wedding-white), var(--wedding-light-gold));
+    border-radius: 8px;
+    border-left: 4px solid var(--wedding-gold);
+}
+
+.detail-icon {
+    margin-right: 1rem;
+    color: var(--wedding-gold);
+    font-size: 1.2rem;
+    min-width: 24px;
+}
+
+.detail-content {
+    flex: 1;
+}
+
+.detail-label {
+    font-size: 0.875rem;
+    color: var(--wedding-text);
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.detail-value {
+    font-size: 1rem;
+    color: var(--wedding-text-dark);
+    font-weight: 500;
+}
+
+/* Badge Überschreibungen für Wedding-Theme */
+.event-details-card .badge.bg-secondary {
+    background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text) !important;
+}
+
+.event-details-card .badge.bg-success {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-cream)) !important;
+    color: var(--wedding-text-dark) !important;
+}
+
+.event-details-card .badge.bg-warning {
+    background: linear-gradient(135deg, #f4e4bc, var(--wedding-light-gold)) !important;
+    color: var(--wedding-text) !important;
+}
+
+.event-details-card .badge.bg-info {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+}
+
+.event-details-card .badge.bg-primary {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border: 1px solid var(--wedding-text-dark) !important;
+}
+
+/* Universelle Badge-Überschreibung für Event-Details */
+.event-details-card .badge {
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    padding: 0.4rem 0.8rem !important;
+}
+
+/* Spezielle Überschreibung für blaue Bootstrap-Badges */
+#eventDetails .badge.bg-primary,
+#eventDetails .badge[class*="bg-primary"],
+#eventDetails span.badge {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border: 1px solid var(--wedding-gold) !important;
+}
+
+/* Universelle Überschreibung für alle blauen Elemente im Details-Bereich */
+#eventDetails *[class*="primary"],
+#eventDetails *[class*="blue"],
+#eventDetails .text-primary,
+#eventDetails .bg-primary {
+    background: linear-gradient(135deg, var(--wedding-white), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border-color: var(--wedding-gold) !important;
+}
+
+/* Zeitplan-spezifische Karten-Überschreibung */
+.zeitplan-details-container,
+.zeitplan-details-container *,
+#listView .card,
+#listView .card-header,
+#listView .card-body {
+    background: var(--wedding-white) !important;
+    border-color: var(--wedding-gold) !important;
+}
+
+#listView .card-header h5 {
+    color: var(--wedding-text-dark) !important;
+}
+
+/* Spezielle Überschreibung für alle bg-primary Badges im Zeitplan */
+.zeitplan-time-badge.bg-primary,
+.zeitplan-list-item .badge.bg-primary,
+.event-details-card .badge.bg-primary,
+.badge.zeitplan-time-badge.bg-primary,
+.wedding-time-badge {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border: 1px solid var(--wedding-gold) !important;
+}
+
+/* Maximale Spezifität für hartnäckige Bootstrap-Badges */
+#listView .zeitplan-list-item .event-details-header .badge.bg-primary,
+#eventDetails .event-details-card .badge.bg-primary,
+.zeitplan-container .badge.bg-primary {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text-dark) !important;
+    border: 1px solid var(--wedding-gold) !important;
+    box-shadow: 0 2px 4px rgba(184, 134, 11, 0.2) !important;
+}
+
+/* Universelle Überschreibung für ALLE blauen Elemente - überschreibt auch inline Styles */
+*[style*="background: blue"], 
+*[style*="background-color: blue"],
+*[style*="background: #007bff"],
+*[style*="background-color: #007bff"],
+.bg-primary[style],
+.btn-primary[style],
+.badge[style*="background"] {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    background-color: var(--wedding-gold) !important;
+    color: var(--wedding-text-dark) !important;
+    border-color: var(--wedding-gold) !important;
 }
 
 /* ===== MOBILE DASHBOARD OPTIMIZATIONS ===== */
@@ -1483,504 +1829,5 @@
     .nav-link {
         font-size: 0.85rem !important;
         padding: 0.5rem 0.6rem !important;
-    }
-}
-
-/* ===== HOCHZEITSTAG-CHECKLISTE WEDDING THEME ===== */
-
-/* Checkliste Container im Wedding Style */
-.checkliste-container {
-    background: linear-gradient(135deg, var(--wedding-white) 0%, var(--wedding-light-gold) 100%);
-    border-radius: 20px;
-    box-shadow: 0 8px 32px var(--wedding-shadow);
-    padding: 2rem;
-    margin-bottom: 2rem;
-    border: 2px solid var(--wedding-cream);
-}
-
-/* Checkliste Header im Wedding Style */
-.checkliste-header {
-    border-bottom: 3px solid var(--wedding-gold);
-    padding-bottom: 1.5rem;
-    margin-bottom: 2rem;
-    background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(244, 228, 188, 0.1));
-    border-radius: 15px;
-    padding: 1.5rem;
-    margin: -0.5rem -0.5rem 2rem -0.5rem;
-}
-
-.checkliste-header h5 {
-    color: var(--wedding-text);
-    font-weight: 700;
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-    text-shadow: 0 2px 4px rgba(212, 175, 55, 0.2);
-}
-
-.checkliste-counter {
-    color: var(--wedding-text-dark);
-    font-size: 1rem;
-    font-weight: 500;
-}
-
-/* Checkliste Action Buttons im Wedding Style */
-.checkliste-actions-header .btn {
-    border-radius: 12px;
-    margin-left: 0.5rem;
-    box-shadow: 0 4px 15px var(--wedding-shadow);
-    transition: all 0.3s ease;
-}
-
-.checkliste-actions-header .btn-outline-secondary {
-    background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold));
-    border: 2px solid var(--wedding-gold);
-    color: var(--wedding-text);
-}
-
-.checkliste-actions-header .btn-outline-secondary:hover {
-    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-cream));
-    border-color: var(--wedding-text);
-    color: var(--wedding-text-dark);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px var(--wedding-shadow);
-}
-
-.checkliste-actions-header .btn-primary {
-    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
-    border: none;
-    color: var(--wedding-text);
-}
-
-.checkliste-actions-header .btn-primary:hover {
-    background: linear-gradient(135deg, var(--wedding-text), var(--wedding-gold));
-    color: var(--wedding-white);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(139, 115, 85, 0.4);
-}
-
-/* Checkliste Items im Wedding Style */
-.checkliste-item {
-    background: linear-gradient(135deg, var(--wedding-white), rgba(244, 228, 188, 0.3));
-    border: 2px solid var(--wedding-cream);
-    border-radius: 15px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
-    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.1);
-    transition: all 0.3s ease;
-}
-
-.checkliste-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px var(--wedding-shadow);
-    border-color: var(--wedding-gold);
-}
-
-.checkliste-item.completed {
-    background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(244, 228, 188, 0.2));
-    border-color: var(--wedding-gold);
-    opacity: 0.8;
-}
-
-/* Priority Indicators im Wedding Style */
-.priority-indicator {
-    border-radius: 50%;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.priority-indicator.priority-1 {
-    background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold));
-    color: var(--wedding-text);
-}
-
-.priority-indicator.priority-2 {
-    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-gold));
-    color: var(--wedding-text);
-}
-
-.priority-indicator.priority-3 {
-    background: linear-gradient(135deg, var(--wedding-gold), #b8941f);
-    color: var(--wedding-white);
-}
-
-.priority-indicator.priority-4 {
-    background: linear-gradient(135deg, #b8941f, var(--wedding-text));
-    color: var(--wedding-white);
-}
-
-/* Time Badge im Wedding Style */
-.time-badge {
-    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
-    color: var(--wedding-text);
-    border-radius: 12px;
-    padding: 0.3rem 0.8rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    border: 1px solid var(--wedding-cream);
-    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.2);
-}
-
-/* Category Badge im Wedding Style */
-.badge.bg-secondary {
-    background: linear-gradient(135deg, var(--wedding-text), var(--wedding-text-dark)) !important;
-    color: var(--wedding-white);
-    border-radius: 8px;
-    padding: 0.4rem 0.8rem;
-    font-weight: 500;
-}
-
-/* Checkboxes im Wedding Style */
-.checkliste-item .form-check-input {
-    border: 2px solid var(--wedding-gold);
-    border-radius: 6px;
-    width: 1.5rem;
-    height: 1.5rem;
-}
-
-.checkliste-item .form-check-input:checked {
-    background-color: var(--wedding-gold);
-    border-color: var(--wedding-text);
-    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
-}
-
-/* Action Buttons im Wedding Style */
-.checkliste-actions .btn {
-    border-radius: 10px;
-    margin-right: 0.3rem;
-    padding: 0.4rem 0.8rem;
-    transition: all 0.3s ease;
-}
-
-.checkliste-actions .btn-outline-primary {
-    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-white));
-    border: 1px solid var(--wedding-gold);
-    color: var(--wedding-text);
-}
-
-.checkliste-actions .btn-outline-primary:hover {
-    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-cream));
-    border-color: var(--wedding-text);
-    color: var(--wedding-text-dark);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px var(--wedding-shadow);
-}
-
-.checkliste-actions .btn-outline-danger {
-    background: linear-gradient(135deg, #f8d7da, var(--wedding-white));
-    border: 1px solid #dc3545;
-    color: #721c24;
-}
-
-.checkliste-actions .btn-outline-danger:hover {
-    background: linear-gradient(135deg, #dc3545, #f5c6cb);
-    border-color: #721c24;
-    color: var(--wedding-white);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
-}
-
-/* Empty State Message im Wedding Style */
-.checkliste-item .text-center {
-    color: var(--wedding-text);
-}
-
-.checkliste-item .text-muted {
-    color: var(--wedding-text-dark) !important;
-}
-
-.checkliste-item .fa-clipboard-list {
-    color: var(--wedding-gold);
-}
-
-/* Modal im Wedding Style für Checkliste */
-.modal-content {
-    border-radius: 20px;
-    border: 2px solid var(--wedding-gold);
-    box-shadow: 0 15px 50px rgba(212, 175, 55, 0.3);
-}
-
-.modal-header {
-    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
-    color: var(--wedding-text);
-    border-bottom: 2px solid var(--wedding-cream);
-    border-radius: 18px 18px 0 0;
-}
-
-.modal-body {
-    background: linear-gradient(135deg, var(--wedding-white), rgba(244, 228, 188, 0.1));
-}
-
-.modal-footer {
-    background: var(--wedding-white);
-    border-top: 2px solid var(--wedding-cream);
-    border-radius: 0 0 18px 18px;
-}
-
-/* Form Controls im Wedding Style */
-.modal .form-control,
-.modal .form-select {
-    border: 2px solid var(--wedding-cream);
-    border-radius: 10px;
-    background: var(--wedding-white);
-    color: var(--wedding-text);
-}
-
-.modal .form-control:focus,
-.modal .form-select:focus {
-    border-color: var(--wedding-gold);
-    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
-}
-
-/* Animationen für Checkliste */
-.checkliste-item.new-item {
-    animation: slideInWedding 0.5s ease-out;
-}
-
-@keyframes slideInWedding {
-    from {
-        opacity: 0;
-        transform: translateY(30px) scale(0.95);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-.checkliste-item.completing {
-    animation: completeWeddingTask 0.8s ease-out forwards;
-}
-
-@keyframes completeWeddingTask {
-    0% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.05);
-        border-color: var(--wedding-gold);
-        box-shadow: 0 0 30px rgba(212, 175, 55, 0.5);
-        background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(244, 228, 188, 0.3));
-    }
-    100% {
-        transform: scale(1);
-        background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(244, 228, 188, 0.2));
-        border-color: var(--wedding-gold);
-    }
-}
-
-/* Spezielle Wedding Theme Buttons für Checkliste Empty State */
-#checkliste-items .btn {
-    border-radius: 12px;
-    padding: 0.75rem 1.5rem;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.2);
-    border: 2px solid transparent;
-}
-
-/* "Erste Aufgabe hinzufügen" Button - Primary Wedding Style */
-#checkliste-items .btn-primary {
-    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
-    border: 2px solid var(--wedding-cream) !important;
-    color: var(--wedding-text) !important;
-    font-size: 1rem;
-}
-
-#checkliste-items .btn-primary:hover {
-    background: linear-gradient(135deg, var(--wedding-text), var(--wedding-gold)) !important;
-    border-color: var(--wedding-text-dark) !important;
-    color: var(--wedding-white) !important;
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(139, 115, 85, 0.4);
-}
-
-/* "Standard-Checkliste erstellen" Button - Secondary Wedding Style */
-#checkliste-items .btn-outline-secondary {
-    background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-white)) !important;
-    border: 2px solid var(--wedding-gold) !important;
-    color: var(--wedding-text) !important;
-    font-size: 1rem;
-}
-
-#checkliste-items .btn-outline-secondary:hover {
-    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-gold)) !important;
-    border-color: var(--wedding-text) !important;
-    color: var(--wedding-text-dark) !important;
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px var(--wedding-shadow);
-}
-
-/* Button Icons im Wedding Style */
-#checkliste-items .btn i {
-    color: inherit;
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-}
-
-/* Gap zwischen den Buttons optimieren */
-#checkliste-items .d-flex.gap-2 {
-    gap: 1rem !important;
-}
-
-/* Responsive Design für die Buttons */
-@media (max-width: 576px) {
-    #checkliste-items .d-flex.gap-2 {
-        flex-direction: column;
-        align-items: center;
-        gap: 0.75rem !important;
-    }
-    
-    #checkliste-items .btn {
-        width: 100%;
-        max-width: 280px;
-        padding: 0.875rem 1.25rem;
-        font-size: 0.95rem;
-    }
-}
-
-/* Zusätzlicher Glanz-Effekt für bessere Sichtbarkeit */
-#checkliste-items .btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.5s;
-    border-radius: inherit;
-}
-
-#checkliste-items .btn:hover::before {
-    left: 100%;
-}
-
-/* ===== DELETE CONFIRMATION MODAL ===== */
-.delete-confirmation-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(3px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    animation: fadeIn 0.2s ease-out;
-}
-
-.delete-confirmation-modal {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    width: 90%;
-    max-width: 450px;
-    animation: slideIn 0.3s ease-out;
-    overflow: hidden;
-}
-
-.delete-confirmation-header {
-    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.delete-confirmation-header h5 {
-    color: var(--wedding-text-dark);
-    font-weight: 600;
-}
-
-.delete-confirmation-body {
-    padding: 1.5rem;
-}
-
-.delete-confirmation-body p {
-    color: #495057;
-    font-size: 0.95rem;
-}
-
-.task-preview {
-    border-left: 4px solid var(--wedding-gold);
-}
-
-.delete-confirmation-footer {
-    padding: 1rem 1.5rem;
-    background: #f8f9fa;
-    border-top: 1px solid #dee2e6;
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-}
-
-.delete-confirmation-footer .btn {
-    border-radius: 8px;
-    padding: 0.5rem 1.2rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-}
-
-.delete-confirmation-footer .btn-secondary {
-    background: #6c757d;
-    border-color: #6c757d;
-}
-
-.delete-confirmation-footer .btn-secondary:hover {
-    background: #5a6268;
-    border-color: #545b62;
-    transform: translateY(-1px);
-}
-
-.delete-confirmation-footer .btn-danger {
-    background: #dc3545;
-    border-color: #dc3545;
-}
-
-.delete-confirmation-footer .btn-danger:hover {
-    background: #c82333;
-    border-color: #bd2130;
-    transform: translateY(-1px);
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes slideIn {
-    from { 
-        transform: translateY(-50px) scale(0.9);
-        opacity: 0;
-    }
-    to { 
-        transform: translateY(0) scale(1);
-        opacity: 1;
-    }
-}
-
-/* Mobile Responsive */
-@media (max-width: 576px) {
-    .delete-confirmation-modal {
-        width: 95%;
-        margin: 1rem;
-    }
-    
-    .delete-confirmation-footer {
-        flex-direction: column;
-    }
-    
-    .delete-confirmation-footer .btn {
-        width: 100%;
-        margin-bottom: 0.5rem;
-    }
-    
-    .delete-confirmation-footer .btn:last-child {
-        margin-bottom: 0;
     }
 }

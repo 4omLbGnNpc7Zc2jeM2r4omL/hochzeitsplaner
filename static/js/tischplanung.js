@@ -15,7 +15,7 @@ let tischplanung_config = {}; // Globale Konfiguration für Standard-Tischgröß
 async function loadAppSettings() {
     try {
 
-        const response = await fetch('/api/settings/get');
+        const response = await apiRequest('/settings/get');
         if (response.ok) {
             const data = await response.json();
             if (data.success && data.settings) {
@@ -141,7 +141,7 @@ async function loadGuests() {
     try {
 
         
-        const response = await fetch('/api/gaeste/list');
+        const response = await apiRequest('/gaeste/list');
 
         
         if (!response.ok) {
@@ -197,7 +197,7 @@ async function loadGuests() {
 async function loadTables() {
     try {
 
-        const response = await fetch('/api/tischplanung/tables');
+        const response = await apiRequest('/tischplanung/tables');
         if (!response.ok) {
 
             tables = [];
@@ -255,7 +255,7 @@ async function loadTables() {
 async function loadExistingAssignments() {
     try {
 
-        const response = await fetch('/api/tischplanung/assignments');
+        const response = await apiRequest('/tischplanung/assignments');
         if (!response.ok) {
 
             return;
@@ -289,7 +289,7 @@ async function loadRelationships() {
     try {
         // Nur laden wenn noch keine Beziehungen vorhanden
         if (relationships.length === 0) {
-            const response = await fetch('/api/tischplanung/relationships');
+            const response = await apiRequest('/tischplanung/relationships');
             if (response.ok) {
                 relationships = await response.json();
             }
@@ -303,7 +303,7 @@ async function loadRelationships() {
 // Beziehungen forciert neu laden (nur bei Änderungen)
 async function reloadRelationships() {
     try {
-        const response = await fetch('/api/tischplanung/relationships');
+        const response = await apiRequest('/tischplanung/relationships');
         if (response.ok) {
             relationships = await response.json();
         }
@@ -314,7 +314,7 @@ async function reloadRelationships() {
 
 async function loadConfiguration() {
     try {
-        const response = await fetch('/api/tischplanung/config');
+        const response = await apiRequest('/tischplanung/config');
         if (response.ok) {
             tischplanung_config = await response.json();
             document.getElementById('defaultTableSize').value = tischplanung_config.standard_tisch_groesse || 8;
@@ -853,9 +853,8 @@ async function assignGuestToTable(guestId, tableId) {
     try {
 
         
-        const response = await fetch('/api/tischplanung/assign', {
+        const response = await apiRequest('/tischplanung/assign', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ guest_id: guestId, table_id: tableId })
         });
         
@@ -989,7 +988,7 @@ function showTableInfo(tableId) {
 // Gast von Tisch entfernen
 async function removeGuestFromTable(guestId) {
     try {
-        const response = await fetch(`/api/tischplanung/unassign/${guestId}`, {
+        const response = await apiRequest(`/tischplanung/unassign/${guestId}`, {
             method: 'DELETE'
         });
         
@@ -1036,9 +1035,8 @@ async function addNewTable() {
     }
     
     try {
-        const response = await fetch('/api/tischplanung/tables', {
+        const response = await apiRequest('/tischplanung/tables', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 name: name,
                 max_personen: size,
@@ -1075,10 +1073,9 @@ async function autoAssignGuests() {
     try {
 
         
-        const response = await fetch('/api/tischplanung/auto-assign', {
+        const response = await apiRequest('/tischplanung/auto-assign', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
+            });
         
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1136,10 +1133,9 @@ async function optimizeTableSizes() {
     try {
 
         
-        const response = await fetch('/api/tischplanung/optimize-table-sizes', {
+        const response = await apiRequest('/tischplanung/optimize-table-sizes', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
+            });
         
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -2127,9 +2123,8 @@ async function handleModalTableDrop(e, tableId) {
         
         try {
             // Gast zu Tisch zuweisen
-            const response = await fetch('/api/tischplanung/assign', {
+            const response = await apiRequest('/tischplanung/assign', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ guest_id: guestIdToAssign, table_id: tableId })
             });
             
@@ -2183,7 +2178,7 @@ async function removeGuestFromTableModal(guestId, tableId) {
 
         
         // API-Call zum Entfernen
-        const response = await fetch(`/api/tischplanung/unassign/${guestId}`, {
+        const response = await apiRequest(`/tischplanung/unassign/${guestId}`, {
             method: 'DELETE'
         });
         
@@ -2865,7 +2860,7 @@ async function clearAllTables() {
     }
     
     try {
-        const response = await fetch('/api/tischplanung/clear-all', {
+        const response = await apiRequest('/tischplanung/clear-all', {
             method: 'POST'
         });
         
@@ -2897,9 +2892,8 @@ async function saveSeatingPlan() {
                 table_id: g.assigned_table
             }));
         
-        const response = await fetch('/api/tischplanung/save', {
+        const response = await apiRequest('/tischplanung/save', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 assignments: assignments,
                 tables: tables.map(t => ({
@@ -3060,9 +3054,8 @@ async function addNewRelationship(guestId) {
     }
     
     try {
-        const response = await fetch('/api/tischplanung/relationships', {
+        const response = await apiRequest('/tischplanung/relationships', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 gast_id_1: guestId,
                 gast_id_2: otherGuestId,
@@ -3337,9 +3330,8 @@ async function saveTableDetails() {
     };
     
     try {
-        const response = await fetch(`/api/tischplanung/tables/${tableId}`, {
+        const response = await apiRequest(`/tischplanung/tables/${tableId}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(tableData)
         });
         
@@ -3369,7 +3361,7 @@ async function deleteTable() {
     if (!confirm('Tisch wirklich löschen? Alle Zuordnungen gehen verloren.')) return;
     
     try {
-        const response = await fetch(`/api/tischplanung/tables/${tableId}`, {
+        const response = await apiRequest(`/tischplanung/tables/${tableId}`, {
             method: 'DELETE'
         });
         
@@ -3395,9 +3387,8 @@ async function deleteTable() {
 // Tischposition aktualisieren
 async function updateTablePosition(tableId, x, y) {
     try {
-        await fetch(`/api/tischplanung/tables/${tableId}`, {
+        await apiRequest(`/tischplanung/tables/${tableId}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 x_position: x,
                 y_position: y
@@ -3414,11 +3405,8 @@ async function updateTableSizes() {
     
     // Konfiguration sofort speichern
     try {
-        const response = await fetch('/api/tischplanung/config', {
+        const response = await apiRequest('/tischplanung/config', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({
                 standard_tisch_groesse: newSize
             })
@@ -3601,12 +3589,9 @@ async function autoAssignGuests() {
     
     try {
         // API-Aufruf für automatische Zuordnung
-        const response = await fetch('/api/tischplanung/auto-assign', {
+        const response = await apiRequest('/tischplanung/auto-assign', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
+            });
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -3809,7 +3794,6 @@ async function makeApiCall(endpoint, method = 'GET', data = null) {
         const config = {
             method: method,
             headers: {
-                'Content-Type': 'application/json',
                 'Accept': 'application/json'
             }
         };

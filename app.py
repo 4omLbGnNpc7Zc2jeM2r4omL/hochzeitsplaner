@@ -415,37 +415,6 @@ app.logger.disabled = True
 
 CORS(app)
 
-# Globaler After-Request Handler für Cache-Busting
-@app.after_request
-def after_request(response):
-    """Globaler After-Request Handler um Browser-Caching zu verhindern"""
-    
-    # Für alle API-Endpunkte: Aggressives No-Cache
-    if request.path.startswith('/api/'):
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-        
-        # ETags entfernen (verhindert conditional requests)
-        response.headers.pop('ETag', None)
-        
-        # Zusätzliche Browser-Cache-Busting Headers
-        response.headers['X-Cache-Control'] = 'no-cache'
-        response.headers['Surrogate-Control'] = 'no-store'
-        
-        # Verhindere Preflight-Cache für CORS
-        response.headers['Access-Control-Max-Age'] = '0'
-        
-    # Für dynamische HTML-Seiten: Kurzer Cache nur
-    elif request.path.endswith('.html') or request.path in ['/', '/guest', '/gaesteliste', '/budget', '/zeitplan']:
-        response.headers['Cache-Control'] = 'private, no-cache, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        
-    # Für statische Assets: Normaler Cache erlaubt
-    # (JS, CSS, Bilder bleiben unverändert für bessere Performance)
-    
-    return response
-
 # Favicon Route
 @app.route('/favicon.ico')
 def favicon():
@@ -468,15 +437,10 @@ def manifest():
 @app.route('/sw.js')
 def service_worker():
     """Service Worker bereitstellen"""
-    response = make_response(send_file(
+    return send_file(
         os.path.join(app.root_path, 'static', 'sw.js'),
-        mimetype='application/javascript'
-    ))
-    # Service Worker sollte nicht gecacht werden
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
+        mimetype='text/javascript'
+    )
 
 # DataManager initialisieren (WICHTIG: Immer initialisieren, nicht nur bei direktem Start)
 def init_data_manager():
@@ -489,110 +453,9 @@ def init_data_manager():
         # Stelle sicher, dass das Verzeichnis existiert
         os.makedirs(DATA_DIR, exist_ok=True)
         
-        # 🔄 AUTOMATISCHE DATENBANK-SCHEMA-AKTUALISIERUNG
-        update_database_schema()
-        
         return True
     except Exception as e:
         print(f"Fehler beim Initialisieren des DataManagers: {e}")
-        return False
-
-def update_database_schema():
-    """Aktualisiert das Datenbank-Schema automatisch beim Start"""
-    try:
-        logger.info("🔄 Prüfe Datenbank-Schema...")
-        
-        schema_file = os.path.join(os.path.dirname(__file__), 'database', 'schema.sql')
-        
-        if not os.path.exists(schema_file):
-            logger.warning(f"⚠️ Schema-Datei nicht gefunden: {schema_file}")
-            return False
-        
-        # Schema-Datei lesen
-        with open(schema_file, 'r', encoding='utf-8') as f:
-            schema_content = f.read()
-        
-        # Verbindung zur Datenbank
-        import sqlite3
-        conn = sqlite3.connect(data_manager.db_path)
-        cursor = conn.cursor()
-        
-        # Alle existierenden Tabellen auflisten
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        existing_tables = {row[0] for row in cursor.fetchall()}
-        
-        # Tabellen aus Schema extrahieren
-        schema_tables = set()
-        table_definitions = {}
-        
-        lines = schema_content.split('\n')
-        current_table = None
-        current_sql = []
-        
-        for line in lines:
-            line = line.strip()
-            
-            if line.startswith('CREATE TABLE'):
-                # Tabellenname extrahieren
-                table_name = line.split()[2]
-                if table_name.startswith('IF'):
-                    table_name = line.split()[5]  # "CREATE TABLE IF NOT EXISTS tablename"
-                
-                current_table = table_name
-                schema_tables.add(table_name)
-                current_sql = [line]
-                
-            elif current_table and line:
-                current_sql.append(line)
-                
-                if line.endswith(');'):
-                    # Tabellendefinition abgeschlossen
-                    table_definitions[current_table] = '\n'.join(current_sql)
-                    current_table = None
-                    current_sql = []
-        
-        # Fehlende Tabellen erstellen
-        missing_tables = schema_tables - existing_tables
-        
-        if missing_tables:
-            logger.info(f"📋 Erstelle fehlende Tabellen: {', '.join(missing_tables)}")
-            
-            for table_name in missing_tables:
-                if table_name in table_definitions:
-                    try:
-                        cursor.execute(table_definitions[table_name])
-                        logger.info(f"✅ Tabelle '{table_name}' erfolgreich erstellt")
-                    except Exception as e:
-                        logger.error(f"❌ Fehler beim Erstellen der Tabelle '{table_name}': {e}")
-        else:
-            logger.info("✅ Alle erforderlichen Tabellen sind vorhanden")
-        
-        # Spezielle Prüfung für hochzeitstag_checkliste Tabelle
-        if 'hochzeitstag_checkliste' in existing_tables:
-            # Prüfe Spalten der Checkliste-Tabelle
-            cursor.execute("PRAGMA table_info(hochzeitstag_checkliste)")
-            columns = {row[1] for row in cursor.fetchall()}
-            
-            required_columns = {
-                'id', 'titel', 'beschreibung', 'kategorie', 'prioritaet', 
-                'uhrzeit', 'erledigt', 'erledigt_am', 'erledigt_von', 
-                'created_at', 'updated_at', 'sort_order'
-            }
-            
-            missing_columns = required_columns - columns
-            if missing_columns:
-                logger.warning(f"⚠️ Checkliste-Tabelle unvollständig, fehlende Spalten: {missing_columns}")
-            else:
-                logger.info("✅ Checkliste-Tabelle vollständig vorhanden")
-        
-        conn.commit()
-        conn.close()
-        
-        logger.info("🔄 Datenbank-Schema-Prüfung abgeschlossen")
-        return True
-        
-    except Exception as e:
-        logger.error(f"❌ Fehler bei der Schema-Aktualisierung: {e}")
         return False
 
 def init_config_files():
@@ -836,8 +699,7 @@ def inject_global_vars():
                     'brautpaar_namen': brautpaar_namen,
                     'admin_header': admin_header,
                     'bride_name': braut_name,
-                    'groom_name': braeutigam_name,
-                    'cache_bust': int(time.time())  # Cache-Busting für alle URLs
+                    'groom_name': braeutigam_name
                 }
     except Exception as e:
         logger.warning(f"Fehler beim Laden der globalen Template-Variablen: {e}")
@@ -845,8 +707,7 @@ def inject_global_vars():
     return {
         'brautpaar_namen': "Brautpaar heiratet",
         'bride_name': "",
-        'groom_name': "",
-        'cache_bust': int(time.time())  # Cache-Busting für alle URLs
+        'groom_name': ""
     }
 
 # Globaler Before-Request Handler für API-Schutz
@@ -878,6 +739,81 @@ def test_route():
     return jsonify({'status': 'API funktioniert', 'timestamp': str(datetime.now())})
 
 # =============================================================================
+# Weiterleitungsrouten für JavaScript-Kompatibilität
+# =============================================================================
+
+@app.route('/checkliste/list')
+@require_auth
+def redirect_checkliste_list():
+    """Weiterleitung für JavaScript-Kompatibilität"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        # Lade Checkliste aus der Datenbank (falls implementiert)
+        checkliste = data_manager.get_checkliste() if hasattr(data_manager, 'get_checkliste') else []
+        
+        return jsonify({
+            'success': True,
+            'checkliste': checkliste
+        })
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Checkliste: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/gaeste/list')
+@require_auth  
+def redirect_gaeste_list():
+    """Weiterleitung für JavaScript-Kompatibilität"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        # SQLite-basierte Gästeliste laden
+        gaeste_list = data_manager.get_gaeste_list()
+        
+        # Daten für JSON bereinigen
+        cleaned_gaeste = clean_json_data(gaeste_list)
+        
+        return jsonify({
+            'success': True,
+            'gaeste': cleaned_gaeste,
+            'count': len(cleaned_gaeste)
+        })
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Gästeliste: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/kontakte/list')
+@require_auth
+def redirect_kontakte_list():
+    """Weiterleitung für JavaScript-Kompatibilität"""
+    try:
+        import csv
+        import os
+        
+        # CSV-Datei Pfad
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        csv_file_path = os.path.join(base_dir, 'data', 'kontakte.csv')
+        
+        kontakte = []
+        if os.path.exists(csv_file_path):
+            with open(csv_file_path, 'r', encoding='utf-8', newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    kontakte.append(dict(row))
+        
+        return jsonify({
+            'success': True,
+            'kontakte': kontakte
+        })
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Kontakte: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 # Budget API Routen
 # =============================================================================
 
@@ -1014,6 +950,7 @@ def api_budget_auto_generate():
         
         total_essen = 0
         total_party = 0
+        total_party_only = 0  # Neue Variable für Party-nur Gäste (anzahl_party > 0 UND anzahl_essen = 0)
         total_weisser_saal = 0
         total_kinder = 0
         
@@ -1031,6 +968,11 @@ def api_budget_auto_generate():
             final_weisser_saal = weisser_saal
             final_essen = max(anzahl_essen, weisser_saal)  # Weißer Saal Gäste sind auch beim Essen
             final_party = max(anzahl_party, final_essen)   # Essen-Gäste sind auch bei der Party
+            
+            # Spezielle Berechnung für Party-nur Gäste (für Getränke)
+            # Diese Gäste haben anzahl_party > 0 UND anzahl_essen = 0
+            if anzahl_party > 0 and anzahl_essen == 0:
+                total_party_only += anzahl_party
             
             total_weisser_saal += final_weisser_saal
             total_essen += final_essen
@@ -1107,12 +1049,19 @@ def api_budget_auto_generate():
                     gesamtpreis = menge * einzelpreis
                     details = f"{menge} Personen × {einzelpreis}€ (manuell festgelegt)"
                 else:
-                    # Standardberechnung für alle anderen Party-Kosten
-                    # ALLE Party-Gäste (Weißer Saal + Essen + zusätzliche Party-Gäste)
-                    menge = total_party  # Gesamte Party-Menge verwenden
-                    einzelpreis = float(item.get('preis_pro_einheit', 0) or 0)
-                    gesamtpreis = menge * einzelpreis
-                    details = f"{menge} Personen × {einzelpreis}€ (alle Party-Gäste: {total_weisser_saal} Weißer Saal + {total_essen - total_weisser_saal} Essen + {total_party - total_essen} nur Party)"
+                    # Spezielle Logik für Party-Getränke: nur Gäste mit anzahl_party > 0 UND anzahl_essen = 0
+                    if 'getränke' in beschreibung.lower() or 'getränk' in beschreibung.lower():
+                        menge = total_party_only  # Nur Party-nur Gäste für Getränke
+                        einzelpreis = float(item.get('preis_pro_einheit', 0) or 0)
+                        gesamtpreis = menge * einzelpreis
+                        details = f"{menge} Personen × {einzelpreis}€ (nur Party-Gäste ohne Essen)"
+                    else:
+                        # Standardberechnung für alle anderen Party-Kosten
+                        # ALLE Party-Gäste (Weißer Saal + Essen + zusätzliche Party-Gäste)
+                        menge = total_party  # Gesamte Party-Menge verwenden
+                        einzelpreis = float(item.get('preis_pro_einheit', 0) or 0)
+                        gesamtpreis = menge * einzelpreis
+                        details = f"{menge} Personen × {einzelpreis}€ (alle Party-Gäste: {total_weisser_saal} Weißer Saal + {total_essen - total_weisser_saal} Essen + {total_party - total_essen} nur Party)"
             elif item.get('typ') == 'pro_kind':
                 menge = total_kinder
                 einzelpreis = float(item.get('preis_pro_einheit', 0) or 0)
@@ -1688,11 +1637,7 @@ def einstellungen():
         # Hole brautpaar_namen für den Titel
         brautpaar_namen = settings.get('brautpaar_namen', 'Käthe & Pascal')
         
-        # Cache-Busting für JavaScript-Dateien
-        import time
-        timestamp = int(time.time())
-        
-        return render_template('einstellungen.html', brautpaar_namen=brautpaar_namen, settings=settings, timestamp=timestamp)
+        return render_template('einstellungen.html', brautpaar_namen=brautpaar_namen, settings=settings)
     except Exception as e:
         app.logger.error(f"Fehler in einstellungen(): {e}")
         return render_template('error.html', error_message=f"Fehler beim Laden der Einstellungen: {str(e)}")
@@ -2912,20 +2857,23 @@ def get_guest_wedding_photo():
         if not data_manager:
             return jsonify({'success': False, 'message': 'DataManager nicht verfügbar'})
         
-        # Lade das First Login Bild direkt aus der Datenbank (nicht über load_settings)
-        # da load_settings das first_login_image_data entfernt um HTTP 414 zu vermeiden
-        photo_data = data_manager.get_setting('first_login_image_data', '')
+        # Lade Einstellungen
+        settings = data_manager.load_settings()
         
-        if photo_data:
-            logger.info(f"🖼️ Wedding Photo geladen (Länge: {len(photo_data)} Zeichen)")
-            
-            # Stelle sicher, dass das Base64-Bild das korrekte data:image Format hat
-            if not photo_data.startswith('data:image/'):
-                # Füge den data:image Header hinzu (standardmäßig JPEG angenommen)
-                photo_data = f"data:image/jpeg;base64,{photo_data}"
-        else:
-            logger.info("ℹ️ Kein Wedding Photo in Datenbank vorhanden")
-
+        # Foto-Daten extrahieren und Base64-Teil isolieren
+        photo_data = settings.get('first_login_image_data', '')
+        
+        # Falls die Daten bereits ein Data-URL-Format haben, nur den Base64-Teil extrahieren
+        if photo_data.startswith('data:image/'):
+            # Entferne "data:image/jpeg;base64," oder ähnliches
+            if ',' in photo_data:
+                photo_data = photo_data.split(',', 1)[1]
+        
+        # Stelle sicher, dass das Base64-Bild das korrekte data:image Format hat
+        if photo_data and not photo_data.startswith('data:image/'):
+            # Füge den data:image Header hinzu (standardmäßig JPEG angenommen)
+            photo_data = f"data:image/jpeg;base64,{photo_data}"
+        
         return jsonify({
             'success': True,
             'photo_data': photo_data
@@ -3738,18 +3686,19 @@ def get_guest_zeitplan():
                 logger.debug(f"📋 Event '{event.get('titel')}' - keine Eventteile definiert, zeige allen Gästen")
             
             if should_show:
-                # Korrigierte Struktur für Frontend-Kompatibilität - OHNE beschreibung für Gäste
+                # Korrigierte Struktur für Frontend-Kompatibilität
                 event_dict = {
                     'id': event.get('id'),
                     'titel': event.get('titel', ''),  # Frontend erwartet 'titel'
-                    'beschreibung': '',  # Immer leer für Gäste - Programmpunkte haben keine Beschreibung
+                    'beschreibung': event.get('beschreibung', ''),  # Frontend erwartet 'beschreibung'
                     'uhrzeit': event.get('uhrzeit', ''),  # Frontend erwartet 'uhrzeit' (lowercase)
                     'ort': event.get('ort', ''),
                     'dauer': event.get('dauer', ''),  # Frontend erwartet 'dauer'
                     'eventteile': event.get('eventteile', []),
                     'public': not bool(event.get('nur_brautpaar', 0)),
-                    # Legacy-Kompatibilität für andere Teile des Systems (ohne Verantwortlich für Gäste)
+                    # Legacy-Kompatibilität für andere Teile des Systems
                     'Programmpunkt': event.get('titel', ''),
+                    'Verantwortlich': event.get('beschreibung', ''),
                     'Status': event.get('kategorie', ''),
                     'Uhrzeit': event.get('uhrzeit', ''),
                     'start_zeit': event.get('start_zeit'),
@@ -4261,79 +4210,16 @@ def api_first_login_image():
         if not data_manager:
             return jsonify({"error": "DataManager nicht initialisiert"}), 500
         
-        # 🔍 DETAILLIERTES BACKEND LOGGING FÜR BILD-LADEN
-        logger.info("📥 === BILD-LADEN ANALYSE ===")
-        
-        # Lade das First Login Bild direkt aus der Datenbank (Cache umgehen)
-        # Da der DataManager möglicherweise alte Daten cached, verwenden wir direkten DB-Zugriff
-        image_data = ''
-        try:
-            with data_manager._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT value FROM einstellungen WHERE key = 'first_login_image_data'")
-                db_result = cursor.fetchone()
-                if db_result:
-                    image_data = db_result[0] or ''
-                    logger.info(f"📥 - DIREKTER DB-ZUGRIFF: Erfolgreich geladen, Länge {len(image_data)}")
-                else:
-                    logger.warning("📥 - DIREKTER DB-ZUGRIFF: Kein Wert in DB gefunden")
-        except Exception as e:
-            logger.error(f"📥 - DB-DIREKTZUGRIFF FEHLER: {e}")
-            # Fallback auf DataManager wenn DB-Zugriff fehlschlägt
-            image_data = data_manager.get_setting('first_login_image_data', '')
-        
-        logger.info(f"📥 DB Query Ergebnis:")
-        logger.info(f"📥 - Data vorhanden: {image_data is not None}")
-        logger.info(f"📥 - Data Typ: {type(image_data)}")
-        logger.info(f"📥 - Data Länge: {len(image_data) if image_data else 0}")
-        
-        # 🔍 DEBUGGING: Cache-Bust Check
-        logger.info(f"📥 - Request Timestamp: {request.args.get('t', 'None')}")
-        logger.info(f"📥 - Request Cache Headers: {dict(request.headers)}")
+        # Lade das First Login Bild direkt
+        image_data = data_manager.get_setting('first_login_image_data', '')
         
         if image_data:
-            logger.info(f"� - Data ist String: {isinstance(image_data, str)}")
-            logger.info(f"📥 - Data startet mit 'data:': {image_data.startswith('data:') if isinstance(image_data, str) else False}")
-            
-            if len(image_data) > 50:
-                logger.info(f"📥 - Data Vorschau: {image_data[:50]}...")
-            else:
-                logger.info(f"📥 - Data komplett: '{image_data}'")
-                
-            # 🔍 TRUNCATION CHECK: Prüfe ob Daten verdächtig kurz sind
-            data_length = len(image_data)
-            is_suspicious = data_length < 500  # Reduziert von 1000 auf 500 für komprimierte Bilder
-            
-            # 🔧 WICHTIG: Flag NICHT löschen bei komprimierten Bildern (5.000+ Zeichen sind legitim)
-            if is_suspicious and data_length < 5000:
-                logger.warning(f"⚠️ TRUNCATION VERDACHT: Daten nur {data_length} Zeichen - möglicherweise truncated!")
-                logger.warning("⚠️ Resetze first_login_image_large Flag um Endlos-Lade-Schleifen zu vermeiden")
-                
-                # Setze das Large-Flag zurück um weitere Lade-Versuche zu stoppen
-                data_manager.set_setting('first_login_image_large', False)
-                
-                # Gib trotzdem die Daten zurück für Debugging
-                logger.info("⚠️ Gebe truncated Daten für Debugging zurück")
-            else:
-                status = "komprimiert" if 5000 <= data_length < 50000 else "normal" if data_length >= 50000 else "klein"
-                logger.info(f"✅ DATEN OK: {data_length} Zeichen - {status} ({data_length} Zeichen)")
-                logger.info("✅ first_login_image_large Flag bleibt gesetzt für zukünftige Loads")
-                
-            # Erstelle Hash für eindeutige Identifikation
-            data_hash = hash(str(image_data))
-            logger.info(f"📥 - Data Hash: {data_hash}")
+            logger.info(f"🖼️ First Login Bild geladen (Länge: {len(image_data)} Zeichen)")
             
             # Stelle sicher, dass das Base64-Bild das korrekte data:image Format hat
             if not image_data.startswith('data:image/'):
-                logger.info("📥 TRANSFORMATION: Füge data:image Header hinzu")
-                original_length = len(image_data)
+                # Füge den data:image Header hinzu (standardmäßig JPEG angenommen)
                 image_data = f"data:image/jpeg;base64,{image_data}"
-                logger.info(f"📥 - Vor Transformation: {original_length} Zeichen")
-                logger.info(f"📥 - Nach Transformation: {len(image_data)} Zeichen")
-            else:
-                logger.info("📥 KEIN HEADER NÖTIG: Bild hat bereits data:image Format")
-            
-            logger.info("📥 ANTWORT: Sende Bild an Frontend")
             
             # Response mit optimalen Headers für Bildübertragung
             response_data = {"success": True, "image_data": image_data}
@@ -4346,19 +4232,13 @@ def api_first_login_image():
             # Kompression aktivieren falls möglich
             response.headers['Vary'] = 'Accept-Encoding'
             
-            logger.info(f"📥 - Response Data Länge: {len(response_data['image_data'])}")
-            logger.info(f"📥 - Response Hash: {hash(str(response_data['image_data']))}")
-            logger.info("📥 === ENDE BILD-LADEN ANALYSE ===")
-            
             return response
         else:
-            logger.info("📥 KEIN BILD: Keine Bilddaten in der Datenbank gefunden")
-            logger.info("📥 === ENDE BILD-LADEN ANALYSE (LEER) ===")
+            logger.info("ℹ️ Kein First Login Bild in der Datenbank gefunden")
             return jsonify({"success": False, "message": "Kein First Login Bild verfügbar"})
             
     except Exception as e:
-        logger.error(f"📥 ❌ FEHLER beim Laden des First Login Bildes: {str(e)}")
-        logger.error("📥 === ENDE BILD-LADEN ANALYSE (FEHLER) ===")
+        logger.error(f"❌ Fehler beim Laden des First Login Bildes: {str(e)}")
         return jsonify({"error": "Fehler beim Laden des Bildes", "details": str(e)}), 500
 
 @app.route("/api/debug/reset-first-login/<int:guest_id>", methods=['POST'])
@@ -4615,22 +4495,6 @@ def api_settings_save():
         settings_data = request.json
         logger.info(f"Speichere Einstellungen: {list(settings_data.keys())}")
         
-        # Debug: Prüfe First Login Daten im Request
-        if 'first_login_image_data' in settings_data:
-            data_length = len(str(settings_data['first_login_image_data']))
-            logger.info(f"🖼️ First Login Image Data im Request gefunden (Länge: {data_length})")
-            if data_length > 100:
-                logger.info("✅ Sieht aus wie gültige Base64 Bilddaten")
-            else:
-                logger.warning("⚠️ Verdächtig kurze Bilddaten - möglicherweise leer")
-        
-        if 'first_login_image' in settings_data:
-            logger.info(f"🔗 First Login Image URL im Request: '{settings_data['first_login_image']}'")
-        
-        if 'first_login_text' in settings_data:
-            text_length = len(str(settings_data['first_login_text']))
-            logger.info(f"📝 First Login Text im Request (Länge: {text_length})")
-        
         # Konvertiere die Frontend-Settings in die strukturierte Form für save_settings
         structured_settings = {
             'hochzeit': {
@@ -4669,110 +4533,13 @@ def api_settings_save():
                         data_manager.set_setting('hochzeitslocation_parkplaetze', parkplaetze_data)
                         logger.info(f"Parkplätze für Hochzeitslocation gespeichert: {len(parkplaetze_data) if isinstance(parkplaetze_data, list) else 0} Parkplätze")
         
-        # First Login Modal Einstellungen - verbesserte Logik
-        first_login_keys = ['first_login_image', 'first_login_image_data', 'first_login_text']
-        
-        for key in first_login_keys:
+        # First Login Modal Einstellungen - immer speichern um Überschreibung zu ermöglichen
+        for key in ['first_login_image', 'first_login_image_data', 'first_login_text']:
             if key in settings_data:
                 value = settings_data[key]
-                clear_flag = settings_data.get(f'{key}_clear', False)
-                
-                # Spezielle Behandlung für first_login_image_data (Base64 Bilddaten)
-                if key == 'first_login_image_data':
-                    force_save_flag = settings_data.get('first_login_image_data_force_save', False)
-                    
-                    # 🔍 DETAILLIERTES BACKEND LOGGING FÜR BILD-SPEICHERN
-                    logger.info(f"🖼️ === BILD-SPEICHERN ANALYSE === '{key}'")
-                    logger.info(f"🖼️ Force Save Flag: {force_save_flag}")
-                    logger.info(f"🖼️ Clear Flag: {clear_flag}")
-                    logger.info(f"🖼️ Value vorhanden: {value is not None}")
-                    logger.info(f"🖼️ Value Länge: {len(str(value)) if value else 0}")
-                    
-                    if value:
-                        value_str = str(value)
-                        logger.info(f"🖼️ Value Typ: {type(value)}")
-                        logger.info(f"🖼️ Value ist String: {isinstance(value, str)}")
-                        logger.info(f"🖼️ Value stripped Länge: {len(value_str.strip())}")
-                        logger.info(f"🖼️ Value startet mit 'data:': {value_str.startswith('data:')}")
-                        if len(value_str) > 50:
-                            logger.info(f"🖼️ Value Vorschau: {value_str[:50]}...")
-                        else:
-                            logger.info(f"🖼️ Value komplett: '{value_str}'")
-                    
-                    if clear_flag:
-                        # Explizit löschen
-                        logger.info("🖼️ AKTION: Bild wird gelöscht (clear_flag=True)")
-                        success = data_manager.set_setting(key, '')
-                        logger.info(f"🖼️ ERGEBNIS: Bild gelöscht, success={success}")
-                        
-                        # Verifikation: Prüfe was wirklich gespeichert wurde
-                        verification = data_manager.get_setting(key, '')
-                        logger.info(f"🖼️ VERIFIKATION: Nach Löschen in DB: '{verification}' (Länge: {len(verification)})")
-                        
-                    elif force_save_flag or (value and len(str(value).strip()) > 100):
-                        # Base64 Bilddaten speichern (mit explizitem Flag oder bei gültigen Daten)
-                        logger.info(f"🖼️ AKTION: Bild wird gespeichert (force_save={force_save_flag}, valid_data={value and len(str(value).strip()) > 100})")
-                        
-                        # VOR dem Speichern: aktueller DB-Zustand
-                        old_value = data_manager.get_setting(key, '')
-                        logger.info(f"🖼️ ALTER DB-WERT: Länge {len(old_value)}")
-                        
-                        success = data_manager.set_setting(key, value)
-                        logger.info(f"🖼️ ERGEBNIS: data_manager.set_setting() returned: {success}")
-                        
-                        # NACH dem Speichern: Verifikation
-                        new_value = data_manager.get_setting(key, '')
-                        logger.info(f"🖼️ NEUER DB-WERT: Länge {len(new_value)}")
-                        
-                        # Vergleiche die Werte
-                        if new_value == value:
-                            logger.info("🖼️ ✅ VERIFIKATION ERFOLGREICH: Gespeicherter Wert stimmt mit Input überein")
-                        else:
-                            logger.error("🖼️ ❌ VERIFIKATION FEHLGESCHLAGEN: Gespeicherter Wert stimmt NICHT mit Input überein")
-                            logger.error(f"🖼️ Input Hash: {hash(str(value)) if value else 'None'}")
-                            logger.error(f"🖼️ DB Hash: {hash(str(new_value)) if new_value else 'None'}")
-                        
-                        # Zusätzlich first_login_image_large Flag setzen für optimiertes Laden
-                        large_flag_success = data_manager.set_setting('first_login_image_large', True)
-                        logger.info(f"🖼️ Large Flag gesetzt: {large_flag_success}")
-                        
-                        # 🔧 WICHTIG: Auch first_login_image (URL) parallel speichern
-                        if 'first_login_image' in settings_data:
-                            image_url = settings_data['first_login_image']
-                            if image_url and str(image_url).strip():
-                                url_success = data_manager.set_setting('first_login_image', image_url)
-                                logger.info(f"🖼️ URL parallel gespeichert: '{image_url}' (success: {url_success})")
-                            else:
-                                # Wenn keine URL vorhanden, eine Standard-Referenz setzen
-                                url_success = data_manager.set_setting('first_login_image', 'data_stored')
-                                logger.info(f"🖼️ Standard-URL gespeichert: 'data_stored' (success: {url_success})")
-                        
-                    else:
-                        logger.info(f"🖼️ AKTION: Bild wird ÜBERSPRUNGEN (keine gültigen Daten oder force_save Flag)")
-                        logger.info(f"🖼️ Grund: force_save={force_save_flag}, valid_length={len(str(value).strip()) > 100 if value else False}")
-                    
-                    logger.info("🖼️ === ENDE BILD-SPEICHERN ANALYSE ===")
-                
-                # Behandlung für first_login_image (URL) und first_login_text
-                else:
-                    if clear_flag or (value is not None and str(value).strip() != ''):
-                        # Speichern wenn explizit geleert oder wenn nicht-leer
-                        success = data_manager.set_setting(key, value if value is not None else '')
-                        action = "cleared" if clear_flag else "saved"
-                        logger.info(f"First-Login-Modal Setting '{key}' {action}: {success}")
-                        
-                        # 🔧 SPEZIAL: Wenn first_login_image gespeichert wird, prüfe ob auch _data vorhanden ist
-                        if key == 'first_login_image' and not clear_flag and 'first_login_image_data' in settings_data:
-                            image_data = settings_data['first_login_image_data']
-                            if image_data and len(str(image_data).strip()) > 100:
-                                data_success = data_manager.set_setting('first_login_image_data', image_data)
-                                logger.info(f"🖼️ Parallel Bilddaten gespeichert: Länge {len(str(image_data))} (success: {data_success})")
-                                # Large Flag setzen
-                                large_flag_success = data_manager.set_setting('first_login_image_large', True)
-                                logger.info(f"🖼️ Large Flag parallel gesetzt: {large_flag_success}")
-                    else:
-                        # Leer gelassene Felder ohne Clear-Flag nicht überschreiben
-                        logger.info(f"First-Login-Modal Setting '{key}' skipped (empty value, keeping existing)")
+                # Alle Werte speichern, auch leere, um bestehende Daten zu überschreiben
+                success = data_manager.set_setting(key, value if value is not None else '')
+                logger.info(f"First-Login-Modal Setting '{key}' saved: {success}")
         
         # Invitation Texts Einstellungen (als JSON speichern) - immer überschreiben
         if 'invitation_texts' in settings_data:
@@ -5262,324 +5029,6 @@ def aufgabenplaner():
 @require_auth
 @require_role(['admin', 'user'])
 def api_aufgaben_list():
-    """Aufgaben-Liste abrufen"""
-    try:
-        if not data_manager:
-            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
-        
-        aufgaben = data_manager.get_aufgaben()
-        cleaned_aufgaben = clean_json_data(aufgaben)
-        
-        return jsonify({
-            'success': True,
-            'aufgaben': cleaned_aufgaben
-        })
-    except Exception as e:
-        logger.error(f"Fehler beim Laden der Aufgaben: {e}")
-        return jsonify({'error': str(e)}), 500
-
-# =============================================================================
-# Hochzeitstag-Checkliste API Routen
-# =============================================================================
-
-@app.route('/api/checkliste/list')
-@require_auth
-@require_role(['admin', 'user'])
-def api_checkliste_list():
-    """Hochzeitstag-Checkliste abrufen"""
-    try:
-        if not data_manager:
-            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
-        
-        # Nur noch offene (nicht erledigte) Aufgaben laden
-        show_completed = request.args.get('show_completed', 'false').lower() == 'true'
-        
-        items = data_manager.get_hochzeitstag_checkliste(show_completed=show_completed)
-        cleaned_items = clean_json_data(items)
-        
-        return jsonify({
-            'success': True,
-            'items': cleaned_items,
-            'count': len(cleaned_items)
-        })
-    except Exception as e:
-        logger.error(f"Fehler beim Laden der Checkliste: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/checkliste/add', methods=['POST'])
-@require_auth
-@require_role(['admin', 'user'])
-def api_checkliste_add():
-    """Neuen Checkliste-Eintrag hinzufügen"""
-    try:
-        if not data_manager:
-            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
-        
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'Keine Daten empfangen'}), 400
-        
-        # Validierung
-        if not data.get('titel', '').strip():
-            return jsonify({'error': 'Titel ist erforderlich'}), 400
-        
-        # Neue Aufgabe erstellen
-        success = data_manager.add_hochzeitstag_checkliste_item(data)
-        
-        if success:
-            return jsonify({'success': True, 'message': 'Checkliste-Eintrag hinzugefügt'})
-        else:
-            return jsonify({'error': 'Fehler beim Hinzufügen'}), 500
-            
-    except Exception as e:
-        logger.error(f"Fehler beim Hinzufügen des Checkliste-Eintrags: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/checkliste/update/<int:item_id>', methods=['PUT'])
-@require_auth
-@require_role(['admin', 'user'])
-def api_checkliste_update(item_id):
-    """Checkliste-Eintrag bearbeiten"""
-    try:
-        if not data_manager:
-            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
-        
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'Keine Daten empfangen'}), 400
-        
-        success = data_manager.update_hochzeitstag_checkliste_item(item_id, data)
-        
-        if success:
-            return jsonify({'success': True, 'message': 'Checkliste-Eintrag aktualisiert'})
-        else:
-            return jsonify({'error': 'Fehler beim Aktualisieren'}), 500
-            
-    except Exception as e:
-        logger.error(f"Fehler beim Aktualisieren des Checkliste-Eintrags: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/checkliste/toggle/<int:item_id>', methods=['POST'])
-@require_auth
-@require_role(['admin', 'user'])
-def api_checkliste_toggle(item_id):
-    """Checkliste-Eintrag als erledigt/unerledigt markieren"""
-    try:
-        if not data_manager:
-            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
-        
-        # Aktueller Benutzer für "erledigt_von" Feld
-        current_user = session.get('user', 'Unbekannt')
-        
-        success = data_manager.toggle_hochzeitstag_checkliste_item(item_id, current_user)
-        
-        if success:
-            return jsonify({'success': True, 'message': 'Status aktualisiert'})
-        else:
-            return jsonify({'error': 'Fehler beim Aktualisieren des Status'}), 500
-            
-    except Exception as e:
-        logger.error(f"Fehler beim Aktualisieren des Checkliste-Status: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/checkliste/delete/<int:item_id>', methods=['DELETE'])
-@require_auth
-@require_role(['admin', 'user'])
-def api_checkliste_delete(item_id):
-    """Checkliste-Eintrag löschen"""
-    try:
-        logger.info(f"🗑️ API Delete Request für Item ID: {item_id}")
-        
-        if not data_manager:
-            logger.error("❌ DataManager nicht initialisiert")
-            return jsonify({'success': False, 'error': 'DataManager nicht initialisiert'}), 500
-        
-        # Detailliertes Logging
-        logger.info(f"🗑️ Versuche Löschung von Item {item_id}")
-        success = data_manager.delete_hochzeitstag_checkliste_item(item_id)
-        logger.info(f"🗑️ Löschung Ergebnis: {success}")
-        
-        if success:
-            logger.info(f"✅ Item {item_id} erfolgreich gelöscht")
-            return jsonify({'success': True, 'message': 'Checkliste-Eintrag gelöscht'})
-        else:
-            logger.warning(f"⚠️ Item {item_id} nicht gefunden oder bereits gelöscht")
-            return jsonify({'success': False, 'error': 'Checkliste-Eintrag nicht gefunden'}), 404
-            
-    except Exception as e:
-        logger.error(f"❌ Exception beim Löschen des Checkliste-Eintrags {item_id}: {str(e)}")
-        logger.error(f"❌ Exception Type: {type(e).__name__}")
-        import traceback
-        logger.error(f"❌ Traceback: {traceback.format_exc()}")
-        return jsonify({'success': False, 'error': f'Server-Fehler: {str(e)}'}), 500
-
-@app.route('/api/checkliste/archive')
-@require_auth
-@require_role(['admin', 'user'])
-def api_checkliste_archive():
-    """Archivierte (erledigte) Checkliste-Einträge abrufen"""
-    try:
-        if not data_manager:
-            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
-        
-        # Nur erledigte Aufgaben laden
-        items = data_manager.get_hochzeitstag_checkliste(show_completed=True, only_completed=True)
-        cleaned_items = clean_json_data(items)
-        
-        return jsonify({
-            'success': True,
-            'items': cleaned_items,
-            'count': len(cleaned_items)
-        })
-    except Exception as e:
-        logger.error(f"Fehler beim Laden des Checkliste-Archivs: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/checkliste/reactivate/<int:item_id>', methods=['POST'])
-@require_auth
-@require_role(['admin', 'user'])
-def api_checkliste_reactivate(item_id):
-    """Checkliste-Eintrag aus dem Archiv wieder aktivieren"""
-    try:
-        logger.info(f"🔄 API Reactivate Request für Item ID: {item_id}")
-        
-        if not data_manager:
-            logger.error("❌ DataManager nicht initialisiert")
-            return jsonify({'success': False, 'error': 'DataManager nicht initialisiert'}), 500
-        
-        # Detailliertes Logging
-        logger.info(f"🔄 Versuche Reaktivierung von Item {item_id}")
-        success = data_manager.reactivate_hochzeitstag_checkliste_item(item_id)
-        logger.info(f"🔄 Reaktivierung Ergebnis: {success}")
-        
-        if success:
-            logger.info(f"✅ Item {item_id} erfolgreich reaktiviert")
-            return jsonify({'success': True, 'message': 'Checkliste-Eintrag wieder aktiviert'})
-        else:
-            logger.warning(f"⚠️ Item {item_id} nicht gefunden oder kann nicht reaktiviert werden")
-            return jsonify({'success': False, 'error': 'Checkliste-Eintrag nicht gefunden oder bereits aktiv'}), 404
-            
-    except Exception as e:
-        logger.error(f"❌ Exception beim Reaktivieren des Checkliste-Eintrags {item_id}: {str(e)}")
-        logger.error(f"❌ Exception Type: {type(e).__name__}")
-        import traceback
-        logger.error(f"❌ Traceback: {traceback.format_exc()}")
-        return jsonify({'success': False, 'error': f'Server-Fehler: {str(e)}'}), 500
-
-@app.route('/api/checkliste/create-defaults', methods=['POST'])
-@require_auth
-@require_role(['admin', 'user'])
-def api_checkliste_create_defaults():
-    """Erstellt Standard-Checkliste-Einträge für den Hochzeitstag"""
-    try:
-        if not data_manager:
-            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
-        
-        # Standard Checkliste-Einträge
-        default_items = [
-            {
-                'titel': 'Brautstrauß abholen',
-                'beschreibung': 'Brautstrauß beim Floristen abholen',
-                'kategorie': 'Dekoration',
-                'prioritaet': 3,
-                'uhrzeit': '08:00'
-            },
-            {
-                'titel': 'Trauzeugen informieren',
-                'beschreibung': 'Trauzeugen über finale Details informieren',
-                'kategorie': 'Allgemein',
-                'prioritaet': 3,
-                'uhrzeit': '09:00'
-            },
-            {
-                'titel': 'Friseur & Make-up',
-                'beschreibung': 'Termin beim Friseur und Make-up Artist',
-                'kategorie': 'Brautpaar',
-                'prioritaet': 4,
-                'uhrzeit': '10:00'
-            },
-            {
-                'titel': 'Eheringe überprüfen',
-                'beschreibung': 'Sicherstellen dass die Eheringe vorhanden sind',
-                'kategorie': 'Trauung',
-                'prioritaet': 4,
-                'uhrzeit': '11:00'
-            },
-            {
-                'titel': 'Notfall-Kit packen',
-                'beschreibung': 'Notfall-Kit mit Nadel, Faden, Fleckenentferner etc.',
-                'kategorie': 'Allgemein',
-                'prioritaet': 2,
-                'uhrzeit': '11:30'
-            },
-            {
-                'titel': 'Standesamt/Kirche anfahren',
-                'beschreibung': 'Rechtzeitig zur Trauungslocation fahren',
-                'kategorie': 'Trauung',
-                'prioritaet': 4,
-                'uhrzeit': '13:30'
-            },
-            {
-                'titel': 'Fotograf koordinieren',
-                'beschreibung': 'Finale Absprache mit dem Fotografen',
-                'kategorie': 'Fotograf',
-                'prioritaet': 3,
-                'uhrzeit': '14:00'
-            },
-            {
-                'titel': 'Gäste begrüßen',
-                'beschreibung': 'Gäste vor der Location begrüßen',
-                'kategorie': 'Gäste',
-                'prioritaet': 3,
-                'uhrzeit': '14:30'
-            },
-            {
-                'titel': 'Sektempfang vorbereiten',
-                'beschreibung': 'Sektempfang nach der Trauung organisieren',
-                'kategorie': 'Catering',
-                'prioritaet': 2,
-                'uhrzeit': '15:30'
-            },
-            {
-                'titel': 'DJ/Musik-Setup prüfen',
-                'beschreibung': 'Technik und Playlist mit DJ durchgehen',
-                'kategorie': 'Musik',
-                'prioritaet': 3,
-                'uhrzeit': '17:00'
-            },
-            {
-                'titel': 'Hochzeitstorte anschneiden',
-                'beschreibung': 'Traditionelles Anschneiden der Hochzeitstorte',
-                'kategorie': 'Feier',
-                'prioritaet': 2,
-                'uhrzeit': '20:00'
-            },
-            {
-                'titel': 'Dankesrede halten',
-                'beschreibung': 'Dankesrede an alle Gäste',
-                'kategorie': 'Feier',
-                'prioritaet': 2,
-                'uhrzeit': '21:00'
-            }
-        ]
-        
-        created_count = 0
-        for item in default_items:
-            success = data_manager.add_hochzeitstag_checkliste_item(item)
-            if success:
-                created_count += 1
-        
-        return jsonify({
-            'success': True,
-            'message': f'{created_count} Standard-Aufgaben erstellt',
-            'created_count': created_count
-        })
-        
-    except Exception as e:
-        logger.error(f"Fehler beim Erstellen der Standard-Checkliste: {e}")
-        return jsonify({'error': str(e)}), 500
-
-def api_aufgaben_list():
     """Aufgabenliste abrufen"""
     try:
         if not data_manager:
@@ -5804,7 +5253,7 @@ def send_task_assignment_notification(aufgabe_data, aufgabe_id, is_new=True):
             return
         
         # Erstelle direkten Link zum Hochzeitsplaner
-        hochzeitsplaner_url = "https://pascalundkäthe-heiraten.de/aufgabenplaner"
+        hochzeitsplaner_url = "https://pascalundkäthe-heiraten.de:8443/aufgabenplaner"
         
         # E-Mail-Betreff
         if is_new:
@@ -6755,6 +6204,160 @@ def api_aufgaben_email_reply_send(aufgabe_id):
             'message': f'Fehler beim E-Mail-Versand: {str(e)}'
         }), 500
 
+@app.route('/api/aufgaben/standard-checkliste', methods=['POST'])
+@require_auth
+@require_role(['admin', 'user'])
+def api_aufgaben_create_standard_checklist():
+    """Erstellt eine Standard-Hochzeits-Checkliste mit allen wichtigen Aufgaben"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        # Standard Hochzeits-Checkliste Aufgaben
+        standard_tasks = [
+            {
+                'titel': '📅 Hochzeitsdatum festlegen',
+                'beschreibung': 'Das genaue Datum der Hochzeit bestimmen und bei allen Beteiligten abstimmen',
+                'kategorie': 'Planung',
+                'prioritaet': 'Kritisch',
+                'status': 'Offen'
+            },
+            {
+                'titel': '📍 Location für Trauung finden',
+                'beschreibung': 'Geeignete Location für die Trauungszeremonie suchen und buchen',
+                'kategorie': 'Location',
+                'prioritaet': 'Kritisch',
+                'status': 'Offen'
+            },
+            {
+                'titel': '🍽️ Catering organisieren',
+                'beschreibung': 'Catering für die Hochzeitsfeier planen und beauftragen',
+                'kategorie': 'Catering',
+                'prioritaet': 'Hoch',
+                'status': 'Offen'
+            },
+            {
+                'titel': '💌 Save-the-Date versenden',
+                'beschreibung': 'Save-the-Date Karten an alle Gäste verschicken',
+                'kategorie': 'Einladungen',
+                'prioritaet': 'Hoch',
+                'status': 'Offen'
+            },
+            {
+                'titel': '💍 Eheringe aussuchen',
+                'beschreibung': 'Passende Eheringe aussuchen und bestellen',
+                'kategorie': 'Accessoires',
+                'prioritaet': 'Hoch',
+                'status': 'Offen'
+            },
+            {
+                'titel': '👗 Brautkleid kaufen',
+                'beschreibung': 'Das perfekte Brautkleid finden und alle Anproben absolvieren',
+                'kategorie': 'Kleidung',
+                'prioritaet': 'Hoch',
+                'status': 'Offen'
+            },
+            {
+                'titel': '🤵 Anzug für Bräutigam',
+                'beschreibung': 'Anzug oder Smoking für den Bräutigam besorgen',
+                'kategorie': 'Kleidung',
+                'prioritaet': 'Hoch',
+                'status': 'Offen'
+            },
+            {
+                'titel': '📸 Fotograf buchen',
+                'beschreibung': 'Professionellen Hochzeitsfotografen für den großen Tag buchen',
+                'kategorie': 'Service',
+                'prioritaet': 'Hoch',
+                'status': 'Offen'
+            },
+            {
+                'titel': '🎵 Musik/DJ organisieren',
+                'beschreibung': 'Musik für Trauung und Feier organisieren (DJ, Band oder Playlist)',
+                'kategorie': 'Entertainment',
+                'prioritaet': 'Hoch',
+                'status': 'Offen'
+            },
+            {
+                'titel': '🌸 Blumenschmuck bestellen',
+                'beschreibung': 'Brautstrauß, Anstecker und Blumendekoration bestellen',
+                'kategorie': 'Dekoration',
+                'prioritaet': 'Normal',
+                'status': 'Offen'
+            },
+            {
+                'titel': '🚗 Transport organisieren',
+                'beschreibung': 'Transport für Brautpaar und ggf. Gäste organisieren',
+                'kategorie': 'Transport',
+                'prioritaet': 'Normal',
+                'status': 'Offen'
+            },
+            {
+                'titel': '💇‍♀️ Friseur und Make-up',
+                'beschreibung': 'Friseur und Make-up Artist für den Hochzeitstag buchen',
+                'kategorie': 'Beauty',
+                'prioritaet': 'Normal',
+                'status': 'Offen'
+            },
+            {
+                'titel': '📋 Gästeliste erstellen',
+                'beschreibung': 'Vollständige Liste aller Hochzeitsgäste erstellen',
+                'kategorie': 'Gäste',
+                'prioritaet': 'Hoch',
+                'status': 'Offen'
+            },
+            {
+                'titel': '💌 Einladungen versenden',
+                'beschreibung': 'Offizielle Hochzeitseinladungen an alle Gäste verschicken',
+                'kategorie': 'Einladungen',
+                'prioritaet': 'Hoch',
+                'status': 'Offen'
+            },
+            {
+                'titel': '🍾 Getränke organisieren',
+                'beschreibung': 'Getränke für die Hochzeitsfeier planen und besorgen',
+                'kategorie': 'Catering',
+                'prioritaet': 'Normal',
+                'status': 'Offen'
+            }
+        ]
+        
+        created_tasks = []
+        for task_data in standard_tasks:
+            try:
+                # Prüfen ob ähnliche Aufgabe bereits existiert
+                existing_tasks = data_manager.get_aufgaben()
+                task_exists = any(
+                    existing_task.get('titel', '').lower() == task_data['titel'].lower() 
+                    for existing_task in existing_tasks
+                )
+                
+                if not task_exists:
+                    task_id = data_manager.add_aufgabe(task_data)
+                    if task_id:
+                        created_tasks.append({
+                            'id': task_id,
+                            'titel': task_data['titel']
+                        })
+                        
+            except Exception as task_error:
+                logger.warning(f"Fehler beim Erstellen der Aufgabe '{task_data['titel']}': {task_error}")
+                continue
+        
+        return jsonify({
+            'success': True,
+            'message': f'{len(created_tasks)} Standard-Aufgaben erstellt',
+            'created_tasks': created_tasks,
+            'total_standard_tasks': len(standard_tasks)
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Erstellen der Standard-Checkliste: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Erstellen der Standard-Checkliste: {str(e)}'
+        }), 500
+
 # ===================================================================
 # MAIN APPLICATION
 # ===================================================================
@@ -6924,6 +6527,133 @@ def delete_upload(upload_id):
     except Exception as e:
         logger.error(f"Fehler beim Löschen: {e}")
         return jsonify({'error': str(e)}), 500
+
+# ============================
+# Admin Upload API Routen
+# ============================
+
+# ============================
+# Hochzeitstag Checkliste API
+# ============================
+
+@app.route('/api/checkliste/list', methods=['GET'])
+@require_auth
+def api_checkliste_list():
+    """Alle Checkliste-Einträge abrufen"""
+    try:
+        items = data_manager.get_checkliste_items()
+        return jsonify({
+            'success': True,
+            'data': items,
+            'count': len(items)
+        })
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Checkliste: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/checkliste/add', methods=['POST'])
+@require_auth
+def api_checkliste_add():
+    """Neuen Checkliste-Eintrag hinzufügen"""
+    try:
+        data = request.get_json()
+        
+        if not data or not data.get('titel'):
+            return jsonify({'success': False, 'error': 'Titel ist erforderlich'}), 400
+        
+        item_id = data_manager.add_checkliste_item(data)
+        
+        if item_id > 0:
+            return jsonify({
+                'success': True,
+                'message': 'Checkliste-Eintrag erstellt',
+                'id': item_id
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Fehler beim Erstellen'}), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Erstellen des Checkliste-Eintrags: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/checkliste/update/<int:item_id>', methods=['PUT'])
+@require_auth
+def api_checkliste_update(item_id):
+    """Checkliste-Eintrag aktualisieren"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'error': 'Keine Daten empfangen'}), 400
+        
+        success = data_manager.update_checkliste_item(item_id, data)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Checkliste-Eintrag aktualisiert'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Eintrag nicht gefunden'}), 404
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Aktualisieren des Checkliste-Eintrags: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/checkliste/delete/<int:item_id>', methods=['DELETE'])
+@require_auth
+def api_checkliste_delete(item_id):
+    """Checkliste-Eintrag löschen"""
+    try:
+        success = data_manager.delete_checkliste_item(item_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Checkliste-Eintrag gelöscht'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Eintrag nicht gefunden'}), 404
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Löschen des Checkliste-Eintrags: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/checkliste/toggle/<int:item_id>', methods=['PUT'])
+@require_auth
+def api_checkliste_toggle(item_id):
+    """Erledigt-Status eines Checkliste-Eintrags umschalten"""
+    try:
+        success = data_manager.toggle_checkliste_item(item_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Status geändert'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Eintrag nicht gefunden'}), 404
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Umschalten des Status: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/checkliste/create-standard', methods=['POST'])
+@require_auth
+def api_checkliste_create_standard():
+    """Standard Hochzeitstag-Checkliste erstellen"""
+    try:
+        created_count = data_manager.create_standard_checkliste()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Standard-Checkliste erstellt: {created_count} Einträge',
+            'created_count': created_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Erstellen der Standard-Checkliste: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ============================
 # Admin Upload API Routen

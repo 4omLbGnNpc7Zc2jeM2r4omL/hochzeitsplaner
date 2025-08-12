@@ -184,19 +184,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function loadSettings() {
     try {
-        const response = await fetch('/api/settings/get');
-        if (response.ok) {
-            const result = await response.json();
-            if (result.success && result.settings) {
-                populateSettingsForm(result.settings);
-            } else {
-
-            }
+        const result = await apiRequest('/settings/get');
+        if (result.success && result.settings) {
+            populateSettingsForm(result.settings);
         } else {
-
+            console.error('Fehler beim Laden der Einstellungen:', result.error || 'Unbekannter Fehler');
         }
     } catch (error) {
-
+        console.error('Fehler beim Laden der Einstellungen:', error);
     }
 }
 
@@ -528,20 +523,14 @@ async function handleSaveSettings(event) {
     }
     
     try {
-        const response = await fetch('/api/settings/save', {
+        const result = await apiRequest('/settings/save', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify(formData)
         });
         
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
+        if (result.success) {
             // 🖼️ Frontend Logging: Erfolgreiche Speicherung
             console.log('✅ Frontend Save - Server Response:');
-            console.log('✅   - Status:', response.status);
             console.log('✅   - Success:', result.success);
             console.log('✅   - Response Time:', new Date().toISOString());
             
@@ -593,20 +582,17 @@ function resetSettings() {
 
 async function loadSystemInfo() {
     try {
-        const response = await fetch('/api/dashboard/stats');
-        if (response.ok) {
-            const data = await response.json();
-            
-            // System Info aktualisieren
-            document.getElementById('lastUpdate').textContent = new Date().toLocaleString('de-DE');
-            
-            // Gäste-Anzahl (Personen, nicht Einträge)
-            document.getElementById('totalGuests').textContent = data.gaeste?.personen_gesamt || 0;
-            
-            // Budget-Positionen (Anzahl der Kategorien)
-            const budgetCategories = data.budget?.categories ? Object.keys(data.budget.categories).length : 0;
-            document.getElementById('totalBudgetItems').textContent = budgetCategories;
-        }
+        const data = await apiRequest('/dashboard/stats');
+        
+        // System Info aktualisieren
+        document.getElementById('lastUpdate').textContent = new Date().toLocaleString('de-DE');
+        
+        // Gäste-Anzahl (Personen, nicht Einträge)
+        document.getElementById('totalGuests').textContent = data.gaeste?.personen_gesamt || 0;
+        
+        // Budget-Positionen (Anzahl der Kategorien)
+        const budgetCategories = data.budget?.categories ? Object.keys(data.budget.categories).length : 0;
+        document.getElementById('totalBudgetItems').textContent = budgetCategories;
     } catch (error) {
 
     }
@@ -924,14 +910,11 @@ async function createBackup() {
         document.getElementById('backupData').innerHTML = '<i class="bi bi-clock-history me-2"></i>Erstelle Backup...';
         document.getElementById('backupData').disabled = true;
         
-        const response = await fetch('/api/backup/create', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
+        const response = await apiRequest('/backup/create', {
+            method: 'POST'
         });
         
-        if (response.ok) {
+        if (response) {
             // ZIP-File download
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
@@ -1156,11 +1139,8 @@ function clearUploadedImage() {
 // Separate Funktion zum Löschen des Bildes in der Datenbank
 async function saveImageClearance() {
     try {
-        const response = await fetch('/api/settings/save', {
+        const response = await apiRequest('/settings/save', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({
                 first_login_image_data: '',
                 first_login_image_data_clear: true
@@ -1406,12 +1386,9 @@ async function resetFirstLoginForAllGuests() {
         button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Wird zurückgesetzt...';
         button.disabled = true;
         
-        const response = await fetch('/api/admin/reset-first-login', {
+        const response = await apiRequest('/admin/reset-first-login', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
+            });
         
         const result = await response.json();
         
@@ -1853,11 +1830,8 @@ async function testInvitationGeneration() {
         // Teste die Generierung für jeden Fall
         const results = [];
         for (const testCase of testCases) {
-            const response = await fetch('/api/admin/test-invitation-generation', {
+            const response = await apiRequest('/admin/test-invitation-generation', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify(testCase)
             });
             
@@ -2231,7 +2205,7 @@ function resetGuestInformationenToDefaults() {
  */
 async function loadUploadSettings() {
     try {
-        const response = await fetch('/api/upload-config');
+        const response = await apiRequest('/upload-config');
         if (response.ok) {
             const config = await response.json();
             
@@ -2532,11 +2506,8 @@ function openDirectoryBrowser() {
 
 async function loadDirectoryContents(path) {
     try {
-        const response = await fetch('/api/admin/browse-directories', {
+        const response = await apiRequest('/admin/browse-directories', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({ path: path })
         });
         
@@ -2640,11 +2611,8 @@ async function createNewDirectory() {
     }
     
     try {
-        const response = await fetch('/api/admin/create-directory', {
+        const response = await apiRequest('/admin/create-directory', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({
                 parent_path: currentBrowserPath,
                 directory_name: directoryName
@@ -2679,11 +2647,8 @@ async function testUploadPath() {
     
     try {
         // Test ob Pfad existiert durch Verzeichnis-Browse API
-        const response = await fetch('/api/admin/browse-directories', {
+        const response = await apiRequest('/admin/browse-directories', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({ path: path })
         });
         
@@ -2748,7 +2713,7 @@ function validateUploadSettings() {
 
 async function loadUploadSettings() {
     try {
-        const response = await fetch('/api/settings/get');
+        const response = await apiRequest('/settings/get');
         const result = await response.json();
         
         if (result.success && result.settings) {

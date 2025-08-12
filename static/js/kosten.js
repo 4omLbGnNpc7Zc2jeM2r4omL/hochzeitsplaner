@@ -8,7 +8,6 @@ if (typeof apiRequest === 'undefined') {
         const response = await fetch(endpoint, {
             method: options.method || 'GET',
             headers: {
-                'Content-Type': 'application/json',
                 ...options.headers
             },
             body: options.body ? JSON.stringify(options.body) : null
@@ -64,7 +63,7 @@ async function initKosten() {
 async function loadKostenConfig() {
     try {
         showLoading();
-        const response = await apiRequest('/api/kosten/config');
+        const response = await apiRequest('/kosten/config');
         
         if (response.success) {
             const config = response.config;
@@ -195,22 +194,14 @@ async function saveKostenConfig() {
 
 
         
-        // Verwende direkten fetch statt apiRequest für bessere Kontrolle
-        const response = await fetch('/api/kosten/save', {
+        // Verwende apiRequest für konsistente API-Aufrufe
+        const result = await apiRequest('/kosten/save', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify(config)
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
         if (result.success) {
+            console.log('Kostenkonfiguration erfolgreich gespeichert - rufe showSuccess auf');
             showSuccess('Kostenkonfiguration erfolgreich gespeichert');
             // Daten neu laden um sicherzustellen, dass UI aktuell ist
             await loadKostenConfig();

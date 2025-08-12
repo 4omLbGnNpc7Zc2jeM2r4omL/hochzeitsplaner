@@ -312,20 +312,20 @@ CREATE TABLE IF NOT EXISTS notizen (
     CONSTRAINT chk_prioritaet CHECK (prioritaet IN ('Niedrig', 'Normal', 'Hoch', 'Dringend'))
 );
 
--- Hochzeitstag-Checkliste Tabelle
+-- Hochzeitstag Checkliste Tabelle (unabhängig von Aufgaben)
 CREATE TABLE IF NOT EXISTS hochzeitstag_checkliste (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     titel TEXT NOT NULL,
     beschreibung TEXT,
     kategorie TEXT DEFAULT 'Allgemein',
-    prioritaet INTEGER DEFAULT 1, -- 1=niedrig, 2=normal, 3=hoch, 4=kritisch
-    uhrzeit TEXT, -- Empfohlene Uhrzeit für die Aufgabe
-    erledigt INTEGER DEFAULT 0, -- 0=offen, 1=erledigt
-    erledigt_am DATETIME, -- Zeitstempel wann erledigt
-    erledigt_von TEXT, -- Wer hat es erledigt
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    sort_order INTEGER DEFAULT 0, -- Für benutzerdefinierte Sortierung
-    CONSTRAINT chk_prioritaet CHECK (prioritaet IN (1, 2, 3, 4)),
+    prioritaet TEXT DEFAULT 'Normal',
+    erledigt INTEGER DEFAULT 0, -- 0 = offen, 1 = erledigt
+    reihenfolge INTEGER DEFAULT 0,
+    ist_standard INTEGER DEFAULT 0, -- 0 = benutzer-erstellt, 1 = standard-checkliste
+    faellig_wochen_vor_hochzeit INTEGER, -- Wochen vor Hochzeit (z.B. 12 = 12 Wochen vorher)
+    erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+    erledigt_am DATETIME,
+    notizen TEXT,
+    CONSTRAINT chk_prioritaet_checkliste CHECK (prioritaet IN ('Niedrig', 'Normal', 'Hoch', 'Kritisch')),
     CONSTRAINT chk_erledigt CHECK (erledigt IN (0, 1))
 );

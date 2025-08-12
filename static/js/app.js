@@ -2,69 +2,6 @@
    Hochzeitsplaner Web - JavaScript Funktionen
    ============================================================================= */
 
-// =============================================================================
-// Cache-Busting Utilities
-// =============================================================================
-
-/**
- * Cache-Busting für API-Aufrufe
- * Fügt Timestamp-Parameter hinzu um Browser-Cache zu umgehen
- */
-function cacheBustUrl(url) {
-    const timestamp = Date.now();
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}_cb=${timestamp}&_t=${Math.random()}`;
-}
-
-/**
- * Erweiterte Fetch-Funktion mit automatischem Cache-Busting
- * @param {string} url - URL für den Request
- * @param {object} options - Fetch-Optionen
- * @returns {Promise} - Fetch-Promise
- */
-function fetchNoCacheJSON(url, options = {}) {
-    // Cache-Busting URL erstellen
-    const cacheBustedUrl = cacheBustUrl(url);
-    
-    // Default-Headers für No-Cache setzen
-    const defaultHeaders = {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-        'X-Requested-With': 'XMLHttpRequest'
-    };
-    
-    // Merge Headers
-    const headers = { ...defaultHeaders, ...(options.headers || {}) };
-    
-    // Fetch mit Cache-Busting
-    return fetch(cacheBustedUrl, {
-        ...options,
-        headers,
-        cache: 'no-store'  // Browser-Cache explizit deaktivieren
-    });
-}
-
-/**
- * Lädt JSON-Daten ohne Cache
- * @param {string} url - API-URL
- * @returns {Promise<object>} - JSON-Daten
- */
-async function loadJSONNoCache(url) {
-    try {
-        const response = await fetchNoCacheJSON(url);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error('🚫 Cache-free JSON load failed:', error);
-        throw error;
-    }
-}
-
 // Globale Variablen
 let currentSettings = {};
 
@@ -144,16 +81,37 @@ function removeDynamicSpinner() {
  * Zeigt Erfolgs-Nachricht
  */
 function showSuccess(message) {
+    console.log('showSuccess aufgerufen mit:', message);
     const alertElement = document.getElementById('success-alert');
     const messageElement = document.getElementById('success-message');
     
-    messageElement.textContent = message;
-    alertElement.classList.remove('d-none');
+    console.log('alertElement gefunden:', alertElement);
+    console.log('messageElement gefunden:', messageElement);
     
-    // Automatisch nach 5 Sekunden ausblenden
-    setTimeout(() => {
-        alertElement.classList.add('d-none');
-    }, 5000);
+    // Sicherheitsprüfung für messageElement
+    if (messageElement) {
+        messageElement.textContent = message;
+        console.log('Message gesetzt:', message);
+    } else {
+        console.log('Success message element not found, showing alert instead:', message);
+        alert('Erfolg: ' + message);
+        return;
+    }
+    
+    // Sicherheitsprüfung für alertElement
+    if (alertElement) {
+        console.log('Zeige Alert an - entferne d-none Klasse');
+        alertElement.classList.remove('d-none');
+        
+        // Automatisch nach 5 Sekunden ausblenden
+        setTimeout(() => {
+            console.log('Alert automatisch ausblenden nach 5 Sekunden');
+            alertElement.classList.add('d-none');
+        }, 5000);
+    } else {
+        console.log('Success alert element not found, message was:', message);
+        alert('Erfolg: ' + message);
+    }
 }
 
 /**
@@ -163,21 +121,42 @@ function showError(message) {
     const alertElement = document.getElementById('error-alert');
     const messageElement = document.getElementById('error-message');
     
-    messageElement.textContent = message;
-    alertElement.classList.remove('d-none');
+    // Sicherheitsprüfung für messageElement
+    if (messageElement) {
+        messageElement.textContent = message;
+    } else {
+        console.error('Error message element not found, showing alert instead:', message);
+        alert('Fehler: ' + message);
+        return;
+    }
     
-    // Automatisch nach 10 Sekunden ausblenden
-    setTimeout(() => {
-        alertElement.classList.add('d-none');
-    }, 10000);
+    // Sicherheitsprüfung für alertElement
+    if (alertElement) {
+        alertElement.classList.remove('d-none');
+        
+        // Automatisch nach 10 Sekunden ausblenden
+        setTimeout(() => {
+            alertElement.classList.add('d-none');
+        }, 10000);
+    } else {
+        console.error('Error alert element not found, message was:', message);
+        alert('Fehler: ' + message);
+    }
 }
 
 /**
  * Versteckt alle Alerts
  */
 function hideAlerts() {
-    document.getElementById('success-alert').classList.add('d-none');
-    document.getElementById('error-alert').classList.add('d-none');
+    const successAlert = document.getElementById('success-alert');
+    const errorAlert = document.getElementById('error-alert');
+    
+    if (successAlert) {
+        successAlert.classList.add('d-none');
+    }
+    if (errorAlert) {
+        errorAlert.classList.add('d-none');
+    }
 }
 
 /**
@@ -226,25 +205,20 @@ async function apiRequest(endpoint, options = {}) {
     try {
         const defaultOptions = {
             headers: {
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            cache: 'no-store'  // Browser-Cache explizit deaktivieren
+                'Content-Type': 'application/json'
+            }
         };
         
-        // Cache-Busting URL erstellen
-        const apiUrl = cacheBustUrl(`/api${endpoint}`);
+        // Add cache-busting for GET requests
+        let url = `/api${endpoint}`;
+        if (!options.method || options.method.toUpperCase() === 'GET') {
+            const separator = endpoint.includes('?') ? '&' : '?';
+            url += `${separator}_cb=${Date.now()}`;
+        }
         
-        const response = await fetch(apiUrl, {
+        const response = await fetch(url, {
             ...defaultOptions,
-            ...options,
-            headers: {
-                ...defaultOptions.headers,
-                ...(options.headers || {})
-            }
+            ...options
         });
         
         const data = await response.json();
@@ -255,7 +229,7 @@ async function apiRequest(endpoint, options = {}) {
         
         return data;
     } catch (error) {
-        console.error('🚫 API Request failed:', endpoint, error);
+
         throw error;
     }
 }
@@ -430,8 +404,8 @@ async function addBudgetItem(budgetData) {
 async function updateBudgetItem(kategorie, budgetData) {
     try {
         showLoading();
-        await apiRequest('/budget/update', {
-            method: 'PUT',
+        await apiRequest('/budget/save', {
+            method: 'POST',
             body: JSON.stringify({
                 kategorie: kategorie,
                 budget_data: budgetData

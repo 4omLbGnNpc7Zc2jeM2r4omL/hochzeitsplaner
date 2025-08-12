@@ -110,7 +110,7 @@ function setupUploadButton() {
  */
 async function loadUploadConfig() {
     try {
-        const response = await fetch('/api/upload-config');
+        const response = await apiRequest('/upload-config');
         if (response.ok) {
             const config = await response.json();
             
@@ -303,7 +303,7 @@ async function startUpload() {
             formData.append('file', file);
             formData.append('description', file.description || '');
             
-            const response = await fetch('/api/guest-upload', {
+            const response = await apiRequest('/guest-upload', {
                 method: 'POST',
                 body: formData
             });
@@ -355,7 +355,7 @@ async function loadMyUploads() {
     if (!container) return;
     
     try {
-        const response = await fetch('/api/my-uploads');
+        const response = await apiRequest('/my-uploads');
         if (!response.ok) {
             throw new Error('Fehler beim Laden der Uploads');
         }
@@ -477,7 +477,7 @@ async function deleteUpload(uploadId) {
     }
     
     try {
-        const response = await fetch(`/api/delete-upload/${uploadId}`, {
+        const response = await apiRequest(`/delete-upload/${uploadId}`, {
             method: 'DELETE'
         });
         

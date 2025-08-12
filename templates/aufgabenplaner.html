@@ -10,6 +10,9 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="bi bi-check2-square me-2"></i>Aufgabenplaner</h2>
         <div class="btn-group">
+            <button class="btn btn-wedding-info" onclick="createStandardChecklist()" id="standardChecklistBtn">
+                <i class="bi bi-list-check me-2"></i>Standard-Checkliste
+            </button>
             <button class="btn btn-wedding-secondary" onclick="openEmailAssignment()">
                 <i class="bi bi-envelope me-2"></i>E-Mail-Zuordnung
                 <span id="unassignedEmailBadge" class="badge ms-1" style="background: linear-gradient(135deg, #dc3545, #e85a5a); color: white; display: none;">0</span>
@@ -160,8 +163,16 @@
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5>Aufgaben</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary active" onclick="showAllTasks()" id="allTasksBtn">
+                            <i class="bi bi-list-task me-1"></i>Alle
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="showArchivedTasks()" id="archiveBtn">
+                            <i class="bi bi-archive me-1"></i>Archiv
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">

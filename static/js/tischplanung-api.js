@@ -5,7 +5,7 @@ window.TischplanungAPI = {
     // Tische verwalten
     async loadTables() {
         try {
-            const response = await fetch('/api/tischplanung/tables');
+            const response = await apiRequest('/tischplanung/tables');
             return await response.json();
         } catch (error) {
 
@@ -15,9 +15,8 @@ window.TischplanungAPI = {
 
     async saveTable(tableData) {
         try {
-            const response = await fetch('/api/tischplanung/tables', {
+            const response = await apiRequest('/tischplanung/tables', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(tableData)
             });
             return await response.json();
@@ -29,9 +28,8 @@ window.TischplanungAPI = {
 
     async updateTable(tableId, tableData) {
         try {
-            const response = await fetch(`/api/tischplanung/tables/${tableId}`, {
+            const response = await apiRequest(`/tischplanung/tables/${tableId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(tableData)
             });
             return await response.json();
@@ -43,7 +41,7 @@ window.TischplanungAPI = {
 
     async loadGuests() {
         try {
-            const response = await fetch('/api/gaeste/list');
+            const response = await apiRequest('/gaeste/list');
             const result = await response.json();
             if (result.success && result.gaeste) {
                 return result.gaeste;
@@ -60,9 +58,8 @@ window.TischplanungAPI = {
             const method = guestData.id ? 'PUT' : 'POST';
             const url = guestData.id ? `/api/gaeste/update/${guestData.id}` : '/api/gaeste/add';
             
-            const response = await fetch(url, {
+            const response = await apiRequest(url.replace('/api', ''), {
                 method: method,
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(guestData)
             });
             return await response.json();
@@ -74,7 +71,7 @@ window.TischplanungAPI = {
 
     async deleteTable(tableId) {
         try {
-            const response = await fetch(`/api/tischplanung/tables/${tableId}`, {
+            const response = await apiRequest(`/tischplanung/tables/${tableId}`, {
                 method: 'DELETE'
             });
             return await response.json();
@@ -110,9 +107,8 @@ window.TischplanungAPI = {
 
     async assignGuest(guestId, tableId, position = null) {
         try {
-            const response = await fetch('/api/tischplanung/assign', {
+            const response = await apiRequest('/tischplanung/assign', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     guest_id: guestId,
                     table_id: tableId,
@@ -128,12 +124,9 @@ window.TischplanungAPI = {
 
     async unassignGuest(guestId) {
         try {
-            const response = await fetch(`/api/tischplanung/unassign/${guestId}`, {
+            const response = await apiRequest(`/tischplanung/unassign/${guestId}`, {
                 method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+                });
             
             // Spezielle Behandlung für 401 (Authentication required)
             if (response.status === 401) {
@@ -182,7 +175,7 @@ window.TischplanungAPI = {
 
     async clearAllAssignments() {
         try {
-            const response = await fetch('/api/tischplanung/clear-all', {
+            const response = await apiRequest('/tischplanung/clear-all', {
                 method: 'POST'
             });
             return await response.json();
@@ -206,9 +199,8 @@ window.TischplanungAPI = {
 
     async saveRelationship(relationshipData) {
         try {
-            const response = await fetch('/api/tischplanung/relationships', {
+            const response = await apiRequest('/tischplanung/relationships', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(relationshipData)
             });
             return await response.json();
@@ -220,9 +212,8 @@ window.TischplanungAPI = {
 
     async updateRelationship(relationshipId, relationshipData) {
         try {
-            const response = await fetch(`/api/tischplanung/relationships/${relationshipId}`, {
+            const response = await apiRequest(`/tischplanung/relationships/${relationshipId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(relationshipData)
             });
             return await response.json();
@@ -234,7 +225,7 @@ window.TischplanungAPI = {
 
     async deleteRelationship(relationshipId) {
         try {
-            const response = await fetch(`/api/tischplanung/relationships/${relationshipId}`, {
+            const response = await apiRequest(`/tischplanung/relationships/${relationshipId}`, {
                 method: 'DELETE'
             });
             return await response.json();
@@ -247,9 +238,8 @@ window.TischplanungAPI = {
     // Auto-Zuweisung
     async autoAssign(options = {}) {
         try {
-            const response = await fetch('/api/tischplanung/auto-assign', {
+            const response = await apiRequest('/tischplanung/auto-assign', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(options)
             });
             return await response.json();
@@ -262,10 +252,9 @@ window.TischplanungAPI = {
     // Alle Tische löschen
     async clearAllTables() {
         try {
-            const response = await fetch('/api/tischplanung/clear-all-tables', {
+            const response = await apiRequest('/tischplanung/clear-all-tables', {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
-            });
+                });
             const result = await response.json();
             return result;
         } catch (error) {
@@ -278,7 +267,7 @@ window.TischplanungAPI = {
     async getTableOverview() {
         try {
             // Versuche zuerst die neue API-Route
-            const response = await fetch('/api/tischplanung/overview');
+            const response = await apiRequest('/tischplanung/overview');
             if (response.ok) {
                 const data = await response.json();
                 return data; // Bereits im erwarteten Format
@@ -388,10 +377,9 @@ window.TischplanungAPI = {
                 return { success: false, error: 'Tisch nicht gefunden' };
             }
             
-            const response = await fetch(`/api/tischplanung/tables/${table.id}`, {
+            const response = await apiRequest(`/tischplanung/tables/${table.id}`, {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
-            });
+                });
             
             const result = await response.json();
             return { success: true, message: result.message };

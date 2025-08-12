@@ -2,6 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', function() {
 
+    console.log('🎯 Aufgabenplaner JavaScript wird geladen...');
     
     // Event Listeners
     setupEventListeners();
@@ -10,37 +11,90 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         loadAufgaben();
     } catch (error) {
-
+        console.error('❌ Fehler beim Laden der Aufgaben:', error);
     }
     
     try {
         loadStatistics();
     } catch (error) {
-
+        console.error('❌ Fehler beim Laden der Statistiken:', error);
     }
+    
+    console.log('✅ Aufgabenplaner JavaScript erfolgreich geladen');
 });
 
 function setupEventListeners() {
+    console.log('🔧 Setup Event Listeners...');
+    
     // Speichern Button
-    document.getElementById('saveAufgabeBtn').addEventListener('click', saveAufgabe);
+    const saveBtn = document.getElementById('saveAufgabeBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveAufgabe);
+        console.log('✅ Save Button Event Listener hinzugefügt');
+    } else {
+        console.warn('⚠️ Save Button nicht gefunden');
+    }
     
     // Löschen Button
-    document.getElementById('deleteAufgabeBtn').addEventListener('click', showDeleteConfirmation);
-    document.getElementById('confirmDeleteBtn').addEventListener('click', deleteAufgabe);
+    const deleteBtn = document.getElementById('deleteAufgabeBtn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', showDeleteConfirmation);
+        console.log('✅ Delete Button Event Listener hinzugefügt');
+    }
+    
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', deleteAufgabe);
+    }
     
     // E-Mail Event Listeners
-    document.getElementById('sendEmailBtn').addEventListener('click', sendTaskEmail);
-    document.getElementById('viewEmailHistoryBtn').addEventListener('click', showEmailHistory);
+    const sendEmailBtn = document.getElementById('sendEmailBtn');
+    if (sendEmailBtn) {
+        sendEmailBtn.addEventListener('click', sendTaskEmail);
+    }
+    
+    const viewEmailHistoryBtn = document.getElementById('viewEmailHistoryBtn');
+    if (viewEmailHistoryBtn) {
+        viewEmailHistoryBtn.addEventListener('click', showEmailHistory);
+    }
     
     // Filter Event Listeners
-    document.getElementById('filterStatus').addEventListener('change', filterAufgaben);
-    document.getElementById('filterZustaendig').addEventListener('change', filterAufgaben);
-    document.getElementById('filterPrioritaet').addEventListener('change', filterAufgaben);
-    document.getElementById('searchAufgaben').addEventListener('input', filterAufgaben);
+    const filterStatus = document.getElementById('filterStatus');
+    if (filterStatus) {
+        filterStatus.addEventListener('change', filterAufgaben);
+        console.log('✅ Status Filter Event Listener hinzugefügt');
+    }
+    
+    const filterZustaendig = document.getElementById('filterZustaendig');
+    if (filterZustaendig) {
+        filterZustaendig.addEventListener('change', filterAufgaben);
+    }
+    
+    const filterPrioritaet = document.getElementById('filterPrioritaet');
+    if (filterPrioritaet) {
+        filterPrioritaet.addEventListener('change', filterAufgaben);
+    }
+    
+    const searchAufgaben = document.getElementById('searchAufgaben');
+    if (searchAufgaben) {
+        searchAufgaben.addEventListener('input', filterAufgaben);
+    }
     
     // Modal Reset
-    document.getElementById('aufgabeModal').addEventListener('hidden.bs.modal', resetForm);
-    document.getElementById('emailModal').addEventListener('hidden.bs.modal', resetEmailForm);
+    const aufgabeModal = document.getElementById('aufgabeModal');
+    if (aufgabeModal) {
+        aufgabeModal.addEventListener('hidden.bs.modal', resetForm);
+        console.log('✅ Modal Event Listener hinzugefügt');
+    } else {
+        console.warn('⚠️ aufgabeModal nicht gefunden');
+    }
+    
+    const emailModal = document.getElementById('emailModal');
+    if (emailModal) {
+        emailModal.addEventListener('hidden.bs.modal', resetEmailForm);
+    }
+    
+    console.log('🔧 Event Listeners Setup abgeschlossen');
 }
 
 // Hilfsfunktionen für Status und Priorität
@@ -73,7 +127,9 @@ function getPriorityText(prioritaet) {
 
 async function loadAufgaben() {
     try {
-        const response = await fetch('/api/aufgaben/list');
+        const response = await fetch('/api/aufgaben/list', {
+            credentials: 'include'
+        });
         const data = await response.json();
         
         if (data.success) {
@@ -89,7 +145,9 @@ async function loadAufgaben() {
 
 async function loadStatistics() {
     try {
-        const response = await fetch('/api/aufgaben/statistics');
+        const response = await fetch('/api/aufgaben/statistics', {
+            credentials: 'include'
+        });
         const data = await response.json();
         
         if (data.success) {
@@ -223,8 +281,6 @@ function getZustaendigBadge(zustaendig) {
         'Bräutigam': '<span class="badge" style="background: linear-gradient(135deg, #2196f3, #64b5f6); color: white; padding: 6px 12px; border-radius: 12px; font-weight: 500;">Bräutigam</span>',
         'Beide': '<span class="badge" style="background: linear-gradient(135deg, #9c27b0, #ba68c8); color: white; padding: 6px 12px; border-radius: 12px; font-weight: 500;">Beide</span>'
     };
-    
-    // Nur Badge zurückgeben, keine zusätzliche Zeile
     return badges[zustaendig] || '<span class="badge" style="background: linear-gradient(135deg, #6c757d, #495057); color: white; padding: 6px 12px; border-radius: 12px; font-weight: 500;">' + zustaendig + '</span>';
 }
 
@@ -259,7 +315,9 @@ function editAufgabe(id) {
 
     
     // Finde die Aufgabe in den geladenen Daten
-    fetch(`/api/aufgaben/get/${id}`)
+    fetch(`/api/aufgaben/get/${id}`, {
+        credentials: 'include'
+    })
         .then(response => {
 
             return response.json();
@@ -488,7 +546,9 @@ function showTaskEmailHistory(taskId) {
 
 async function loadTaskForEmail(taskId) {
     try {
-        const response = await fetch(`/api/aufgaben/get/${taskId}`);
+        const response = await fetch(`/api/aufgaben/get/${taskId}`, {
+            credentials: 'include'
+        });
         const data = await response.json();
         
         if (data.success) {
@@ -602,7 +662,9 @@ async function loadEmailHistory(taskId) {
         document.getElementById('emailTaskIdHidden').value = taskId;
         
         // History-Modal Info setzen
-        const response = await fetch(`/api/aufgaben/get/${taskId}`);
+        const response = await fetch(`/api/aufgaben/get/${taskId}`, {
+            credentials: 'include'
+        });
         const data = await response.json();
         
         let aufgabe = null;
@@ -613,7 +675,9 @@ async function loadEmailHistory(taskId) {
         }
         
         // E-Mail-Verlauf laden
-        const emailResponse = await fetch(`/api/aufgaben/${taskId}/emails`);
+        const emailResponse = await fetch(`/api/aufgaben/${taskId}/emails`, {
+            credentials: 'include'
+        });
         const emailData = await emailResponse.json();
         
         if (emailData.success) {
@@ -1101,7 +1165,9 @@ function selectEmailForAssignment(emailId, element) {
 
 async function loadTasksForAssignment() {
     try {
-        const response = await fetch('/api/aufgaben/list');
+        const response = await fetch('/api/aufgaben/list', {
+            credentials: 'include'
+        });
         const data = await response.json();
         
         if (data.success) {
@@ -1370,4 +1436,120 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 2000);
 });
+
+// Standard-Checkliste erstellen
+async function createStandardChecklist() {
+    console.log('🎯 Standard-Checkliste wird erstellt...');
+    
+    const btn = document.getElementById('standardChecklistBtn');
+    if (!btn) {
+        console.error('❌ Standard-Checkliste Button nicht gefunden!');
+        return;
+    }
+    
+    // Button deaktivieren und Loading-Status anzeigen
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Erstelle...';
+    
+    try {
+        console.log('📡 Sende API-Request...');
+        const response = await fetch('/api/aufgaben/standard-checkliste', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('📡 Response erhalten:', response.status);
+        const data = await response.json();
+        console.log('📋 Response data:', data);
+        
+        if (data.success) {
+            showAlert(
+                `✅ ${data.message}`, 
+                'success'
+            );
+            
+            // Aufgabenliste neu laden
+            loadAufgaben();
+            loadStatistics();
+            
+            // Button-Text anpassen wenn bereits erstellt
+            if (data.created_tasks.length === 0) {
+                btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Bereits erstellt';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 3000);
+            } else {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        } else {
+            throw new Error(data.message || 'Unbekannter Fehler');
+        }
+        
+    } catch (error) {
+        console.error('❌ Fehler beim Erstellen der Standard-Checkliste:', error);
+        showAlert(
+            '❌ Fehler beim Erstellen der Standard-Checkliste: ' + error.message, 
+            'danger'
+        );
+        
+        // Button wieder aktivieren
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// Archiv-Funktionalität
+function showAllTasks() {
+    console.log('📋 Zeige alle Aufgaben');
+    
+    // Filter zurücksetzen
+    const filterStatus = document.getElementById('filterStatus');
+    if (filterStatus) {
+        filterStatus.value = '';
+    }
+    
+    // Button-States aktualisieren
+    const allTasksBtn = document.getElementById('allTasksBtn');
+    const archiveBtn = document.getElementById('archiveBtn');
+    
+    if (allTasksBtn) {
+        allTasksBtn.classList.add('active');
+    }
+    if (archiveBtn) {
+        archiveBtn.classList.remove('active');
+    }
+    
+    // Aufgaben neu laden
+    filterAufgaben();
+}
+
+function showArchivedTasks() {
+    console.log('📦 Zeige Archiv (erledigte Aufgaben)');
+    
+    // Filter auf "Erledigt" setzen
+    const filterStatus = document.getElementById('filterStatus');
+    if (filterStatus) {
+        filterStatus.value = 'Erledigt';
+    }
+    
+    // Button-States aktualisieren
+    const allTasksBtn = document.getElementById('allTasksBtn');
+    const archiveBtn = document.getElementById('archiveBtn');
+    
+    if (allTasksBtn) {
+        allTasksBtn.classList.remove('active');
+    }
+    if (archiveBtn) {
+        archiveBtn.classList.add('active');
+    }
+    
+    // Aufgaben filtern
+    filterAufgaben();
+}
 

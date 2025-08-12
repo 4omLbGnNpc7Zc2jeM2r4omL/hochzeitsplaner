@@ -78,8 +78,7 @@ class DatabaseAdmin {
 
     async loadDatabaseInfo() {
         try {
-            const response = await fetch('/api/admin/database/info');
-            const data = await response.json();
+            const data = await apiRequest('/admin/database/info');
 
             if (data.success) {
                 this.displayDatabaseInfo(data.database_info);
@@ -122,8 +121,7 @@ class DatabaseAdmin {
 
     async loadTables() {
         try {
-            const response = await fetch('/api/admin/database/tables');
-            const data = await response.json();
+            const data = await apiRequest('/admin/database/tables');
 
             if (data.success) {
                 this.currentTables = data.tables;
@@ -232,7 +230,7 @@ class DatabaseAdmin {
                 </div>
             `;
 
-            const response = await fetch(`/api/admin/database/table/${tableName}?page=${page}&per_page=${this.perPage}`);
+            const response = await apiRequest(`/admin/database/table/${tableName}?page=${page}&per_page=${this.perPage}`);
             const data = await response.json();
 
             if (data.success) {
@@ -381,11 +379,8 @@ class DatabaseAdmin {
                 </div>
             `;
 
-            const response = await fetch('/api/admin/database/query', {
+            const response = await apiRequest('/admin/database/query', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify({ query: query })
             });
 
@@ -463,11 +458,9 @@ class DatabaseAdmin {
                 Erstelle Backup...
             `;
 
-            const response = await fetch('/api/admin/database/backup', {
+            const data = await apiRequest('/admin/database/backup', {
                 method: 'POST'
             });
-
-            const data = await response.json();
 
             if (data.success) {
                 this.showSuccess(data.message);

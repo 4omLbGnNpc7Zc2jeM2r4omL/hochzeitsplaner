@@ -340,30 +340,35 @@ async function loadLocations() {
 // Locations speichern
 async function saveLocations() {
     try {
-        // Nur die spezifischen Location-Daten sammeln, nicht alle Einstellungen laden
-        const locationSettings = {
-            locations: {
-                standesamt: {
-                    name: document.getElementById('standesamtName').value.trim(),
-                    adresse: document.getElementById('standesamtAdresse').value.trim(),
-                    beschreibung: document.getElementById('standesamtBeschreibung').value.trim()
-                },
-                hochzeitslocation: {
-                    name: document.getElementById('hochzeitslocationName').value.trim(),
-                    adresse: document.getElementById('hochzeitslocationAdresse').value.trim(),
-                    beschreibung: document.getElementById('hochzeitslocationBeschreibung').value.trim()
-                }
-            }
+        const settings = await loadSettings(); // Aktuelle Einstellungen laden
+        
+        // Locations-Objekt erstellen/aktualisieren
+        if (!settings.locations) {
+            settings.locations = {};
+        }
+        
+        // Standesamt
+        settings.locations.standesamt = {
+            name: document.getElementById('standesamtName').value.trim(),
+            adresse: document.getElementById('standesamtAdresse').value.trim(),
+            beschreibung: document.getElementById('standesamtBeschreibung').value.trim()
+        };
+        
+        // Hochzeitslocation
+        settings.locations.hochzeitslocation = {
+            name: document.getElementById('hochzeitslocationName').value.trim(),
+            adresse: document.getElementById('hochzeitslocationAdresse').value.trim(),
+            beschreibung: document.getElementById('hochzeitslocationBeschreibung').value.trim()
         };
         
         // Legacy Feld für Kompatibilität beibehalten
         const hochzeitsortValue = document.getElementById('hochzeitsort').value.trim();
         if (hochzeitsortValue) {
-            locationSettings.hochzeitsort = hochzeitsortValue;
+            settings.hochzeitsort = hochzeitsortValue;
         }
         
-        // Nur Location-Daten speichern (ohne first_login Felder)
-        const success = await saveSettings(locationSettings);
+        // Speichern
+        const success = await saveSettings(settings);
         return success;
         
     } catch (error) {

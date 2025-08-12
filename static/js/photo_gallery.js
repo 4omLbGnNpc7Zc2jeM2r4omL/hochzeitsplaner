@@ -65,13 +65,10 @@ async function loadGallery() {
         
 
         
-        const response = await fetch('/api/approved-gallery', {
+        const response = await apiRequest('/approved-gallery', {
             method: 'GET',
             credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
+            });
         
 
         

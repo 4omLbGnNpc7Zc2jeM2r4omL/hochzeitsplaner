@@ -5888,271 +5888,325 @@ class SQLiteHochzeitsDatenManager:
             logger.error(f"Fehler beim Laden der Notiz: {e}")
             return None
 
-    # =============================================================================
-    # Hochzeitstag-Checkliste Methoden
-    # =============================================================================
-
-    def get_hochzeitstag_checkliste(self, show_completed=False, only_completed=False):
-        """Lädt die Hochzeitstag-Checkliste"""
+    # =================================================================
+    # Hochzeitstag Checkliste Methoden (unabhängig vom Aufgabenplaner)
+    # =================================================================
+    
+    def get_checkliste_items(self) -> list:
+        """Alle Checkliste-Einträge abrufen"""
         try:
-            with self._lock:
-                conn = sqlite3.connect(self.db_path, timeout=30.0)
-                cursor = conn.cursor()
-                
-                # SQL Query basierend auf den Parametern
-                if only_completed:
-                    # Nur erledigte Aufgaben (für Archiv)
-                    where_clause = "WHERE erledigt = 1"
-                elif show_completed:
-                    # Alle Aufgaben
-                    where_clause = ""
-                else:
-                    # Nur offene Aufgaben (Standard)
-                    where_clause = "WHERE erledigt = 0"
-                
-                cursor.execute(f"""
-                    SELECT id, titel, beschreibung, kategorie, prioritaet, uhrzeit,
-                           erledigt, erledigt_am, erledigt_von, created_at, updated_at,
-                           sort_order
-                    FROM hochzeitstag_checkliste 
-                    {where_clause}
-                    ORDER BY erledigt ASC, prioritaet DESC, sort_order ASC, uhrzeit ASC
-                """)
-                
-                rows = cursor.fetchall()
-                conn.close()
-                
-                items = []
-                for row in rows:
-                    items.append({
-                        'id': row[0],
-                        'titel': row[1],
-                        'beschreibung': row[2] or '',
-                        'kategorie': row[3] or 'Allgemein',
-                        'prioritaet': row[4] or 2,
-                        'uhrzeit': row[5] or '',
-                        'erledigt': bool(row[6]),
-                        'erledigt_am': row[7],
-                        'erledigt_von': row[8] or '',
-                        'created_at': row[9],
-                        'updated_at': row[10],
-                        'sort_order': row[11] or 999
-                    })
-                
-                logger.info(f"📋 Checkliste geladen: {len(items)} Einträge ({'alle' if show_completed else 'nur erledigte' if only_completed else 'nur offene'})")
-                return items
-                
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT id, titel, beschreibung, kategorie, prioritaet, uhrzeit, 
+                       erledigt, erledigt_am, erledigt_von, created_at, updated_at, sort_order
+                FROM hochzeitstag_checkliste 
+                ORDER BY erledigt ASC, sort_order ASC, prioritaet DESC, uhrzeit ASC
+            """)
+            
+            rows = cursor.fetchall()
+            conn.close()
+            
+            items = []
+            for row in rows:
+                items.append({
+                    'id': row[0],
+                    'titel': row[1] or '',
+                    'beschreibung': row[2] or '',
+                    'kategorie': row[3] or 'Allgemein',
+                    'prioritaet': row[4] or 1,  # Priority ist INTEGER
+                    'uhrzeit': row[5] or '',
+                    'erledigt': bool(row[6]),
+                    'erledigt_am': row[7],
+                    'erledigt_von': row[8] or '',
+                    'created_at': row[9],
+                    'updated_at': row[10],
+                    'sort_order': row[11] or 0
+                })
+            
+            return items
+            
         except Exception as e:
             logger.error(f"Fehler beim Laden der Checkliste: {e}")
             return []
-
-    def add_hochzeitstag_checkliste_item(self, data):
-        """Fügt einen neuen Checkliste-Eintrag hinzu"""
+    
+    def add_checkliste_item(self, item_data: dict) -> int:
+        """Neuen Checkliste-Eintrag hinzufügen"""
         try:
-            with self._lock:
-                conn = sqlite3.connect(self.db_path, timeout=30.0)
-                cursor = conn.cursor()
-                
-                # Nächste sort_order bestimmen
-                cursor.execute("SELECT MAX(sort_order) FROM hochzeitstag_checkliste")
-                max_sort = cursor.fetchone()[0] or 0
-                
-                now = datetime.now().isoformat()
-                
-                cursor.execute("""
-                    INSERT INTO hochzeitstag_checkliste 
-                    (titel, beschreibung, kategorie, prioritaet, uhrzeit, 
-                     erledigt, sort_order, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
-                """, (
-                    data.get('titel', '').strip(),
-                    data.get('beschreibung', '').strip() or None,
-                    data.get('kategorie', 'Allgemein'),
-                    int(data.get('prioritaet', 2)),
-                    data.get('uhrzeit', '').strip() or None,
-                    max_sort + 1,
-                    now,
-                    now
-                ))
-                
-                item_id = cursor.lastrowid
-                conn.commit()
-                conn.close()
-                
-                logger.info(f"✅ Checkliste-Eintrag hinzugefügt: {data.get('titel')} (ID: {item_id})")
-                return True
-                
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO hochzeitstag_checkliste 
+                (titel, beschreibung, kategorie, prioritaet, uhrzeit, erledigt, sort_order)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                item_data.get('titel', ''),
+                item_data.get('beschreibung', ''),
+                item_data.get('kategorie', 'Allgemein'),
+                item_data.get('prioritaet', 1),  # Priority ist INTEGER
+                item_data.get('uhrzeit', ''),
+                0,  # erledigt = False
+                item_data.get('sort_order', 0)
+            ))
+            
+            item_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"Checkliste-Eintrag erstellt: {item_data.get('titel')} (ID: {item_id})")
+            return item_id
+            
         except Exception as e:
-            logger.error(f"Fehler beim Hinzufügen des Checkliste-Eintrags: {e}")
-            return False
-
-    def update_hochzeitstag_checkliste_item(self, item_id, data):
-        """Aktualisiert einen Checkliste-Eintrag"""
+            logger.error(f"Fehler beim Erstellen des Checkliste-Eintrags: {e}")
+            return 0
+    
+    def update_checkliste_item(self, item_id: int, item_data: dict) -> bool:
+        """Checkliste-Eintrag aktualisieren"""
         try:
-            with self._lock:
-                conn = sqlite3.connect(self.db_path, timeout=30.0)
-                cursor = conn.cursor()
-                
-                # Prüfen ob Eintrag existiert
-                cursor.execute("SELECT titel FROM hochzeitstag_checkliste WHERE id = ?", (item_id,))
-                existing = cursor.fetchone()
-                if not existing:
-                    conn.close()
-                    logger.warning(f"⚠️ Checkliste-Eintrag nicht gefunden: ID {item_id}")
-                    return False
-                
-                now = datetime.now().isoformat()
-                
-                cursor.execute("""
-                    UPDATE hochzeitstag_checkliste SET
-                        titel = ?, beschreibung = ?, kategorie = ?, prioritaet = ?,
-                        uhrzeit = ?, sort_order = ?, updated_at = ?
-                    WHERE id = ?
-                """, (
-                    data.get('titel', '').strip(),
-                    data.get('beschreibung', '').strip() or None,
-                    data.get('kategorie', 'Allgemein'),
-                    int(data.get('prioritaet', 2)),
-                    data.get('uhrzeit', '').strip() or None,
-                    int(data.get('sort_order', 999)),
-                    now,
-                    item_id
-                ))
-                
-                conn.commit()
-                conn.close()
-                
-                logger.info(f"✅ Checkliste-Eintrag aktualisiert: {data.get('titel')} (ID: {item_id})")
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Wenn erledigt-Status geändert wird, erledigt_am setzen
+            erledigt_am = None
+            if item_data.get('erledigt'):
+                erledigt_am = datetime.now().isoformat()
+            
+            cursor.execute("""
+                UPDATE hochzeitstag_checkliste 
+                SET titel = ?, beschreibung = ?, kategorie = ?, prioritaet = ?, 
+                    uhrzeit = ?, erledigt = ?, erledigt_am = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (
+                item_data.get('titel', ''),
+                item_data.get('beschreibung', ''),
+                item_data.get('kategorie', 'Allgemein'),
+                item_data.get('prioritaet', 1),  # Priority ist INTEGER
+                item_data.get('uhrzeit', ''),
+                1 if item_data.get('erledigt') else 0,
+                erledigt_am,
+                item_id
+            ))
+            
+            conn.commit()
+            affected_rows = cursor.rowcount
+            conn.close()
+            
+            if affected_rows > 0:
+                logger.info(f"Checkliste-Eintrag aktualisiert: ID {item_id}")
                 return True
+            else:
+                logger.warning(f"Checkliste-Eintrag nicht gefunden: ID {item_id}")
+                return False
                 
         except Exception as e:
             logger.error(f"Fehler beim Aktualisieren des Checkliste-Eintrags: {e}")
             return False
-
-    def toggle_hochzeitstag_checkliste_item(self, item_id, current_user):
-        """Ändert den Status (erledigt/unerledigt) eines Checkliste-Eintrags"""
+    
+    def delete_checkliste_item(self, item_id: int) -> bool:
+        """Checkliste-Eintrag löschen"""
         try:
-            with self._lock:
-                conn = sqlite3.connect(self.db_path, timeout=30.0)
-                cursor = conn.cursor()
-                
-                # Aktuellen Status laden
-                cursor.execute("SELECT titel, erledigt FROM hochzeitstag_checkliste WHERE id = ?", (item_id,))
-                result = cursor.fetchone()
-                if not result:
-                    conn.close()
-                    logger.warning(f"⚠️ Checkliste-Eintrag nicht gefunden: ID {item_id}")
-                    return False
-                
-                titel, current_status = result
-                new_status = 0 if current_status else 1
-                now = datetime.now().isoformat()
-                
-                if new_status:
-                    # Als erledigt markieren
-                    cursor.execute("""
-                        UPDATE hochzeitstag_checkliste SET
-                            erledigt = 1, erledigt_am = ?, erledigt_von = ?, updated_at = ?
-                        WHERE id = ?
-                    """, (now, current_user, now, item_id))
-                    logger.info(f"✅ Checkliste-Eintrag als erledigt markiert: {titel} von {current_user}")
-                else:
-                    # Als unerledigt markieren
-                    cursor.execute("""
-                        UPDATE hochzeitstag_checkliste SET
-                            erledigt = 0, erledigt_am = NULL, erledigt_von = NULL, updated_at = ?
-                        WHERE id = ?
-                    """, (now, item_id))
-                    logger.info(f"📋 Checkliste-Eintrag als unerledigt markiert: {titel}")
-                
-                conn.commit()
-                conn.close()
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute("DELETE FROM hochzeitstag_checkliste WHERE id = ?", (item_id,))
+            
+            conn.commit()
+            affected_rows = cursor.rowcount
+            conn.close()
+            
+            if affected_rows > 0:
+                logger.info(f"Checkliste-Eintrag gelöscht: ID {item_id}")
                 return True
-                
-        except Exception as e:
-            logger.error(f"Fehler beim Ändern des Checkliste-Status: {e}")
-            return False
-
-    def delete_hochzeitstag_checkliste_item(self, item_id):
-        """Löscht einen Checkliste-Eintrag"""
-        try:
-            with self._lock:
-                conn = sqlite3.connect(self.db_path, timeout=30.0)
-                cursor = conn.cursor()
-                
-                # Titel für Logging laden
-                cursor.execute("SELECT titel FROM hochzeitstag_checkliste WHERE id = ?", (item_id,))
-                result = cursor.fetchone()
-                if not result:
-                    conn.close()
-                    logger.warning(f"⚠️ Checkliste-Eintrag nicht gefunden: ID {item_id}")
-                    return False
-                
-                titel = result[0]
-                
-                cursor.execute("DELETE FROM hochzeitstag_checkliste WHERE id = ?", (item_id,))
-                conn.commit()
-                conn.close()
-                
-                logger.info(f"🗑️ Checkliste-Eintrag gelöscht: {titel} (ID: {item_id})")
-                return True
+            else:
+                logger.warning(f"Checkliste-Eintrag nicht gefunden: ID {item_id}")
+                return False
                 
         except Exception as e:
             logger.error(f"Fehler beim Löschen des Checkliste-Eintrags: {e}")
             return False
-
-    def reactivate_hochzeitstag_checkliste_item(self, item_id):
-        """Reaktiviert einen archivierten (erledigten) Checkliste-Eintrag"""
+    
+    def toggle_checkliste_item(self, item_id: int) -> bool:
+        """Erledigt-Status eines Checkliste-Eintrags umschalten"""
         try:
-            logger.info(f"🔄 DB: Starte Reaktivierung für Item ID: {item_id}")
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
             
-            with self._lock:
-                conn = sqlite3.connect(self.db_path, timeout=30.0)
-                cursor = conn.cursor()
-                
-                # Prüfen ob Eintrag existiert und archiviert ist
-                cursor.execute("SELECT titel, erledigt FROM hochzeitstag_checkliste WHERE id = ?", (item_id,))
-                result = cursor.fetchone()
-                if not result:
-                    conn.close()
-                    logger.warning(f"⚠️ Checkliste-Eintrag nicht gefunden: ID {item_id}")
-                    return False
-                
-                titel, erledigt = result
-                logger.info(f"🔄 DB: Gefundener Eintrag: '{titel}', erledigt={erledigt}")
-                
-                if not erledigt:
-                    conn.close()
-                    logger.warning(f"⚠️ Checkliste-Eintrag ist bereits aktiv: {titel}")
-                    return False
-                
-                # Als nicht erledigt (aktiv) markieren
-                from datetime import datetime
-                now = datetime.now().isoformat()
-                logger.info(f"🔄 DB: Setze Eintrag auf aktiv mit timestamp: {now}")
-                
-                cursor.execute("""
-                    UPDATE hochzeitstag_checkliste SET
-                        erledigt = 0, erledigt_am = NULL, erledigt_von = NULL, updated_at = ?
-                    WHERE id = ?
-                """, (now, item_id))
-                
-                rows_affected = cursor.rowcount
-                logger.info(f"🔄 DB: Rows affected: {rows_affected}")
-                
-                conn.commit()
+            # Aktueller Status ermitteln
+            cursor.execute("SELECT erledigt FROM hochzeitstag_checkliste WHERE id = ?", (item_id,))
+            row = cursor.fetchone()
+            
+            if not row:
                 conn.close()
-                
-                if rows_affected > 0:
-                    logger.info(f"✅ Checkliste-Eintrag reaktiviert: {titel} (ID: {item_id})")
-                    return True
-                else:
-                    logger.error(f"❌ Keine Zeilen betroffen bei Reaktivierung: {titel} (ID: {item_id})")
-                    return False
-                
+                return False
+            
+            new_status = 0 if row[0] else 1
+            erledigt_am = datetime.now().isoformat() if new_status else None
+            
+            cursor.execute("""
+                UPDATE hochzeitstag_checkliste 
+                SET erledigt = ?, erledigt_am = ?
+                WHERE id = ?
+            """, (new_status, erledigt_am, item_id))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"Checkliste-Eintrag Status geändert: ID {item_id} -> {'erledigt' if new_status else 'offen'}")
+            return True
+            
         except Exception as e:
-            logger.error(f"❌ DB: Fehler beim Reaktivieren des Checkliste-Eintrags {item_id}: {str(e)}")
-            logger.error(f"❌ DB: Exception Type: {type(e).__name__}")
-            import traceback
-            logger.error(f"❌ DB: Traceback: {traceback.format_exc()}")
+            logger.error(f"Fehler beim Umschalten des Checkliste-Status: {e}")
             return False
+    
+    def create_standard_checkliste(self) -> int:
+        """Standard Hochzeitstag-Checkliste erstellen"""
+        try:
+            # Prüfen ob bereits Standard-Einträge existieren
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM hochzeitstag_checkliste")
+            existing_count = cursor.fetchone()[0]
+            conn.close()
+            
+            if existing_count > 0:
+                logger.info("Checkliste bereits vorhanden, keine Standard-Einträge erstellt")
+                return 0
+            
+            # Standard Hochzeitstag-Checkliste
+            standard_items = [
+                {
+                    'titel': '🌅 Morgenroutine & Aufstehen',
+                    'beschreibung': 'Entspannt aufstehen, duschen und ausgiebig frühstücken',
+                    'kategorie': 'Vorbereitung',
+                    'prioritaet': 3,  # Hoch = 3
+                    'uhrzeit': '07:00',
+                    'sort_order': 1
+                },
+                {
+                    'titel': '💆‍♀️ Wellness & Entspannung',
+                    'beschreibung': 'Zeit für sich nehmen, entspannen und mental vorbereiten',
+                    'kategorie': 'Vorbereitung', 
+                    'prioritaet': 2,  # Normal = 2
+                    'uhrzeit': '08:00',
+                    'sort_order': 2
+                },
+                {
+                    'titel': '🥂 Sekt-Frühstück mit Familie',
+                    'beschreibung': 'Gemeinsames Frühstück mit den wichtigsten Personen',
+                    'kategorie': 'Familie',
+                    'prioritaet': 3,  # Hoch = 3
+                    'uhrzeit': '09:00',
+                    'sort_order': 3
+                },
+                {
+                    'titel': '💇‍♀️ Friseur Termin',
+                    'beschreibung': 'Haare stylen und Make-up Probe',
+                    'kategorie': 'Beauty',
+                    'prioritaet': 4,  # Kritisch = 4
+                    'uhrzeit': '10:00',
+                    'sort_order': 4
+                },
+                {
+                    'titel': '👗 Anziehen & finale Vorbereitung',
+                    'beschreibung': 'Brautkleid/Anzug anziehen und letzte Details',
+                    'kategorie': 'Anziehen',
+                    'prioritaet': 4,  # Kritisch = 4
+                    'uhrzeit': '11:00',
+                    'sort_order': 5
+                },
+                {
+                    'titel': '📸 Getting Ready Fotos',
+                    'beschreibung': 'Fotos vom Anziehen und der Vorbereitung',
+                    'kategorie': 'Fotografie',
+                    'prioritaet': 2,  # Normal = 2
+                    'uhrzeit': '11:30',
+                    'sort_order': 6
+                },
+                {
+                    'titel': '🚗 Fahrt zur Trauung',
+                    'beschreibung': 'Rechtzeitige Ankunft am Trauungsort',
+                    'kategorie': 'Transport',
+                    'prioritaet': 4,  # Kritisch = 4
+                    'uhrzeit': '12:00',
+                    'sort_order': 7
+                },
+                {
+                    'titel': '💒 Trauungszeremonie',
+                    'beschreibung': 'Der wichtigste Moment des Tages',
+                    'kategorie': 'Zeremonie',
+                    'prioritaet': 4,  # Kritisch = 4
+                    'uhrzeit': '13:00',
+                    'sort_order': 8
+                },
+                {
+                    'titel': '🎊 Gratulationen & Empfang',
+                    'beschreibung': 'Empfang der Gäste und Gratulationen',
+                    'kategorie': 'Feier',
+                    'prioritaet': 3,  # Hoch = 3
+                    'uhrzeit': '14:00',
+                    'sort_order': 9
+                },
+                {
+                    'titel': '📷 Gruppenfotos',
+                    'beschreibung': 'Fotos mit Familie und Freunden',
+                    'kategorie': 'Fotografie',
+                    'prioritaet': 3,  # Hoch = 3
+                    'uhrzeit': '14:30',
+                    'sort_order': 10
+                },
+                {
+                    'titel': '🍽️ Hochzeitsessen',
+                    'beschreibung': 'Gemeinsames Festessen mit allen Gästen',
+                    'kategorie': 'Catering',
+                    'prioritaet': 3,  # Hoch = 3
+                    'uhrzeit': '15:30',
+                    'sort_order': 11
+                },
+                {
+                    'titel': '🎤 Reden & Danksagungen',
+                    'beschreibung': 'Reden von Familie und Freunden',
+                    'kategorie': 'Programm',
+                    'prioritaet': 2,  # Normal = 2
+                    'uhrzeit': '17:00',
+                    'sort_order': 12
+                },
+                {
+                    'titel': '🎂 Anschnitt der Hochzeitstorte',
+                    'beschreibung': 'Gemeinsamer Anschnitt der Hochzeitstorte',
+                    'kategorie': 'Zeremonie',
+                    'prioritaet': 3,  # Hoch = 3
+                    'uhrzeit': '18:00',
+                    'sort_order': 13
+                },
+                {
+                    'titel': '💃 Eröffnungstanz',
+                    'beschreibung': 'Der erste Tanz als Ehepaar',
+                    'kategorie': 'Tanz',
+                    'prioritaet': 3,  # Hoch = 3
+                    'uhrzeit': '19:00',
+                    'sort_order': 14
+                },
+                {
+                    'titel': '🎉 Party & Feier bis spät',
+                    'beschreibung': 'Feiern und tanzen mit Familie und Freunden',
+                    'kategorie': 'Party',
+                    'prioritaet': 2,  # Normal = 2
+                    'uhrzeit': '20:00',
+                    'sort_order': 15
+                }
+            ]
+            
+            created_count = 0
+            for item in standard_items:
+                item_id = self.add_checkliste_item(item)
+                if item_id > 0:
+                    created_count += 1
+            
+            logger.info(f"Standard Hochzeitstag-Checkliste erstellt: {created_count} Einträge")
+            return created_count
+            
+        except Exception as e:
+            logger.error(f"Fehler beim Erstellen der Standard-Checkliste: {e}")
+            return 0

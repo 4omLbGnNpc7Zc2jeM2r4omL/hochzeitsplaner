@@ -334,11 +334,8 @@ class EinladungsGenerator {
                 select.innerHTML = '<option value="">Lade Gäste...</option>';
             }
             
-            const response = await fetch('/api/einladungs-generator/gaeste', {
+            const response = await apiRequest('/einladungs-generator/gaeste', {
                 method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
                 credentials: 'same-origin'  // Include session cookies
             });
             
@@ -564,7 +561,7 @@ class EinladungsGenerator {
                 const img = photo.querySelector('img');
                 if (img) {
                     // Versuche echtes Hochzeitsfoto aus API zu laden
-                    fetch('/api/guest/wedding-photo')
+                    apiRequest('/guest/wedding-photo')
                         .then(response => {
                             if (response.ok) {
                                 return response.blob();
@@ -671,12 +668,9 @@ class EinladungsGenerator {
         try {
 
             
-            const response = await fetch('/api/einladungs-generator/settings', {
+            const response = await apiRequest('/einladungs-generator/settings', {
                 method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+                });
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -707,11 +701,8 @@ class EinladungsGenerator {
         try {
 
             
-            const response = await fetch('/api/einladungs-generator/settings', {
+            const response = await apiRequest('/einladungs-generator/settings', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify({
                     settings: this.currentSettings
                 })
@@ -1022,11 +1013,8 @@ class EinladungsGenerator {
                 template: this.currentTemplate
             };
             
-            const response = await fetch('/api/generate-test-card', {
+            const response = await apiRequest('/generate-test-card', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify(requestData)
             });
             
@@ -1090,11 +1078,8 @@ class EinladungsGenerator {
                 template: this.currentTemplate
             };
             
-            const response = await fetch('/api/generate-all-cards', {
+            const response = await apiRequest('/generate-all-cards', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify(requestData)
             });
             

@@ -157,15 +157,9 @@ async function loadUploadStatistics() {
 
     
     try {
-        const response = await fetch('/api/admin/upload-statistics', {
+        const stats = await apiRequest('/admin/upload-statistics', {
             credentials: 'same-origin'
         });
-        
-        if (!response.ok) {
-            throw new Error('Fehler beim Laden der Statistiken');
-        }
-        
-        const stats = await response.json();
 
         
         // Update statistics display
@@ -215,25 +209,9 @@ async function loadAllUploads() {
     
     try {
 
-        const response = await fetch('/api/admin/all-uploads', {
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json'
-            }
+        const uploads = await apiRequest('/admin/all-uploads', {
+            credentials: 'same-origin'
         });
-        
-
-        
-        if (!response.ok) {
-            if (response.status === 401) {
-
-                showAuthError();
-                return;
-            }
-            throw new Error(`API Error: ${response.status} ${response.statusText}`);
-        }
-        
-        const uploads = await response.json();
 
 
         
@@ -634,15 +612,12 @@ async function performDeleteUpload(uploadId) {
         // Loading-Feedback
         showToast('Wird gelöscht...', `Die Datei "${filename}" wird gelöscht...`, 'info');
         
-        const response = await fetch(`/api/admin/delete-upload/${uploadId}`, {
+        const response = await apiRequest(`/admin/delete-upload/${uploadId}`, {
             method: 'DELETE',
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            credentials: 'same-origin'
         });
         
-        if (!response.ok) {
+        if (!response) {
             if (response.status === 404) {
                 throw new Error('Upload nicht gefunden');
             } else if (response.status === 403) {
@@ -860,11 +835,10 @@ function uploadFilesSequentially(files, description, currentIndex) {
     formData.append('file', file);
     formData.append('description', description);
     
-    fetch('/api/admin/admin-upload', {
+    apiRequestFormData('/admin/admin-upload', {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
     .then(data => {
         if (data.error) {
             throw new Error(data.error);

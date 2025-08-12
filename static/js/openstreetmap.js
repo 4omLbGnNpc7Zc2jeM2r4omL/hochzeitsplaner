@@ -485,7 +485,7 @@ class OpenStreetMapIntegration {
             // Standard-Optionen
             const defaultOptions = {
                 showRoutes: true,  // Standardmäßig Routen anzeigen
-                routeType: 'walking'  // 'walking' für echte Routen, 'straight' für Luftlinie
+                routeType: 'straight'  // 'straight' für Luftlinie, 'walking' für echte Routen (benötigt API-Key)
             };
             
             const mapOptions = { ...defaultOptions, ...options };
@@ -615,7 +615,7 @@ class OpenStreetMapIntegration {
                 // Zeichne Wege zwischen Parkplätzen und Hauptlocation (falls aktiviert)
                 if (mapOptions.showRoutes && markers.length > 1) {
                     console.log('🛣️ Starte Routen-Zeichnung...');
-                    await this.drawSimpleRoutes(map, markers);
+                    this.drawSimpleRoutes(map, markers);
                 }
                 
             } else if (markers.length === 1) {
@@ -731,23 +731,20 @@ class OpenStreetMapIntegration {
      */
     async drawRoute(map, startLatLng, endLatLng, routeIndex = 0) {
         try {
-            console.log(`🛣️ Zeichne Route ${routeIndex}: Lade echte Fußgängerroute...`);
-            
-            // Versuche echte Fußgängerroute zu bekommen
+            // Versuche zunächst OpenRouteService API für echtes Routing
             const route = await this.getWalkingRoute(startLatLng, endLatLng);
             
-            if (route && route.coordinates && route.coordinates.length > 0) {
-                console.log('✅ Echte Fußgängerroute erhalten, zeichne detaillierte Route');
+            if (route && route.coordinates) {
+                debugLog('✅ Echte Route gefunden, zeichne Wegführung');
                 this.drawRealRoute(map, route, routeIndex);
             } else {
-                console.log('⚠️ Keine echte Route verfügbar, verwende verbesserte Luftlinie');
-                // Fallback auf Luftlinie mit Fußgänger-Styling
-                this.drawWalkingStyleStraightLine(map, startLatLng, endLatLng, routeIndex);
+                debugLog('ℹ️ Keine echte Route verfügbar, zeichne Luftlinie');
+                this.drawStraightLine(map, startLatLng, endLatLng, routeIndex);
             }
             
         } catch (error) {
-            console.error('❌ Routing-Fehler, verwende Luftlinie:', error);
-            this.drawWalkingStyleStraightLine(map, startLatLng, endLatLng, routeIndex);
+            debugLog('⚠️ Routing-Fehler, verwende Luftlinie:', error);
+            this.drawStraightLine(map, startLatLng, endLatLng, routeIndex);
         }
     }
 
@@ -756,35 +753,34 @@ class OpenStreetMapIntegration {
      */
     async getWalkingRoute(startLatLng, endLatLng) {
         try {
-            // Verwende OSRM (Open Source Routing Machine) - kostenlos und ohne API-Key
-            const url = `https://router.project-osrm.org/route/v1/foot/${startLatLng.lng},${startLatLng.lat};${endLatLng.lng},${endLatLng.lat}?geometries=geojson&overview=full`;
+            // Für jetzt erstmal deaktiviert, da API-Key benötigt wird
+            // Kann später mit API-Key konfiguration aktiviert werden
+            return null;
             
-            console.log(`🌐 Lade Fußgängerroute von OSRM: ${url}`);
+            /*
+            const apiKey = 'YOUR_OPENROUTESERVICE_API_KEY'; // Würde aus Konfiguration kommen
+            const url = `https://api.openrouteservice.org/v2/directions/foot-walking`;
             
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': apiKey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    coordinates: [[startLatLng.lng, startLatLng.lat], [endLatLng.lng, endLatLng.lat]],
+                    format: 'geojson'
+                })
+            });
             
             if (response.ok) {
                 const data = await response.json();
-                console.log('✅ OSRM Response:', data);
-                
-                if (data.routes && data.routes.length > 0) {
-                    const route = data.routes[0];
-                    console.log(`🚶‍♀️ Route gefunden: ${Math.round(route.distance)}m, ${Math.round(route.duration/60)}min`);
-                    
-                    return {
-                        coordinates: route.geometry.coordinates,
-                        distance: Math.round(route.distance),
-                        duration: Math.round(route.duration / 60) // in Minuten
-                    };
-                }
-            } else {
-                console.log('⚠️ OSRM API Fehler:', response.status);
+                return data.features[0].geometry;
             }
-            
-            return null;
+            */
             
         } catch (error) {
-            console.log('❌ OSRM API Fehler:', error);
+            debugLog('❌ OpenRouteService API Fehler:', error);
             return null;
         }
     }
@@ -793,109 +789,24 @@ class OpenStreetMapIntegration {
      * Zeichnet eine echte Route auf die Karte
      */
     drawRealRoute(map, route, routeIndex) {
-        const colors = ['#007BFF', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
+        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
         const color = colors[routeIndex % colors.length];
         
-        // Konvertiere Koordinaten von [lng, lat] zu [lat, lng] für Leaflet
-        const coordinates = route.coordinates.map(coord => [coord[1], coord[0]]);
+        const coordinates = route.coordinates.map(coord => [coord[1], coord[0]]); // [lng, lat] zu [lat, lng]
         
-        console.log(`🗺️ Zeichne echte Route mit ${coordinates.length} Punkten`);
-        
-        // Hauptroute als durchgehende Linie
         const polyline = L.polyline(coordinates, {
             color: color,
-            weight: 5,
-            opacity: 0.8
+            weight: 4,
+            opacity: 0.8,
+            dashArray: '10, 5'
         }).addTo(map);
         
-        // Zusätzliche gestrichelte Linie für bessere Sichtbarkeit
-        const shadowLine = L.polyline(coordinates, {
-            color: '#FFFFFF',
-            weight: 7,
-            opacity: 0.5,
-            dashArray: '0'
-        }).addTo(map);
-        
-        // Bringe die Hauptlinie nach vorne
-        polyline.bringToFront();
-        
-        // Richtungspfeile alle 100m simulieren
-        if (coordinates.length > 10) {
-            const arrowInterval = Math.max(1, Math.floor(coordinates.length / 5));
-            for (let i = arrowInterval; i < coordinates.length; i += arrowInterval) {
-                const point = coordinates[i];
-                const prevPoint = coordinates[i - 1];
-                
-                // Berechne Richtung
-                const angle = Math.atan2(point[1] - prevPoint[1], point[0] - prevPoint[0]) * 180 / Math.PI;
-                
-                // Pfeil-Marker
-                const arrowMarker = L.marker(point, {
-                    icon: L.divIcon({
-                        html: `<div style="
-                            width: 0; 
-                            height: 0; 
-                            border-left: 6px solid transparent; 
-                            border-right: 6px solid transparent; 
-                            border-bottom: 12px solid ${color};
-                            transform: rotate(${angle + 90}deg);
-                            filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.3));
-                        "></div>`,
-                        className: 'route-arrow',
-                        iconSize: [12, 12],
-                        iconAnchor: [6, 6]
-                    })
-                }).addTo(map);
-            }
-        }
-        
-        // Detailliertes Popup mit Routeninformationen
         polyline.bindPopup(`
-            <div style="text-align: center; font-family: system-ui;">
-                <strong style="color: ${color};">🚶‍♀️ Fußweg-Route</strong><br>
-                <div style="margin: 8px 0;">
-                    <span style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; margin: 2px;">
-                        📏 ${route.distance}m
-                    </span>
-                    <span style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; margin: 2px;">
-                        ⏱️ ca. ${route.duration}min
-                    </span>
-                </div>
-                <small style="color: #666;">Optimaler Fußweg zum Parkplatz</small>
+            <div style="text-align: center;">
+                <strong>🚶‍♀️ Fußweg</strong><br>
+                <small>Route zum Parkplatz</small>
             </div>
         `);
-        
-        // Startpunkt markieren
-        const startMarker = L.circleMarker(coordinates[0], {
-            radius: 6,
-            fillColor: '#28a745',
-            color: 'white',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.9
-        }).addTo(map);
-        
-        startMarker.bindTooltip('🚶‍♀️ Start', {
-            permanent: false,
-            direction: 'top'
-        });
-        
-        // Endpunkt markieren
-        const endMarker = L.circleMarker(coordinates[coordinates.length - 1], {
-            radius: 6,
-            fillColor: '#dc3545',
-            color: 'white',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.9
-        }).addTo(map);
-        
-        endMarker.bindTooltip('🎯 Ziel', {
-            permanent: false,
-            direction: 'top'
-        });
-        
-        console.log(`✅ Echte Route gezeichnet: ${route.distance}m, ${route.duration}min`);
     }
 
     /**
@@ -907,7 +818,7 @@ class OpenStreetMapIntegration {
             console.log(`Start: ${startLatLng.lat}, ${startLatLng.lng}`);
             console.log(`Ende: ${endLatLng.lat}, ${endLatLng.lng}`);
             
-            const colors = ['#007BFF', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
+            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
             const color = colors[routeIndex % colors.length];
             
             // Berechne Entfernung
@@ -945,90 +856,9 @@ class OpenStreetMapIntegration {
     }
 
     /**
-     * Zeichnet eine verbesserte Luftlinie mit Fußgänger-Styling
-     */
-    drawWalkingStyleStraightLine(map, startLatLng, endLatLng, routeIndex) {
-        try {
-            const colors = ['#007BFF', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
-            const color = colors[routeIndex % colors.length];
-            
-            // Berechne Entfernung und geschätzte Gehzeit
-            const distance = Math.round(startLatLng.distanceTo(endLatLng));
-            const walkingTime = Math.round(distance / 80); // ca. 80m/min Gehgeschwindigkeit
-            
-            console.log(`🚶‍♀️ Zeichne Fußgänger-Luftlinie: ${distance}m, ca. ${walkingTime}min`);
-            
-            // Hauptlinie mit Fußgänger-Styling
-            const polyline = L.polyline([startLatLng, endLatLng], {
-                color: color,
-                weight: 5,
-                opacity: 0.8,
-                dashArray: '15, 10'
-            }).addTo(map);
-            
-            // Schatten-Linie für bessere Sichtbarkeit
-            const shadowLine = L.polyline([startLatLng, endLatLng], {
-                color: '#FFFFFF',
-                weight: 7,
-                opacity: 0.4
-            }).addTo(map);
-            
-            // Hauptlinie nach vorne bringen
-            polyline.bringToFront();
-            
-            // Richtungspfeil in der Mitte
-            const midPoint = L.latLng(
-                (startLatLng.lat + endLatLng.lat) / 2,
-                (startLatLng.lng + endLatLng.lng) / 2
-            );
-            
-            // Berechne Winkel für Richtungspfeil
-            const angle = Math.atan2(endLatLng.lat - startLatLng.lat, endLatLng.lng - startLatLng.lng) * 180 / Math.PI;
-            
-            const directionMarker = L.marker(midPoint, {
-                icon: L.divIcon({
-                    html: `<div style="
-                        width: 0; 
-                        height: 0; 
-                        border-left: 8px solid transparent; 
-                        border-right: 8px solid transparent; 
-                        border-bottom: 16px solid ${color};
-                        transform: rotate(${angle + 90}deg);
-                        filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
-                    "></div>`,
-                    className: 'walking-arrow',
-                    iconSize: [16, 16],
-                    iconAnchor: [8, 8]
-                })
-            }).addTo(map);
-            
-            // Detailliertes Popup
-            polyline.bindPopup(`
-                <div style="text-align: center; font-family: system-ui;">
-                    <strong style="color: ${color};">🚶‍♀️ Geschätzter Fußweg</strong><br>
-                    <div style="margin: 8px 0;">
-                        <span style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; margin: 2px;">
-                            📏 ${distance}m Luftlinie
-                        </span>
-                        <span style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; margin: 2px;">
-                            ⏱️ ca. ${walkingTime}min
-                        </span>
-                    </div>
-                    <small style="color: #666;">Tatsächlicher Weg kann abweichen</small>
-                </div>
-            `);
-            
-            console.log(`✅ Fußgänger-Luftlinie gezeichnet: ${distance}m, ${walkingTime}min`);
-            
-        } catch (error) {
-            console.error(`❌ Fehler beim Zeichnen der Fußgänger-Luftlinie ${routeIndex}:`, error);
-        }
-    }
-
-    /**
      * Einfache Routen-Funktion die garantiert funktioniert
      */
-    async drawSimpleRoutes(map, markers) {
+    drawSimpleRoutes(map, markers) {
         try {
             console.log('🛣️ drawSimpleRoutes aufgerufen mit', markers.length, 'Markern');
             
@@ -1058,14 +888,33 @@ class OpenStreetMapIntegration {
             console.log(`Hauptlocation: ${mainLatLng.lat}, ${mainLatLng.lng}`);
             
             // Zeichne Routen zu allen Parkplätzen
-            for (let index = 0; index < parkingMarkers.length; index++) {
-                const parkingMarker = parkingMarkers[index];
+            parkingMarkers.forEach((parkingMarker, index) => {
                 const parkingLatLng = parkingMarker.getLatLng();
-                console.log(`Zeichne echte Route ${index + 1} zu: ${parkingLatLng.lat}, ${parkingLatLng.lng}`);
+                console.log(`Zeichne Route ${index + 1} zu: ${parkingLatLng.lat}, ${parkingLatLng.lng}`);
                 
-                // Verwende echte Routen-Funktion statt einfache Linie
-                await this.drawRoute(map, parkingLatLng, mainLatLng, index);
-            }
+                const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'];
+                const color = colors[index % colors.length];
+                const distance = Math.round(parkingLatLng.distanceTo(mainLatLng));
+                
+                // Gestrichelte Linie
+                const polyline = L.polyline([parkingLatLng, mainLatLng], {
+                    color: color,
+                    weight: 4,
+                    opacity: 0.8,
+                    dashArray: '12, 8'
+                }).addTo(map);
+                
+                // Popup
+                polyline.bindPopup(`
+                    <div style="text-align: center; font-family: system-ui;">
+                        <strong style="color: ${color};">🚶‍♀️ Fußweg</strong><br>
+                        <small>Ca. ${distance}m Luftlinie</small><br>
+                        <em style="color: #999; font-size: 12px;">Tatsächlicher Weg kann länger sein</em>
+                    </div>
+                `);
+                
+                console.log(`✅ Route ${index + 1} gezeichnet: ${distance}m`);
+            });
             
             console.log('✅ Alle Routen gezeichnet');
             

@@ -279,11 +279,8 @@ class TouchDragDrop {
     }
     
     fallbackAssignGuest(guestId, tableId) {
-        fetch('/api/tischplanung/assign', {
+        apiRequest('/tischplanung/assign', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify({
                 guest_id: guestId,
                 table_id: tableId

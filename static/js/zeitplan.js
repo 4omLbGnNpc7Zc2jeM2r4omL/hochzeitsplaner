@@ -3,7 +3,7 @@
  */
 
 let currentZeitplan = [];
-let currentView = 'gantt'; // 'gantt' oder 'list'
+let currentView = 'list'; // 'gantt' oder 'list' - Standard auf Liste geändert
 let selectedEventIndex = null;
 let brideGroom = { bride: 'Braut', groom: 'Bräutigam' }; // Default-Werte
 let hochzeitsdatum = null; // Hochzeitsdatum aus Settings
@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadZeitplan();
     setupResponsibleDropdowns();
     ensureEventpartsToggle();
+    initializeViewButtons(); // View-Buttons initialisieren
 });
 
 // Braut/Bräutigam Namen und Hochzeitsdatum laden
@@ -67,6 +68,23 @@ function updateResponsibleDropdowns() {
     });
 }
 
+// View-Buttons initialisieren
+function initializeViewButtons() {
+    // Aktive Ansicht markieren
+    const listBtn = document.getElementById('listViewBtn');
+    const ganttBtn = document.getElementById('ganttViewBtn');
+    
+    if (listBtn && ganttBtn) {
+        if (currentView === 'list') {
+            listBtn.classList.add('active');
+            ganttBtn.classList.remove('active');
+        } else {
+            ganttBtn.classList.add('active');
+            listBtn.classList.remove('active');
+        }
+    }
+}
+
 // Verantwortlich-Feld intelligent setzen
 function setResponsibleDropdown(type, value) {
     const inputId = type === 'edit' ? 'editEventResponsible' : 'eventResponsible';
@@ -78,6 +96,32 @@ function setResponsibleDropdown(type, value) {
     input.value = value || '';
 }
 
+// Anfangsansicht basierend auf currentView setzen
+function setInitialView() {
+    const ganttView = document.getElementById('ganttView');
+    const listView = document.getElementById('listView');
+    const viewToggleIcon = document.getElementById('viewToggleIcon');
+    const viewToggleText = document.getElementById('viewToggleText');
+    
+    if (!ganttView || !listView || !viewToggleIcon || !viewToggleText) {
+        return;
+    }
+    
+    if (currentView === 'list') {
+        // Listenansicht als Standard anzeigen
+        ganttView.classList.add('d-none');
+        listView.classList.remove('d-none');
+        viewToggleIcon.className = 'bi bi-calendar3 me-1';
+        viewToggleText.textContent = 'Timeline-Ansicht';
+    } else {
+        // Gantt-Ansicht anzeigen
+        listView.classList.add('d-none');
+        ganttView.classList.remove('d-none');
+        viewToggleIcon.className = 'bi bi-list-ul me-1';
+        viewToggleText.textContent = 'Listenansicht';
+    }
+}
+
 // Zeitplan laden
 function loadZeitplan() {
     return fetch('/api/zeitplan/list')
@@ -85,6 +129,10 @@ function loadZeitplan() {
         .then(data => {
             if (data.success) {
                 currentZeitplan = data.zeitplan;
+                
+                // HTML-Ansicht basierend auf currentView setzen
+                setInitialView();
+                
                 if (currentZeitplan.length > 0) {
                     if (currentView === 'gantt') {
                         displayGanttChart(currentZeitplan);
@@ -382,7 +430,7 @@ function displayZeitplanList(zeitplan) {
                 <div class="d-flex justify-content-between align-items-start">
                     <div class="flex-grow-1">
                         <div class="d-flex align-items-center mb-2">
-                            <span class="badge bg-primary zeitplan-time-badge me-2">${event.Uhrzeit}</span>
+                            <span class="badge wedding-time-badge me-2">${event.Uhrzeit}</span>
                             ${event.EndZeit ? `<span class="badge bg-secondary zeitplan-time-badge me-2">bis ${event.EndZeit}</span>` : ''}
                             <span class="badge ${statusClass} zeitplan-status-badge">${event.Status}</span>
                             ${publicIcon}

@@ -9,12 +9,9 @@ window.invitationSettings = {
         try {
 
             
-            const response = await fetch('/api/einladungs-generator/settings', {
+            const response = await apiRequest('/einladungs-generator/settings', {
                 method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+                });
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -57,11 +54,8 @@ window.invitationSettings = {
             // Aktuelle Einstellungen aus UI sammeln
             const settings = this.collectCurrentSettings();
             
-            const response = await fetch('/api/einladungs-generator/settings', {
+            const response = await apiRequest('/einladungs-generator/settings', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify({
                     settings: settings
                 })

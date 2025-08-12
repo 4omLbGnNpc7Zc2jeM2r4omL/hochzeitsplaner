@@ -104,8 +104,7 @@ async function loadAndDisplayGuests() {
         
         showLoading();
         
-        const response = await fetch('/api/gaeste/list');
-        const data = await response.json();
+        const data = await apiRequest('/gaeste/list');
         
         if (data.success) {
             currentGuests = data.gaeste || [];
@@ -380,20 +379,15 @@ async function handleSaveMassEdit() {
         
         const guestIds = Array.from(selectedGuests);
         
-        const response = await fetch('/api/gaeste/mass-update', {
+        const data = await apiRequest('/gaeste/mass-update', {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify({
                 guest_ids: guestIds,
                 updates: updates
             })
         });
         
-        const result = await response.json();
-        
-        if (result.success) {
+        if (data.success) {
             HochzeitsplanerApp.showAlert(`${guestIds.length} Gäste erfolgreich aktualisiert!`);
             
             // Modal schließen
@@ -406,7 +400,7 @@ async function handleSaveMassEdit() {
             // Gästeliste neu laden
             await loadAndDisplayGuests();
         } else {
-            throw new Error(result.error);
+            throw new Error(data.error);
         }
     } catch (error) {
 
@@ -517,17 +511,12 @@ async function handleAddGuest() {
     try {
         HochzeitsplanerApp.showLoading();
         
-        const response = await fetch('/api/gaeste/add', {
+        const data = await apiRequest('/gaeste/add', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify(guestData)
         });
         
-        const result = await response.json();
-        
-        if (result.success) {
+        if (data.success) {
             HochzeitsplanerApp.showAlert('Gast erfolgreich hinzugefügt!');
             
             // Modal schließen
@@ -542,7 +531,7 @@ async function handleAddGuest() {
                 window.HochzeitsplanerApp.refreshDashboard();
             }
         } else {
-            throw new Error(result.error);
+            throw new Error(data.error);
         }
     } catch (error) {
 
@@ -658,17 +647,15 @@ async function handleUpdateGuest() {
         
         showLoading();
         
-        const response = await fetch(`/api/gaeste/update/${guestId}`, {
+        console.log('Updating guest with ID:', guestId);
+        console.log('Request URL:', `/gaeste/update/${guestId}`);
+        
+        const data = await apiRequest(`/gaeste/update/${guestId}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify(guestData)
         });
         
-        const result = await response.json();
-        
-        if (result.success) {
+        if (data.success) {
             showAlert('Gast erfolgreich aktualisiert!');
             
             // Modal schließen
@@ -683,7 +670,7 @@ async function handleUpdateGuest() {
                 window.HochzeitsplanerApp.refreshDashboard();
             }
         } else {
-            throw new Error(result.error);
+            throw new Error(data.error);
         }
     } catch (error) {
 
@@ -719,13 +706,11 @@ async function deleteGuest(guestId) {
     try {
         HochzeitsplanerApp.showLoading();
         
-        const response = await fetch(`/api/gaeste/delete/${guestId}`, {
+        const data = await apiRequest(`/gaeste/delete/${guestId}`, {
             method: 'DELETE'
         });
         
-        const result = await response.json();
-        
-        if (result.success) {
+        if (data.success) {
             HochzeitsplanerApp.showAlert(`${guest.Vorname} ${guest.Nachname} wurde gelöscht!`);
             await loadAndDisplayGuests();
             
@@ -734,7 +719,7 @@ async function deleteGuest(guestId) {
                 window.HochzeitsplanerApp.refreshDashboard();
             }
         } else {
-            throw new Error(result.error);
+            throw new Error(data.error);
         }
     } catch (error) {
 

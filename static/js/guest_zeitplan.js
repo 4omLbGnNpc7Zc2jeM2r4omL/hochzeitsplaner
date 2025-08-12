@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Hochzeitsdatum aus Einstellungen laden
 function loadHochzeitsdatum() {
-    fetch('/api/settings/get')
+    apiRequest('/settings/get')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -46,7 +46,7 @@ function loadHochzeitsdatum() {
 }
 
 function loadZeitplan() {
-    fetch('/api/guest/zeitplan')
+    apiRequest('/guest/zeitplan')
         .then(response => response.json())
         .then(data => {
             if (data.success) {

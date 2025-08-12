@@ -8,28 +8,24 @@
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💕</text></svg>">
     
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    
-    <!-- Apple-specific meta tags for iOS -->
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#e91e63">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Hochzeitsplaner">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192x192.png') }}">
-    <link rel="apple-touch-icon" sizes="152x152" href="{{ url_for('static', filename='icons/icon-152x152.png') }}">
-    <link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192x192.png') }}">
-    
-    <!-- Apple Splash Screens -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="format-detection" content="telephone=no">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Hochzeitsplaner">
+    <meta name="msapplication-TileColor" content="#e91e63">
+    <meta name="msapplication-config" content="{{ url_for('static', filename='browserconfig.xml') }}">
     
-    <!-- Microsoft specific -->
-    <meta name="msapplication-TileImage" content="{{ url_for('static', filename='icons/icon-144x144.png') }}">
-    <meta name="msapplication-TileColor" content="#d63384">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     
-    <!-- Theme color for browser chrome -->
-    <meta name="theme-color" content="#d63384">
+    <!-- PWA Icons -->
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-152x152.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192x192.png') }}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icons/icon-512x512.png') }}">
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -38,7 +34,6 @@
     <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wedding-theme.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/pwa-install.css') }}" rel="stylesheet">
     
     <!-- Page-specific styles -->
     {% block extra_head %}{% endblock %}
@@ -279,24 +274,6 @@
         {% block content %}{% endblock %}
     </div>
 
-    <!-- PWA Install Banner (global) -->
-    <div id="pwaInstallBanner" class="pwa-install-banner">
-        <div class="banner-content">
-            <div class="banner-text">
-                <div class="banner-title">📱 App installieren</div>
-                <div class="banner-subtitle">Installiere die Hochzeitsplaner-App für ein besseres Erlebnis</div>
-            </div>
-            <div class="banner-actions">
-                <button class="btn btn-install" onclick="installPWA()">
-                    <i class="bi bi-download me-1"></i>Installieren
-                </button>
-                <button class="btn btn-dismiss" onclick="dismissInstallBanner()">
-                    <i class="bi bi-x me-1"></i>Später
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay d-none">
         <div class="spinner-border text-primary" role="status">
@@ -311,29 +288,157 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Google Maps Integration -->
-    <script src="{{ url_for('static', filename='js/openstreetmap.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/openstreetmap.js') }}?v=20250812001"></script>
     
     <!-- Notification System -->
-    <script src="{{ url_for('static', filename='js/notification-system.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/notification-system.js') }}?v=20250812001"></script>
     
     <!-- Custom JavaScript -->
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=20250812001"></script>
     
-    <!-- PWA Install JavaScript -->
-    <script src="{{ url_for('static', filename='js/pwa-install.js') }}"></script>
+    <!-- Core App Functions -->
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=20250812001"></script>
     
-    <!-- PWA Service Worker Registration -->
+    <!-- PWA Installation & Service Worker -->
     <script>
+        // Service Worker Registration
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(function(registration) {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    }, function(err) {
-                        console.log('ServiceWorker registration failed: ', err);
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then((registration) => {
+                        console.log('✅ Service Worker registriert:', registration.scope);
+                        
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // Neue Version verfügbar
+                                    if (confirm('Eine neue Version der App ist verfügbar. Seite neu laden?')) {
+                                        window.location.reload();
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch((error) => {
+                        console.error('❌ Service Worker Registrierung fehlgeschlagen:', error);
                     });
             });
+        } else {
+            console.warn('⚠️ Service Worker wird nicht unterstützt');
         }
+
+        // PWA Installation
+        let deferredPrompt;
+        const pwaInstallBtn = document.createElement('button');
+        pwaInstallBtn.style.display = 'none';
+        pwaInstallBtn.innerHTML = '<i class="bi bi-download"></i> App installieren';
+        pwaInstallBtn.className = 'btn btn-primary btn-sm position-fixed bottom-0 end-0 m-3 pwa-install-btn';
+        pwaInstallBtn.style.zIndex = '1050';
+        document.body.appendChild(pwaInstallBtn);
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('📱 PWA Install Prompt verfügbar');
+            // Prevent automatic prompt
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Show install button
+            pwaInstallBtn.style.display = 'block';
+            
+            // Add install handler
+            pwaInstallBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    // Show install prompt
+                    deferredPrompt.prompt();
+                    
+                    // Wait for user choice
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log('👆 PWA Install Ergebnis:', outcome);
+                    
+                    if (outcome === 'accepted') {
+                        console.log('✅ PWA wurde installiert');
+                        // Show success notification
+                        if (window.NotificationSystem) {
+                            window.NotificationSystem.show('App erfolgreich installiert! 💕', 'success');
+                        }
+                    }
+                    
+                    // Clear prompt
+                    deferredPrompt = null;
+                    pwaInstallBtn.style.display = 'none';
+                }
+            });
+        });
+
+        // Hide install button if app is already installed
+        window.addEventListener('appinstalled', () => {
+            console.log('✅ PWA ist bereits installiert');
+            pwaInstallBtn.style.display = 'none';
+            deferredPrompt = null;
+            
+            if (window.NotificationSystem) {
+                window.NotificationSystem.show('Hochzeitsplaner App installiert! 💒', 'success');
+            }
+        });
+
+        // Check if running as PWA
+        function isPWA() {
+            return window.matchMedia('(display-mode: standalone)').matches || 
+                   window.navigator.standalone === true;
+        }
+
+        // PWA-specific features
+        if (isPWA()) {
+            console.log('🚀 App läuft als PWA');
+            document.body.classList.add('pwa-mode');
+            
+            // Add PWA-specific styles
+            const pwaStyles = document.createElement('style');
+            pwaStyles.textContent = `
+                .pwa-mode {
+                    padding-top: env(safe-area-inset-top);
+                    padding-bottom: env(safe-area-inset-bottom);
+                }
+                .pwa-install-btn { display: none !important; }
+            `;
+            document.head.appendChild(pwaStyles);
+        }
+
+        // Offline status handling
+        function updateOnlineStatus() {
+            const isOnline = navigator.onLine;
+            const statusElement = document.getElementById('connection-status');
+            
+            if (!statusElement) {
+                const status = document.createElement('div');
+                status.id = 'connection-status';
+                status.className = 'position-fixed top-0 start-50 translate-middle-x alert mb-0';
+                status.style.zIndex = '1055';
+                status.style.display = 'none';
+                document.body.appendChild(status);
+            }
+            
+            const status = document.getElementById('connection-status');
+            
+            if (!isOnline) {
+                status.className = 'position-fixed top-0 start-50 translate-middle-x alert alert-warning mb-0';
+                status.innerHTML = '<i class="bi bi-wifi-off"></i> Offline-Modus aktiv';
+                status.style.display = 'block';
+                console.log('📴 App ist offline');
+            } else {
+                status.style.display = 'none';
+                console.log('📶 App ist online');
+            }
+        }
+
+        // Listen for online/offline events
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        
+        // Initial status check
+        updateOnlineStatus();
     </script>
     
     {% block scripts %}{% endblock %}

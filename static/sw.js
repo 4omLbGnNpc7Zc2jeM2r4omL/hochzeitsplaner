@@ -1,111 +1,256 @@
-const CACHE_NAME = 'hochzeitsplaner-v2.5.11';
-const urlsToCache = [
-  '/',
-  '/static/css/style.css',
-  '/static/css/wedding-theme.css',
-  '/static/js/app.js',
-  '/static/js/wedding-theme.js',
-  '/static/js/guest_dashboard.js',
-  '/static/js/guest_zeitplan.js',
-  '/static/js/openstreetmap.js',
-  '/static/icons/icon-192x192.png',
-  '/static/icons/icon-512x512.png',
-  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css',
-  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css'
+/**
+ * Service Worker für Hochzeitsplaner PWA
+ * Ermöglicht Offline-Funktionalität und App-Installation
+ */
+
+const CACHE_NAME = 'hochzeitsplaner-v1.0.0';
+const STATIC_CACHE_NAME = 'hochzeitsplaner-static-v1.0.0';
+
+// Dateien die immer gecacht werden sollen
+const STATIC_FILES = [
+    '/',
+    '/static/css/style.css',
+    '/static/css/wedding-theme.css',
+    '/static/js/main.js',
+    '/static/js/app.js',
+    '/static/js/dashboard.js',
+    '/static/js/notification-system.js',
+    '/static/icons/apple-touch-icon.png',
+    '/static/favicon.ico'
 ];
 
-// Install Service Worker
+// Dateien die bei Netzwerk-Verfügbarkeit aktualisiert werden
+const DYNAMIC_CACHE_URLS = [
+    '/api/gaeste/list',
+    '/api/budget/list',
+    '/api/aufgaben/list',
+    '/api/zeitplan/list'
+];
+
+// Service Worker Installation
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-  );
-});
-
-// Fetch events
-self.addEventListener('fetch', (event) => {
-  // Only handle GET requests from http/https schemes
-  if (event.request.method !== 'GET' || 
-      (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://'))) {
-    return;
-  }
-
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
-
-        return fetch(event.request).then(
-          (response) => {
-            // Check if we received a valid response
-            if(!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-
-            // Additional check: Don't cache non-GET requests or unsupported schemes
-            if (event.request.method !== 'GET' || 
-                (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://'))) {
-              return response;
-            }
-
-            // IMPORTANT: Clone the response. A response is a stream
-            // and because we want the browser to consume the response
-            // as well as the cache consuming the response, we need
-            // to clone it so we have two streams.
-            var responseToCache = response.clone();
-
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                // Additional safety check before caching
-                try {
-                  cache.put(event.request, responseToCache);
-                } catch (error) {
-                  console.log('Cache put failed:', error);
-                }
-              })
-              .catch((error) => {
-                console.log('Cache open failed:', error);
-              });
-
-            return response;
-          }
-        );
-      })
+    console.log('[SW] Service Worker wird installiert');
+    
+    event.waitUntil(
+        Promise.all([
+            // Statische Dateien cachen
+            caches.open(STATIC_CACHE_NAME).then((cache) => {
+                console.log('[SW] Statische Dateien werden gecacht');
+                return cache.addAll(STATIC_FILES.filter(url => url !== '/')); // Root separat behandeln
+            }),
+            
+            // Root-Seite separat cachen (kann fehlschlagen ohne App zu brechen)
+            caches.open(STATIC_CACHE_NAME).then((cache) => {
+                return cache.add('/').catch(err => {
+                    console.warn('[SW] Root-Seite konnte nicht gecacht werden:', err);
+                });
+            })
+        ]).then(() => {
+            console.log('[SW] Installation abgeschlossen');
+            // Aktivierung forcieren
+            return self.skipWaiting();
+        }).catch(err => {
+            console.error('[SW] Fehler bei Installation:', err);
+        })
     );
 });
 
-// Update Service Worker
+// Service Worker Aktivierung
 self.addEventListener('activate', (event) => {
-  const cacheWhitelist = [CACHE_NAME];
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName);
-          }
+    console.log('[SW] Service Worker wird aktiviert');
+    
+    event.waitUntil(
+        // Alte Caches löschen
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cacheName) => {
+                    if (cacheName !== CACHE_NAME && cacheName !== STATIC_CACHE_NAME) {
+                        console.log('[SW] Alter Cache wird gelöscht:', cacheName);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        }).then(() => {
+            console.log('[SW] Aktivierung abgeschlossen');
+            // Sofortige Kontrolle über alle Clients übernehmen
+            return self.clients.claim();
         })
-      );
-    })
-  );
+    );
 });
 
-// Handle push notifications (optional for future use)
+// Fetch-Events abfangen (Cache-First für statische Dateien, Network-First für API)
+self.addEventListener('fetch', (event) => {
+    const { request } = event;
+    const url = new URL(request.url);
+    
+    // Nur GET-Requests cachen
+    if (request.method !== 'GET') {
+        return;
+    }
+    
+    // Statische Dateien: Cache-First Strategie
+    if (url.pathname.startsWith('/static/') || url.pathname === '/' || url.pathname === '/favicon.ico') {
+        event.respondWith(
+            caches.match(request).then((cachedResponse) => {
+                if (cachedResponse) {
+                    console.log('[SW] Aus Cache geladen:', url.pathname);
+                    return cachedResponse;
+                }
+                
+                // Fallback: Vom Netzwerk laden und cachen
+                return fetch(request).then((response) => {
+                    if (response.status === 200) {
+                        const responseClone = response.clone();
+                        caches.open(STATIC_CACHE_NAME).then((cache) => {
+                            cache.put(request, responseClone);
+                        });
+                    }
+                    return response;
+                }).catch((err) => {
+                    console.error('[SW] Fehler beim Laden von:', url.pathname, err);
+                    // Für HTML-Seiten: Offline-Fallback
+                    if (request.headers.get('accept').includes('text/html')) {
+                        return new Response(
+                            `<!DOCTYPE html>
+                            <html>
+                            <head>
+                                <title>Offline - Hochzeitsplaner</title>
+                                <meta charset="utf-8">
+                                <meta name="viewport" content="width=device-width, initial-scale=1">
+                                <style>
+                                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                                    .offline { color: #666; }
+                                    .heart { color: #e91e63; font-size: 2em; }
+                                </style>
+                            </head>
+                            <body>
+                                <div class="heart">💕</div>
+                                <h1>Offline</h1>
+                                <p class="offline">Der Hochzeitsplaner ist derzeit nicht verfügbar.</p>
+                                <p>Bitte prüfen Sie Ihre Internetverbindung.</p>
+                            </body>
+                            </html>`,
+                            { 
+                                headers: { 'Content-Type': 'text/html' }
+                            }
+                        );
+                    }
+                    throw err;
+                });
+            })
+        );
+        return;
+    }
+    
+    // API-Calls: Network-First mit Cache-Fallback
+    if (url.pathname.startsWith('/api/')) {
+        event.respondWith(
+            fetch(request).then((response) => {
+                // Erfolgreiche API-Antworten cachen
+                if (response.status === 200 && DYNAMIC_CACHE_URLS.some(pattern => url.pathname.includes(pattern.replace('/api/', '')))) {
+                    const responseClone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(request, responseClone);
+                    });
+                }
+                return response;
+            }).catch(() => {
+                // Bei Netzwerkfehler: Cache-Fallback
+                return caches.match(request).then((cachedResponse) => {
+                    if (cachedResponse) {
+                        console.log('[SW] API aus Cache geladen:', url.pathname);
+                        return cachedResponse;
+                    }
+                    
+                    // Letzter Fallback für kritische APIs
+                    if (url.pathname.includes('/api/')) {
+                        return new Response(
+                            JSON.stringify({
+                                success: false,
+                                error: 'Offline - keine Daten verfügbar',
+                                offline: true
+                            }),
+                            {
+                                headers: { 'Content-Type': 'application/json' },
+                                status: 503
+                            }
+                        );
+                    }
+                    
+                    throw new Error('Offline und keine Cache-Daten verfügbar');
+                });
+            })
+        );
+        return;
+    }
+    
+    // Für alle anderen Requests: Standard-Verhalten
+    event.respondWith(fetch(request));
+});
+
+// Push-Notifications (für zukünftige Erweiterungen)
 self.addEventListener('push', (event) => {
-  const options = {
-    body: event.data ? event.data.text() : 'Neue Nachricht!',
-    icon: '/static/icons/icon-192x192.png',
-    badge: '/static/icons/icon-72x72.png',
-    tag: 'hochzeitsplaner-notification'
-  };
-
-  event.waitUntil(
-    self.registration.showNotification('Hochzeitsplaner', options)
-  );
+    console.log('[SW] Push-Nachricht empfangen:', event);
+    
+    if (event.data) {
+        const data = event.data.json();
+        const options = {
+            body: data.body || 'Neue Nachricht vom Hochzeitsplaner',
+            icon: '/static/icons/apple-touch-icon.png',
+            badge: '/static/icons/apple-touch-icon.png',
+            tag: 'hochzeitsplaner-notification',
+            renotify: true,
+            requireInteraction: false,
+            actions: [
+                {
+                    action: 'open',
+                    title: 'Öffnen'
+                },
+                {
+                    action: 'close',
+                    title: 'Schließen'
+                }
+            ]
+        };
+        
+        event.waitUntil(
+            self.registration.showNotification(data.title || 'Hochzeitsplaner', options)
+        );
+    }
 });
+
+// Notification-Click Handling
+self.addEventListener('notificationclick', (event) => {
+    console.log('[SW] Notification wurde geklickt:', event);
+    
+    event.notification.close();
+    
+    if (event.action === 'open' || !event.action) {
+        event.waitUntil(
+            clients.openWindow('/')
+        );
+    }
+});
+
+// Hintergrund-Sync (für zukünftige Offline-Synchronisation)
+self.addEventListener('sync', (event) => {
+    console.log('[SW] Hintergrund-Sync ausgelöst:', event.tag);
+    
+    if (event.tag === 'background-sync') {
+        event.waitUntil(
+            // Hier könnten Offline-Änderungen synchronisiert werden
+            Promise.resolve()
+        );
+    }
+});
+
+// Fehlerbehandlung
+self.addEventListener('error', (event) => {
+    console.error('[SW] Service Worker Fehler:', event.error);
+});
+
+self.addEventListener('unhandledrejection', (event) => {
+    console.error('[SW] Unbehandelte Promise-Ablehnung:', event.reason);
+});
+
+console.log('[SW] Service Worker geladen und bereit');
