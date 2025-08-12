@@ -8,7 +8,7 @@ const DEBUG_GUEST_DASHBOARD = false;
 // Debug-Helper-Funktion
 function debugLog(...args) {
     if (DEBUG_GUEST_DASHBOARD) {
-        console.log('[Guest Dashboard DEBUG]', ...args);
+
     }
 }
 
@@ -75,27 +75,27 @@ function initializeTooltips() {
     tooltipTriggerList.forEach(function(tooltipTriggerEl) {
         new bootstrap.Tooltip(tooltipTriggerEl);
     });
-    //debugLog('✨ Bootstrap Tooltips initialisiert für', tooltipTriggerList.length, 'Elemente');
+    debugLog('✨ Bootstrap Tooltips initialisiert für', tooltipTriggerList.length, 'Elemente');
 }
 
 /**
  * Tab Navigation für Mobile Setup
  */
 function initializeTabNavigation() {
-    //debugLog('📱 Initializing tab navigation for mobile experience');
+    debugLog('📱 Initializing tab navigation for mobile experience');
     
     // Bootstrap Tab Events für bessere UX
     const triggerTabList = document.querySelectorAll('#guestDashboardTabs button');
     triggerTabList.forEach(triggerEl => {
         triggerEl.addEventListener('shown.bs.tab', function(event) {
             const targetTab = event.target.getAttribute('data-bs-target');
-            //debugLog('📱 Tab switched to:', targetTab);
+            debugLog('📱 Tab switched to:', targetTab);
             
             // Bei Location Tab - Karten neu initialisieren falls nötig
             if (targetTab === '#locations-pane') {
                 setTimeout(() => {
                     if (typeof initializeOpenStreetMap === 'function') {
-                        //debugLog('🗺️ Re-initializing maps for location tab');
+                        debugLog('🗺️ Re-initializing maps for location tab');
                         initializeOpenStreetMap();
                     }
                 }, 100);
@@ -125,7 +125,7 @@ function checkAndSwitchToAppropriateTab() {
     const guestStatus = document.getElementById('guestStatus');
     if (guestStatus && guestStatus.value === 'Zugesagt') {
         // Wenn bereits zugesagt, könnte Zeitplan interessant sein
-        //debugLog('📱 Guest confirmed - zeitplan could be interesting');
+        debugLog('📱 Guest confirmed - zeitplan could be interesting');
         // Badge/Indikator wurde entfernt - kein Ausrufezeichen mehr
     }
 }
@@ -136,11 +136,18 @@ let locationsData = null;
 let guestInformationen = null;
 
 function loadLocationData() {
-    //debugLog('🔄 Loading location data...');
+    debugLog('🔄 Loading location data...');
     
-    apiRequest('/guest/location')
+    fetch('/api/guest/location')
+        .then(response => {
+            debugLog('📡 Location API response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
-            //debugLog('📍 Location data received:', data);
+            debugLog('📍 Location data received:', data);
             locationsData = data;
             
             // Locations in Karten-Cards anzeigen
@@ -168,10 +175,10 @@ function loadLocationData() {
 }
 
 async function initializeOpenStreetMap() {
-    //debugLog('🗺️ initializeOpenStreetMap called');
+    debugLog('🗺️ initializeOpenStreetMap called');
     
     if (!locationsData || !locationsData.success) {
-        //debugLog('⚠️ No locations data available for maps');
+        debugLog('⚠️ No locations data available for maps');
         return;
     }
 
@@ -185,11 +192,11 @@ async function initializeOpenStreetMap() {
         
         while (!osmReady && attempts < maxAttempts) {
             attempts++;
-            //debugLog(`🔄 OSM-Initialisierungsversuch ${attempts}/${maxAttempts}`);
+            debugLog(`🔄 OSM-Initialisierungsversuch ${attempts}/${maxAttempts}`);
             
             // Prüfe ob OpenStreetMap verfügbar ist
             if (typeof window.openStreetMap === 'undefined') {
-                //debugLog(`⏳ Warte auf OpenStreetMap-Laden... (Versuch ${attempts})`);
+                debugLog(`⏳ Warte auf OpenStreetMap-Laden... (Versuch ${attempts})`);
                 await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
                 continue;
             }
@@ -199,13 +206,13 @@ async function initializeOpenStreetMap() {
             const maxLeafletWait = 10;
             
             while ((!window.openStreetMap.initialized || typeof L === 'undefined') && leafletWait < maxLeafletWait) {
-                //debugLog(`⏳ Warte auf Leaflet... (${maxLeafletWait - leafletWait}s verbleibend)`);
+                debugLog(`⏳ Warte auf Leaflet... (${maxLeafletWait - leafletWait}s verbleibend)`);
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 leafletWait++;
             }
             
             if (leafletWait >= maxLeafletWait) {
-                //debugLog(`❌ Leaflet-Timeout nach ${maxLeafletWait}s (Versuch ${attempts})`);
+                debugLog(`❌ Leaflet-Timeout nach ${maxLeafletWait}s (Versuch ${attempts})`);
                 if (attempts < maxAttempts) {
                     await new Promise(resolve => setTimeout(resolve, 2000));
                     continue;
@@ -215,7 +222,7 @@ async function initializeOpenStreetMap() {
             
             // Prüfe ob alle erforderlichen Funktionen verfügbar sind
             if (typeof window.openStreetMap.createSimpleLocationMap !== 'function') {
-                //debugLog(`⏳ OpenStreetMap-Funktionen noch nicht bereit... (Versuch ${attempts})`);
+                debugLog(`⏳ OpenStreetMap-Funktionen noch nicht bereit... (Versuch ${attempts})`);
                 if (attempts < maxAttempts) {
                     await new Promise(resolve => setTimeout(resolve, 1500));
                     continue;
@@ -223,12 +230,12 @@ async function initializeOpenStreetMap() {
                 break;
             }
             
-            //debugLog('✅ OpenStreetMap und Leaflet erfolgreich initialisiert');
+            debugLog('✅ OpenStreetMap und Leaflet erfolgreich initialisiert');
             osmReady = true;
         }
         
         if (!osmReady) {
-            //debugLog('❌ OSM-Initialisierung nach allen Versuchen fehlgeschlagen, verwende Fallback');
+            debugLog('❌ OSM-Initialisierung nach allen Versuchen fehlgeschlagen, verwende Fallback');
             initializeFallbackMaps();
             return;
         }
@@ -238,7 +245,7 @@ async function initializeOpenStreetMap() {
         // Standesamt Kartenvorschau
         const standesamtContainer = document.getElementById('guestStandesamtMapPreview');
         if (locations.standesamt && locations.standesamt.adresse) {
-            //debugLog('🗺️ Creating OpenStreetMap for Standesamt');
+            debugLog('🗺️ Creating OpenStreetMap for Standesamt');
             const success = await createGuestLocationMap('standesamt', locations.standesamt);
             if (success) hasAnyMaps = true;
             
@@ -247,7 +254,7 @@ async function initializeOpenStreetMap() {
                 standesamtContainer.style.display = 'block';
             }
         } else {
-            //debugLog('🚫 Standesamt access denied or no data - hiding container');
+            debugLog('🚫 Standesamt access denied or no data - hiding container');
             // Container verstecken
             if (standesamtContainer) {
                 standesamtContainer.style.display = 'none';
@@ -256,7 +263,7 @@ async function initializeOpenStreetMap() {
         
         // Hochzeitslocation Kartenvorschau  
         if (locations.hochzeitslocation && locations.hochzeitslocation.adresse) {
-            //debugLog('🗺️ Creating OpenStreetMap for Hochzeitslocation');
+            debugLog('🗺️ Creating OpenStreetMap for Hochzeitslocation');
             const success = await createGuestLocationMap('hochzeitslocation', locations.hochzeitslocation);
             if (success) hasAnyMaps = true;
         }
@@ -268,14 +275,14 @@ async function initializeOpenStreetMap() {
                 mapSection.style.display = 'block';
             }
         } else {
-            //debugLog('❌ Keine Karten erstellt, verwende Fallback');
+            debugLog('❌ Keine Karten erstellt, verwende Fallback');
             initializeFallbackMaps();
         }
         
-        //debugLog('✅ OpenStreetMap initialization completed, maps created:', hasAnyMaps);
+        debugLog('✅ OpenStreetMap initialization completed, maps created:', hasAnyMaps);
         
     } catch (error) {
-        //debugLog('❌ Error during OpenStreetMap initialization:', error);
+        debugLog('❌ Error during OpenStreetMap initialization:', error);
         initializeFallbackMaps();
     }
 }
@@ -285,7 +292,7 @@ async function createGuestLocationMap(locationType, locationData) {
     const mapPreviewId = `guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}MapPreview`;
     
     try {
-        //debugLog(`🗺️ Erstelle Gast-Karte für ${locationType}:`, locationData);
+        debugLog(`🗺️ Erstelle Gast-Karte für ${locationType}:`, locationData);
         
         const mapPreview = document.getElementById(mapPreviewId);
         if (mapPreview) {
@@ -298,7 +305,7 @@ async function createGuestLocationMap(locationType, locationData) {
         // Prüfe ob Container verfügbar ist
         const mapContainer = document.getElementById(mapContainerId);
         if (!mapContainer) {
-            //debugLog(`❌ Karten-Container ${mapContainerId} nicht gefunden`);
+            debugLog(`❌ Karten-Container ${mapContainerId} nicht gefunden`);
             showFallbackLocationMap(locationType, locationData);
             return false;
         }
@@ -311,14 +318,14 @@ async function createGuestLocationMap(locationType, locationData) {
             attempts++;
             
             if (window.openStreetMap && typeof window.openStreetMap.createSimpleLocationMap === 'function' && locationData.adresse) {
-                //debugLog(`✅ Versuch ${attempts}: Verwende OSM für ${locationType}: ${locationData.adresse}`);
+                debugLog(`✅ Versuch ${attempts}: Verwende OSM für ${locationType}: ${locationData.adresse}`);
                 
                 try {
                     let map;
                     
                     // Prüfe ob Parkplätze für diese Location vorhanden sind
                     if (locationData.parkplaetze && locationData.parkplaetze.length > 0) {
-                        //debugLog(`🅿️ Erstelle Karte mit ${locationData.parkplaetze.length} Parkplätzen für ${locationType}`);
+                        debugLog(`🅿️ Erstelle Karte mit ${locationData.parkplaetze.length} Parkplätzen für ${locationType}`);
                         
                         if (typeof window.openStreetMap.createLocationMapWithParking === 'function') {
                             map = await window.openStreetMap.createLocationMapWithParking(mapContainerId, locationData);
@@ -340,12 +347,12 @@ async function createGuestLocationMap(locationType, locationData) {
                     }
                     
                     if (map) {
-                        //debugLog(`✅ OSM-Karte für ${locationType} erfolgreich erstellt`);
+                        debugLog(`✅ OSM-Karte für ${locationType} erfolgreich erstellt`);
                         return true;
                     }
                     
                 } catch (osmError) {
-                    //debugLog(`❌ Versuch ${attempts} fehlgeschlagen:`, osmError);
+                    debugLog(`❌ Versuch ${attempts} fehlgeschlagen:`, osmError);
                     
                     if (attempts < maxAttempts) {
                         // Warte vor dem nächsten Versuch
@@ -354,7 +361,7 @@ async function createGuestLocationMap(locationType, locationData) {
                     }
                 }
             } else {
-                //debugLog(`⏳ Versuch ${attempts}: OSM noch nicht bereit, warte...`);
+                debugLog(`⏳ Versuch ${attempts}: OSM noch nicht bereit, warte...`);
                 
                 if (attempts < maxAttempts) {
                     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -366,12 +373,12 @@ async function createGuestLocationMap(locationType, locationData) {
         }
 
         // Fallback wenn alle OSM-Versuche fehlschlagen
-        //debugLog(`❌ Alle OSM-Versuche für ${locationType} fehlgeschlagen, verwende Fallback`);
+        debugLog(`❌ Alle OSM-Versuche für ${locationType} fehlgeschlagen, verwende Fallback`);
         showFallbackLocationMap(locationType, locationData);
         return false;
         
     } catch (error) {
-        //debugLog(`❌ Kritischer Fehler bei Kartenerstellung für ${locationType}:`, error);
+        debugLog(`❌ Kritischer Fehler bei Kartenerstellung für ${locationType}:`, error);
         showFallbackLocationMap(locationType, locationData);
         return false;
     }
@@ -379,10 +386,10 @@ async function createGuestLocationMap(locationType, locationData) {
 
 function initializeFallbackMaps() {
     // Fallback-Implementierung für Kartenvorschauen
-    //debugLog('initializeFallbackMaps called - creating fallback map previews');
+    debugLog('initializeFallbackMaps called - creating fallback map previews');
     
     if (!locationsData || !locationsData.success) {
-        //debugLog('No locations data available for fallback maps');
+        debugLog('No locations data available for fallback maps');
         return;
     }
     
@@ -391,14 +398,14 @@ function initializeFallbackMaps() {
     
     // Standesamt Kartenvorschau
     if (locations.standesamt && locations.standesamt.adresse) {
-        //debugLog('Creating fallback map preview for Standesamt');
+        debugLog('Creating fallback map preview for Standesamt');
         showFallbackLocationMap('standesamt', locations.standesamt);
         hasAnyMaps = true;
     }
     
     // Hochzeitslocation Kartenvorschau  
     if (locations.hochzeitslocation && locations.hochzeitslocation.adresse) {
-        //debugLog('Creating fallback map preview for Hochzeitslocation');
+        debugLog('Creating fallback map preview for Hochzeitslocation');
         showFallbackLocationMap('hochzeitslocation', locations.hochzeitslocation);
         hasAnyMaps = true;
     }
@@ -413,7 +420,7 @@ function initializeFallbackMaps() {
 }
 
 function showFallbackLocationMap(locationType, locationData) {
-    //debugLog(`Creating fallback map for ${locationType}:`, locationData);
+    debugLog(`Creating fallback map for ${locationType}:`, locationData);
     
     const mapContainerId = `guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}Map`;
     const mapPreviewId = `guest${locationType.charAt(0).toUpperCase() + locationType.slice(1)}MapPreview`;
@@ -422,7 +429,7 @@ function showFallbackLocationMap(locationType, locationData) {
     const mapPreview = document.getElementById(mapPreviewId);
     
     if (!mapContainer || !mapPreview) {
-        //debugLog(`Map elements not found for ${locationType}`);
+        debugLog(`Map elements not found for ${locationType}`);
         return;
     }
 
@@ -475,12 +482,12 @@ function displayLocationInformation(locations) {
     
     mapFrameElement.src = dataUrl;
     mapPreviewDiv.style.display = 'block';
-    //debugLog('Map link fallback created');
+    debugLog('Map link fallback created');
 }
 
 function displayLocationInfo() {
     if (!locationsData || !locationsData.success) {
-        //debugLog('⚠️ No location data available for display');
+        debugLog('⚠️ No location data available for display');
         return;
     }
     
@@ -503,9 +510,6 @@ function displayLocationInfo() {
         } else if (standesamtBeschreibungEl) {
             standesamtBeschreibungEl.style.display = 'none';
         }
-        
-        // Parkplatz-Informationen anzeigen
-        displayParkingInfo('standesamt', locations.standesamt);
     }
     
     // Hochzeitslocation Information in die Karten-Card laden
@@ -525,264 +529,23 @@ function displayLocationInfo() {
         } else if (hochzeitslocationBeschreibungEl) {
             hochzeitslocationBeschreibungEl.style.display = 'none';
         }
-        
-        // Parkplatz-Informationen anzeigen
-        displayParkingInfo('hochzeitslocation', locations.hochzeitslocation);
     }
     
-    //debugLog('✅ Location info loaded into map cards');
-}
-
-/**
- * Zeigt Parkplatz-Informationen mit Entfernung und Dauer in den Location-Cards an
- */
-async function displayParkingInfo(locationType, locationData) {
-    if (!locationData.parkplaetze || locationData.parkplaetze.length === 0) {
-        //debugLog(`ℹ️ Keine Parkplätze für ${locationType} konfiguriert`);
-        return;
-    }
-    
-    const parkingInfoEl = document.getElementById(`${locationType}ParkingInfo`);
-    const parkingListEl = document.getElementById(`${locationType}ParkingList`);
-    
-    if (!parkingInfoEl || !parkingListEl) {
-        //debugLog(`❌ Parkplatz-Container für ${locationType} nicht gefunden`);
-        return;
-    }
-    
-    // Haupt-Location geocodieren für Entfernungsberechnung
-    let mainLocationCoords = null;
-    if (window.openStreetMap && typeof window.openStreetMap.geocodeAddress === 'function') {
-        try {
-            const mainResult = await window.openStreetMap.geocodeAddress(locationData.adresse);
-            if (mainResult) {
-                mainLocationCoords = { lat: mainResult.lat, lng: mainResult.lng };
-                //debugLog(`📍 Haupt-Location geocodiert: ${mainLocationCoords.lat}, ${mainLocationCoords.lng}`);
-            }
-        } catch (error) {
-            //debugLog(`❌ Geocoding der Haupt-Location fehlgeschlagen:`, error);
-        }
-    }
-    
-    let parkingHtml = '';
-    
-    for (let i = 0; i < locationData.parkplaetze.length; i++) {
-        const parkplatz = locationData.parkplaetze[i];
-        const parkingAddress = parkplatz.address || parkplatz.adresse;
-        
-        // Basis-Parkplatz-Info
-        let parkingItemHtml = `
-            <div class="d-flex align-items-start mb-2">
-                <div class="me-2" style="margin-top: 2px;">
-                    <i class="bi bi-p-circle-fill" style="color: #007BFF; font-size: 0.9rem;"></i>
-                </div>
-                <div class="flex-grow-1">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <strong class="small" style="color: #333;">${parkplatz.name || `Parkplatz ${i + 1}`}</strong>
-                        </div>
-                        <div class="text-end" id="${locationType}Parking${i}Distance">
-                            <div class="spinner-border spinner-border-sm" style="width: 12px; height: 12px; color: #007BFF;" role="status">
-                                <span class="visually-hidden">Berechne...</span>
-                            </div>
-                        </div>
-                    </div>
-        `;
-        
-        if (parkingAddress) {
-            parkingItemHtml += `
-                    <div class="small text-muted mt-1">
-                        <i class="bi bi-geo-alt" style="font-size: 0.8rem;"></i>
-                        ${parkingAddress}
-                    </div>
-            `;
-        }
-        
-        if (parkplatz.beschreibung) {
-            parkingItemHtml += `
-                    <div class="small text-muted mt-1">
-                        <i class="bi bi-info-circle" style="font-size: 0.8rem;"></i>
-                        ${parkplatz.beschreibung}
-                    </div>
-            `;
-        }
-        
-        // Kosteninfo
-        if (parkplatz.kostenlos) {
-            parkingItemHtml += `
-                    <div class="small mt-1">
-                        <span class="badge" style="background-color: #d4edda; color: #155724; font-size: 0.7rem;">
-                            <i class="bi bi-check-circle-fill me-1"></i>Kostenlos
-                        </span>
-                    </div>
-            `;
-        } else if (parkplatz.kostenpflichtig) {
-            parkingItemHtml += `
-                    <div class="small mt-1">
-                        <span class="badge" style="background-color: #fff3cd; color: #856404; font-size: 0.7rem;">
-                            <i class="bi bi-exclamation-triangle-fill me-1"></i>Kostenpflichtig
-                        </span>
-                    </div>
-            `;
-        }
-        
-        parkingItemHtml += `
-                </div>
-            </div>
-        `;
-        
-        parkingHtml += parkingItemHtml;
-        
-        // Entfernung asynchron berechnen
-        if (mainLocationCoords && parkingAddress) {
-            calculateParkingDistance(locationType, i, parkingAddress, mainLocationCoords);
-        } else if (mainLocationCoords && parkplatz.lat && parkplatz.lng) {
-            calculateParkingDistanceFromCoords(locationType, i, 
-                { lat: parkplatz.lat, lng: parkplatz.lng }, mainLocationCoords);
-        }
-    }
-    
-    parkingListEl.innerHTML = parkingHtml;
-    parkingInfoEl.style.display = 'block';
-    
-    //debugLog(`✅ Parkplatz-Informationen für ${locationType} angezeigt (${locationData.parkplaetze.length} Parkplätze)`);
-}
-
-/**
- * Berechnet die Entfernung und Dauer zwischen Parkplatz und Location
- */
-async function calculateParkingDistance(locationType, parkingIndex, parkingAddress, mainLocationCoords) {
-    try {
-        // Parkplatz geocodieren
-        let parkingCoords = null;
-        if (window.openStreetMap && typeof window.openStreetMap.geocodeAddress === 'function') {
-            const parkingResult = await window.openStreetMap.geocodeAddress(parkingAddress);
-            if (parkingResult) {
-                parkingCoords = { lat: parkingResult.lat, lng: parkingResult.lng };
-            }
-        }
-        
-        if (!parkingCoords) {
-            updateParkingDistanceDisplay(locationType, parkingIndex, null, 'Adresse nicht gefunden');
-            return;
-        }
-        
-        await calculateParkingDistanceFromCoords(locationType, parkingIndex, parkingCoords, mainLocationCoords);
-        
-    } catch (error) {
-        //debugLog(`❌ Fehler bei Entfernungsberechnung für ${locationType} Parkplatz ${parkingIndex}:`, error);
-        updateParkingDistanceDisplay(locationType, parkingIndex, null, 'Berechnung fehlgeschlagen');
-    }
-}
-
-/**
- * Berechnet die Entfernung zwischen zwei Koordinaten
- */
-async function calculateParkingDistanceFromCoords(locationType, parkingIndex, parkingCoords, mainLocationCoords) {
-    try {
-        // Versuche echte Route via OSRM
-        let routeInfo = null;
-        if (window.openStreetMap && typeof window.openStreetMap.getWalkingRoute === 'function') {
-            try {
-                const route = await window.openStreetMap.getWalkingRoute(parkingCoords, mainLocationCoords);
-                if (route && route.distance) {
-                    routeInfo = {
-                        distance: Math.round(route.distance),
-                        duration: Math.round(route.duration / 60), // Sekunden zu Minuten
-                        isReal: true
-                    };
-                }
-            } catch (routeError) {
-                //debugLog(`⚠️ OSRM-Route fehlgeschlagen, verwende Luftlinie:`, routeError);
-            }
-        }
-        
-        // Fallback: Luftlinie berechnen
-        if (!routeInfo) {
-            const distance = calculateStraightLineDistance(parkingCoords, mainLocationCoords);
-            routeInfo = {
-                distance: Math.round(distance),
-                duration: Math.round(distance / 80), // ca. 80m/min Gehgeschwindigkeit
-                isReal: false
-            };
-        }
-        
-        updateParkingDistanceDisplay(locationType, parkingIndex, routeInfo);
-        
-    } catch (error) {
-        //debugLog(`❌ Fehler bei Koordinaten-Entfernungsberechnung:`, error);
-        updateParkingDistanceDisplay(locationType, parkingIndex, null, 'Berechnung fehlgeschlagen');
-    }
-}
-
-/**
- * Berechnet die Luftlinie zwischen zwei Koordinaten (Haversine-Formel)
- */
-function calculateStraightLineDistance(coord1, coord2) {
-    const R = 6371000; // Erdradius in Metern
-    const dLat = (coord2.lat - coord1.lat) * Math.PI / 180;
-    const dLng = (coord2.lng - coord1.lng) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(coord1.lat * Math.PI / 180) * Math.cos(coord2.lat * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-}
-
-/**
- * Aktualisiert die Entfernungsanzeige in der UI
- */
-function updateParkingDistanceDisplay(locationType, parkingIndex, routeInfo, errorMessage = null) {
-    const distanceEl = document.getElementById(`${locationType}Parking${parkingIndex}Distance`);
-    if (!distanceEl) return;
-    
-    if (errorMessage) {
-        distanceEl.innerHTML = `
-            <div class="small text-muted">
-                <i class="bi bi-exclamation-triangle" style="color: #ffc107;"></i>
-                ${errorMessage}
-            </div>
-        `;
-        return;
-    }
-    
-    if (!routeInfo) {
-        distanceEl.innerHTML = `
-            <div class="small text-muted">
-                <i class="bi bi-dash-circle"></i>
-                Nicht verfügbar
-            </div>
-        `;
-        return;
-    }
-    
-    const distanceText = routeInfo.distance >= 1000 
-        ? `${(routeInfo.distance / 1000).toFixed(1)} km`
-        : `${routeInfo.distance} m`;
-    
-    const routeIcon = routeInfo.isReal 
-        ? '<i class="bi bi-signpost-2" style="color: #007BFF;"></i>'
-        : '<i class="bi bi-arrow-up-right" style="color: #6c757d;"></i>';
-    
-    const routeTitle = routeInfo.isReal ? 'Fußweg über Straßen' : 'Luftlinie (geschätzt)';
-    
-    distanceEl.innerHTML = `
-        <div class="small text-end" title="${routeTitle}">
-            <div style="color: #007BFF; font-weight: 500;">
-                ${routeIcon}
-                ${distanceText}
-            </div>
-        </div>
-    `;
+    debugLog('✅ Location info loaded into map cards');
 }
 
 function loadGuestInformationen() {
-    //debugLog('Loading guest informationen...');
-    apiRequest('/guest/informationen').then(data  => {
-            //debugLog('Guest informationen data received:', data);
+    debugLog('Loading guest informationen...');
+    fetch('/api/guest/informationen')
+        .then(response => {
+            debugLog('Guest informationen API response status:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            debugLog('Guest informationen data received:', data);
             if (data.success && data.informationen) {
                 guestInformationen = data.informationen;
-                //debugLog('✅ guestInformationen gesetzt:', guestInformationen);
+                debugLog('✅ guestInformationen gesetzt:', guestInformationen);
                 
                 // Informationen anzeigen
                 displayGuestInformationen();
@@ -810,27 +573,25 @@ function loadGuestInformationen() {
 
 function displayGuestInformationen() {
     if (!guestInformationen) {
-        //debugLog('No guest informationen to display');
+        debugLog('No guest informationen to display');
         return;
     }
     
     const informationenContainer = document.getElementById('guestInformationenContainer');
     if (!informationenContainer) {
-        //debugLog('Guest informationen container not found');
+        debugLog('Guest informationen container not found');
         return;
     }
     
     let html = '';
     
-    // Personenanzahl ermitteln für richtige Textauswahl (wird für alle Sektionen benötigt)
-    const personenAnzahlInput = document.getElementById('personenAnzahl');
-    const currentPersonen = personenAnzahlInput ? 
-        (parseInt(personenAnzahlInput.max) || parseInt(personenAnzahlInput.value) || 1) : 1;
-    const isPlural = currentPersonen > 1;
-    
     // Kontakt Information
     if (guestInformationen.kontakt) {
         html += '<h6><i class="bi bi-envelope me-2"></i>Kontakt</h6>';
+        
+        // Personenanzahl ermitteln für richtige Textauswahl
+        const personenAnzahlInput = document.getElementById('personenAnzahl');
+        const isPlural = personenAnzahlInput ? parseInt(personenAnzahlInput.max) > 1 : false;
         
         const kontaktText = isPlural ? 
             (guestInformationen.kontakt.mehrere || 'Bei Fragen könnt ihr euch gerne an uns wenden.') :
@@ -856,19 +617,13 @@ function displayGuestInformationen() {
     // Geschenke Information
     if (guestInformationen.geschenke) {
         html += '<h6><i class="bi bi-gift me-2"></i>Geschenke</h6>';
-        const geschenkeText = isPlural ? 
-            (guestInformationen.geschenke.mehrere || guestInformationen.geschenke.einzelperson || 'Über euer Kommen freuen wir uns am meisten!') :
-            (guestInformationen.geschenke.einzelperson || guestInformationen.geschenke.mehrere || 'Über dein Kommen freuen wir uns am meisten!');
-        html += `<div class="alert alert-success">${geschenkeText}</div>`;
+        html += `<div class="alert alert-success">${guestInformationen.geschenke.einzelperson || guestInformationen.geschenke.mehrere || 'Über euer Kommen freuen wir uns am meisten!'}</div>`;
     }
     
     // Dresscode Information
     if (guestInformationen.dresscode) {
         html += '<h6><i class="bi bi-person-check me-2"></i>Dresscode</h6>';
-        const dresscodeText = isPlural ? 
-            (guestInformationen.dresscode.mehrere || guestInformationen.dresscode.einzelperson || 'Festliche Kleidung erwünscht.') :
-            (guestInformationen.dresscode.einzelperson || guestInformationen.dresscode.mehrere || 'Festliche Kleidung erwünscht.');
-        html += `<div class="alert alert-warning">${dresscodeText}</div>`;
+        html += `<div class="alert alert-warning">${guestInformationen.dresscode.einzelperson || guestInformationen.dresscode.mehrere || 'Festliche Kleidung erwünscht.'}</div>`;
     }
     
     if (html === '') {
@@ -884,26 +639,26 @@ function displayGuestInformationen() {
 }
 
 function loadGuestData() {
-    //debugLog('🔄 Loading guest data...');
+    debugLog('🔄 Loading guest data...');
     const guestId = new URLSearchParams(window.location.search).get('id');
     
     if (!guestId) {
-        //debugLog('ℹ️ No guest ID provided in URL - loading session-based guest data');
+        debugLog('ℹ️ No guest ID provided in URL - loading session-based guest data');
         // Für eingeloggte Gäste laden wir Session-Daten
         loadSessionGuestData();
         return;
     }
     
-    apiRequest(`/guest/data?id=${guestId}`)
+    fetch(`/api/guest/data?id=${guestId}`)
         .then(response => {
-            //debugLog('📊 Guest data API response status:', response.status);
+            debugLog('📊 Guest data API response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            //debugLog('📊 Guest data received:', data);
+            debugLog('📊 Guest data received:', data);
             displayGuestData(data);
         })
         .catch(error => {
@@ -917,18 +672,18 @@ function loadGuestData() {
 
 // Neue Funktion für Session-basierte Gäste
 function loadSessionGuestData() {
-    //debugLog('🔄 Loading session-based guest data...');
+    debugLog('🔄 Loading session-based guest data...');
     
-    apiRequest('/guest/data')
+    fetch('/api/guest/data')
         .then(response => {
-            //debugLog('📊 Session guest data API response status:', response.status);
+            debugLog('📊 Session guest data API response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            //debugLog('📊 Session guest data received:', data);
+            debugLog('📊 Session guest data received:', data);
             if (data.success && data.guest) {
                 updateGuestFormLimits(data.guest);
             }
@@ -940,7 +695,7 @@ function loadSessionGuestData() {
 
 // Neue Funktion um Formular-Limits zu setzen
 function updateGuestFormLimits(guestData) {
-    //debugLog('🔧 Updating form limits for guest:', guestData);
+    debugLog('🔧 Updating form limits for guest:', guestData);
     
     const personenAnzahlInput = document.getElementById('personenAnzahl');
     const maxPersonenSpan = document.getElementById('maxPersonen');
@@ -960,7 +715,7 @@ function updateGuestFormLimits(guestData) {
         // Neue Funktion: Update der Plural-/Singular-Texte
         updatePluralTexts(maxPersonen);
         
-        //debugLog(`✅ Person limits updated: max=${maxPersonen}, current=${personenAnzahlInput.value}`);
+        debugLog(`✅ Person limits updated: max=${maxPersonen}, current=${personenAnzahlInput.value}`);
     }
     
     // Status und Notiz aus den Daten setzen
@@ -975,7 +730,7 @@ function updateGuestFormLimits(guestData) {
     // Timestamp für Conflict Detection speichern
     if (guestData.last_modified) {
         lastModified = guestData.last_modified;
-        //debugLog('🕒 Last modified timestamp loaded:', lastModified);
+        debugLog('🕒 Last modified timestamp loaded:', lastModified);
     }
 }
 
@@ -1029,7 +784,7 @@ function updatePluralTexts(personenanzahl) {
             : 'Du möchtest deine persönliche Einladung nochmal ansehen? Hier kannst du sie erneut öffnen.';
     }
     
-    //debugLog(`✅ Plural texts updated for ${personenanzahl} person(s), isPlural: ${isPlural}`);
+    debugLog(`✅ Plural texts updated for ${personenanzahl} person(s), isPlural: ${isPlural}`);
 }
 
 // Hilfsfunktion für die Aktualisierung der Informationen-Texte
@@ -1086,12 +841,12 @@ function updateWhatsAppButton() {
     const whatsappContainer = document.getElementById('whatsappContainer');
     const whatsappLink = document.getElementById('whatsappLink');
     
-    //debugLog('🔍 WhatsApp Button Debug:');
-    //debugLog('  - whatsappContainer gefunden:', !!whatsappContainer);
-    //debugLog('  - whatsappLink gefunden:', !!whatsappLink);
-    //debugLog('  - guestInformationen:', guestInformationen);
-    //debugLog('  - guestInformationen.kontakt:', guestInformationen?.kontakt);
-    //debugLog('  - whatsapp_nummer:', guestInformationen?.kontakt?.whatsapp_nummer);
+    debugLog('🔍 WhatsApp Button Debug:');
+    debugLog('  - whatsappContainer gefunden:', !!whatsappContainer);
+    debugLog('  - whatsappLink gefunden:', !!whatsappLink);
+    debugLog('  - guestInformationen:', guestInformationen);
+    debugLog('  - guestInformationen.kontakt:', guestInformationen?.kontakt);
+    debugLog('  - whatsapp_nummer:', guestInformationen?.kontakt?.whatsapp_nummer);
     
     // Quick-Fix: Nutze die WhatsApp-Nummer aus settings.json direkt
     const fallbackNumber = "+4915140737042";
@@ -1106,12 +861,12 @@ function updateWhatsAppButton() {
         whatsappLink.target = '_blank';
         whatsappContainer.style.display = 'block';
         
-        //debugLog('✅ WhatsApp-Button konfiguriert:', whatsappUrl);
+        debugLog('✅ WhatsApp-Button konfiguriert:', whatsappUrl);
     } else {
         if (whatsappContainer) {
             whatsappContainer.style.display = 'none';
         }
-        //debugLog('❌ WhatsApp-Button versteckt - Bedingung nicht erfüllt');
+        debugLog('❌ WhatsApp-Button versteckt - Bedingung nicht erfüllt');
     }
 }
 
@@ -1167,7 +922,7 @@ function displayMenuOptions(menuOptionen, ausgewaehlt) {
     const menuContainer = document.getElementById('menuOptions');
     
     if (!menuContainer) {
-        //debugLog('Menu container not found');
+        debugLog('Menu container not found');
         return;
     }
     
@@ -1199,7 +954,7 @@ function handleStatusChange() {
     const additionalFields = document.getElementById('additionalFields');
     
     if (!statusElement || !additionalFields) {
-        //debugLog('Status change elements not found');
+        debugLog('Status change elements not found');
         return;
     }
     
@@ -1246,15 +1001,18 @@ function saveRsvp() {
         last_modified: lastModified  // Timestamp für Conflict Detection
     };
     
-    //debugLog('Saving RSVP data:', rsvpData);
+    debugLog('Saving RSVP data:', rsvpData);
     
-    apiRequest('/guest/rsvp', {
+    fetch('/api/guest/rsvp', {
         method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
         body: JSON.stringify(rsvpData)
     })
     .then(response => response.json())
     .then(data => {
-        //debugLog('RSVP save response:', data);
+        debugLog('RSVP save response:', data);
         
         if (data.success) {
             // Timestamp aktualisieren für zukünftige Änderungen
@@ -1276,8 +1034,11 @@ function saveRsvp() {
                 rsvpData.last_modified = data.current_data.last_modified;
                 lastModified = data.current_data.last_modified;
                 
-                apiRequest('/guest/rsvp', {
+                fetch('/api/guest/rsvp', {
                     method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify(rsvpData)
                 })
                 .then(response => response.json())
@@ -1324,20 +1085,20 @@ function loadCurrentGuestData(currentData) {
 }
 
 function loadZeitplanPreview() {
-    //debugLog('🔄 Loading zeitplan preview...');
+    debugLog('🔄 Loading zeitplan preview...');
     
     const zeitplanPreviewDiv = document.getElementById('zeitplanPreview');
     
-    apiRequest('/guest/zeitplan_preview')
+    fetch('/api/guest/zeitplan_preview')
         .then(response => {
-            //debugLog('📅 Zeitplan API response status:', response.status);
+            debugLog('📅 Zeitplan API response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            //debugLog('📅 Zeitplan data received:', data);
+            debugLog('📅 Zeitplan data received:', data);
             displayZeitplanPreview(data);
         })
         .catch(error => {
@@ -1407,9 +1168,9 @@ function displayZeitplanPreview(response) {
 
 // Lade konfigurierbare Einladungsheader
 function loadInvitationHeaders() {
-    //debugLog('🔄 Loading invitation headers...');
+    debugLog('🔄 Loading invitation headers...');
     
-    apiRequest('/guest/invitation-headers')
+    fetch('/api/guest/invitation-headers')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -1450,9 +1211,9 @@ function loadInvitationHeaders() {
 
 // Neue Funktion für personalisierte Begrüßungsnachricht
 function updatePersonalizedWelcome() {
-    //debugLog('🔄 Updating personalized welcome message...');
+    debugLog('🔄 Updating personalized welcome message...');
     
-    apiRequest('/guest/data')
+    fetch('/api/guest/data')
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -1460,7 +1221,7 @@ function updatePersonalizedWelcome() {
             return response.json();
         })
         .then(data => {
-            //debugLog('📊 Guest data for welcome message:', data);
+            debugLog('📊 Guest data for welcome message:', data);
             if (data.success && data.guest) {
                 displayPersonalizedWelcome(data.guest);
             }
@@ -1575,7 +1336,7 @@ function showInfoMessage(message) {
  * Zeigt das Einladungsmodal an (First Login Modal)
  */
 function showInvitationModal() {
-    //debugLog("🎫 Opening invitation modal...");
+    debugLog("🎫 Opening invitation modal...");
     
     // Lade die personalisierte Nachricht und das Foto
     Promise.all([
@@ -1589,7 +1350,7 @@ function showInvitationModal() {
         const modal = new bootstrap.Modal(document.getElementById("firstLoginModal"));
         modal.show();
         
-        //debugLog("✅ Invitation modal opened");
+        debugLog("✅ Invitation modal opened");
     }).catch(error => {
 
         showErrorMessage("Fehler beim Laden der personalisierten Einladung.");
@@ -1602,7 +1363,7 @@ function showInvitationModal() {
  */
 async function loadPersonalizedMessage() {
     try {
-        const response = await apiRequest('/guest/first-login-message');
+        const response = await fetch("/api/guest/first-login-message");
         
         if (response.ok) {
             const result = await response.json();
@@ -1612,7 +1373,7 @@ async function loadPersonalizedMessage() {
                 if (welcomeText) {
                     welcomeText.innerHTML = result.message;
                     welcomeText.dataset.personalized = "true";
-                    //debugLog("✅ Personalisierte Nachricht geladen");
+                    debugLog("✅ Personalisierte Nachricht geladen");
                 }
                 
                 // Aktualisiere auch das Datum im Header falls verfügbar
@@ -1625,10 +1386,10 @@ async function loadPersonalizedMessage() {
                 }
             }
         } else {
-            //debugLog("⚠️ Personalisierte Nachricht konnte nicht geladen werden, verwende Fallback");
+            debugLog("⚠️ Personalisierte Nachricht konnte nicht geladen werden, verwende Fallback");
         }
     } catch (error) {
-        //debugLog("⚠️ Fehler beim Laden der personalisierten Nachricht:", error);
+        debugLog("⚠️ Fehler beim Laden der personalisierten Nachricht:", error);
         throw error; // Re-throw für Fehlerbehandlung in showInvitationModal
     }
 }
@@ -1639,7 +1400,7 @@ async function loadPersonalizedMessage() {
  */
 async function loadWeddingPhoto() {
     try {
-        const response = await apiRequest('/guest/wedding-photo');
+        const response = await fetch("/api/guest/wedding-photo");
         
         if (response.ok) {
             const result = await response.json();
@@ -1657,7 +1418,7 @@ async function loadWeddingPhoto() {
                     welcomeImageContainer.classList.remove("d-none");
                     welcomeImagePlaceholder.classList.add("d-none");
                     
-                    //debugLog("✅ Hochzeitsfoto für Einladung geladen");
+                    debugLog("✅ Hochzeitsfoto für Einladung geladen");
                 }
             } else {
                 // Kein Foto verfügbar - zeige Placeholder
@@ -1669,20 +1430,20 @@ async function loadWeddingPhoto() {
                     welcomeImagePlaceholder.classList.remove("d-none");
                 }
                 
-                //debugLog("ℹ️ Kein Hochzeitsfoto verfügbar, verwende Placeholder");
+                debugLog("ℹ️ Kein Hochzeitsfoto verfügbar, verwende Placeholder");
             }
         } else {
-            //debugLog("⚠️ Hochzeitsfoto konnte nicht geladen werden");
+            debugLog("⚠️ Hochzeitsfoto konnte nicht geladen werden");
         }
     } catch (error) {
-        //debugLog("⚠️ Fehler beim Laden des Hochzeitsfotos:", error);
+        debugLog("⚠️ Fehler beim Laden des Hochzeitsfotos:", error);
         throw error;
     }
 }
 
 // Map Navigation Functions
 function openInAppleMaps(locationType) {
-    //debugLog(`🗺️ Opening Apple Maps for ${locationType}`);
+    debugLog(`🗺️ Opening Apple Maps for ${locationType}`);
     
     if (!locationsData || !locationsData.success) {
         alert('Location-Daten sind noch nicht geladen. Bitte versuche es in einem Moment erneut.');
@@ -1712,7 +1473,7 @@ function openInAppleMaps(locationType) {
 }
 
 function openInGoogleMaps(locationType) {
-    //debugLog(`🗺️ Opening Google Maps for ${locationType}`);
+    debugLog(`🗺️ Opening Google Maps for ${locationType}`);
     
     if (!locationsData || !locationsData.success) {
         alert('Location-Daten sind noch nicht geladen. Bitte versuche es in einem Moment erneut.');
@@ -1734,25 +1495,25 @@ function openInGoogleMaps(locationType) {
 
 // Vollständigen Zeitplan für Gäste-Dashboard laden
 function loadCompleteZeitplan() {
-    //debugLog('🔄 Loading complete zeitplan for guest dashboard...');
+    debugLog('🔄 Loading complete zeitplan for guest dashboard...');
     
     const zeitplanContainer = document.getElementById('zeitplanComplete');
     
     if (!zeitplanContainer) {
-        //debugLog('❌ zeitplanComplete container not found');
+        debugLog('❌ zeitplanComplete container not found');
         return;
     }
     
-    apiRequest('/guest/zeitplan')
+    fetch('/api/guest/zeitplan')
         .then(response => {
-            //debugLog('📅 Zeitplan API response status:', response.status);
+            debugLog('📅 Zeitplan API response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            //debugLog('📅 Complete zeitplan data received:', data);
+            debugLog('📅 Complete zeitplan data received:', data);
             displayCompleteZeitplan(data);
         })
         .catch(error => {

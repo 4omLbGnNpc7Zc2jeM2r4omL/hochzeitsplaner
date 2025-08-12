@@ -3,19 +3,39 @@
 {% block title %}Einstellungen - {{ brautpaar_namen or "Brautpaar heiratet" }}{% endblock %}
 
 {% block content %}
+<!-- Wedding-Theme Alert Container -->
+<div class="container-fluid mb-3">
+    <div id="success-alert" class="alert alert-success alert-dismissible fade show d-none" role="alert" style="background: linear-gradient(135deg, var(--wedding-success), var(--wedding-light-gold)); border: 2px solid var(--wedding-success); color: var(--wedding-text-dark); border-radius: 12px; box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);">
+        <i class="bi bi-check-circle-fill me-2"></i>
+        <span id="success-message"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="filter: brightness(0.7);"></button>
+    </div>
+    
+    <div id="error-alert" class="alert alert-danger alert-dismissible fade show d-none" role="alert" style="background: linear-gradient(135deg, var(--wedding-danger), #ffebee); border: 2px solid var(--wedding-danger); color: var(--wedding-text-dark); border-radius: 12px; box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <span id="error-message"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="filter: brightness(0.7);"></button>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-12">
-        <h1 class="mb-4">Einstellungen</h1>
+        <h1 class="mb-4" style="color: var(--wedding-text-dark);">
+            <i class="bi bi-gear-fill me-2" style="color: var(--wedding-gold);"></i>
+            Einstellungen
+        </h1>
     </div>
 </div>
 
 <div class="row">
     <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <h5>Allgemeine Einstellungen</h5>
+        <div class="card mb-4" style="background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)); border: 2px solid var(--wedding-gold); border-radius: 15px; box-shadow: 0 8px 32px rgba(212, 175, 55, 0.1);">
+            <div class="card-header" style="background: var(--wedding-gold); color: var(--wedding-text-dark); border-radius: 13px 13px 0 0; border: none;">
+                <h5 class="mb-0">
+                    <i class="bi bi-person-gear me-2"></i>Allgemeine Einstellungen
+                </h5>
             </div>
-            <div class="card-body">
+            <div class="card-body" style="background: rgba(255, 255, 255, 0.9);">
                 <form id="settingsForm">
                     <div class="row">
                         <div class="col-md-6">
@@ -265,9 +285,6 @@
                                                             <div class="form-text">JPG, PNG oder GIF (max. 5MB)</div>
                                                         </div>
                                                         <div class="d-flex gap-2">
-                                                            <button type="button" class="btn btn-outline-primary btn-sm" id="compressImage" style="display: none;">
-                                                                <i class="bi bi-arrows-angle-contract me-1"></i>Komprimieren (640x480, niedrige Qualität)
-                                                            </button>
                                                             <button type="button" class="btn btn-outline-secondary btn-sm" id="convertToBlackWhite" style="display: none;">
                                                                 <i class="bi bi-palette me-1"></i>Zu Schwarz-Weiß
                                                             </button>
@@ -1074,19 +1091,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-// FORCE BROWSER CACHE REFRESH - 2025-08-11T20:20 - BRUTAL CACHE BREAK
-const cacheBustId = Date.now() + Math.random().toString(36).substr(2, 9);
-console.log('🔄 Loading einstellungen.js with cache bust ID:', cacheBustId);
-// FORCE RELOAD WITH NEW TIMESTAMP
-</script>
-<script>
-// ALLE HASH-FUNKTIONEN ELIMINIERT - CACHE BREAK v20250811202000
-window.NO_HASH_SYSTEM = true;
-window.VERSION = '20250811202000';
-console.log('🔥 BRUTALER CACHE BREAK AKTIV - VERSION:', window.VERSION);
-</script>
-<script src="{{ url_for('static', filename='js/einstellungen.js') }}?v={{ timestamp }}&cb={{ timestamp | string + '999' }}&brutal=20250811202000&force=true&nocache=1"></script>
+<script src="{{ url_for('static', filename='js/einstellungen.js') }}"></script>
 <script>
 // 2FA JavaScript Funktionen
 let currentTwoFASecret = null;
@@ -1256,5 +1261,31 @@ function downloadBackupCodes() {
     URL.revokeObjectURL(url);
 }
 </script>
+
+<!-- Wedding-Theme Bestätigungsmodal -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)); border: 2px solid var(--wedding-gold); border-radius: 15px; box-shadow: 0 10px 40px rgba(212, 175, 55, 0.3);">
+            <div class="modal-header" style="background: var(--wedding-gold); color: var(--wedding-text-dark); border-radius: 13px 13px 0 0; border: none;">
+                <h5 class="modal-title" id="confirmModalLabel">
+                    <i class="bi bi-question-circle-fill me-2"></i>Bestätigung erforderlich
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="filter: brightness(0.7);"></button>
+            </div>
+            <div class="modal-body" style="background: rgba(255, 255, 255, 0.9); color: var(--wedding-text-dark);">
+                <p id="confirmModalMessage">Sind Sie sicher?</p>
+            </div>
+            <div class="modal-footer" style="background: rgba(255, 255, 255, 0.9); border-top: 1px solid var(--wedding-gold); border-radius: 0 0 13px 13px;">
+                <button type="button" class="btn btn-wedding-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-wedding-primary" id="confirmModalConfirm">
+                    <i class="bi bi-check-circle me-1"></i>Bestätigen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 

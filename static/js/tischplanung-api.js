@@ -5,50 +5,49 @@ window.TischplanungAPI = {
     // Tische verwalten
     async loadTables() {
         try {
-            const response = await apiRequest('/tischplanung/tables');
-            return await response.json();
+            const data = await apiRequest('/tischplanung/tables');
+            return Array.isArray(data) ? data : (data.tables || []);
         } catch (error) {
-
+            console.error('Fehler beim Laden der Tische:', error);
             return [];
         }
     },
 
     async saveTable(tableData) {
         try {
-            const response = await apiRequest('/tischplanung/tables', {
+            const data = await apiRequest('/tischplanung/tables', {
                 method: 'POST',
                 body: JSON.stringify(tableData)
             });
-            return await response.json();
+            return data;
         } catch (error) {
-
+            console.error('Fehler beim Speichern des Tisches:', error);
             return { success: false, error: error.message };
         }
     },
 
     async updateTable(tableId, tableData) {
         try {
-            const response = await apiRequest(`/tischplanung/tables/${tableId}`, {
+            const data = await apiRequest(`/tischplanung/tables/${tableId}`, {
                 method: 'PUT',
                 body: JSON.stringify(tableData)
             });
-            return await response.json();
+            return data;
         } catch (error) {
-
+            console.error('Fehler beim Aktualisieren des Tisches:', error);
             return { success: false, error: error.message };
         }
     },
 
     async loadGuests() {
         try {
-            const response = await apiRequest('/gaeste/list');
-            const result = await response.json();
-            if (result.success && result.gaeste) {
-                return result.gaeste;
+            const data = await apiRequest('/gaeste/list');
+            if (data.success && data.gaeste) {
+                return data.gaeste;
             }
             return [];
         } catch (error) {
-
+            console.error('Fehler beim Laden der Gäste:', error);
             return [];
         }
     },
@@ -56,27 +55,27 @@ window.TischplanungAPI = {
     async saveGuest(guestData) {
         try {
             const method = guestData.id ? 'PUT' : 'POST';
-            const url = guestData.id ? `/api/gaeste/update/${guestData.id}` : '/api/gaeste/add';
+            const url = guestData.id ? `/gaeste/update/${guestData.id}` : '/gaeste/add';
             
-            const response = await apiRequest(url.replace('/api', ''), {
+            const data = await apiRequest(url, {
                 method: method,
                 body: JSON.stringify(guestData)
             });
-            return await response.json();
+            return data;
         } catch (error) {
-
+            console.error('Fehler beim Speichern des Gastes:', error);
             return { success: false, error: error.message };
         }
     },
 
     async deleteTable(tableId) {
         try {
-            const response = await apiRequest(`/tischplanung/tables/${tableId}`, {
+            const data = await apiRequest(`/tischplanung/tables/${tableId}`, {
                 method: 'DELETE'
             });
-            return await response.json();
+            return data;
         } catch (error) {
-
+            console.error('Fehler beim Löschen des Tisches:', error);
             return { success: false, error: error.message };
         }
     },
@@ -84,9 +83,8 @@ window.TischplanungAPI = {
     // Zuordnungen verwalten
     async loadAssignments(tableId = null) {
         try {
-            const url = tableId ? `/api/tischplanung/assignments?table_id=${tableId}` : '/api/tischplanung/assignments';
-            const response = await fetch(url);
-            const data = await response.json();
+            const url = tableId ? `/tischplanung/assignments?table_id=${tableId}` : '/tischplanung/assignments';
+            const data = await apiRequest(url);
             
             // Prüfe ob die Antwort ein Array ist oder in einem Wrapper
             if (Array.isArray(data)) {
@@ -96,7 +94,7 @@ window.TischplanungAPI = {
             } else if (data && data.success && Array.isArray(data.data)) {
                 return data.data;
             } else {
-
+                console.warn('Unerwartete Datenstruktur bei Assignments:', data);
                 return [];
             }
         } catch (error) {
@@ -188,49 +186,49 @@ window.TischplanungAPI = {
     // Beziehungen verwalten
     async loadRelationships(guestId = null) {
         try {
-            const url = guestId ? `/api/tischplanung/relationships?guest_id=${guestId}` : '/api/tischplanung/relationships';
-            const response = await fetch(url);
-            return await response.json();
+            const url = guestId ? `/tischplanung/relationships?guest_id=${guestId}` : '/tischplanung/relationships';
+            const data = await apiRequest(url);
+            return Array.isArray(data) ? data : (data.relationships || []);
         } catch (error) {
-
+            console.error('Fehler beim Laden der Beziehungen:', error);
             return [];
         }
     },
 
     async saveRelationship(relationshipData) {
         try {
-            const response = await apiRequest('/tischplanung/relationships', {
+            const data = await apiRequest('/tischplanung/relationships', {
                 method: 'POST',
                 body: JSON.stringify(relationshipData)
             });
-            return await response.json();
+            return data;
         } catch (error) {
-
+            console.error('Fehler beim Speichern der Beziehung:', error);
             return { success: false, error: error.message };
         }
     },
 
     async updateRelationship(relationshipId, relationshipData) {
         try {
-            const response = await apiRequest(`/tischplanung/relationships/${relationshipId}`, {
+            const data = await apiRequest(`/tischplanung/relationships/${relationshipId}`, {
                 method: 'PUT',
                 body: JSON.stringify(relationshipData)
             });
-            return await response.json();
+            return data;
         } catch (error) {
-
+            console.error('Fehler beim Aktualisieren der Beziehung:', error);
             return { success: false, error: error.message };
         }
     },
 
     async deleteRelationship(relationshipId) {
         try {
-            const response = await apiRequest(`/tischplanung/relationships/${relationshipId}`, {
+            const data = await apiRequest(`/tischplanung/relationships/${relationshipId}`, {
                 method: 'DELETE'
             });
-            return await response.json();
+            return data;
         } catch (error) {
-
+            console.error('Fehler beim Löschen der Beziehung:', error);
             return { success: false, error: error.message };
         }
     },
@@ -238,13 +236,13 @@ window.TischplanungAPI = {
     // Auto-Zuweisung
     async autoAssign(options = {}) {
         try {
-            const response = await apiRequest('/tischplanung/auto-assign', {
+            const data = await apiRequest('/tischplanung/auto-assign', {
                 method: 'POST',
                 body: JSON.stringify(options)
             });
-            return await response.json();
+            return data;
         } catch (error) {
-
+            console.error('Fehler bei Auto-Zuweisung:', error);
             return { success: false, error: error.message };
         }
     },

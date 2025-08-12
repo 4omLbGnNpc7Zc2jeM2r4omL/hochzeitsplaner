@@ -618,8 +618,7 @@
 {% block scripts %}
 <!-- Modulare Tischplanung JavaScript - Optimiert für bessere Performance -->
 <!-- WICHTIG: Globals zuerst laden für korrekte Initialisierung der Brautpaar-Namen -->
-<!-- Benachrichtigungssystem aus app.js -->
-<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<!-- app.js wird bereits in base.html geladen -->
 
 <!-- Tischplanung Module (Base-Module zuerst) -->
 <script src="{{ url_for('static', filename='js/tischplanung-globals.js') }}"></script>
@@ -866,17 +865,60 @@ function saveTableDetails() {
 
 // Hilfsfunktion um Tische zu zentrieren
 function centerTables() {
-    if (!window.tischplanung || !window.tischplanung.tables.length) {
-        alert('Keine Tische vorhanden');
+    // Prüfe verschiedene Datenquellen für Tische
+    let tablesToCenter = null;
+    let tableCount = 0;
+    
+    // 1. Versuche window.tischplanung.tables
+    if (window.tischplanung && window.tischplanung.tables && window.tischplanung.tables.length > 0) {
+        tablesToCenter = window.tischplanung.tables;
+        tableCount = tablesToCenter.length;
+        console.log('📊 Verwende window.tischplanung.tables:', tableCount, 'Tische');
+    }
+    // 2. Versuche globale tables Variable
+    else if (window.tables && window.tables.length > 0) {
+        tablesToCenter = window.tables;
+        tableCount = tablesToCenter.length;
+        console.log('📊 Verwende window.tables:', tableCount, 'Tische');
+    }
+    // 3. Versuche DOM-Extraktion
+    else {
+        const chart = document.getElementById('seatingChart');
+        if (chart) {
+            const tableElements = chart.querySelectorAll('.table-item');
+            if (tableElements.length > 0) {
+                tablesToCenter = Array.from(tableElements).map(el => {
+                    const id = el.getAttribute('data-table-id');
+                    const name = el.querySelector('.table-name')?.textContent || `Tisch ${id}`;
+                    return {
+                        id: parseInt(id),
+                        name: name,
+                        x_position: 100,
+                        y_position: 100
+                    };
+                });
+                tableCount = tablesToCenter.length;
+                console.log('📊 Verwende DOM-Extraktion:', tableCount, 'Tische');
+            }
+        }
+    }
+    
+    if (!tablesToCenter || tableCount === 0) {
+        console.warn('⚠️ Keine Tische gefunden:', {
+            'window.tischplanung.tables': window.tischplanung?.tables?.length || 0,
+            'window.tables': window.tables?.length || 0,
+            'DOM tables': document.querySelectorAll('.table-item').length
+        });
+        showNoTablesModal();
         return;
     }
     
     const chart = document.getElementById('seatingChart');
-    const tables = window.tischplanung.tables;
+    const tables = tablesToCenter; // Verwende die gefundenen Tische
     
     // Berechne optimale Matrix-Layout mit Kollisionserkennung
-    const tableCount = tables.length;
-    const tablesPerRow = Math.min(Math.ceil(Math.sqrt(tableCount)), 5); // Max 5 Tische pro Reihe
+    const tablesCount = tables.length;
+    const tablesPerRow = Math.min(Math.ceil(Math.sqrt(tablesCount)), 5); // Max 5 Tische pro Reihe
     const tableSize = 180; // Tischgröße (Breite/Höhe) - größer für weniger Überlappung
     const minSpacing = 200; // Mindestabstand zwischen Tischen - größer für keine Überlappung
     
@@ -885,7 +927,7 @@ function centerTables() {
     const availableHeight = chart.offsetHeight - 100; // 50px Rand oben und unten
     
     const spacingX = Math.max(minSpacing, Math.floor(availableWidth / tablesPerRow));
-    const rows = Math.ceil(tableCount / tablesPerRow);
+    const rows = Math.ceil(tablesCount / tablesPerRow);
     const spacingY = Math.max(minSpacing, Math.floor(availableHeight / rows));
     
     // Berechne Startposition um die Matrix zu zentrieren
@@ -924,10 +966,15 @@ function centerTables() {
     Promise.all(updatePromises).then(() => {
         // Nur einmal laden und rendern nach allen Updates
         window.tischplanung.loadTables().then(() => {
-
+            showCenterTablesSuccessModal(tables.length);
         });
     }).catch(error => {
-
+        console.error('❌ Fehler beim Speichern der Tischpositionen:', error);
+        if (window.showError) {
+            window.showError('Fehler beim Speichern der Tischpositionen');
+        } else {
+            alert('Fehler beim Speichern der Tischpositionen');
+        }
     });
 }
 
@@ -1588,6 +1635,144 @@ window.autoAssignGuests = autoAssignGuests;
 window.centerTables = centerTables;
 window.clearAllTablesConfirm = clearAllTablesConfirm;
 window.removeGuestFromTable = removeGuestFromTable;
+
+// Wedding-Theme Modal für "Keine Tische"
+function showNoTablesModal() {
+    // Prüfe alle verfügbaren Datenquellen
+    const tischplanungTables = window.tischplanung?.tables?.length || 0;
+    const globalTables = window.tables?.length || 0;
+    const domTableCount = document.querySelectorAll('.table-item').length;
+    
+    console.log('🔍 Debug showNoTablesModal:', {
+        'window.tischplanung.tables': tischplanungTables,
+        'window.tables': globalTables,
+        'DOM tables': domTableCount
+    });
+    
+    const modalHtml = `
+        <div class="modal fade modal-wedding" id="noTablesModal" tabindex="-1" aria-labelledby="noTablesModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content" style="background: linear-gradient(135deg, #f8f4e6 0%, #fff9e6 100%); border: 2px solid #d4af37;">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #d4af37, #b8941f); color: white; border-bottom: none;">
+                        <h5 class="modal-title" id="noTablesModalLabel">
+                            <i class="bi bi-info-circle me-2"></i>Tische zentrieren
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <div class="mb-4">
+                            <i class="bi bi-table" style="font-size: 4rem; color: #d4af37; opacity: 0.5;"></i>
+                        </div>
+                        <h4 style="color: #8b7355; margin-bottom: 1rem;">Keine Tische vorhanden</h4>
+                        <p style="color: #8b7355; font-size: 1.1rem;">
+                            Es wurden noch keine Tische erstellt, die zentriert werden können.
+                        </p>
+                        
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <div class="card" style="border: 1px solid #d4af37; background: rgba(212, 175, 55, 0.1);">
+                                    <div class="card-body">
+                                        <h6 style="color: #d4af37;">📊 Aktuelle Situation</h6>
+                                        <p class="mb-1" style="color: #8b7355;">Tischplanung-System: <strong>${tischplanungTables}</strong></p>
+                                        <p class="mb-1" style="color: #8b7355;">Globale Variable: <strong>${globalTables}</strong></p>
+                                        <p class="mb-0" style="color: #8b7355;">DOM Tische: <strong>${domTableCount}</strong></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card" style="border: 1px solid #8b7355; background: rgba(139, 115, 85, 0.1);">
+                                    <div class="card-body">
+                                        <h6 style="color: #8b7355;">💡 Nächste Schritte</h6>
+                                        <p class="mb-0" style="color: #8b7355;">
+                                            Erstellen Sie zuerst Tische über den 
+                                            <strong>"Tisch hinzufügen"</strong> Button
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="background: #f8f4e6; border-top: 1px solid #d4af37;">
+                        <button type="button" class="btn btn-wedding-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-check-circle me-2"></i>Verstanden
+                        </button>
+                        <button type="button" class="btn btn-wedding-primary" onclick="addNewTable(); bootstrap.Modal.getInstance(document.getElementById('noTablesModal')).hide();">
+                            <i class="bi bi-plus-circle me-2"></i>Tisch hinzufügen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Entferne existierendes Modal
+    const existingModal = document.getElementById('noTablesModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Füge neues Modal hinzu
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Modal anzeigen
+    const modal = new bootstrap.Modal(document.getElementById('noTablesModal'));
+    modal.show();
+}
+
+// Wedding-Theme Success Modal für Tische zentriert
+function showCenterTablesSuccessModal(tableCount) {
+    const modalHtml = `
+        <div class="modal fade modal-wedding" id="centerTablesSuccessModal" tabindex="-1" aria-labelledby="centerTablesSuccessModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content" style="background: linear-gradient(135deg, #f8f4e6 0%, #fff9e6 100%); border: 2px solid #d4af37;">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #d4af37, #b8941f); color: white; border-bottom: none;">
+                        <h5 class="modal-title" id="centerTablesSuccessModalLabel">
+                            <i class="bi bi-check-circle me-2"></i>Tische zentriert
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <div class="mb-3">
+                            <i class="bi bi-grid-3x3-gap" style="font-size: 3rem; color: #d4af37;"></i>
+                        </div>
+                        <h4 style="color: #8b7355; margin-bottom: 1rem;">Erfolgreich zentriert!</h4>
+                        <p style="color: #8b7355; font-size: 1.1rem;">
+                            <strong>${tableCount}</strong> Tische wurden in einem optimalen Matrix-Layout zentriert.
+                        </p>
+                        <div class="mt-3">
+                            <small style="color: #8b7355;">
+                                Die Tischpositionen wurden automatisch im Backend gespeichert.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="background: #f8f4e6; border-top: 1px solid #d4af37;">
+                        <button type="button" class="btn btn-wedding-primary" data-bs-dismiss="modal">
+                            <i class="bi bi-check-circle me-2"></i>Perfekt!
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Entferne existierendes Modal
+    const existingModal = document.getElementById('centerTablesSuccessModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Füge neues Modal hinzu
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Modal anzeigen und nach 3 Sekunden automatisch schließen
+    const modal = new bootstrap.Modal(document.getElementById('centerTablesSuccessModal'));
+    modal.show();
+    
+    // Auto-close nach 3 Sekunden für bessere UX
+    setTimeout(() => {
+        modal.hide();
+    }, 3000);
+}
 
 </script>
 {% endblock %}

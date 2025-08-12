@@ -1,42 +1,7 @@
-// Einstellungen JavaScript - ROBUSTES SYSTEM v2025-08-11-20:15 - NO HASH DEPENDENCIES
-// BROWSER CACHE BUSTER: 1723405030456
-// LAST MODIFIED: 2025-08-11T20:15:30.456Z
-// ROBUSTES SYSTEM OHNE HASH-ABHÄNGIGKEITEN - ALLE HASH-FUNKTIONEN ELIMINIERT
-
-console.log('🔄 JavaScript geladen - Version 2025-08-11-19:53 - FORCE REFRESH');
-
-// ROBUSTES SYSTEM OHNE HASH-ABHÄNGIGKEITEN
-// Einfache ID-Generierung basierend auf Zeitstempel und Zufallszahlen
-window.generateSimpleId = function(prefix = 'id') {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 1000);
-    return `${prefix}_${timestamp}_${random}`;
-};
-
-// Einfache Daten-Signatur basierend auf Länge und ersten/letzten Zeichen
-window.generateDataSignature = function(data) {
-    if (!data || typeof data !== 'string') return 'empty';
-    const length = data.length;
-    const start = data.substring(0, 10);
-    const end = data.substring(Math.max(0, length - 10));
-    return `len${length}_${start.replace(/[^a-zA-Z0-9]/g, '')}_${end.replace(/[^a-zA-Z0-9]/g, '')}`;
-};
-
-// Debugging-Information für das neue System
-console.log('✅ Robustes System ohne Hash-Abhängigkeiten initialisiert');
-console.log('✅ generateSimpleId verfügbar:', typeof window.generateSimpleId);
-console.log('✅ generateDataSignature verfügbar:', typeof window.generateDataSignature);
-console.log('✅ Test-ID:', window.generateSimpleId('test'));
-console.log('✅ Test-Signatur:', window.generateDataSignature('test-data-123'));
-
+// Einstellungen JavaScript
 document.addEventListener('DOMContentLoaded', function() {
 
-    // 🔧 Utility Functions
-    
-    // Das robuste System benötigt keine Hash-Funktionen mehr
-    console.log('🔧 Robustes System aktiv - keine Hash-Abhängigkeiten');
-    
-    // 🔧 Ende Utility Functions
+
     
     const settingsForm = document.getElementById('settingsForm');
     const resetButton = document.getElementById('resetSettings');
@@ -87,7 +52,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const firstLoginImageFile = document.getElementById('firstLoginImageFile');
     const clearUploadedImageBtn = document.getElementById('clearUploadedImage');
     const convertToBlackWhiteBtn = document.getElementById('convertToBlackWhite');
-    const compressImageBtn = document.getElementById('compressImage');
     
     if (firstLoginImage) {
         firstLoginImage.addEventListener('input', updateFirstLoginImagePreview);
@@ -104,10 +68,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (convertToBlackWhiteBtn) {
         convertToBlackWhiteBtn.addEventListener('click', convertCurrentImageToBlackWhite);
-    }
-    
-    if (compressImageBtn) {
-        compressImageBtn.addEventListener('click', compressCurrentImage);
     }
     
     // First Login Modal Buttons
@@ -188,10 +148,10 @@ async function loadSettings() {
         if (result.success && result.settings) {
             populateSettingsForm(result.settings);
         } else {
-            console.error('Fehler beim Laden der Einstellungen:', result.error || 'Unbekannter Fehler');
+            console.error('Settings loading failed:', result.error || 'Unknown error');
         }
     } catch (error) {
-        console.error('Fehler beim Laden der Einstellungen:', error);
+        console.error('Error loading settings:', error);
     }
 }
 
@@ -245,43 +205,17 @@ function populateSettingsForm(settings) {
         setTimeout(() => updateMapPreview(), 500);
     }
     
-    // First Login Modal Einstellungen - KORREKTE LOGIK MIT LARGE FLAG PRIORITÄT
-    const hasLargeFlag = settings.first_login_image_large;
-    const hasBase64Data = settings.first_login_image_data && settings.first_login_image_data.trim();
-    const hasImageUrl = settings.first_login_image && settings.first_login_image.trim();
-    
-    console.log('🔄 Populiere First Login Bild:');
-    console.log('🔄   - Large Flag:', !!hasLargeFlag);
-    console.log('🔄   - Base64 vorhanden:', !!hasBase64Data, hasBase64Data ? `(${hasBase64Data.length} Zeichen)` : '');
-    console.log('🔄   - URL vorhanden:', !!hasImageUrl);
-    
-    if (hasLargeFlag) {
-        // PRIORITÄT 1: Large Flag gesetzt - lade via separaten Endpunkt (Backend entfernt Base64 aus Settings)
-        console.log('�️ Large Flag erkannt - lade Bild via separaten Endpunkt...');
-        setTimeout(() => {
-            loadFirstLoginImageFromEndpoint();
-        }, 100);
-    } else if (hasBase64Data) {
-        // PRIORITÄT 2: Base64-Daten direkt aus Settings verwenden (fallback für kleinere Bilder)
-        document.getElementById('firstLoginImageData').value = settings.first_login_image_data;
-        showUploadedImagePreview(settings.first_login_image_data);
-        console.log('✅ Base64-Bild direkt aus Settings angezeigt');
-        
-        // URL-Feld ebenfalls setzen für Vollständigkeit
-        if (hasImageUrl) {
-            setInputValue('firstLoginImage', settings.first_login_image);
-        }
-    } else if (hasImageUrl) {
-        // PRIORITÄT 3: NUR wenn keine Base64-Daten und kein Large Flag, verwende URL
+    // First Login Modal Einstellungen
+    if (settings.first_login_image) {
         setInputValue('firstLoginImage', settings.first_login_image);
-        updateFirstLoginImagePreview();
-        console.log('✅ URL-Bild wird geladen');
-    } else {
-        console.log('📝 Kein First Login Bild konfiguriert - zeige Standard-Placeholder');
-        // Setze explizit leeren Zustand
-        document.getElementById('firstLoginImageData').value = '';
-        document.getElementById('firstLoginImage').value = '';
-        updateFirstLoginImagePreview();
+        updateFirstLoginImagePreview(); // Bildvorschau aktualisieren
+    }
+    
+    // First Login Modal Base64 Daten
+    if (settings.first_login_image_data) {
+        document.getElementById('firstLoginImageData').value = settings.first_login_image_data;
+        // Zeige Upload-Tab und Preview für hochgeladenes Bild
+        showUploadedImagePreview(settings.first_login_image_data);
     }
     
     if (settings.first_login_text) {
@@ -431,6 +365,11 @@ async function handleSaveSettings(event) {
             }
         },
         
+        // First Login Modal Einstellungen
+        first_login_image: getInputValue('firstLoginImage'),
+        first_login_image_data: getInputValue('firstLoginImageData'),
+        first_login_text: getInputValue('firstLoginText'),
+        
         // Einladungsheader und Ring-Emojis
         invitation_header: getInputValue('invitationHeader'),
         invitation_rings: getInputValue('invitationRings'),
@@ -484,93 +423,23 @@ async function handleSaveSettings(event) {
         }
     };
     
-    // First Login Modal Einstellungen - nur senden wenn sie verändert wurden oder explizit geleert
-    const firstLoginImage = getInputValue('firstLoginImage');
-    const firstLoginText = getInputValue('firstLoginText');
-    const firstLoginImageData = getInputValue('firstLoginImageData');
-    
-    // first_login_image nur senden wenn nicht leer
-    if (firstLoginImage && firstLoginImage.trim() !== '') {
-        formData.first_login_image = firstLoginImage;
-        console.log('First Login Image URL wird gespeichert:', firstLoginImage);
-    }
-    
-    // first_login_text nur senden wenn nicht leer  
-    if (firstLoginText && firstLoginText.trim() !== '') {
-        formData.first_login_text = firstLoginText;
-        console.log('First Login Text wird gespeichert (Länge:', firstLoginText.length, ')');
-    }
-    
-    // first_login_image_data nur senden wenn nicht leer
-    if (firstLoginImageData && firstLoginImageData.trim() !== '') {
-        formData.first_login_image_data = firstLoginImageData;
-        formData.first_login_image_data_force_save = true; // Explizites Flag zum Speichern
-        
-        // 🖼️ Frontend Logging: Detaillierte Image-Daten-Analyse
-        console.log('🖼️ Frontend Save - Image Data Analyse:');
-        console.log('🖼️   - Daten-Länge:', firstLoginImageData.length);
-        console.log('🖼️   - Daten-Format:', firstLoginImageData.substring(0, 50) + '...');
-        
-        // Hash für Debugging generieren (vereinfacht)
-        const imageDataHash = firstLoginImageData.length.toString(); // Einfache Längen-basierte ID
-        console.log('🖼️   - Frontend Hash:', imageDataHash);
-        console.log('🖼️   - Force Save Flag:', true);
-        
-        // Timestamp für Tracking
-        console.log('🖼️   - Save Timestamp:', new Date().toISOString());
-    } else {
-        console.log('🖼️ Frontend Save - Image Data leer - wird nicht überschrieben');
-    }
-    
     try {
         const result = await apiRequest('/settings/save', {
             method: 'POST',
-            body: JSON.stringify(formData)
+            body: JSON.stringify(formData),
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
         
         if (result.success) {
-            // 🖼️ Frontend Logging: Erfolgreiche Speicherung
-            console.log('✅ Frontend Save - Server Response:');
-            console.log('✅   - Success:', result.success);
-            console.log('✅   - Response Time:', new Date().toISOString());
-            
-            if (firstLoginImageData && firstLoginImageData.trim() !== '') {
-                console.log('✅   - Image Data wurde übertragen (Länge:', firstLoginImageData.length, ')');
-            }
-            
-            showAlert('Einstellungen erfolgreich gespeichert!', 'success');
-            
-            // Nach erfolgreichem Speichern: Aktualisiere die Bildvorschau falls Bilddaten gespeichert wurden
-            if (firstLoginImageData && firstLoginImageData.trim() !== '') {
-                console.log('🔄 Frontend Save - Starte Bildvorschau-Refresh...');
-                console.log('🔄   - Compressed Data Länge:', firstLoginImageData.length);
-                console.log('🔄   - Warte 1000ms für DB-Update...');
-                
-                // Verlängerte Verzögerung, damit die Datenbank Zeit hat zu aktualisieren
-                setTimeout(() => {
-                    console.log('🔄   - DB-Update sollte abgeschlossen sein');
-                    console.log('🔄   - Rufe loadFirstLoginImageFromEndpoint() mit Cache-Bust auf...');
-                    loadFirstLoginImageFromEndpoint();
-                    console.log('🔄   - Bildvorschau-Refresh gestartet');
-                }, 1000); // Erhöht von 500ms auf 1000ms
-            } else {
-                console.log('🔄 Frontend Save - Kein Bild-Refresh nötig (keine Bilddaten)');
-            }
+            showSuccess('Einstellungen erfolgreich gespeichert!');
         } else {
-            console.error('❌ Frontend Save - Server Fehler:');
-            console.error('❌   - Status:', response.status);
-            console.error('❌   - Success:', result.success);
-            console.error('❌   - Error:', result.error);
-            
-            showAlert('Fehler beim Speichern: ' + (result.error || 'Unbekannter Fehler'), 'danger');
+            showError('Fehler beim Speichern: ' + (result.error || 'Unbekannter Fehler'));
         }
     } catch (error) {
-        console.error('❌ Frontend Save - Exception:');
-        console.error('❌   - Error Message:', error.message);
-        console.error('❌   - Error Stack:', error.stack);
-        console.error('❌   - Timestamp:', new Date().toISOString());
-        
-        showAlert('Fehler beim Speichern der Einstellungen', 'danger');
+        console.error('Error saving settings:', error);
+        showError('Fehler beim Speichern der Einstellungen');
     }
 }
 
@@ -594,7 +463,7 @@ async function loadSystemInfo() {
         const budgetCategories = data.budget?.categories ? Object.keys(data.budget.categories).length : 0;
         document.getElementById('totalBudgetItems').textContent = budgetCategories;
     } catch (error) {
-
+        console.error('Error loading system info:', error);
     }
 }
 
@@ -910,11 +779,14 @@ async function createBackup() {
         document.getElementById('backupData').innerHTML = '<i class="bi bi-clock-history me-2"></i>Erstelle Backup...';
         document.getElementById('backupData').disabled = true;
         
-        const response = await apiRequest('/backup/create', {
-            method: 'POST'
+        const response = await fetch('/api/backup/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
         
-        if (response) {
+        if (response.ok) {
             // ZIP-File download
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
@@ -957,14 +829,6 @@ function updateFirstLoginImagePreview() {
         return;
     }
     
-    // ⚠️ WICHTIGER SCHUTZ: Prüfe ob Upload-Tab aktiv ist und Base64-Daten vorhanden sind
-    // Falls ja, dann NICHT das Bild überschreiben
-    const uploadTab = document.getElementById('upload-tab');
-    if (uploadTab && uploadTab.classList.contains('active') && imageData && imageData.value.trim()) {
-        console.log('🛡️ SCHUTZ: Upload-Tab ist aktiv und Base64-Daten vorhanden - ÜBERSPRINGE updateFirstLoginImagePreview');
-        return; // Frühzeitiger Exit um das hochgeladene Bild nicht zu überschreiben
-    }
-    
     // Prüfe zuerst auf hochgeladene Base64-Daten
     if (imageData && imageData.value.trim()) {
         imagePreview.src = imageData.value;
@@ -979,23 +843,19 @@ function updateFirstLoginImagePreview() {
         // Versuche das Bild zu laden
         const tempImg = new Image();
         tempImg.onload = function() {
-            // Bild erfolgreich geladen - komprimiere und konvertiere zu Schwarz-Weiß
-            console.log('🔗 URL-Bild geladen, starte Komprimierung und S/W-Konvertierung...');
-            convertImageToBlackAndWhite(imageUrl, function(compressedBwBase64Data) {
-                // Komprimierte Schwarz-Weiß Version in imageData speichern für das Speichern der Einstellungen
-                document.getElementById('firstLoginImageData').value = compressedBwBase64Data;
+            // Bild erfolgreich geladen - konvertiere zu Schwarz-Weiß und zeige Vorschau
+            convertImageToBlackAndWhite(imageUrl, function(bwBase64Data) {
+                // Schwarz-Weiß Version in imageData speichern für das Speichern der Einstellungen
+                document.getElementById('firstLoginImageData').value = bwBase64Data;
                 
-                console.log('🔗 URL-Bild komprimiert und konvertiert, Länge:', compressedBwBase64Data.length);
-                
-                // Zeige komprimierte Schwarz-Weiß Vorschau
-                imagePreview.src = compressedBwBase64Data;
+                // Zeige Schwarz-Weiß Vorschau
+                imagePreview.src = bwBase64Data;
                 imagePreview.style.display = 'block';
                 imagePlaceholder.style.display = 'none';
                 
                 // Zeige Buttons
                 document.getElementById('clearUploadedImage').style.display = 'inline-block';
                 document.getElementById('convertToBlackWhite').style.display = 'inline-block';
-                document.getElementById('compressImage').style.display = 'inline-block';
             });
         };
         tempImg.onerror = function() {
@@ -1007,7 +867,6 @@ function updateFirstLoginImagePreview() {
             // Verstecke Buttons
             document.getElementById('clearUploadedImage').style.display = 'none';
             document.getElementById('convertToBlackWhite').style.display = 'none';
-            document.getElementById('compressImage').style.display = 'none';
         };
         // CORS-Probleme vermeiden - versuche direkt zu laden
         tempImg.crossOrigin = 'anonymous';
@@ -1021,7 +880,6 @@ function updateFirstLoginImagePreview() {
         // Verstecke Buttons wenn kein Bild vorhanden
         document.getElementById('clearUploadedImage').style.display = 'none';
         document.getElementById('convertToBlackWhite').style.display = 'none';
-        document.getElementById('compressImage').style.display = 'none';
     }
 }
 
@@ -1029,20 +887,11 @@ function updateFirstLoginImagePreview() {
 function handleImageFileUpload(event) {
     const file = event.target.files[0];
     if (!file) {
-        console.log('📤 Frontend Upload - Kein File ausgewählt');
         return;
     }
     
-    // 📤 Frontend Logging: Upload-Process starten
-    console.log('📤 Frontend Upload - File Upload gestartet:');
-    console.log('📤   - Datei Name:', file.name);
-    console.log('📤   - Datei Größe:', file.size, 'bytes');
-    console.log('📤   - Datei Typ:', file.type);
-    console.log('📤   - Upload Timestamp:', new Date().toISOString());
-    
     // Dateigröße prüfen (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-        console.error('❌ Frontend Upload - Datei zu groß:', file.size);
         showToast('Fehler: Die Datei ist zu groß. Maximal 5MB sind erlaubt.', 'error');
         event.target.value = '';
         return;
@@ -1050,59 +899,35 @@ function handleImageFileUpload(event) {
     
     // Dateityp prüfen
     if (!file.type.startsWith('image/')) {
-        console.error('❌ Frontend Upload - Ungültiger Dateityp:', file.type);
         showToast('Fehler: Nur Bilddateien sind erlaubt.', 'error');
         event.target.value = '';
         return;
     }
     
-    console.log('✅ Frontend Upload - Datei-Validierung erfolgreich');
-    
     const reader = new FileReader();
     reader.onload = function(e) {
         const originalBase64 = e.target.result;
         
-        // 📤 Frontend Logging: Base64 Konvertierung
-        console.log('📤 Frontend Upload - Base64 Konvertierung:');
-        console.log('📤   - Original Base64 Länge:', originalBase64.length);
-        console.log('📤   - Original Format:', originalBase64.substring(0, 50) + '...');
-        
         // Bild in Schwarz-Weiß umwandeln
         convertImageToBlackAndWhite(originalBase64, function(bwBase64Data) {
-            // 📤 Frontend Logging: S/W Konvertierung
-            console.log('📤 Frontend Upload - S/W Konvertierung abgeschlossen:');
-            console.log('📤   - S/W Base64 Länge:', bwBase64Data.length);
-            console.log('📤   - S/W Format:', bwBase64Data.substring(0, 50) + '...');
-            
-            // Hash für Debugging generieren (vereinfacht)
-            const uploadHash = bwBase64Data.length.toString(); // Einfache Längen-basierte ID
-            console.log('📤   - Upload Hash:', uploadHash);
-            
             // Schwarz-Weiß Base64-Daten in Hidden Field speichern
             document.getElementById('firstLoginImageData').value = bwBase64Data;
-            console.log('📤   - Daten in DOM-Element gespeichert');
             
             // URL-Field leeren wenn Datei hochgeladen wird
             document.getElementById('firstLoginImage').value = '';
-            console.log('📤   - URL-Field geleert');
             
             // Vorschau aktualisieren
             updateFirstLoginImagePreview();
-            console.log('📤   - Vorschau aktualisiert');
             
             // Buttons zeigen
             document.getElementById('clearUploadedImage').style.display = 'inline-block';
             document.getElementById('convertToBlackWhite').style.display = 'inline-block';
-            document.getElementById('compressImage').style.display = 'inline-block';
-            console.log('📤   - UI-Buttons aktiviert');
             
-            console.log('✅ Frontend Upload - Vollständig abgeschlossen');
             showToast('Bild erfolgreich hochgeladen und in Schwarz-Weiß umgewandelt!', 'success');
         });
     };
     
     reader.onerror = function() {
-        console.error('❌ Frontend Upload - FileReader Fehler');
         showToast('Fehler beim Lesen der Datei.', 'error');
         event.target.value = '';
     };
@@ -1112,10 +937,6 @@ function handleImageFileUpload(event) {
 
 // Hochgeladenes Bild löschen
 function clearUploadedImage() {
-    if (!confirm('Möchten Sie das hochgeladene Bild wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
-        return;
-    }
-    
     // Hidden Field leeren
     document.getElementById('firstLoginImageData').value = '';
     
@@ -1125,104 +946,11 @@ function clearUploadedImage() {
     // Buttons verstecken
     document.getElementById('clearUploadedImage').style.display = 'none';
     document.getElementById('convertToBlackWhite').style.display = 'none';
-    document.getElementById('compressImage').style.display = 'none';
     
     // Vorschau aktualisieren
     updateFirstLoginImagePreview();
     
-    // Sofort in der Datenbank löschen
-    saveImageClearance();
-    
     showToast('Hochgeladenes Bild entfernt.', 'info');
-}
-
-// Separate Funktion zum Löschen des Bildes in der Datenbank
-async function saveImageClearance() {
-    try {
-        const response = await apiRequest('/settings/save', {
-            method: 'POST',
-            body: JSON.stringify({
-                first_login_image_data: '',
-                first_login_image_data_clear: true
-            })
-        });
-        
-        const result = await response.json();
-        if (result.success) {
-            console.log('Bild erfolgreich aus der Datenbank entfernt');
-        } else {
-            console.error('Fehler beim Entfernen des Bildes:', result.error);
-        }
-    } catch (error) {
-        console.error('Fehler beim Entfernen des Bildes:', error);
-    }
-}
-
-// Lädt das First Login Bild über den separaten Endpunkt
-async function loadFirstLoginImageFromEndpoint() {
-    try {
-        // 📥 Frontend Logging: Load-Operation starten
-        const loadTimestamp = new Date().toISOString();
-        console.log('� Frontend Load - Starte Image Load:');
-        console.log('📥   - Timestamp:', loadTimestamp);
-        console.log('📥   - Endpoint: /api/settings/first-login-image');
-        
-        // Cache-Busting Parameter hinzufügen um frische Daten zu garantieren
-        const cacheBustParam = `?t=${Date.now()}`;
-        const endpoint = `/api/settings/first-login-image${cacheBustParam}`;
-        console.log('📥   - Cache-Bust URL:', endpoint);
-        
-        const response = await fetch(endpoint, {
-            headers: {
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
-            }
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            
-            // 📥 Frontend Logging: Response-Analyse
-            console.log('📥 Frontend Load - Server Response erhalten:');
-            console.log('📥   - Status:', response.status);
-            console.log('📥   - Success:', result.success);
-            console.log('📥   - Response Time:', new Date().toISOString());
-            
-            if (result.success && result.image_data) {
-                // 📥 Frontend Logging: Detaillierte Daten-Analyse
-                console.log('📥 Frontend Load - Image Data erhalten:');
-                console.log('📥   - Daten-Länge:', result.image_data.length);
-                console.log('📥   - Daten-Format:', result.image_data.substring(0, 50) + '...');
-                
-                // Hash für Debugging generieren (vereinfacht)
-                const receivedHash = result.image_data.length.toString(); // Einfache Längen-basierte ID
-                console.log('📥   - Frontend Received Hash:', receivedHash);
-                
-                // Setze die Daten in das versteckte Feld
-                document.getElementById('firstLoginImageData').value = result.image_data;
-                console.log('📥   - Daten in DOM-Element gesetzt');
-                
-                // Zeige die Bildvorschau
-                showUploadedImagePreview(result.image_data);
-                console.log('📥   - Bildvorschau aktualisiert');
-                
-                console.log('✅ Frontend Load - Erfolgreich abgeschlossen');
-            } else {
-                console.log('⚠️ Frontend Load - Kein Image verfügbar:');
-                console.log('⚠️   - Success:', result.success);
-                console.log('⚠️   - Image Data vorhanden:', !!result.image_data);
-            }
-        } else {
-            console.error('❌ Frontend Load - HTTP Fehler:');
-            console.error('❌   - Status:', response.status);
-            console.error('❌   - Status Text:', response.statusText);
-        }
-    } catch (error) {
-        console.error('❌ Frontend Load - Exception:');
-        console.error('❌   - Error Message:', error.message);
-        console.error('❌   - Error Stack:', error.stack);
-        console.error('❌   - Timestamp:', new Date().toISOString());
-    }
 }
 
 // Zeige Vorschau für hochgeladenes Bild (beim Laden der Settings)
@@ -1247,28 +975,15 @@ function showUploadedImagePreview(base64Data) {
         // Zeige Buttons
         const clearBtn = document.getElementById('clearUploadedImage');
         const convertBtn = document.getElementById('convertToBlackWhite');
-        const compressBtn = document.getElementById('compressImage');
         if (clearBtn) {
             clearBtn.style.display = 'inline-block';
         }
         if (convertBtn) {
             convertBtn.style.display = 'inline-block';
         }
-        if (compressBtn) {
-            compressBtn.style.display = 'inline-block';
-        }
         
-        // Aktualisiere Vorschau DIREKT mit den Base64-Daten (nicht über updateFirstLoginImagePreview)
-        const imagePreview = document.getElementById('firstLoginImagePreview');
-        const imagePlaceholder = document.getElementById('firstLoginImagePlaceholder');
-        
-        if (imagePreview && imagePlaceholder) {
-            imagePreview.src = base64Data;
-            imagePreview.style.display = 'block';
-            imagePlaceholder.style.display = 'none';
-            
-            console.log('🖼️ showUploadedImagePreview: Bild direkt gesetzt, Länge:', base64Data.length);
-        }
+        // Aktualisiere Vorschau
+        updateFirstLoginImagePreview();
     }
 }
 
@@ -1374,11 +1089,21 @@ function formatWeddingDateForPreview(dateString) {
 async function resetFirstLoginForAllGuests() {
 
     
-    // Bestätigung vom Benutzer einholen
-    if (!confirm('Möchten Sie wirklich den First-Login-Status für ALLE Gäste zurücksetzen?\n\nDadurch wird beim nächsten Login aller Gäste wieder das Willkommens-Modal angezeigt.')) {
-        return;
-    }
-    
+    // Wedding-Theme Bestätigung statt Browser-Popup
+    await showConfirmModal(
+        'Möchten Sie wirklich den First-Login-Status für ALLE Gäste zurücksetzen?',
+        'Dadurch wird beim nächsten Login aller Gäste wieder das Willkommens-Modal angezeigt.'
+    ).then((confirmed) => {
+        if (!confirmed) return;
+        
+        performFirstLoginReset();
+    });
+}
+
+/**
+ * Führt das eigentliche First-Login Reset durch
+ */
+async function performFirstLoginReset() {
     try {
         // Loading-Anzeige
         const button = document.getElementById('resetFirstLoginForAllGuests');
@@ -1388,26 +1113,59 @@ async function resetFirstLoginForAllGuests() {
         
         const response = await apiRequest('/admin/reset-first-login', {
             method: 'POST',
-            });
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
         
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-            // Success-Toast
-            showToast('Erfolg', `First-Login-Status für ${result.count} Gäste erfolgreich zurückgesetzt!`, 'success');
+        if (response.success) {
+            // Success mit Wedding-Theme Alert
+            showSuccess(`First-Login-Status für ${response.count} Gäste erfolgreich zurückgesetzt!`);
         } else {
-            throw new Error(result.message || 'Unbekannter Fehler');
+            throw new Error(response.message || 'Unbekannter Fehler');
         }
         
     } catch (error) {
 
-        showToast('Fehler', 'Fehler beim Zurücksetzen: ' + error.message, 'danger');
+        showError('Fehler beim Zurücksetzen: ' + error.message);
     } finally {
         // Button zurücksetzen
         const button = document.getElementById('resetFirstLoginForAllGuests');
         button.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i>First-Login für alle zurücksetzen';
         button.disabled = false;
     }
+}
+
+/**
+ * Zeigt Wedding-Theme Bestätigungsmodal
+ */
+function showConfirmModal(title, message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        const messageElement = document.getElementById('confirmModalMessage');
+        const confirmButton = document.getElementById('confirmModalConfirm');
+        
+        messageElement.innerHTML = `<strong>${title}</strong><br><br>${message}`;
+        
+        // Event-Listener für Bestätigung
+        const handleConfirm = () => {
+            confirmButton.removeEventListener('click', handleConfirm);
+            bootstrap.Modal.getInstance(modal).hide();
+            resolve(true);
+        };
+        
+        // Event-Listener für Abbruch/Schließen
+        const handleCancel = () => {
+            modal.removeEventListener('hidden.bs.modal', handleCancel);
+            resolve(false);
+        };
+        
+        confirmButton.addEventListener('click', handleConfirm);
+        modal.addEventListener('hidden.bs.modal', handleCancel, { once: true });
+        
+        // Modal anzeigen
+        new bootstrap.Modal(modal).show();
+    });
 }
 
 /**
@@ -1454,120 +1212,58 @@ function showToast(title, message, type = 'info') {
 }
 
 /**
- * Konvertiert ein Bild zu Schwarz-Weiß und komprimiert es auf maximal 1920x1080px
+ * Konvertiert ein Bild zu Schwarz-Weiß
  * @param {string} imageSource - Base64-kodierte Bilddaten oder Image-URL
  * @param {function} callback - Callback-Funktion die mit den SW-Daten aufgerufen wird
  */
 function convertImageToBlackAndWhite(imageSource, callback) {
-    compressAndProcessImage(imageSource, callback, true);
-}
-
-/**
- * Komprimiert ein Bild auf maximal 1920x1080px (optional mit Schwarz-Weiß-Konvertierung)
- * @param {string} imageSource - Base64-kodierte Bilddaten oder Image-URL
- * @param {function} callback - Callback-Funktion die mit den Daten aufgerufen wird
- * @param {boolean} convertToGrayscale - Ob das Bild zu Schwarz-Weiß konvertiert werden soll
- */
-function compressAndProcessImage(imageSource, callback, convertToGrayscale = false) {
     const img = new Image();
     
     img.onload = function() {
-        console.log('🖼️ === BILDKOMPRIMIERUNG GESTARTET ===');
-        console.log('🖼️ Original Größe:', img.width + 'x' + img.height);
-        console.log('🖼️ Schwarz-Weiß Konvertierung:', convertToGrayscale ? 'JA' : 'NEIN');
-        
-        // Maximalauflösung definieren (640x480 für sehr kleine Dateien)
-        const MAX_WIDTH = 640;
-        const MAX_HEIGHT = 480;
-        
-        // Berechne neue Dimensionen unter Beibehaltung des Seitenverhältnisses
-        let newWidth = img.width;
-        let newHeight = img.height;
-        
-        // Prüfe ob Bild größer als Maximum ist
-        if (newWidth > MAX_WIDTH || newHeight > MAX_HEIGHT) {
-            const aspectRatio = newWidth / newHeight;
-            
-            if (newWidth > newHeight) {
-                // Landscape: Breite begrenzen
-                newWidth = Math.min(newWidth, MAX_WIDTH);
-                newHeight = Math.round(newWidth / aspectRatio);
-                
-                // Prüfe ob Höhe immer noch zu groß ist
-                if (newHeight > MAX_HEIGHT) {
-                    newHeight = MAX_HEIGHT;
-                    newWidth = Math.round(newHeight * aspectRatio);
-                }
-            } else {
-                // Portrait: Höhe begrenzen
-                newHeight = Math.min(newHeight, MAX_HEIGHT);
-                newWidth = Math.round(newHeight * aspectRatio);
-                
-                // Prüfe ob Breite immer noch zu groß ist
-                if (newWidth > MAX_WIDTH) {
-                    newWidth = MAX_WIDTH;
-                    newHeight = Math.round(newWidth / aspectRatio);
-                }
-            }
-            
-            console.log('🖼️ Komprimiert auf:', newWidth + 'x' + newHeight);
-            console.log('🖼️ Komprimierungsrate:', Math.round((1 - (newWidth * newHeight) / (img.width * img.height)) * 100) + '%');
-        } else {
-            console.log('🖼️ Keine Größenänderung nötig - Bild bereits unter Maximum');
-        }
-        
-        // Canvas erstellen mit neuen Dimensionen
+        // Canvas erstellen
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        canvas.width = newWidth;
-        canvas.height = newHeight;
+        // Canvas-Größe auf Bildgröße setzen
+        canvas.width = img.width;
+        canvas.height = img.height;
         
-        // Bild skaliert auf Canvas zeichnen
-        ctx.drawImage(img, 0, 0, newWidth, newHeight);
+        // Bild auf Canvas zeichnen
+        ctx.drawImage(img, 0, 0);
         
-        // Schwarz-Weiß-Konvertierung falls gewünscht
-        if (convertToGrayscale) {
-            console.log('🖼️ Konvertiere zu Schwarz-Weiß...');
+        // Bilddaten abrufen
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        
+        // Jedes Pixel zu Graustufen konvertieren
+        for (let i = 0; i < data.length; i += 4) {
+            const red = data[i];
+            const green = data[i + 1];
+            const blue = data[i + 2];
             
-            // Bilddaten abrufen
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
+            // Graustufen-Wert mit gewichteter Formel berechnen
+            // Diese Formel berücksichtigt die Hellempfindlichkeit des Auges
+            const gray = Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
             
-            // Jedes Pixel zu Graustufen konvertieren
-            for (let i = 0; i < data.length; i += 4) {
-                const red = data[i];
-                const green = data[i + 1];
-                const blue = data[i + 2];
-                
-                // Graustufen-Wert mit gewichteter Formel berechnen
-                // Diese Formel berücksichtigt die Hellempfindlichkeit des Auges
-                const gray = Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
-                
-                // Alle RGB-Kanäle auf den Graustufen-Wert setzen
-                data[i] = gray;     // Rot
-                data[i + 1] = gray; // Grün
-                data[i + 2] = gray; // Blau
-                // Alpha-Kanal (data[i + 3]) bleibt unverändert
-            }
-            
-            // Geänderte Bilddaten zurück auf Canvas setzen
-            ctx.putImageData(imageData, 0, 0);
+            // Alle RGB-Kanäle auf den Graustufen-Wert setzen
+            data[i] = gray;     // Rot
+            data[i + 1] = gray; // Grün
+            data[i + 2] = gray; // Blau
+            // Alpha-Kanal (data[i + 3]) bleibt unverändert
         }
         
-        // Canvas zu Base64 konvertieren mit drastisch reduzierter JPEG-Qualität für minimale Dateigröße
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.3); // 30% Qualität für sehr kleine Dateien
+        // Geänderte Bilddaten zurück auf Canvas setzen
+        ctx.putImageData(imageData, 0, 0);
         
-        console.log('🖼️ === BILDKOMPRIMIERUNG ABGESCHLOSSEN ===');
-        console.log('🖼️ Finale Base64-Länge:', compressedBase64.length, 'Zeichen');
-        console.log('🖼️ Geschätzte Dateigröße:', Math.round(compressedBase64.length * 0.75 / 1024), 'KB');
+        // Canvas zu Base64 konvertieren
+        const blackAndWhiteBase64 = canvas.toDataURL('image/jpeg', 0.9);
         
-        // Callback mit den komprimierten Daten aufrufen
-        callback(compressedBase64);
+        // Callback mit den Schwarz-Weiß-Daten aufrufen
+        callback(blackAndWhiteBase64);
     };
-
+    
     img.onerror = function() {
-        console.error('🖼️ ❌ Fehler beim Laden des Bildes für Komprimierung');
+
         showToast('Fehler bei der Bildverarbeitung.', 'error');
         // Fallback: Originalbild verwenden
         callback(imageSource);
@@ -1580,55 +1276,6 @@ function compressAndProcessImage(imageSource, callback, convertToGrayscale = fal
     
     // Bild laden
     img.src = imageSource;
-}
-
-/**
- * Komprimiert das aktuell angezeigte Bild auf 1920x1080px (ohne Schwarz-Weiß-Konvertierung)
- */
-function compressCurrentImage() {
-    const imageData = document.getElementById('firstLoginImageData');
-    const imagePreview = document.getElementById('firstLoginImagePreview');
-    const imageUrl = document.getElementById('firstLoginImage').value.trim();
-    
-    let currentImageSource = null;
-    
-    // Bestimme die aktuelle Bildquelle
-    if (imageData && imageData.value.trim()) {
-        // Bereits hochgeladenes Bild
-        currentImageSource = imageData.value;
-    } else if (imageUrl) {
-        // URL-Bild
-        currentImageSource = imageUrl;
-    } else {
-        showToast('Kein Bild zum Komprimieren gefunden.', 'warning');
-        return;
-    }
-    
-    // Zeige Loading-Zustand
-    const compressBtn = document.getElementById('compressImage');
-    const originalText = compressBtn.innerHTML;
-    compressBtn.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i>Komprimiert...';
-    compressBtn.disabled = true;
-    
-    // Komprimiere das Bild (ohne Schwarz-Weiß-Konvertierung)
-    compressAndProcessImage(currentImageSource, function(compressedBase64Data) {
-        // Speichere das komprimierte Bild
-        document.getElementById('firstLoginImageData').value = compressedBase64Data;
-        
-        // Leere URL-Feld falls es ein URL-Bild war
-        if (imageUrl) {
-            document.getElementById('firstLoginImage').value = '';
-        }
-        
-        // Aktualisiere Vorschau
-        imagePreview.src = compressedBase64Data;
-        
-        // Button zurücksetzen
-        compressBtn.innerHTML = originalText;
-        compressBtn.disabled = false;
-        
-        showToast('Bild erfolgreich auf 640x480px mit niedriger Qualität komprimiert!', 'success');
-    }, false); // false = keine Schwarz-Weiß-Konvertierung
 }
 
 /**
@@ -1830,8 +1477,11 @@ async function testInvitationGeneration() {
         // Teste die Generierung für jeden Fall
         const results = [];
         for (const testCase of testCases) {
-            const response = await apiRequest('/admin/test-invitation-generation', {
+            const response = await fetch('/api/admin/test-invitation-generation', {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify(testCase)
             });
             
@@ -2205,7 +1855,7 @@ function resetGuestInformationenToDefaults() {
  */
 async function loadUploadSettings() {
     try {
-        const response = await apiRequest('/upload-config');
+        const response = await fetch('/api/upload-config');
         if (response.ok) {
             const config = await response.json();
             
@@ -2506,8 +2156,11 @@ function openDirectoryBrowser() {
 
 async function loadDirectoryContents(path) {
     try {
-        const response = await apiRequest('/admin/browse-directories', {
+        const response = await fetch('/api/admin/browse-directories', {
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({ path: path })
         });
         
@@ -2611,8 +2264,11 @@ async function createNewDirectory() {
     }
     
     try {
-        const response = await apiRequest('/admin/create-directory', {
+        const response = await fetch('/api/admin/create-directory', {
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({
                 parent_path: currentBrowserPath,
                 directory_name: directoryName
@@ -2647,8 +2303,11 @@ async function testUploadPath() {
     
     try {
         // Test ob Pfad existiert durch Verzeichnis-Browse API
-        const response = await apiRequest('/admin/browse-directories', {
+        const response = await fetch('/api/admin/browse-directories', {
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({ path: path })
         });
         
@@ -2713,8 +2372,7 @@ function validateUploadSettings() {
 
 async function loadUploadSettings() {
     try {
-        const response = await apiRequest('/settings/get');
-        const result = await response.json();
+        const result = await apiRequest('/settings/get');
         
         if (result.success && result.settings) {
             const settings = result.settings;

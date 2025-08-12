@@ -988,6 +988,89 @@
     border: 1px solid var(--wedding-success) !important;
 }
 
+/* ========================================
+   EINSTELLUNGEN WEDDING-THEME STYLING
+   ======================================== */
+
+/* Einstellungen Form-Controls */
+.einstellungen-container .form-control,
+#settingsForm .form-control {
+    border: 2px solid var(--wedding-gold);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--wedding-text-dark);
+    padding: 12px 15px;
+    transition: all 0.3s ease;
+}
+
+.einstellungen-container .form-control:focus,
+#settingsForm .form-control:focus {
+    border-color: var(--wedding-gold);
+    box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.25);
+    background: var(--wedding-white);
+}
+
+/* Einstellungen Labels */
+.einstellungen-container .form-label,
+#settingsForm .form-label {
+    color: var(--wedding-text-dark);
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+/* Einstellungen Buttons */
+.einstellungen-container .btn-primary,
+#settingsForm .btn-primary {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));
+    border: 2px solid var(--wedding-gold);
+    color: var(--wedding-text-dark);
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 10px 20px;
+    transition: all 0.3s ease;
+}
+
+.einstellungen-container .btn-primary:hover,
+#settingsForm .btn-primary:hover {
+    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-gold));
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+}
+
+/* Einstellungen Checkboxes und Switches */
+.einstellungen-container .form-check-input,
+#settingsForm .form-check-input {
+    border: 2px solid var(--wedding-gold);
+    background-color: var(--wedding-white);
+}
+
+.einstellungen-container .form-check-input:checked,
+#settingsForm .form-check-input:checked {
+    background-color: var(--wedding-gold);
+    border-color: var(--wedding-gold);
+}
+
+.einstellungen-container .form-check-input:focus,
+#settingsForm .form-check-input:focus {
+    box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.25);
+}
+
+/* Einstellungen Select-Felder */
+.einstellungen-container .form-select,
+#settingsForm .form-select {
+    border: 2px solid var(--wedding-gold);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--wedding-text-dark);
+    padding: 12px 15px;
+}
+
+.einstellungen-container .form-select:focus,
+#settingsForm .form-select:focus {
+    border-color: var(--wedding-gold);
+    box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.25);
+}
+
 /* Zeitplan Titel und Meta */
 .zeitplan-title {
     font-size: 1rem;

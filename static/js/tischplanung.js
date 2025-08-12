@@ -2,6 +2,7 @@
 // Hochzeitsplaner - Interaktive Sitzplatz-Planung
 
 let guests = [];
+let allGuestsIncludingNoFood = []; // Alle Gäste (auch ohne Essen) für Beziehungsanzeige
 let tables = [];
 let relationships = [];
 let currentZoom = 1;
@@ -15,15 +16,9 @@ let tischplanung_config = {}; // Globale Konfiguration für Standard-Tischgröß
 async function loadAppSettings() {
     try {
 
-        const response = await apiRequest('/settings/get');
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.settings) {
-                window.appSettings = data.settings;
-                } else {
-
-                window.appSettings = {};
-            }
+        const data = await apiRequest('/settings/get');
+        if (data.success && data.settings) {
+            window.appSettings = data.settings;
         } else {
 
             window.appSettings = {};
@@ -141,14 +136,7 @@ async function loadGuests() {
     try {
 
         
-        const response = await apiRequest('/gaeste/list');
-
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
+        const data = await apiRequest('/gaeste/list');
 
         
         if (!data.success) {
@@ -167,21 +155,34 @@ async function loadGuests() {
             conflicts: []
         }));
         
+        // ALLE Gäste für Beziehungsanzeige speichern
+        allGuestsIncludingNoFood = [...allGuests];
+        console.log(`📊 Alle Gäste gespeichert: ${allGuestsIncludingNoFood.length} Gäste für Beziehungen`);
+        if (allGuestsIncludingNoFood.length > 0) {
+            console.log('🔍 Erste 5 Gäste für Beziehungen:', allGuestsIncludingNoFood.slice(0, 5).map(g => `${g.vorname} ${g.nachname || g.name || ''} (ID: ${g.id}, Essen: ${g.anzahl_essen || 0})`));
+        }
+        console.log('📊 Vergleich:', {
+            allGuestsIncludingNoFood: allGuestsIncludingNoFood.length,
+            guestsWithFood: guests.length,
+            totalFromAPI: allGuests.length
+        });
+        
         // Nur Gäste mit anzahl_essen > 0 für die Tischplanung anzeigen
         guests = allGuests.filter(guest => {
             const essenAnzahl = guest.anzahl_essen || 0;
             return essenAnzahl > 0;
         });
         
+        console.log(`📊 Gäste für Tischplanung geladen: ${guests.length} von ${allGuests.length} Gästen`);
 
         if (guests.length > 0) {
-
+            console.log('🍽️ Erste 3 Gäste mit Essen:', guests.slice(0, 3).map(g => `${g.name} (${g.anzahl_essen})`));
         }
         
         // Debug: Zeige Gäste mit anzahl_essen = 0
         const noFoodGuests = allGuests.filter(g => (g.anzahl_essen || 0) === 0);
         if (noFoodGuests.length > 0) {
-            );
+            console.log('Gäste ohne Essen (anzahl_essen = 0):', noFoodGuests.map(g => g.name));
         }
         
     } catch (error) {
@@ -196,16 +197,11 @@ async function loadGuests() {
 
 async function loadTables() {
     try {
-
-        const response = await apiRequest('/tischplanung/tables');
-        if (!response.ok) {
-
-            tables = [];
-            return;
-        }
+        console.log('🔄 Lade Tische von API...');
         
-        const data = await response.json();
-
+        const data = await apiRequest('/tischplanung/tables');
+        
+        console.log('📊 API Response für Tische:', data);
         
         // Konvertiere API-Format zu Frontend-Format
         if (Array.isArray(data)) {
@@ -217,9 +213,10 @@ async function loadTables() {
                     x_position: table.x || table.x_position || 100,
                     y_position: table.y || table.y_position || 100,
                     farbe: table.farbe || table.color || '#007bff',
-                    form: table.shape || 'round'
+                    form: table.shape || 'round',
+                    beschreibung: table.beschreibung || table.description || ''
                 };
-
+                console.log(`✅ Tisch konvertiert: ${convertedTable.name} (ID: ${convertedTable.id})`);
                 return convertedTable;
             });
         } else if (data.tables && Array.isArray(data.tables)) {
@@ -231,23 +228,32 @@ async function loadTables() {
                     x_position: table.x || table.x_position || 100,
                     y_position: table.y || table.y_position || 100,
                     farbe: table.farbe || table.color || '#007bff',
-                    form: table.shape || 'round'
+                    form: table.shape || 'round',
+                    beschreibung: table.beschreibung || table.description || ''
                 };
-
+                console.log(`✅ Tisch konvertiert: ${convertedTable.name} (ID: ${convertedTable.id})`);
                 return convertedTable;
             });
         } else {
-
+            console.warn('⚠️ Unerwartetes API-Format für Tische:', data);
             tables = [];
         }
         
-
+        console.log(`📋 ${tables.length} Tische geladen:`, tables.map(t => `${t.name} (${t.id})`));
+        
+        // Stelle sicher, dass die globale Variable verfügbar ist
+        window.tables = tables;
+        
+        console.log('🔧 Globale tables Variable gesetzt:', {
+            length: window.tables.length,
+            sample: window.tables.slice(0, 3)
+        });
         
         // Lade auch bestehende Zuordnungen und aktualisiere Gäste-Objekte
         await loadExistingAssignments();
         
     } catch (error) {
-
+        console.error('❌ Fehler beim Laden der Tische:', error);
         tables = [];
     }
 }
@@ -255,13 +261,7 @@ async function loadTables() {
 async function loadExistingAssignments() {
     try {
 
-        const response = await apiRequest('/tischplanung/assignments');
-        if (!response.ok) {
-
-            return;
-        }
-        
-        const assignments = await response.json();
+        const assignments = await apiRequest('/tischplanung/assignments');
 
         
         // Aktualisiere Gäste mit Zuordnungen
@@ -289,13 +289,14 @@ async function loadRelationships() {
     try {
         // Nur laden wenn noch keine Beziehungen vorhanden
         if (relationships.length === 0) {
-            const response = await apiRequest('/tischplanung/relationships');
-            if (response.ok) {
-                relationships = await response.json();
+            relationships = await apiRequest('/tischplanung/relationships');
+            console.log('🔗 Beziehungen geladen:', relationships.length, 'Beziehungen');
+            if (relationships.length > 0) {
+                console.log('🔗 Erste Beziehung Beispiel:', relationships[0]);
             }
         }
     } catch (error) {
-
+        console.error('❌ Fehler beim Laden der Beziehungen:', error);
         relationships = [];
     }
 }
@@ -303,10 +304,7 @@ async function loadRelationships() {
 // Beziehungen forciert neu laden (nur bei Änderungen)
 async function reloadRelationships() {
     try {
-        const response = await apiRequest('/tischplanung/relationships');
-        if (response.ok) {
-            relationships = await response.json();
-        }
+        relationships = await apiRequest('/tischplanung/relationships');
     } catch (error) {
 
     }
@@ -314,11 +312,8 @@ async function reloadRelationships() {
 
 async function loadConfiguration() {
     try {
-        const response = await apiRequest('/tischplanung/config');
-        if (response.ok) {
-            tischplanung_config = await response.json();
-            document.getElementById('defaultTableSize').value = tischplanung_config.standard_tisch_groesse || 8;
-        }
+        tischplanung_config = await apiRequest('/tischplanung/config');
+        document.getElementById('defaultTableSize').value = tischplanung_config.standard_tisch_groesse || 8;
     } catch (error) {
 
         tischplanung_config = { standard_tisch_groesse: 8 };
@@ -352,10 +347,14 @@ function renderSeatingChart() {
     
     // Nur neue/geänderte Tische neu rendern
     tables.forEach(table => {
-
+        console.log(`🔄 Processing table ${table.id}`, {
+            name: table.name,
+            capacity: table.capacity
+        });
+        
         const existingElement = existingTables[table.id];
         
-        ,
+        console.log(`📊 Table ${table.id} status`, {
             willUpdate: !!existingElement,
             willCreate: !existingElement
         });
@@ -432,24 +431,15 @@ function updateExistingTableElement(element, table) {
     const tableName = element.querySelector('.table-name');
     const tableOccupancy = element.querySelector('.table-occupancy');
     
-    
-    });
-    
     if (tableName) {
         const displayName = isBrautTisch(table) ? `💐 ${table.name || generateTableName(table.id - 1)} 💐` : (table.name || generateTableName(table.id - 1));
         tableName.textContent = displayName;
 
     }
     if (tableOccupancy) {
-
-        
         // NORMALE ANZEIGE: Brauttisch wie andere Tische, nur mit anderen Begriffen
         const finalText = `${totalPersons}/${maxPersons} ${isBrautTisch(table) ? 'Gäste' : 'Personen'}`;
         tableOccupancy.textContent = finalText;
-
-        
-        
-        });
     } else {
 
         
@@ -555,9 +545,6 @@ function createTableElement(table) {
     // NORMALE ANZEIGE: Brauttisch wie andere Tische, nur mit anderen Begriffen
     const finalText = `${totalPersons}/${maxPersons} ${isBrautTisch(table) ? 'Gäste' : 'Personen'}`;
     tableOccupancy.textContent = finalText;
-    
-    
-    });
     
     const guestPreview = document.createElement('div');
     guestPreview.style.fontSize = '9px';
@@ -853,19 +840,16 @@ async function assignGuestToTable(guestId, tableId) {
     try {
 
         
-        const response = await apiRequest('/tischplanung/assign', {
+        const result = await apiRequest('/tischplanung/assign', {
             method: 'POST',
             body: JSON.stringify({ guest_id: guestId, table_id: tableId })
         });
-        
-        if (response.ok) {
-            const result = await response.json();
 
-            
-            const guest = guests.find(g => g.id === guestId);
-            if (guest) {
-                guest.assigned_table = tableId;
-            }
+        
+        const guest = guests.find(g => g.id === guestId);
+        if (guest) {
+            guest.assigned_table = tableId;
+        }
             
             renderSeatingChart();
             renderGuestList();
@@ -876,11 +860,6 @@ async function assignGuestToTable(guestId, tableId) {
             if (guest) {
                 showAlert(`${guest.vorname} wurde Tisch zugewiesen`, 'success');
             }
-        } else {
-            const error = await response.json();
-
-            showAlert(error.message || 'Fehler beim Zuweisen', 'warning');
-        }
     } catch (error) {
 
         showAlert('Fehler beim Zuweisen des Gastes', 'danger');
@@ -988,36 +967,24 @@ function showTableInfo(tableId) {
 // Gast von Tisch entfernen
 async function removeGuestFromTable(guestId) {
     try {
-        const response = await apiRequest(`/tischplanung/unassign/${guestId}`, {
+        const data = await apiRequest(`/tischplanung/unassign/${guestId}`, {
             method: 'DELETE'
         });
         
-        // Parse JSON response in allen Fällen
-        const data = await response.json();
-        
-        if (response.ok) {
-            const guest = guests.find(g => g.id === guestId);
-            if (guest) {
-                guest.assigned_table = null;
-            }
-            
-            renderSeatingChart();
-            renderGuestList();
-            updateStatistics();
-            
-            if (selectedTable) {
-                showTableInfo(selectedTable);
-            }
-            
-            showAlert(`${guest ? guest.vorname : 'Gast'} wurde vom Tisch entfernt`, 'info');
-        } else {
-            // Behandle spezifische Fehlerfälle
-            if (response.status === 404) {
-                showAlert('Gast war keinem Tisch zugeordnet', 'warning');
-            } else {
-                showAlert(data.error || 'Fehler beim Entfernen des Gastes', 'danger');
-            }
+        const guest = guests.find(g => g.id === guestId);
+        if (guest) {
+            guest.assigned_table = null;
         }
+        
+        renderSeatingChart();
+        renderGuestList();
+        updateStatistics();
+        
+        if (selectedTable) {
+            showTableInfo(selectedTable);
+        }
+        
+        showAlert(`${guest ? guest.vorname : 'Gast'} wurde vom Tisch entfernt`, 'info');
     } catch (error) {
 
         showAlert('Fehler beim Entfernen des Gastes', 'danger');
@@ -1035,7 +1002,7 @@ async function addNewTable() {
     }
     
     try {
-        const response = await apiRequest('/tischplanung/tables', {
+        const newTable = await apiRequest('/tischplanung/tables', {
             method: 'POST',
             body: JSON.stringify({
                 name: name,
@@ -1045,18 +1012,15 @@ async function addNewTable() {
             })
         });
         
-        if (response.ok) {
-            const newTable = await response.json();
-            tables.push(newTable);
-            
-            renderSeatingChart();
-            
-            // Eingaben zurücksetzen
-            document.getElementById('newTableName').value = '';
-            document.getElementById('newTableSize').value = '8';
-            
-            showAlert(`Tisch "${name}" wurde hinzugefügt`, 'success');
-        }
+        tables.push(newTable);
+        
+        renderSeatingChart();
+        
+        // Eingaben zurücksetzen
+        document.getElementById('newTableName').value = '';
+        document.getElementById('newTableSize').value = '8';
+        
+        showAlert(`Tisch "${name}" wurde hinzugefügt`, 'success');
     } catch (error) {
 
         showAlert('Fehler beim Hinzufügen des Tisches', 'danger');
@@ -1071,52 +1035,53 @@ async function autoAssignGuests() {
     
     showLoading(true);
     try {
-
+        console.log('🔄 Starte automatische Zuordnung...');
         
-        const response = await apiRequest('/tischplanung/auto-assign', {
+        const result = await apiRequest('/tischplanung/auto-assign', {
             method: 'POST',
-            });
+        });
         
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        console.log('📊 Auto-Zuordnung Ergebnis:', result);
+        
+        if (result.error) {
+            throw new Error(result.error);
         }
         
-        const result = await response.json();
-
+        // Erfolg - Daten KOMPLETT neu laden
+        console.log('🔄 Lade Daten neu nach Auto-Zuordnung...');
         
-        if (result.success) {
-
-            
-            // Daten neu laden
-            await Promise.all([
-                loadTables(),
-                loadGuests()
-            ]);
-            
-
-
-
-            
-            // UI aktualisieren
-
-            renderSeatingChart();
-
-            renderGuestList();
-
-            updateStatistics();
-            
-            let message = result.message || 'Intelligente Zuordnung abgeschlossen';
-            if (result.optimized_tables && result.optimized_tables > 0) {
-                message += `\n🔧 ${result.optimized_tables} Tischgrößen wurden automatisch optimiert.`;
-            }
-            
-            showAlert(message, 'success');
-        } else {
-            showAlert(result.message || 'Fehler bei automatischer Zuweisung', 'warning');
+        await Promise.all([
+            loadTables(),
+            loadGuests(),
+            loadExistingAssignments()
+        ]);
+        
+        console.log('📋 Nach Neuladen:', {
+            tables: tables.length,
+            guests: guests.length,
+            assignedGuests: guests.filter(g => g.assigned_table).length
+        });
+        
+        // UI KOMPLETT neu rendern
+        renderSeatingChart();
+        renderGuestList();
+        updateStatistics();
+        
+        let message = result.message || 'Intelligente Zuordnung abgeschlossen';
+        if (result.assigned_count) {
+            message = `${result.assigned_count} Gäste automatisch zugewiesen`;
         }
+        if (result.created_tables && result.created_tables > 0) {
+            message += `\n🆕 ${result.created_tables} neue Tische erstellt.`;
+        }
+        if (result.optimized_tables && result.optimized_tables > 0) {
+            message += `\n🔧 ${result.optimized_tables} Tischgrößen optimiert.`;
+        }
+        
+        showAlert(message, 'success');
         
     } catch (error) {
-
+        console.error('❌ Fehler bei automatischer Zuweisung:', error);
         showAlert('Fehler bei automatischer Zuweisung: ' + error.message, 'danger');
     } finally {
         showLoading(false);
@@ -1133,20 +1098,17 @@ async function optimizeTableSizes() {
     try {
 
         
-        const response = await apiRequest('/tischplanung/optimize-table-sizes', {
+        const result = await apiRequest('/tischplanung/optimize-table-sizes', {
             method: 'POST',
-            });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const result = await response.json();
+        });
 
         
-        if (result.success) {
-            // Daten neu laden
-            await loadTables();
+        if (result.error) {
+            throw new Error(result.error);
+        }
+        
+        // Daten neu laden
+        await loadTables();
             
             // UI aktualisieren
             renderSeatingChart();
@@ -1161,9 +1123,6 @@ async function optimizeTableSizes() {
             } else {
                 showAlert(result.message, 'info');
             }
-        } else {
-            showAlert(result.message || 'Fehler bei Tischgrößen-Optimierung', 'warning');
-        }
         
     } catch (error) {
 
@@ -1432,7 +1391,8 @@ function calculateTableOccupancy(table) {
     
     const totalPersons = allGuests.reduce((sum, guest) => sum + guest.persons, 0);
     
-    .length,
+    console.log(`📊 Table ${table.id} guest calculation:`, {
+        assignedGuestsCount: allGuests.length,
         totalPersons: totalPersons,
         isBrautTisch: isBrautTisch(table)
     });
@@ -2123,39 +2083,32 @@ async function handleModalTableDrop(e, tableId) {
         
         try {
             // Gast zu Tisch zuweisen
-            const response = await apiRequest('/tischplanung/assign', {
+            const result = await apiRequest('/tischplanung/assign', {
                 method: 'POST',
                 body: JSON.stringify({ guest_id: guestIdToAssign, table_id: tableId })
             });
             
-            if (response.ok) {
-                const guest = guests.find(g => g.id === guestIdToAssign);
-                if (guest) {
+            const guest = guests.find(g => g.id === guestIdToAssign);
+            if (guest) {
 
-                    guest.assigned_table = tableId;
-                    
+                guest.assigned_table = tableId;
+                
 
-                    
-                    // UI aktualisieren
-                    renderSeatingChart();
-                    renderGuestList();
-                    updateStatistics();
-                    
+                
+                // UI aktualisieren
+                renderSeatingChart();
+                renderGuestList();
+                updateStatistics();
+                
 
-                    
-                    // Modal aktualisieren ohne es zu schließen (kurze Verzögerung für UI-Update)
-                    setTimeout(() => {
+                
+                // Modal aktualisieren ohne es zu schließen (kurze Verzögerung für UI-Update)
+                setTimeout(() => {
 
-                        refreshTableOverviewModal();
-                    }, 100);
-                    
-                    showAlert(`${guest.vorname} wurde zu Tisch zugewiesen`, 'success');
-                } else {
-
-                }
-            } else {
-                const error = await response.json();
-                showAlert(error.message || 'Fehler beim Zuweisen des Gastes', 'warning');
+                    refreshTableOverviewModal();
+                }, 100);
+                
+                showAlert(`${guest.vorname} wurde zu Tisch zugewiesen`, 'success');
             }
         } catch (error) {
 
@@ -2178,36 +2131,29 @@ async function removeGuestFromTableModal(guestId, tableId) {
 
         
         // API-Call zum Entfernen
-        const response = await apiRequest(`/tischplanung/unassign/${guestId}`, {
+        const data = await apiRequest(`/tischplanung/unassign/${guestId}`, {
             method: 'DELETE'
         });
         
-        const data = await response.json();
+        // Lokale Daten aktualisieren
+        guest.assigned_table = null;
         
-        if (response.ok) {
 
-            // Lokale Daten aktualisieren
-            guest.assigned_table = null;
-            
+        
+        // UI aktualisieren
+        renderSeatingChart();
+        renderGuestList();
+        updateStatistics();
+        
 
-            
-            // UI aktualisieren
-            renderSeatingChart();
-            renderGuestList();
-            updateStatistics();
-            
+        
+        // Modal aktualisieren ohne es zu schließen (kurze Verzögerung für UI-Update)
+        setTimeout(() => {
 
-            
-            // Modal aktualisieren ohne es zu schließen (kurze Verzögerung für UI-Update)
-            setTimeout(() => {
-
-                refreshTableOverviewModal();
-            }, 100);
-            
-            showAlert(`${guestName} wurde vom Tisch entfernt`, 'info');
-        } else {
-            showAlert(data.error || 'Fehler beim Entfernen des Gastes', 'danger');
-        }
+            refreshTableOverviewModal();
+        }, 100);
+        
+        showAlert(`${guestName} wurde vom Tisch entfernt`, 'info');
         
     } catch (error) {
 
@@ -2825,17 +2771,18 @@ function showRelationshipsOverview() {
                          data-bs-parent="#relationshipAccordion">
                         <div class="accordion-body">
                             ${groupedRelations[type].map(rel => {
-                                const guest1 = guests.find(g => g.id === rel.gast_id_1);
-                                const guest2 = guests.find(g => g.id === rel.gast_id_2);
+                                // Verwende die Namen direkt aus der Beziehung (sind bereits korrekt)
+                                const guest1Name = rel.gast1_name || 'Unbekannt';
+                                const guest2Name = rel.gast2_name || 'Unbekannt';
                                 const strength = rel.staerke;
                                 const strengthClass = strength > 0 ? 'success' : strength < 0 ? 'danger' : 'secondary';
                                 
                                 return `
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <span>
-                                            <strong>${guest1?.vorname || 'Unbekannt'} ${guest1?.nachname || ''}</strong> 
+                                            <strong>${guest1Name}</strong> 
                                             ↔ 
-                                            <strong>${guest2?.vorname || 'Unbekannt'} ${guest2?.nachname || ''}</strong>
+                                            <strong>${guest2Name}</strong>
                                         </span>
                                         <span class="badge bg-${strengthClass}">${strength > 0 ? '+' : ''}${strength}</span>
                                     </div>
@@ -2860,21 +2807,19 @@ async function clearAllTables() {
     }
     
     try {
-        const response = await apiRequest('/tischplanung/clear-all', {
+        const result = await apiRequest('/tischplanung/clear-all', {
             method: 'POST'
         });
         
-        if (response.ok) {
-            guests.forEach(guest => guest.assigned_table = null);
-            
-            renderSeatingChart();
-            renderGuestList();
-            updateStatistics();
-            
-            document.getElementById('conflictAlerts').innerHTML = '';
-            
-            showAlert('Alle Tischzuweisungen wurden zurückgesetzt', 'info');
-        }
+        guests.forEach(guest => guest.assigned_table = null);
+        
+        renderSeatingChart();
+        renderGuestList();
+        updateStatistics();
+        
+        document.getElementById('conflictAlerts').innerHTML = '';
+        
+        showAlert('Alle Tischzuweisungen wurden zurückgesetzt', 'info');
     } catch (error) {
 
         showAlert('Fehler beim Zurücksetzen', 'danger');
@@ -2892,7 +2837,7 @@ async function saveSeatingPlan() {
                 table_id: g.assigned_table
             }));
         
-        const response = await apiRequest('/tischplanung/save', {
+        const result = await apiRequest('/tischplanung/save', {
             method: 'POST',
             body: JSON.stringify({
                 assignments: assignments,
@@ -2904,11 +2849,7 @@ async function saveSeatingPlan() {
             })
         });
         
-        if (response.ok) {
-            showAlert('Sitzplan wurde gespeichert', 'success');
-        } else {
-            throw new Error('Speichern fehlgeschlagen');
-        }
+        showAlert('Sitzplan wurde gespeichert', 'success');
     } catch (error) {
 
         showAlert('Fehler beim Speichern des Sitzplans', 'danger');
@@ -2972,8 +2913,8 @@ function showGuestRelationships(guestId) {
             <label class="form-label">Neue Beziehung hinzufügen</label>
             <select class="form-select form-select-sm" id="newRelationGuest">
                 <option value="">Gast auswählen...</option>
-                ${guests.filter(g => g.id !== guestId).map(g => 
-                    `<option value="${g.id}">${g.vorname} ${g.nachname || ''}</option>`
+                ${(allGuestsIncludingNoFood || guests).filter(g => g.id !== guestId).map(g => 
+                    `<option value="${g.id}">${g.vorname} ${g.nachname || g.name || ''}</option>`
                 ).join('')}
             </select>
         </div>
@@ -3054,7 +2995,7 @@ async function addNewRelationship(guestId) {
     }
     
     try {
-        const response = await apiRequest('/tischplanung/relationships', {
+        const result = await apiRequest('/tischplanung/relationships', {
             method: 'POST',
             body: JSON.stringify({
                 gast_id_1: guestId,
@@ -3064,16 +3005,11 @@ async function addNewRelationship(guestId) {
             })
         });
         
-        if (response.ok) {
-            await reloadRelationships();
-            showGuestRelationships(guestId);
-            renderGuestList();
-            checkConflicts();
-            showAlert('Beziehung hinzugefügt', 'success');
-        } else {
-            const error = await response.json();
-            showAlert(error.error, 'danger');
-        }
+        await reloadRelationships();
+        showGuestRelationships(guestId);
+        renderGuestList();
+        checkConflicts();
+        showAlert('Beziehung hinzugefügt', 'success');
     } catch (error) {
 
         showAlert('Fehler beim Hinzufügen der Beziehung', 'danger');
@@ -3086,9 +3022,27 @@ async function addNewRelationship(guestId) {
 // Beziehungen bearbeiten (Modal)
 function editRelationships(guestId) {
     selectedGuest = guestId;
-    const guest = guests.find(g => g.id === guestId);
     
-    if (!guest) return;
+    // Suche Gast in beiden Arrays - für Beziehungen können auch Gäste ohne Essen verwaltet werden
+    let guest = allGuestsIncludingNoFood.find(g => g.id === guestId);
+    if (!guest) {
+        guest = guests.find(g => g.id === guestId);
+    }
+    
+    if (!guest) {
+        console.error('Gast nicht gefunden:', guestId);
+        showAlert('Gast nicht gefunden', 'danger');
+        return;
+    }
+    
+    console.log('🔍 Beziehungen bearbeiten für Gast:', guest);
+    
+    // Debug: Verfügbare Gäste für Dropdown
+    const availableGuests = (allGuestsIncludingNoFood || guests).filter(g => g.id !== guestId);
+    console.log('🔍 Verfügbare Gäste für Dropdown:', {
+        count: availableGuests.length,
+        guests: availableGuests.slice(0, 5).map(g => `${g.vorname} ${g.nachname || g.name || ''} (ID: ${g.id})`)
+    });
     
     // Modal Inhalt erstellen
     const modalContent = document.getElementById('relationshipModalContent');
@@ -3108,8 +3062,8 @@ function editRelationships(guestId) {
                         <label class="form-label">Gast auswählen</label>
                         <select class="form-select" id="relationshipGuestSelect">
                             <option value="">-- Gast auswählen --</option>
-                            ${guests.filter(g => g.id !== guestId).map(g => 
-                                `<option value="${g.id}">${g.vorname} ${g.nachname || ''}</option>`
+                            ${(allGuestsIncludingNoFood || guests).filter(g => g.id !== guestId).map(g => 
+                                `<option value="${g.id}">${g.vorname} ${g.nachname || g.name || ''}</option>`
                             ).join('')}
                         </select>
                     </div>
@@ -3196,9 +3150,18 @@ function updateStrengthDisplay(value) {
 }
 
 function getExistingRelationshipsHTML(guestId) {
+    console.log('🔍 getExistingRelationshipsHTML Debug:', {
+        guestId: guestId,
+        relationships: relationships,
+        guests: guests.length,
+        allGuestsIncludingNoFood: allGuestsIncludingNoFood ? allGuestsIncludingNoFood.length : 'undefined'
+    });
+    
     const guestRelationships = relationships.filter(r => 
         r.gast_id_1 === guestId || r.gast_id_2 === guestId
     );
+    
+    console.log('🔍 Gefilterte Beziehungen für Gast:', guestRelationships);
     
     if (guestRelationships.length === 0) {
         return '<p style="color: #8b7355;">Noch keine Beziehungen definiert.</p>';
@@ -3206,8 +3169,54 @@ function getExistingRelationshipsHTML(guestId) {
     
     return guestRelationships.map(rel => {
         const otherGuestId = rel.gast_id_1 === guestId ? rel.gast_id_2 : rel.gast_id_1;
-        const otherGuest = guests.find(g => g.id === otherGuestId);
-        const otherGuestName = otherGuest ? `${otherGuest.vorname} ${otherGuest.nachname || ''}` : 'Unbekannt';
+        
+        console.log('🔍 Verarbeite Beziehung:', {
+            relationshipId: rel.id,
+            otherGuestId: otherGuestId,
+            relationship: rel
+        });
+        
+        // Verbesserte Gast-Suche - PRIORITÄT: Namen aus Beziehung, dann Fallback zu Gäste-Arrays
+        let otherGuestName = 'Unbekannt';
+        
+        // Methode 1: Verwende bereits vorhandene Namen aus der Beziehung (PRIORITY!)
+        if (rel.gast_id_1 === guestId && rel.gast2_name) {
+            otherGuestName = rel.gast2_name;
+            console.log('🔍 Methode 1 - Verwende gast2_name aus Beziehung:', otherGuestName);
+        } else if (rel.gast_id_2 === guestId && rel.gast1_name) {
+            otherGuestName = rel.gast1_name;
+            console.log('🔍 Methode 1 - Verwende gast1_name aus Beziehung:', otherGuestName);
+        }
+        
+        // Methode 2: Fallback - Suche in allGuestsIncludingNoFood nur wenn kein Name in Beziehung
+        if (otherGuestName === 'Unbekannt' && allGuestsIncludingNoFood && Array.isArray(allGuestsIncludingNoFood)) {
+            const otherGuest = allGuestsIncludingNoFood.find(g => g.id === otherGuestId || g.id === parseInt(otherGuestId));
+            if (otherGuest) {
+                const vorname = otherGuest.vorname || otherGuest.first_name || '';
+                const nachname = otherGuest.nachname || otherGuest.last_name || otherGuest.name || '';
+                otherGuestName = `${vorname} ${nachname}`.trim();
+                console.log('🔍 Methode 2 - Name aus allGuestsIncludingNoFood:', otherGuestName);
+            }
+        }
+        
+        // Methode 3: Fallback - Suche in guests Array nur wenn immer noch kein Name
+        if (otherGuestName === 'Unbekannt' && guests && Array.isArray(guests)) {
+            const otherGuest = guests.find(g => g.id === otherGuestId || g.id === parseInt(otherGuestId));
+            if (otherGuest) {
+                const vorname = otherGuest.vorname || otherGuest.first_name || '';
+                const nachname = otherGuest.nachname || otherGuest.last_name || otherGuest.name || '';
+                otherGuestName = `${vorname} ${nachname}`.trim();
+                console.log('🔍 Methode 3 - Name aus guests Array:', otherGuestName);
+            }
+        }
+        
+        // Letzte Fallback-Option
+        if (!otherGuestName || otherGuestName === ' ' || otherGuestName === 'Unbekannt') {
+            otherGuestName = `Gast ${otherGuestId}`;
+            console.log('🔍 Fallback - Verwende Gast-ID als Name:', otherGuestName);
+        }
+        
+        console.log('🔍 Finaler Gastname:', otherGuestName);
         
         const strengthColor = rel.staerke > 0 ? 'success' : rel.staerke < 0 ? 'danger' : 'secondary';
         
@@ -3330,23 +3339,18 @@ async function saveTableDetails() {
     };
     
     try {
-        const response = await apiRequest(`/tischplanung/tables/${tableId}`, {
+        const result = await apiRequest(`/tischplanung/tables/${tableId}`, {
             method: 'PUT',
             body: JSON.stringify(tableData)
         });
         
-        if (response.ok) {
-            await loadTables();
-            renderSeatingChart();
-            
-            const modal = bootstrap.Modal.getInstance(document.getElementById('tableDetailsModal'));
-            modal.hide();
-            
-            showAlert('Tisch aktualisiert', 'success');
-        } else {
-            const error = await response.json();
-            showAlert(error.error, 'danger');
-        }
+        await loadTables();
+        renderSeatingChart();
+        
+        const modal = bootstrap.Modal.getInstance(document.getElementById('tableDetailsModal'));
+        modal.hide();
+        
+        showAlert('Tisch aktualisiert', 'success');
     } catch (error) {
 
         showAlert('Fehler beim Aktualisieren des Tisches', 'danger');
@@ -3361,23 +3365,18 @@ async function deleteTable() {
     if (!confirm('Tisch wirklich löschen? Alle Zuordnungen gehen verloren.')) return;
     
     try {
-        const response = await apiRequest(`/tischplanung/tables/${tableId}`, {
+        const result = await apiRequest(`/tischplanung/tables/${tableId}`, {
             method: 'DELETE'
         });
         
-        if (response.ok) {
-            await loadTables();
-            renderSeatingChart();
-            renderGuestList();
-            
-            const modal = bootstrap.Modal.getInstance(document.getElementById('tableDetailsModal'));
-            modal.hide();
-            
-            showAlert('Tisch gelöscht', 'info');
-        } else {
-            const error = await response.json();
-            showAlert(error.error, 'danger');
-        }
+        await loadTables();
+        renderSeatingChart();
+        renderGuestList();
+        
+        const modal = bootstrap.Modal.getInstance(document.getElementById('tableDetailsModal'));
+        modal.hide();
+        
+        showAlert('Tisch gelöscht', 'info');
     } catch (error) {
 
         showAlert('Fehler beim Löschen des Tisches', 'danger');
@@ -3405,17 +3404,12 @@ async function updateTableSizes() {
     
     // Konfiguration sofort speichern
     try {
-        const response = await apiRequest('/tischplanung/config', {
+        const result = await apiRequest('/tischplanung/config', {
             method: 'POST',
             body: JSON.stringify({
                 standard_tisch_groesse: newSize
             })
         });
-        
-        if (!response.ok) {
-            throw new Error('Fehler beim Speichern der Konfiguration');
-        }
-        
 
         
         // Globale Konfiguration aktualisieren
@@ -3589,16 +3583,10 @@ async function autoAssignGuests() {
     
     try {
         // API-Aufruf für automatische Zuordnung
-        const response = await apiRequest('/tischplanung/auto-assign', {
+        const result = await apiRequest('/tischplanung/auto-assign', {
             method: 'POST',
-            });
+        });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        
         if (result.error) {
             throw new Error(result.error);
         }
@@ -3693,20 +3681,69 @@ function printTableOverview() {
 
 // Tische zentrieren - Matrix-Layout mit Kollisionserkennung
 function centerTables() {
-    if (!tables || tables.length === 0) {
-        const alertFunction = window.showAlert || window.alert;
-        alertFunction('Keine Tische zum Zentrieren vorhanden');
+    console.log('🎯 centerTables aufgerufen - Debugging:', {
+        tablesArray: tables,
+        tablesLength: tables?.length,
+        tablesType: typeof tables,
+        windowTables: window.tables
+    });
+    
+    // Verwende globale Variable oder suche im DOM nach Tischen
+    let tablesToCenter = tables;
+    
+    if (!tablesToCenter || !Array.isArray(tablesToCenter) || tablesToCenter.length === 0) {
+        console.log('🔍 Globale tables Variable leer, suche Tische im DOM...');
+        
+        // Versuche, Tische aus dem DOM zu extrahieren
+        const chart = document.getElementById("seatingChart");
+        if (chart) {
+            const tableElements = chart.querySelectorAll('.table-item');
+            console.log(`📊 ${tableElements.length} Tische im DOM gefunden`);
+            
+            if (tableElements.length > 0) {
+                tablesToCenter = Array.from(tableElements).map(el => {
+                    const id = el.getAttribute('data-table-id');
+                    const name = el.querySelector('.table-name')?.textContent || `Tisch ${id}`;
+                    const rect = el.getBoundingClientRect();
+                    const chartRect = chart.getBoundingClientRect();
+                    
+                    return {
+                        id: parseInt(id),
+                        name: name,
+                        x_position: rect.left - chartRect.left,
+                        y_position: rect.top - chartRect.top,
+                        element: el
+                    };
+                });
+                console.log('📋 Tische aus DOM extrahiert:', tablesToCenter);
+            }
+        }
+    }
+    
+    if (!tablesToCenter || !Array.isArray(tablesToCenter) || tablesToCenter.length === 0) {
+        console.warn('⚠️ Keine Tische verfügbar:', { 
+            globalTables: tables?.length, 
+            domTables: document.querySelectorAll('.table-item').length 
+        });
+        
+        // Zeige Wedding-Theme Modal statt Browser-Popup
+        showNoTablesModal();
         return;
     }
     
     const chart = document.getElementById("seatingChart");
     if (!chart) {
-
+        console.error('❌ seatingChart Element nicht gefunden');
         return;
     }
     
+    console.log('📊 Tische zentrieren:', {
+        tischAnzahl: tablesToCenter.length,
+        chartGroesse: { width: chart.offsetWidth, height: chart.offsetHeight }
+    });
+    
     // Berechne optimale Matrix-Layout mit Kollisionserkennung
-    const tableCount = tables.length;
+    const tableCount = tablesToCenter.length;
     const tablesPerRow = Math.min(Math.ceil(Math.sqrt(tableCount)), 5); // Max 5 Tische pro Reihe
     const tableSize = 180; // Tischgröße (Breite/Höhe) - größer für weniger Überlappung
     const minSpacing = 220; // Mindestabstand zwischen Tischen - größer für keine Überlappung
@@ -3725,7 +3762,7 @@ function centerTables() {
     const startX = Math.max(50, (chart.offsetWidth - totalWidth) / 2);
     const startY = Math.max(50, (chart.offsetHeight - totalHeight) / 2);
     
-    :', {
+    console.log('📐 Table positioning calculated:', {
         tableCount: tableCount,
         tablesPerRow: tablesPerRow,
         spacing: { x: spacingX, y: spacingY },
@@ -3737,37 +3774,189 @@ function centerTables() {
     
     // Batch-Update: Sammle alle Positionen und update ohne Render zwischen den Updates
     const updatePromises = [];
+    let updatedTables = 0;
     
-    tables.forEach((table, index) => {
+    tablesToCenter.forEach((table, index) => {
         const row = Math.floor(index / tablesPerRow);
         const col = index % tablesPerRow;
         const x = startX + col * spacingX;
         const y = startY + row * spacingY;
         
-
+        console.log(`🔧 Positioniere Tisch ${table.id} (${table.name}) an Position ${x}, ${y}`);
         
         // Update Position im DOM sofort für bessere UX
         const tableElement = document.querySelector(`[data-table-id="${table.id}"]`);
         if (tableElement) {
             tableElement.style.left = x + 'px';
             tableElement.style.top = y + 'px';
+            updatedTables++;
+        } else {
+            console.warn(`⚠️ Tisch-Element für Tisch ${table.id} nicht gefunden`);
         }
         
-        // API-Update sammeln für Batch-Operation
-        if (window.TischplanungAPI) {
-            updatePromises.push(
-                window.TischplanungAPI.updateTable(table.id, { x: x, y: y })
-            );
+        // Update auch die Position in der tables-Variable und lokalen Variable
+        if (table.element) {
+            // Falls aus DOM extrahiert
+            table.x_position = x;
+            table.y_position = y;
+        } else {
+            // Falls aus globaler Variable
+            table.x_position = x;
+            table.y_position = y;
+            
+            // Auch in der globalen Variable aktualisieren
+            const globalTable = tables.find(t => t.id === table.id);
+            if (globalTable) {
+                globalTable.x_position = x;
+                globalTable.y_position = y;
+            }
         }
+        
+        // API-Update für Backend
+        updatePromises.push(
+            updateTablePosition(table.id, x, y)
+        );
     });
     
-    // Alle Updates gleichzeitig ausführen ohne zusätzliches Rendern
+    console.log(`✅ ${updatedTables} von ${tablesToCenter.length} Tischen im DOM positioniert`);
+    
+    // Alle Updates gleichzeitig ausführen
     Promise.all(updatePromises).then(() => {
-
-        // KEIN zusätzliches Rendering oder Laden - Positionen sind bereits im DOM aktualisiert
+        console.log('✅ Alle Tischpositionen im Backend gespeichert');
+        showCenterTablesSuccessModal(tablesToCenter.length);
     }).catch(error => {
-
+        console.error('❌ Fehler beim Speichern der Tischpositionen:', error);
+        showAlert('Fehler beim Speichern der Tischpositionen', 'danger');
     });
+}
+
+// Wedding-Theme Success Modal für Tische zentriert
+function showCenterTablesSuccessModal(tableCount) {
+    const modalHtml = `
+        <div class="modal fade modal-wedding" id="centerTablesSuccessModal" tabindex="-1" aria-labelledby="centerTablesSuccessModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content" style="background: linear-gradient(135deg, #f8f4e6 0%, #fff9e6 100%); border: 2px solid #d4af37;">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #d4af37, #b8941f); color: white; border-bottom: none;">
+                        <h5 class="modal-title" id="centerTablesSuccessModalLabel">
+                            <i class="bi bi-check-circle me-2"></i>Tische zentriert
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <div class="mb-3">
+                            <i class="bi bi-grid-3x3-gap" style="font-size: 3rem; color: #d4af37;"></i>
+                        </div>
+                        <h4 style="color: #8b7355; margin-bottom: 1rem;">Erfolgreich zentriert!</h4>
+                        <p style="color: #8b7355; font-size: 1.1rem;">
+                            <strong>${tableCount}</strong> Tische wurden in einem optimalen Matrix-Layout zentriert.
+                        </p>
+                        <div class="mt-3">
+                            <small style="color: #8b7355;">
+                                Die Tischpositionen wurden automatisch im Backend gespeichert.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="background: #f8f4e6; border-top: 1px solid #d4af37;">
+                        <button type="button" class="btn btn-wedding-primary" data-bs-dismiss="modal">
+                            <i class="bi bi-check-circle me-2"></i>Perfekt!
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Entferne existierendes Modal
+    const existingModal = document.getElementById('centerTablesSuccessModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Füge neues Modal hinzu
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Modal anzeigen und nach 3 Sekunden automatisch schließen
+    const modal = new bootstrap.Modal(document.getElementById('centerTablesSuccessModal'));
+    modal.show();
+    
+    // Auto-close nach 3 Sekunden für bessere UX
+    setTimeout(() => {
+        modal.hide();
+    }, 3000);
+}
+
+// Wedding-Theme Modal für "Keine Tische"
+function showNoTablesModal() {
+    const globalTableCount = tables?.length || 0;
+    const domTableCount = document.querySelectorAll('.table-item').length;
+    
+    const modalHtml = `
+        <div class="modal fade modal-wedding" id="noTablesModal" tabindex="-1" aria-labelledby="noTablesModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content" style="background: linear-gradient(135deg, #f8f4e6 0%, #fff9e6 100%); border: 2px solid #d4af37;">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #d4af37, #b8941f); color: white; border-bottom: none;">
+                        <h5 class="modal-title" id="noTablesModalLabel">
+                            <i class="bi bi-info-circle me-2"></i>Tische zentrieren
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <div class="mb-4">
+                            <i class="bi bi-table" style="font-size: 4rem; color: #d4af37; opacity: 0.5;"></i>
+                        </div>
+                        <h4 style="color: #8b7355; margin-bottom: 1rem;">Keine Tische vorhanden</h4>
+                        <p style="color: #8b7355; font-size: 1.1rem;">
+                            Es wurden noch keine Tische erstellt, die zentriert werden können.
+                        </p>
+                        
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <div class="card" style="border: 1px solid #d4af37; background: rgba(212, 175, 55, 0.1);">
+                                    <div class="card-body">
+                                        <h6 style="color: #d4af37;">📊 Aktuelle Situation</h6>
+                                        <p class="mb-1" style="color: #8b7355;">Globale Tische: <strong>${globalTableCount}</strong></p>
+                                        <p class="mb-0" style="color: #8b7355;">DOM Tische: <strong>${domTableCount}</strong></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card" style="border: 1px solid #8b7355; background: rgba(139, 115, 85, 0.1);">
+                                    <div class="card-body">
+                                        <h6 style="color: #8b7355;">💡 Nächste Schritte</h6>
+                                        <p class="mb-0" style="color: #8b7355;">
+                                            Erstellen Sie zuerst Tische über den 
+                                            <strong>"Tisch hinzufügen"</strong> Button
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="background: #f8f4e6; border-top: 1px solid #d4af37;">
+                        <button type="button" class="btn btn-wedding-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-check-circle me-2"></i>Verstanden
+                        </button>
+                        <button type="button" class="btn btn-wedding-primary" onclick="addNewTable(); bootstrap.Modal.getInstance(document.getElementById('noTablesModal')).hide();">
+                            <i class="bi bi-plus-circle me-2"></i>Tisch hinzufügen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Entferne existierendes Modal
+    const existingModal = document.getElementById('noTablesModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Füge neues Modal hinzu
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Modal anzeigen
+    const modal = new bootstrap.Modal(document.getElementById('noTablesModal'));
+    modal.show();
 }
 
 // Alle Tische zurücksetzen mit Bestätigung
@@ -3779,9 +3968,53 @@ function clearAllTablesConfirm() {
 
 // Global verfügbar machen - ALLE benötigten Funktionen
 window.centerTables = centerTables;
+
+// Debug-Funktion für Tischverfügbarkeit
+window.debugTischVerfügbarkeit = function() {
+    console.log('🔍 Debug: Tischverfügbarkeit');
+    console.log('Globale tables Variable:', {
+        exists: typeof tables !== 'undefined',
+        isArray: Array.isArray(tables),
+        length: tables?.length,
+        data: tables
+    });
+    
+    const domTables = document.querySelectorAll('.table-item');
+    console.log('DOM Tische:', {
+        count: domTables.length,
+        elements: Array.from(domTables).map(el => ({
+            id: el.getAttribute('data-table-id'),
+            name: el.querySelector('.table-name')?.textContent
+        }))
+    });
+    
+    return {
+        globalTables: tables?.length || 0,
+        domTables: domTables.length
+    };
+};
 window.autoAssignGuests = autoAssignGuests;
 window.clearAllTablesConfirm = clearAllTablesConfirm;
 window.clearAllTables = clearAllTables;
+
+// Debug-Funktion für den aktuellen Status
+window.debugTischplanung = function() {
+    console.log('🔍 Debug Tischplanung Status:', {
+        tables: tables,
+        tablesCount: tables?.length || 0,
+        guests: guests,
+        guestsCount: guests?.length || 0,
+        assignedGuests: guests?.filter(g => g.assigned_table)?.length || 0,
+        relationships: relationships?.length || 0,
+        config: tischplanung_config
+    });
+    
+    return {
+        tables: tables?.length || 0,
+        guests: guests?.length || 0,
+        assigned: guests?.filter(g => g.assigned_table)?.length || 0
+    };
+};
 
 // === API DEBUGGING UTILITIES ===
 

@@ -51,7 +51,8 @@ async function loadAndDisplayBudget() {
     try {
         HochzeitsplanerApp.showLoading();
         
-        const data = await apiRequest('/budget/list');
+        const response = await fetch('/api/budget/list');
+        const data = await response.json();
         
         if (data.success) {
             currentBudget = data.budget || [];
@@ -208,9 +209,11 @@ async function handleGenerateBudget() {
     try {
         HochzeitsplanerApp.showLoading();
         
-        const result = await apiRequest('/budget/auto-generate', {
+        const response = await fetch('/api/budget/auto-generate', {
             method: 'POST'
         });
+        
+        const result = await response.json();
         
         if (result.success) {
             // Budget wurde bereits serverseitig gespeichert, nur neu laden
@@ -241,11 +244,15 @@ async function handleGenerateBudget() {
 }
 
 async function saveBudgetData(budgetData) {
-    const result = await apiRequest('/budget/save', {
+    const response = await fetch('/api/budget/save', {
         method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ budget: budgetData })
     });
     
+    const result = await response.json();
     if (!result.success) {
         throw new Error(result.error);
     }
@@ -318,17 +325,25 @@ async function handleSaveBudgetItem() {
         let response;
         if (editingIndex != -1) {
             // Bearbeiten - editingIndex enthält jetzt die Item-ID
-            result = await apiRequest(`/budget/edit/${editingIndex}`, {
+            response = await fetch(`/api/budget/edit/${editingIndex}`, {
                 method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify(budgetData)
             });
         } else {
             // Hinzufügen
-            result = await apiRequest('/budget/add', {
+            response = await fetch('/api/budget/add', {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify(budgetData)
             });
         }
+        
+        const result = await response.json();
         
         if (result.success) {
             const action = editingIndex != -1 ? 'aktualisiert' : 'hinzugefügt';
@@ -379,9 +394,11 @@ async function handleConfirmDelete() {
     try {
         HochzeitsplanerApp.showLoading();
         
-        const result = await apiRequest(`/budget/delete/${itemId}`, {
+        const response = await fetch(`/api/budget/delete/${itemId}`, {
             method: 'DELETE'
         });
+        
+        const result = await response.json();
         
         if (result.success) {
             HochzeitsplanerApp.showAlert('Budget-Position wurde gelöscht!', 'success');
