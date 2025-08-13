@@ -25,6 +25,7 @@ class GeschenklisteAdmin {
         
         // Geldgeschenk Konfiguration
         document.getElementById('save-geldgeschenk').addEventListener('click', () => this.saveGeldgeschenkConfig());
+        document.getElementById('deactivate-geldgeschenk').addEventListener('click', () => this.deactivateGeldgeschenkConfig());
 
         // Filter
         document.getElementById('kategorie-filter').addEventListener('change', () => this.applyFilters());
@@ -58,6 +59,7 @@ class GeschenklisteAdmin {
         const paypalInput = document.getElementById('geldgeschenk-paypal');
         const beschreibungInput = document.getElementById('geldgeschenk-beschreibung');
         const statusBadge = document.getElementById('geldgeschenk-status-badge');
+        const deactivateBtn = document.getElementById('deactivate-geldgeschenk');
 
         if (config) {
             nameInput.value = config.name || '';
@@ -67,9 +69,11 @@ class GeschenklisteAdmin {
             if (config.aktiv) {
                 statusBadge.className = 'badge bg-success';
                 statusBadge.textContent = 'Aktiv';
+                deactivateBtn.style.display = 'inline-block';
             } else {
                 statusBadge.className = 'badge bg-warning';
                 statusBadge.textContent = 'Inaktiv';
+                deactivateBtn.style.display = 'none';
             }
         } else {
             nameInput.value = '';
@@ -77,6 +81,7 @@ class GeschenklisteAdmin {
             beschreibungInput.value = '';
             statusBadge.className = 'badge bg-secondary';
             statusBadge.textContent = 'Nicht konfiguriert';
+            deactivateBtn.style.display = 'none';
         }
     }
 
@@ -121,6 +126,36 @@ class GeschenklisteAdmin {
             console.error('Fehler beim Speichern der Geldgeschenk-Konfiguration:', error);
             this.showError('Netzwerkfehler beim Speichern');
         }
+    }
+
+    async deactivateGeldgeschenkConfig() {
+        this.showConfirm(
+            'Geldgeschenk deaktivieren',
+            'Möchten Sie das Geldgeschenk wirklich deaktivieren? Es wird dann für Gäste nicht mehr verfügbar sein.',
+            async () => {
+                try {
+                    const response = await fetch('/api/geldgeschenk/deactivate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.showSuccess('Geldgeschenk wurde deaktiviert');
+                        this.loadGeldgeschenkConfig();
+                    } else {
+                        this.showError(data.error || 'Fehler beim Deaktivieren');
+                    }
+                } catch (error) {
+                    console.error('Fehler beim Deaktivieren der Geldgeschenk-Konfiguration:', error);
+                    this.showError('Netzwerkfehler beim Deaktivieren');
+                }
+            },
+            'Deaktivieren'
+        );
     }
 
     async loadGeschenke() {
@@ -321,18 +356,18 @@ class GeschenklisteAdmin {
             <td>${geschenk.ausgewaehlt_von_name || '-'}</td>
             <td>
                 <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-info" onclick="geschenkAdmin.showDetails(${geschenk.id})" title="Details">
+                    <button class="btn btn-outline-info" onclick="geschenklisteAdmin.showDetails(${geschenk.id})" title="Details">
                         <i class="fas fa-eye"></i>
                     </button>
-                    <button class="btn btn-outline-primary" onclick="geschenkAdmin.editGeschenk(${geschenk.id})" title="Bearbeiten">
+                    <button class="btn btn-outline-primary" onclick="geschenklisteAdmin.editGeschenk(${geschenk.id})" title="Bearbeiten">
                         <i class="fas fa-edit"></i>
                     </button>
                     ${istAusgewaehlt ? `
-                        <button class="btn btn-outline-warning" onclick="geschenkAdmin.freigebenGeschenk(${geschenk.id})" title="Freigeben">
+                        <button class="btn btn-outline-warning" onclick="geschenklisteAdmin.freigebenGeschenk(${geschenk.id})" title="Freigeben">
                             <i class="fas fa-undo"></i>
                         </button>
                     ` : ''}
-                    <button class="btn btn-outline-danger" onclick="geschenkAdmin.deleteGeschenk(${geschenk.id})" title="Löschen">
+                    <button class="btn btn-outline-danger" onclick="geschenklisteAdmin.deleteGeschenk(${geschenk.id})" title="Löschen">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -352,16 +387,10 @@ class GeschenklisteAdmin {
         document.getElementById('detail-content').innerHTML = `
             <div class="row">
                 <div class="col-12">
-                    <h6>Details</h6>
                     <p><strong>Kategorie:</strong> ${geschenk.kategorie}</p>
                     <p><strong>Beschreibung:</strong> ${geschenk.beschreibung || 'Keine'}</p>
                     <p><strong>Preis:</strong> ${geschenk.preis ? `${geschenk.preis} ${geschenk.waehrung}` : 'Nicht angegeben'}</p>
-                    <p><strong>Menge:</strong> ${geschenk.menge} verfügbar</p>
-                    <p><strong>Priorität:</strong> ${geschenk.prioritaet}</p>
-                    <p><strong>Geldgeschenk:</strong> ${geschenk.ist_geldgeschenk ? 'Ja' : 'Nein'}</p>
-                    
-                    ${geschenk.link ? `<p><strong>Link:</strong> <a href="${geschenk.link}" target="_blank">Produktseite</a></p>` : ''}
-                    ${geschenk.paypal_link ? `<p><strong>PayPal:</strong> <a href="${geschenk.paypal_link}" target="_blank">PayPal-Link</a></p>` : ''}
+                    <p><strong>Artikel URL:</strong> ${geschenk.link ? `<a href="${geschenk.link}" target="_blank" class="text-primary">Produktseite öffnen <i class="fas fa-external-link-alt"></i></a>` : 'Keine'}</p>
                     
                     ${istAusgewaehlt ? `
                         <hr>
@@ -406,11 +435,6 @@ class GeschenklisteAdmin {
         document.getElementById('geschenk-prioritaet').value = geschenk.prioritaet;
         document.getElementById('geschenk-link').value = geschenk.link || '';
         document.getElementById('geschenk-bild-url').value = geschenk.bild_url || '';
-        document.getElementById('ist-geldgeschenk').checked = geschenk.ist_geldgeschenk;
-        document.getElementById('paypal-link').value = geschenk.paypal_link || '';
-
-        // PayPal Sektion anzeigen falls Geldgeschenk
-        document.getElementById('paypal-section').style.display = geschenk.ist_geldgeschenk ? 'block' : 'none';
 
         // Modal Titel ändern
         document.getElementById('modal-title').textContent = 'Geschenk bearbeiten';
@@ -469,49 +493,60 @@ class GeschenklisteAdmin {
     }
 
     async deleteGeschenk(geschenkId) {
-        if (!confirm('Sind Sie sicher, dass Sie dieses Geschenk löschen möchten?')) return;
+        this.showConfirm(
+            'Geschenk löschen',
+            'Sind Sie sicher, dass Sie dieses Geschenk löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.',
+            async () => {
+                try {
+                    const response = await fetch(`/api/geschenkliste/delete/${geschenkId}`, {
+                        method: 'DELETE'
+                    });
 
-        try {
-            const response = await fetch(`/api/geschenkliste/delete/${geschenkId}`, {
-                method: 'DELETE'
-            });
-
-            const data = await response.json();
-            
-            if (data.success) {
-                this.showSuccess(data.message);
-                this.loadGeschenke();
-                this.loadStatistiken();
-            } else {
-                this.showError(data.error || 'Fehler beim Löschen');
-            }
-        } catch (error) {
-            console.error('Fehler beim Löschen:', error);
-            this.showError('Netzwerkfehler beim Löschen');
-        }
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.showSuccess(data.message);
+                        this.loadGeschenke();
+                        this.loadStatistiken();
+                    } else {
+                        this.showError(data.error || 'Fehler beim Löschen');
+                    }
+                } catch (error) {
+                    console.error('Fehler beim Löschen:', error);
+                    this.showError('Netzwerkfehler beim Löschen');
+                }
+            },
+            'Löschen'
+        );
     }
 
     async freigebenGeschenk(geschenkId) {
-        if (!confirm('Sind Sie sicher, dass Sie dieses Geschenk wieder freigeben möchten?')) return;
+        this.showConfirm(
+            'Geschenk freigeben',
+            'Sind Sie sicher, dass Sie dieses Geschenk wieder freigeben möchten? Es wird dann wieder für andere Gäste verfügbar sein.',
+            async () => {
+                try {
+                    const response = await fetch(`/api/geschenkliste/admin/freigeben/${geschenkId}`, {
+                        method: 'POST'
+                    });
 
-        try {
-            const response = await fetch(`/api/geschenkliste/admin/freigeben/${geschenkId}`, {
-                method: 'POST'
-            });
-
-            const data = await response.json();
-            
-            if (data.success) {
-                this.showSuccess(data.message);
-                this.loadGeschenke();
-                this.loadStatistiken();
-            } else {
-                this.showError(data.error || 'Fehler beim Freigeben');
-            }
-        } catch (error) {
-            console.error('Fehler beim Freigeben:', error);
-            this.showError('Netzwerkfehler beim Freigeben');
-        }
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.showSuccess(data.message);
+                        this.loadGeschenke();
+                        this.loadStatistiken();
+                    } else {
+                        this.showError(data.error || 'Fehler beim Freigeben');
+                    }
+                } catch (error) {
+                    console.error('Fehler beim Freigeben:', error);
+                    this.showError('Netzwerkfehler beim Freigeben');
+                }
+            },
+            'Freigeben',
+            'btn-warning'
+        );
     }
 
     applyFilters() {
@@ -580,6 +615,30 @@ class GeschenklisteAdmin {
             console.error('Fehler beim Freigeben der Geldgeschenk-Auswahl:', error);
             this.showError('Netzwerkfehler beim Freigeben');
         }
+    }
+
+    showConfirm(title, message, onConfirm, confirmButtonText = 'Bestätigen', confirmButtonClass = 'btn-danger') {
+        // Modal-Elemente setzen
+        document.getElementById('confirm-title').textContent = title;
+        document.getElementById('confirm-message').textContent = message;
+        
+        const confirmBtn = document.getElementById('confirm-action-btn');
+        confirmBtn.textContent = confirmButtonText;
+        confirmBtn.className = `btn ${confirmButtonClass}`;
+        
+        // Event Listener für Bestätigung
+        const handleConfirm = () => {
+            confirmBtn.removeEventListener('click', handleConfirm);
+            const modal = bootstrap.Modal.getInstance(document.getElementById('confirmModal'));
+            modal.hide();
+            onConfirm();
+        };
+        
+        confirmBtn.addEventListener('click', handleConfirm);
+        
+        // Modal anzeigen
+        const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+        modal.show();
     }
 
     showSuccess(message) {

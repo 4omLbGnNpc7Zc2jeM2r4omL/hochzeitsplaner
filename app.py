@@ -9576,6 +9576,40 @@ def api_geldgeschenk_config_save():
         logger.error(f"Fehler beim Speichern der Geldgeschenk-Konfiguration: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/geldgeschenk/deactivate', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def api_geldgeschenk_deactivate():
+    """Deaktiviert das Geldgeschenk"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        # Aktuelle Konfiguration laden
+        config = data_manager.get_geldgeschenk_config()
+        if not config:
+            return jsonify({'error': 'Keine Geldgeschenk-Konfiguration gefunden'}), 404
+        
+        # Konfiguration mit aktiv=0 speichern
+        success = data_manager.save_geldgeschenk_config(
+            name=config.get('name'),
+            beschreibung=config.get('beschreibung'),
+            paypal_link=config.get('paypal_link'),
+            aktiv=0
+        )
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Geldgeschenk wurde deaktiviert'
+            })
+        else:
+            return jsonify({'error': 'Fehler beim Deaktivieren'}), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Deaktivieren der Geldgeschenk-Konfiguration: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/geldgeschenk/waehlen', methods=['POST'])
 @require_auth
 @require_role(['guest'])
