@@ -60,6 +60,12 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="geschenke-tab" data-bs-toggle="pill" data-bs-target="#geschenke-pane" type="button" role="tab">
+                        <i class="bi bi-gift d-block d-md-inline me-md-1"></i>
+                        <span class="d-none d-md-inline">Geschenke</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
                     <button class="nav-link" id="gallery-tab" data-bs-toggle="pill" data-bs-target="#gallery-pane" type="button" role="tab">
                         <i class="bi bi-images d-block d-md-inline me-md-1"></i>
                         <span class="d-none d-md-inline">Galerie</span>
@@ -400,6 +406,124 @@
             </div>
         </div>
         
+        <!-- Geschenke Tab -->
+        <div class="tab-pane fade" id="geschenke-pane" role="tabpanel">
+            <div class="row justify-content-center">
+                <div class="col-12">
+                    <!-- Geschenkliste Header -->
+                    <div class="card mb-4 border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 15px;">
+                        <div class="card-header border-0" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border-radius: 15px 15px 0 0;">
+                            <h5 class="mb-0" style="color: #8b7355; font-weight: 500;">
+                                <i class="bi bi-gift me-2"></i>
+                                Unsere Geschenkliste
+                            </h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <p class="mb-3" style="color: #8b7355;">
+                                Wir haben eine kleine Geschenkliste für euch zusammengestellt. 
+                                Ihr könnt euch ein Geschenk aussuchen, das euch gefällt - es wird dann für andere Gäste nicht mehr sichtbar sein.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Meine ausgewählten Geschenke -->
+                    <div id="meine-geschenke-section" style="display: none;" class="mb-4">
+                        <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%); border-radius: 12px;">
+                            <div class="card-header border-0" style="background: linear-gradient(135deg, #28a745, #20c997); border-radius: 12px 12px 0 0;">
+                                <h6 class="mb-0" style="color: #ffffff; font-weight: 500;">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    Ihre ausgewählten Geschenke
+                                </h6>
+                            </div>
+                            <div class="card-body" id="meine-geschenke-inhalt">
+                                <!-- Wird via JavaScript gefüllt -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter für verfügbare Geschenke -->
+                    <div class="card mb-3 border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <select class="form-select" id="dashboard-kategorie-filter" style="border-color: #d4af37;">
+                                        <option value="">Alle Kategorien</option>
+                                        <option value="Haushalt">Haushalt</option>
+                                        <option value="Küche">Küche</option>
+                                        <option value="Dekoration">Dekoration</option>
+                                        <option value="Geld">Geldgeschenke</option>
+                                        <option value="Sonstiges">Sonstiges</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <select class="form-select" id="dashboard-preis-filter" style="border-color: #d4af37;">
+                                        <option value="">Alle Preisklassen</option>
+                                        <option value="0-25">bis 25 €</option>
+                                        <option value="25-50">25 - 50 €</option>
+                                        <option value="50-100">50 - 100 €</option>
+                                        <option value="100-200">100 - 200 €</option>
+                                        <option value="200+">über 200 €</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="text" class="form-control" id="dashboard-search-input" 
+                                           placeholder="🔍 Geschenke suchen..." style="border-color: #d4af37;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Verfügbare Geschenke Grid -->
+                    <div id="dashboard-geschenke-loading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Lade...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Geschenke werden geladen...</p>
+                    </div>
+                    
+                    <!-- Geschenkliste Tabelle -->
+                    <div id="dashboard-geschenke-container" style="display: none;">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header" style="background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));">
+                                <h6 class="mb-0" style="color: var(--wedding-text);">
+                                    <i class="bi bi-gift me-2"></i>Verfügbare Geschenke
+                                </h6>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0" id="dashboard-geschenke-table">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Geschenk</th>
+                                                <th>Kategorie</th>
+                                                <th>Preis</th>
+                                                <th>Verfügbar</th>
+                                                <th>Aktionen</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="dashboard-geschenke-tbody">
+                                            <!-- Wird via JavaScript gefüllt -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Keine Geschenke Nachricht -->
+                    <div id="dashboard-keine-geschenke" style="display: none;" class="text-center py-5">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body">
+                                <i class="bi bi-gift" style="font-size: 3rem; color: #d4af37;"></i>
+                                <h5 class="mt-3" style="color: #8b7355;">Alle Geschenke wurden bereits ausgewählt</h5>
+                                <p class="text-muted">Vielen Dank für Ihr Interesse! Alle Geschenke aus unserer Liste wurden bereits von anderen Gästen ausgewählt.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Galerie Tab -->
         <div class="tab-pane fade" id="gallery-pane" role="tabpanel">
             <div class="row">
@@ -612,6 +736,166 @@
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Geldgeschenk Auswahl Modal -->
+<div class="modal fade" id="geldgeschenkModal" tabindex="-1" aria-labelledby="geldgeschenkModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="geldgeschenkModalLabel">
+                    <i class="bi bi-heart-fill me-2"></i>Geldgeschenk auswählen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="text-center mb-4">
+                    <div class="display-1 mb-3" style="color: var(--wedding-gold);">💰</div>
+                    <h4 id="geldgeschenkName" class="fw-bold" style="color: var(--wedding-text);"></h4>
+                    <p id="geldgeschenkBeschreibung" class="text-muted"></p>
+                </div>
+                
+                <form id="geldgeschenkForm">
+                    <div class="mb-3">
+                        <label for="geldgeschenkBetrag" class="form-label fw-semibold">
+                            <i class="bi bi-currency-euro me-1"></i>Betrag (optional)
+                        </label>
+                        <input type="number" class="form-control form-control-lg" id="geldgeschenkBetrag" 
+                               placeholder="Ihr Wunschbetrag in EUR" min="1" step="0.01">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="geldgeschenkNotiz" class="form-label fw-semibold">
+                            <i class="bi bi-chat-heart me-1"></i>Persönliche Nachricht (optional)
+                        </label>
+                        <textarea class="form-control" id="geldgeschenkNotiz" rows="3" 
+                                  placeholder="Ihre persönlichen Wünsche oder Nachricht an das Brautpaar..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light btn-lg me-2" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-wedding-primary btn-lg" id="confirmGeldgeschenk">
+                    <i class="bi bi-heart-fill me-1"></i>Geldgeschenk auswählen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Geschenk Freigabe Bestätigungs Modal -->
+<div class="modal fade" id="freigebenModal" tabindex="-1" aria-labelledby="freigebenModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="freigebenModalLabel">
+                    <i class="bi bi-arrow-counterclockwise me-2"></i>Geschenk freigeben
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <div class="display-1 mb-3" style="color: var(--wedding-gold);">⚠️</div>
+                <h5 id="freigebenGeschenkName" class="fw-bold mb-3"></h5>
+                <p class="text-muted mb-4">
+                    Möchten Sie dieses Geschenk wirklich freigeben?<br>
+                    <small>Das Geschenk wird dann wieder für andere Gäste verfügbar sein.</small>
+                </p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light btn-lg me-2" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-wedding-secondary btn-lg" id="confirmFreigeben">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Jetzt freigeben
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Geldgeschenk Freigabe Bestätigungs Modal -->
+<div class="modal fade" id="geldgeschenkFreigebenModal" tabindex="-1" aria-labelledby="geldgeschenkFreigebenModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="geldgeschenkFreigebenModalLabel">
+                    <i class="bi bi-arrow-counterclockwise me-2"></i>Geldgeschenk freigeben
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <div class="display-1 mb-3" style="color: var(--wedding-gold);">💰</div>
+                <h5 class="fw-bold mb-3">Geldgeschenk freigeben?</h5>
+                <p class="text-muted mb-4">
+                    Möchten Sie Ihr Geldgeschenk wirklich freigeben?<br>
+                    <small>Das Geldgeschenk wird dann wieder für Sie verfügbar sein.</small>
+                </p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light btn-lg me-2" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-wedding-secondary btn-lg" id="confirmGeldgeschenkFreigeben">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Jetzt freigeben
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Geschenk Detail Modal -->
+<div class="modal fade" id="geschenkDetailModal" tabindex="-1" aria-labelledby="geschenkDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="geschenkDetailModalLabel">
+                    <i class="bi bi-gift me-2"></i>Geschenk Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row">
+                    <div class="col-md-6" id="geschenkDetailBild">
+                        <!-- Bild wird hier eingefügt wenn vorhanden -->
+                    </div>
+                    <div class="col-md-6" id="geschenkDetailInfo">
+                        <h4 id="geschenkDetailName" class="fw-bold mb-3" style="color: var(--wedding-text);"></h4>
+                        
+                        <div class="mb-3">
+                            <span class="badge me-2" id="geschenkDetailKategorie" style="background-color: var(--wedding-gold); color: var(--wedding-text);"></span>
+                            <span class="badge" id="geschenkDetailPrioritaet"></span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong style="color: var(--wedding-gold);" id="geschenkDetailPreis"></strong>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <small class="text-muted">Verfügbar: <span id="geschenkDetailVerfuegbar"></span></small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h6 style="color: var(--wedding-text);">Beschreibung:</h6>
+                            <p class="text-muted" id="geschenkDetailBeschreibung"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light btn-lg me-2" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>Schließen
+                </button>
+                <button type="button" class="btn btn-outline-primary btn-lg me-2" id="geschenkDetailProduktLink" style="display: none;">
+                    <i class="bi bi-box-arrow-up-right me-1"></i>Zur Produktseite
+                </button>
+                <button type="button" class="btn btn-wedding-primary btn-lg" id="geschenkDetailAuswählen">
+                    <i class="bi bi-heart-fill me-1"></i>Geschenk auswählen
+                </button>
             </div>
         </div>
     </div>
@@ -909,8 +1193,9 @@
             rgba(74, 144, 226, 0.2) 0%, 
             rgba(156, 39, 176, 0.3) 50%,
             rgba(233, 30, 99, 0.2) 100%
-        );
         transition: all 0.4s ease;
+        });
+    }
     }
 
     .guest-gallery-item:hover .guest-video-overlay-gradient {
@@ -2098,8 +2383,613 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.classList.remove('auto-hide');
         });
     }
-});
+}
+</script>
+
+<script>
+    // Geschenkliste Dashboard Funktionen
+    let dashboardGeschenke = [];
+    let dashboardMeineGeschenke = [];
+    let geldgeschenkConfig = null;
+    let meineGeldgeschenkAuswahl = null;
+
+    async function loadDashboardGeschenkliste() {
+        try {
+            console.log('🎁 Lade Dashboard Geschenkliste...');
+            
+            // Loading anzeigen
+            document.getElementById('dashboard-geschenke-loading').style.display = 'block';
+            document.getElementById('dashboard-geschenke-container').style.display = 'none';
+            document.getElementById('dashboard-keine-geschenke').style.display = 'none';
+
+            // Verfügbare Geschenke laden
+            console.log('📡 API Request: /api/geschenkliste/list');
+            const response = await fetch('/api/geschenkliste/list');
+            console.log('📡 Response Status:', response.status, response.statusText);
+            
+            const data = await response.json();
+            console.log('📡 Response Data:', data);
+            
+            if (data.success) {
+                dashboardGeschenke = data.geschenke.filter(g => g.ausgewaehlt_menge < g.menge);
+                console.log('✅ Verfügbare Geschenke:', dashboardGeschenke.length);
+                
+                // Geldgeschenk-Konfiguration laden
+                await loadGeldgeschenkConfig();
+                
+                // Meine Geschenke laden
+                await loadDashboardMeineGeschenke();
+                
+                // Geschenke rendern
+                renderDashboardGeschenke(dashboardGeschenke);
+            } else {
+                console.error('❌ Fehler beim Laden der Geschenke:', data.error);
+                showDashboardToast('Fehler beim Laden der Geschenke: ' + (data.error || 'Unbekannter Fehler'), 'error');
+            }
+        } catch (error) {
+            console.error('❌ Netzwerkfehler beim Laden der Geschenkliste:', error);
+            showDashboardToast('Netzwerkfehler beim Laden der Geschenkliste', 'error');
+        } finally {
+            document.getElementById('dashboard-geschenke-loading').style.display = 'none';
+        }
+    }
+
+    async function loadGeldgeschenkConfig() {
+        try {
+            console.log('💰 Lade Geldgeschenk-Konfiguration...');
+            const response = await fetch('/api/geldgeschenk/guest-config');
+            console.log('💰 Config Response Status:', response.status);
+            
+            const data = await response.json();
+            console.log('💰 Config Data:', data);
+            
+            if (data.success && data.config) {
+                geldgeschenkConfig = data.config;
+                console.log('✅ Geldgeschenk-Config geladen:', geldgeschenkConfig);
+            } else {
+                console.log('ℹ️ Keine Geldgeschenk-Konfiguration verfügbar');
+            }
+
+            // Meine Geldgeschenk-Auswahl laden
+            console.log('🔍 Lade meine Geldgeschenk-Auswahl...');
+            const meineResponse = await fetch('/api/geldgeschenk/meine');
+            console.log('🔍 Meine Response Status:', meineResponse.status);
+            
+            const meineData = await meineResponse.json();
+            console.log('🔍 Meine Data:', meineData);
+            
+            if (meineData.success) {
+                meineGeldgeschenkAuswahl = meineData.ausgewaehlt ? meineData.auswahl : null;
+                console.log('✅ Meine Geldgeschenk-Auswahl:', meineGeldgeschenkAuswahl);
+            }
+        } catch (error) {
+            console.error('❌ Fehler beim Laden der Geldgeschenk-Konfiguration:', error);
+        }
+    }
+
+    async function loadDashboardMeineGeschenke() {
+        try {
+            const response = await fetch('/api/geschenkliste/meine');
+            const data = await response.json();
+            
+            if (data.success) {
+                dashboardMeineGeschenke = data.geschenke;
+                renderDashboardMeineGeschenke();
+            }
+        } catch (error) {
+            console.error('Fehler beim Laden eigener Geschenke:', error);
+        }
+    }
+
+    function renderDashboardMeineGeschenke() {
+        const section = document.getElementById('meine-geschenke-section');
+        const inhalt = document.getElementById('meine-geschenke-inhalt');
+        
+        let hasGeschenke = dashboardMeineGeschenke.length > 0 || meineGeldgeschenkAuswahl;
+        
+        if (!hasGeschenke) {
+            section.style.display = 'none';
+            return;
+        }
+
+        section.style.display = 'block';
+        let html = '';
+        
+        // Normale Geschenke
+        dashboardMeineGeschenke.forEach(geschenk => {
+            const preis = geschenk.preis ? ` - ${geschenk.preis} ${geschenk.waehrung}` : '';
+            
+            html += `
+                <div class="border rounded p-3 mb-2 bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>🎁 ${geschenk.name}</strong>${preis}
+                            <br><small class="text-muted">${geschenk.beschreibung || ''}</small>
+                            <br><small class="text-success">Ausgewählt am: ${new Date(geschenk.ausgewaehlt_am).toLocaleDateString('de-DE')}</small>
+                        </div>
+                        <button class="btn btn-outline-warning btn-sm" onclick="freigebenDashboardGeschenk(${geschenk.id})">
+                            <i class="bi bi-arrow-counterclockwise"></i> Freigeben
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        // Geldgeschenk
+        if (meineGeldgeschenkAuswahl) {
+            const betrag = meineGeldgeschenkAuswahl.betrag ? ` - ${meineGeldgeschenkAuswahl.betrag} ${meineGeldgeschenkAuswahl.waehrung || 'EUR'}` : '';
+            const hasPaypalLink = geldgeschenkConfig && geldgeschenkConfig.paypal_link;
+            
+            html += `
+                <div class="border rounded p-3 mb-2 bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>💰 ${geldgeschenkConfig ? geldgeschenkConfig.name : 'Geldgeschenk'}</strong>${betrag}
+                            <br><small class="text-muted">${meineGeldgeschenkAuswahl.notiz || 'Geldgeschenk'}</small>
+                            <br><small class="text-success">Ausgewählt am: ${new Date(meineGeldgeschenkAuswahl.ausgewaehlt_am).toLocaleDateString('de-DE')}</small>
+                        </div>
+                        <div class="d-flex gap-2">
+                            ${hasPaypalLink ? `
+                                <button class="btn btn-outline-primary btn-sm" onclick="window.open('${geldgeschenkConfig.paypal_link}', '_blank')" title="PayPal öffnen">
+                                    <i class="bi bi-credit-card"></i> PayPal
+                                </button>
+                            ` : ''}
+                            <button class="btn btn-outline-warning btn-sm" onclick="freigebenDashboardGeldgeschenk()">
+                                <i class="bi bi-arrow-counterclockwise"></i> Freigeben
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        inhalt.innerHTML = html;
+    }
+
+    function renderDashboardGeschenke(geschenke) {
+        const container = document.getElementById('dashboard-geschenke-container');
+        const tbody = document.getElementById('dashboard-geschenke-tbody');
+        const keineGeschenke = document.getElementById('dashboard-keine-geschenke');
+        
+        // Prüfe ob Geldgeschenk verfügbar ist
+        const geldgeschenkVerfuegbar = geldgeschenkConfig && geldgeschenkConfig.aktiv && !meineGeldgeschenkAuswahl;
+        const totalGeschenke = geschenke.length + (geldgeschenkVerfuegbar ? 1 : 0);
+        
+        if (totalGeschenke === 0) {
+            container.style.display = 'none';
+            keineGeschenke.style.display = 'block';
+            return;
+        }
+
+        container.style.display = 'block';
+        keineGeschenke.style.display = 'none';
+        tbody.innerHTML = '';
+
+        // Geldgeschenk als erste Zeile hinzufügen
+        if (geldgeschenkVerfuegbar) {
+            const geldRow = document.createElement('tr');
+            geldRow.style.backgroundColor = '#fff8e1';
+            geldRow.innerHTML = `
+                <td>
+                    <div class="d-flex align-items-center">
+                        <span class="me-2" style="font-size: 1.5rem;">💰</span>
+                        <div>
+                            <strong style="color: var(--wedding-text);">${geldgeschenkConfig.name}</strong>
+                            <br><small class="text-muted">${geldgeschenkConfig.beschreibung || 'Unterstützen Sie uns mit einem Geldgeschenk'}</small>
+                        </div>
+                    </div>
+                </td>
+                <td><span class="badge" style="background-color: var(--wedding-gold); color: var(--wedding-text);">Geldgeschenk</span></td>
+                <td><strong style="color: var(--wedding-gold);">Ihr Wunschbetrag</strong></td>
+                <td><span class="badge bg-success">Immer verfügbar</span></td>
+                <td>
+                    <button class="btn btn-wedding-primary btn-sm" onclick="selectDashboardGeldgeschenk()">
+                        <i class="bi bi-heart me-1"></i> Auswählen
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(geldRow);
+        }
+
+        // Normale Geschenke als Tabellenzeilen
+        geschenke.forEach(geschenk => {
+            const row = document.createElement('tr');
+            row.style.cursor = 'pointer';
+            
+            const preis = geschenk.preis ? `${geschenk.preis} ${geschenk.waehrung}` : 'Preis auf Anfrage';
+            const verfuegbar = geschenk.menge - (geschenk.ausgewaehlt_menge || 0);
+            
+            // Beschreibung kürzen
+            const beschreibung = geschenk.beschreibung || '';
+            const kurzeBeschreibung = beschreibung.length > 60 ? beschreibung.substring(0, 60) + '...' : beschreibung;
+            
+            // Priorität Badge
+            let priorityBadge = '';
+            if (geschenk.prioritaet === 'Hoch') {
+                priorityBadge = '<span class="badge bg-danger ms-1">Hoch</span>';
+            } else if (geschenk.prioritaet === 'Niedrig') {
+                priorityBadge = '<span class="badge bg-secondary ms-1">Niedrig</span>';
+            }
+
+            row.innerHTML = `
+                <td onclick="showGeschenkDetails(${geschenk.id})">
+                    <div class="d-flex align-items-center">
+                        <span class="me-2" style="font-size: 1.5rem;">🎁</span>
+                        <div>
+                            <strong style="color: var(--wedding-text);">${geschenk.name}</strong>
+                            <br><small class="text-muted">${kurzeBeschreibung}</small>
+                        </div>
+                    </div>
+                </td>
+                <td onclick="showGeschenkDetails(${geschenk.id})">
+                    <span class="badge" style="background-color: var(--wedding-gold); color: var(--wedding-text);">${geschenk.kategorie}</span>
+                    ${priorityBadge}
+                </td>
+                <td onclick="showGeschenkDetails(${geschenk.id})">
+                    <strong style="color: var(--wedding-gold);">${preis}</strong>
+                </td>
+                <td onclick="showGeschenkDetails(${geschenk.id})">
+                    <span class="badge ${verfuegbar > 0 ? 'bg-success' : 'bg-secondary'}">${verfuegbar} verfügbar</span>
+                </td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-outline-primary btn-sm" onclick="showGeschenkDetails(${geschenk.id})" title="Details anzeigen">
+                            <i class="bi bi-info-circle"></i>
+                        </button>
+                        <button class="btn btn-wedding-primary btn-sm" onclick="selectDashboardGeschenk(${geschenk.id})" title="Auswählen">
+                            <i class="bi bi-heart"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+        });
+    }
+
+    async function selectDashboardGeldgeschenk() {
+        if (!geldgeschenkConfig) return;
+
+        // Modal-Daten setzen
+        document.getElementById('geldgeschenkName').textContent = geldgeschenkConfig.name;
+        document.getElementById('geldgeschenkBeschreibung').textContent = geldgeschenkConfig.beschreibung || 'Unterstützen Sie uns mit einem Geldgeschenk für unsere gemeinsame Zukunft.';
+        
+        // Formular zurücksetzen
+        document.getElementById('geldgeschenkBetrag').value = '';
+        document.getElementById('geldgeschenkNotiz').value = '';
+        
+        // Modal anzeigen
+        const modal = new bootstrap.Modal(document.getElementById('geldgeschenkModal'));
+        modal.show();
+    }
+
+    // Event Listener für Geldgeschenk-Bestätigung
+    document.addEventListener('DOMContentLoaded', function() {
+        const confirmButton = document.getElementById('confirmGeldgeschenk');
+        if (confirmButton) {
+            confirmButton.addEventListener('click', async function() {
+                const betrag = document.getElementById('geldgeschenkBetrag').value;
+                const notiz = document.getElementById('geldgeschenkNotiz').value;
+
+                try {
+                    const response = await fetch('/api/geldgeschenk/waehlen', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            betrag: betrag ? parseFloat(betrag) : null,
+                            notiz: notiz || null
+                        })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Modal schließen
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('geldgeschenkModal'));
+                        modal.hide();
+                        
+                        // Toast anzeigen
+                        showDashboardToast('Geldgeschenk erfolgreich ausgewählt! Vielen Dank!', 'success');
+                        
+                        // PayPal-Link öffnen
+                        if (geldgeschenkConfig.paypal_link) {
+                            setTimeout(() => {
+                                window.open(geldgeschenkConfig.paypal_link, '_blank');
+                            }, 500); // Kurze Verzögerung, damit der Toast sichtbar wird
+                        }
+                        
+                        // Geschenkliste neu laden
+                        loadDashboardGeschenkliste();
+                    } else {
+                        showDashboardToast(data.error || 'Fehler beim Auswählen des Geldgeschenks', 'error');
+                    }
+                } catch (error) {
+                    console.error('Fehler beim Auswählen des Geldgeschenks:', error);
+                    showDashboardToast('Netzwerkfehler beim Auswählen', 'error');
+                }
+            });
+        }
+    });
+
+    async function freigebenDashboardGeldgeschenk() {
+        // Modal anzeigen
+        const modal = new bootstrap.Modal(document.getElementById('geldgeschenkFreigebenModal'));
+        modal.show();
+        
+        // Event Listener für Bestätigung (einmalig setzen)
+        const confirmButton = document.getElementById('confirmGeldgeschenkFreigeben');
+        const newConfirmButton = confirmButton.cloneNode(true);
+        confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
+        
+        newConfirmButton.addEventListener('click', async function() {
+            try {
+                const response = await fetch('/api/geldgeschenk/freigeben', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Modal schließen
+                    const modalInstance = bootstrap.Modal.getInstance(document.getElementById('geldgeschenkFreigebenModal'));
+                    modalInstance.hide();
+                    
+                    showDashboardToast('Geldgeschenk erfolgreich freigegeben', 'success');
+                    loadDashboardGeschenkliste();
+                } else {
+                    showDashboardToast(data.error || 'Fehler beim Freigeben', 'error');
+                }
+            } catch (error) {
+                console.error('Fehler beim Freigeben des Geldgeschenks:', error);
+                showDashboardToast('Netzwerkfehler beim Freigeben', 'error');
+            }
+        });
+    }
+
+    async function selectDashboardGeschenk(geschenkId) {
+        const geschenk = dashboardGeschenke.find(g => g.id === geschenkId);
+        if (!geschenk) return;
+
+        // Normales Geschenk - Bestätigung
+        const verfuegbar = geschenk.menge - (geschenk.ausgewaehlt_menge || 0);
+        let menge = 1;
+        
+        if (verfuegbar > 1) {
+            const mengeInput = prompt(`Wie viele "${geschenk.name}" möchten Sie auswählen?\n\nVerfügbar: ${verfuegbar} Stück`, '1');
+            if (!mengeInput || mengeInput === '' || isNaN(mengeInput)) return;
+            menge = parseInt(mengeInput);
+            if (menge < 1 || menge > verfuegbar) {
+                alert('Ungültige Menge!');
+                return;
+            }
+        }
+
+        const bestätigung = confirm(`"${geschenk.name}" ${menge > 1 ? `(${menge}x)` : ''} auswählen?\n\nDas Geschenk wird dann für andere Gäste nicht mehr sichtbar sein.`);
+        if (bestätigung) {
+            confirmDashboardSelection(geschenkId, menge);
+        }
+    }
+
+    async function confirmDashboardSelection(geschenkId, menge) {
+        try {
+            const response = await fetch(`/api/geschenkliste/waehlen/${geschenkId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ menge: menge })
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                showDashboardToast('Geschenk erfolgreich ausgewählt! Vielen Dank!', 'success');
+                // Geschenkliste neu laden
+                loadDashboardGeschenkliste();
+            } else {
+                showDashboardToast(data.error || 'Fehler beim Auswählen des Geschenks', 'error');
+            }
+        } catch (error) {
+            console.error('Fehler beim Auswählen:', error);
+            showDashboardToast('Netzwerkfehler beim Auswählen', 'error');
+        }
+    }
+
+    async function freigebenDashboardGeschenk(geschenkId) {
+        const geschenk = dashboardMeineGeschenke.find(g => g.id === geschenkId);
+        if (!geschenk) return;
+
+        // Modal-Daten setzen
+        document.getElementById('freigebenGeschenkName').textContent = `"${geschenk.name}" freigeben?`;
+        
+        // Modal anzeigen
+        const modal = new bootstrap.Modal(document.getElementById('freigebenModal'));
+        modal.show();
+        
+        // Event Listener für Bestätigung (einmalig setzen)
+        const confirmButton = document.getElementById('confirmFreigeben');
+        const newConfirmButton = confirmButton.cloneNode(true);
+        confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
+        
+        newConfirmButton.addEventListener('click', async function() {
+            try {
+                const response = await fetch(`/api/geschenkliste/freigeben/${geschenkId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Modal schließen
+                    const modalInstance = bootstrap.Modal.getInstance(document.getElementById('freigebenModal'));
+                    modalInstance.hide();
+                    
+                    showDashboardToast('Geschenk erfolgreich freigegeben', 'success');
+                    loadDashboardGeschenkliste();
+                } else {
+                    showDashboardToast(data.error || 'Fehler beim Freigeben', 'error');
+                }
+            } catch (error) {
+                console.error('Fehler beim Freigeben:', error);
+                showDashboardToast('Netzwerkfehler beim Freigeben', 'error');
+            }
+        });
+    }
+
+    function showGeschenkDetails(geschenkId) {
+        const geschenk = dashboardGeschenke.find(g => g.id === geschenkId);
+        if (!geschenk) return;
+
+        // Modal-Daten setzen
+        document.getElementById('geschenkDetailName').textContent = geschenk.name;
+        document.getElementById('geschenkDetailKategorie').textContent = geschenk.kategorie;
+        document.getElementById('geschenkDetailBeschreibung').textContent = geschenk.beschreibung || 'Keine Beschreibung verfügbar';
+        
+        // Preis
+        const preis = geschenk.preis ? `${geschenk.preis} ${geschenk.waehrung}` : 'Preis auf Anfrage';
+        document.getElementById('geschenkDetailPreis').textContent = preis;
+        
+        // Verfügbarkeit
+        const verfuegbar = geschenk.menge - (geschenk.ausgewaehlt_menge || 0);
+        document.getElementById('geschenkDetailVerfuegbar').textContent = `${verfuegbar} Stück`;
+        
+        // Priorität Badge
+        const prioritaetBadge = document.getElementById('geschenkDetailPrioritaet');
+        if (geschenk.prioritaet === 'Hoch') {
+            prioritaetBadge.className = 'badge bg-danger';
+            prioritaetBadge.textContent = 'Hohe Priorität';
+            prioritaetBadge.style.display = 'inline';
+        } else if (geschenk.prioritaet === 'Niedrig') {
+            prioritaetBadge.className = 'badge bg-secondary';
+            prioritaetBadge.textContent = 'Niedrige Priorität';
+            prioritaetBadge.style.display = 'inline';
+        } else {
+            prioritaetBadge.style.display = 'none';
+        }
+        
+        // Bild
+        const bildContainer = document.getElementById('geschenkDetailBild');
+        if (geschenk.bild_url) {
+            bildContainer.innerHTML = `
+                <img src="${geschenk.bild_url}" class="img-fluid rounded shadow" 
+                     alt="${geschenk.name}" style="max-height: 300px; width: 100%; object-fit: cover;">
+            `;
+            bildContainer.parentElement.className = 'row';
+            document.getElementById('geschenkDetailInfo').className = 'col-md-6';
+        } else {
+            bildContainer.innerHTML = '';
+            bildContainer.parentElement.className = '';
+            document.getElementById('geschenkDetailInfo').className = 'col-12';
+        }
+        
+        // Produkt-Link Button
+        const produktLinkBtn = document.getElementById('geschenkDetailProduktLink');
+        if (geschenk.link) {
+            produktLinkBtn.style.display = 'inline-block';
+            produktLinkBtn.onclick = () => window.open(geschenk.link, '_blank');
+        } else {
+            produktLinkBtn.style.display = 'none';
+        }
+        
+        // Auswählen Button
+        const auswählenBtn = document.getElementById('geschenkDetailAuswählen');
+        auswählenBtn.onclick = () => {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('geschenkDetailModal'));
+            modal.hide();
+            selectDashboardGeschenk(geschenkId);
+        };
+        
+        // Modal anzeigen
+        const modal = new bootstrap.Modal(document.getElementById('geschenkDetailModal'));
+        modal.show();
+    }
+
+    function applyDashboardGeschenkFilter() {
+        const kategorie = document.getElementById('dashboard-kategorie-filter').value;
+        const preisRange = document.getElementById('dashboard-preis-filter').value;
+        const search = document.getElementById('dashboard-search-input').value.toLowerCase();
+
+        let filteredGeschenke = dashboardGeschenke.filter(geschenk => {
+            // Kategorie Filter
+            if (kategorie && geschenk.kategorie !== kategorie) return false;
+            
+            // Preis Filter
+            if (preisRange && geschenk.preis) {
+                const preis = geschenk.preis;
+                if (preisRange === '0-25' && preis > 25) return false;
+                if (preisRange === '25-50' && (preis <= 25 || preis > 50)) return false;
+                if (preisRange === '50-100' && (preis <= 50 || preis > 100)) return false;
+                if (preisRange === '100-200' && (preis <= 100 || preis > 200)) return false;
+                if (preisRange === '200+' && preis <= 200) return false;
+            }
+            
+            // Such Filter
+            if (search && !geschenk.name.toLowerCase().includes(search) && 
+                !geschenk.beschreibung?.toLowerCase().includes(search)) return false;
+            
+            return true;
+        });
+
+        renderDashboardGeschenke(filteredGeschenke);
+    }
+
+    function showDashboardToast(message, type) {
+        const toast = document.createElement('div');
+        const bgClass = type === 'success' ? 'bg-success' : 'bg-danger';
+        toast.className = `toast align-items-center text-white ${bgClass} border-0 position-fixed`;
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        new bootstrap.Toast(toast).show();
+        setTimeout(() => toast.remove(), 5000);
+    }
+
+    // Event Listeners für Dashboard Geschenkliste
+    document.addEventListener('DOMContentLoaded', function() {
+        // Filter Event Listeners
+        document.getElementById('dashboard-kategorie-filter')?.addEventListener('change', applyDashboardGeschenkFilter);
+        document.getElementById('dashboard-preis-filter')?.addEventListener('change', applyDashboardGeschenkFilter);
+        document.getElementById('dashboard-search-input')?.addEventListener('input', applyDashboardGeschenkFilter);
+
+        // Tab Event Listener
+        const geschenkeTab = document.getElementById('geschenke-tab');
+        if (geschenkeTab) {
+            console.log('✅ Geschenke-Tab Event Listener hinzugefügt');
+            geschenkeTab.addEventListener('click', function() {
+                console.log('🖱️ Geschenke-Tab geklickt');
+                // Kleine Verzögerung für Tab-Transition
+                setTimeout(() => {
+                    loadDashboardGeschenkliste();
+                }, 100);
+            });
+        } else {
+            console.error('❌ Geschenke-Tab nicht gefunden!');
+        }
+
+        // Initial load falls bereits im Tab
+        const currentPane = document.querySelector('.tab-pane.active');
+        if (currentPane && currentPane.id === 'geschenke-pane') {
+            console.log('🚀 Initial Load: Bereits im Geschenke-Tab');
+            loadDashboardGeschenkliste();
+        }
+    });
 </script>
 
 {% endblock %}
+
 

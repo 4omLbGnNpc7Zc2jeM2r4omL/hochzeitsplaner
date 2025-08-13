@@ -325,8 +325,14 @@ function showRelationshipsOverview() {
     modalContent.innerHTML = contentHTML + formHTML + relationshipsHTML;
 
     // Modal anzeigen
-
     const modal = new bootstrap.Modal(document.getElementById('relationshipModal'));
+    
+    // Event-Handler zum Aufräumen beim Schließen
+    document.getElementById('relationshipModal').addEventListener('hidden.bs.modal', function () {
+        // Modal DOM-Element entfernen
+        this.remove();
+    });
+    
     modal.show();
 
 }
@@ -422,8 +428,8 @@ async function saveNewRelationship() {
                 alert('Beziehung erfolgreich gespeichert!');
             }
             
-            // Erst nachdem die Daten neu geladen wurden, ein neues Modal öffnen
-            setTimeout(() => showRelationshipsOverview(), 500);
+            // Modal nicht automatisch wieder öffnen
+            // setTimeout(() => showRelationshipsOverview(), 500);
         } else {
             if (window.showError) {
                 window.showError('Fehler beim Speichern der Beziehung: ' + (result.error || 'Unbekannter Fehler'));
@@ -586,6 +592,13 @@ async function editRelationship(relationshipId) {
 
         // Modal anzeigen
         const editModal = new bootstrap.Modal(document.getElementById('editRelationshipModal'));
+        
+        // Event-Handler zum Aufräumen beim Schließen
+        document.getElementById('editRelationshipModal').addEventListener('hidden.bs.modal', function () {
+            // Modal DOM-Element entfernen
+            this.remove();
+        });
+        
         editModal.show();
 
     } catch (error) {
@@ -661,8 +674,8 @@ async function saveEditedRelationship(relationshipId) {
                 alert('Beziehung erfolgreich aktualisiert!');
             }
             
-            // Beziehungsübersicht wieder anzeigen
-            setTimeout(() => showRelationshipsOverview(), 500);
+            // Modal nicht automatisch wieder öffnen
+            // setTimeout(() => showRelationshipsOverview(), 500);
         } else {
             if (window.showError) {
                 window.showError('Fehler beim Aktualisieren der Beziehung: ' + (result.error || 'Unbekannter Fehler'));
@@ -713,8 +726,8 @@ async function deleteRelationship(relationshipId) {
             // Daten neu laden
             await window.tischplanung.loadRelationships();
             
-            // Beziehungsübersicht wieder anzeigen
-            setTimeout(() => showRelationshipsOverview(), 500);
+            // Modal nicht automatisch wieder öffnen
+            // setTimeout(() => showRelationshipsOverview(), 500);
         } else {
 
             const errorMessage = result.error || result.message || 'Unbekannter Fehler';

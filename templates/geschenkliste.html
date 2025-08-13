@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}Geschenkliste Verwaltung{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="page-title">🎁 Geschenkliste Verwaltung</h1>
+                    <p class="text-muted">Verwalten Sie die Hochzeitsgeschenkliste für Ihre Gäste</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGeschenkModal">
+                        <i class="fas fa-plus"></i> Neues Geschenk
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Geldgeschenk Konfiguration -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">💰 Geldgeschenk Konfiguration</h5>
+                    <small>Konfigurieren Sie das spezielle Geldgeschenk für Ihre Gäste</small>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label for="geldgeschenk-name" class="form-label">Name des Geldgeschenks</label>
+                            <input type="text" class="form-control" id="geldgeschenk-name" placeholder="z.B. Beitrag zur Flitterwochen">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="geldgeschenk-paypal" class="form-label">PayPal-Link</label>
+                            <input type="url" class="form-control" id="geldgeschenk-paypal" placeholder="https://paypal.me/...">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="geldgeschenk-beschreibung" class="form-label">Beschreibung (optional)</label>
+                            <input type="text" class="form-control" id="geldgeschenk-beschreibung" placeholder="Kurze Beschreibung">
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <button class="btn btn-warning" id="save-geldgeschenk">
+                                <i class="fas fa-save"></i> Geldgeschenk speichern
+                            </button>
+                            <span class="ms-2 text-muted" id="geldgeschenk-status">
+                                <span class="badge bg-secondary" id="geldgeschenk-status-badge">Nicht konfiguriert</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiken -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <i class="fas fa-gift fa-2x text-primary mb-2"></i>
+                    <h4 class="card-title" id="stat-total">-</h4>
+                    <p class="card-text">Gesamt Geschenke</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                    <h4 class="card-title" id="stat-ausgewaehlt">-</h4>
+                    <p class="card-text">Ausgewählt</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                    <h4 class="card-title" id="stat-verfuegbar">-</h4>
+                    <p class="card-text">Verfügbar</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info">
+                <div class="card-body text-center">
+                    <i class="fas fa-euro-sign fa-2x text-info mb-2"></i>
+                    <h4 class="card-title" id="stat-gesamtwert">-</h4>
+                    <p class="card-text">Gesamtwert</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter und Suche -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <select class="form-select" id="kategorie-filter">
+                <option value="">Alle Kategorien</option>
+                <option value="Haushalt">Haushalt</option>
+                <option value="Küche">Küche</option>
+                <option value="Dekoration">Dekoration</option>
+                <option value="Geld">Geldgeschenke</option>
+                <option value="Sonstiges">Sonstiges</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <select class="form-select" id="status-filter">
+                <option value="">Alle Status</option>
+                <option value="verfuegbar">Verfügbar</option>
+                <option value="ausgewaehlt">Ausgewählt</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <input type="text" class="form-control" id="search-input" placeholder="🔍 Geschenke suchen...">
+        </div>
+    </div>
+
+    <!-- Geldgeschenk Auswahlen -->
+    <div class="row mb-4" id="geldgeschenk-auswahlen-container" style="display: none;">
+        <div class="col-12">
+            <div class="card border-success">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">💰 Geldgeschenk Auswahlen</h5>
+                    <small class="text-muted">Gäste, die das Geldgeschenk ausgewählt haben</small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Gast</th>
+                                    <th>Betrag</th>
+                                    <th>Persönliche Nachricht</th>
+                                    <th>Ausgewählt am</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="geldgeschenk-auswahlen-tbody">
+                                <!-- Wird dynamisch gefüllt -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="keine-geldgeschenk-auswahlen" class="text-center text-muted py-4" style="display: none;">
+                        <i class="fas fa-info-circle fa-2x mb-2"></i>
+                        <p>Noch keine Gäste haben das Geldgeschenk ausgewählt</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Geschenkliste Tabelle -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Geschenkliste</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="geschenkliste-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Kategorie</th>
+                                    <th>Preis</th>
+                                    <th>Status</th>
+                                    <th>Ausgewählt von</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="geschenke-tbody">
+                                <!-- Wird dynamisch gefüllt -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="addGeschenkModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title">Neues Geschenk hinzufügen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="geschenk-form">
+                    <input type="hidden" id="geschenk-id" value="">
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <label for="geschenk-name" class="form-label">Name *</label>
+                            <input type="text" class="form-control" id="geschenk-name" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="geschenk-kategorie" class="form-label">Kategorie</label>
+                            <select class="form-select" id="geschenk-kategorie">
+                                <option value="Allgemein">Allgemein</option>
+                                <option value="Haushalt">Haushalt</option>
+                                <option value="Küche">Küche</option>
+                                <option value="Dekoration">Dekoration</option>
+                                <option value="Geld">Geldgeschenke</option>
+                                <option value="Sonstiges">Sonstiges</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="geschenk-beschreibung" class="form-label">Beschreibung</label>
+                        <textarea class="form-control" id="geschenk-beschreibung" rows="3"></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label for="geschenk-preis" class="form-label">Preis</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="geschenk-preis" step="0.01" min="0">
+                                <select class="form-select" id="geschenk-waehrung" style="max-width: 100px;">
+                                    <option value="EUR">EUR</option>
+                                    <option value="USD">USD</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="geschenk-menge" class="form-label">Verfügbare Menge</label>
+                            <input type="number" class="form-control" id="geschenk-menge" value="1" min="1">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="geschenk-prioritaet" class="form-label">Priorität</label>
+                            <select class="form-select" id="geschenk-prioritaet">
+                                <option value="Normal">Normal</option>
+                                <option value="Hoch">Hoch</option>
+                                <option value="Niedrig">Niedrig</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="geschenk-link" class="form-label">Produkt-Link (optional)</label>
+                        <input type="url" class="form-control" id="geschenk-link" placeholder="https://...">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="geschenk-bild-url" class="form-label">Bild-URL (optional)</label>
+                        <input type="url" class="form-control" id="geschenk-bild-url" placeholder="https://...">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="save-geschenk">Speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detail-title">Geschenk Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detail-content">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <button type="button" class="btn btn-warning" id="freigeben-btn" style="display: none;">
+                    <i class="fas fa-undo"></i> Freigeben
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/geschenkliste.js') }}"></script>
+{% endblock %}

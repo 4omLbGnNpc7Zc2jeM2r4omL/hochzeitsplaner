@@ -321,6 +321,32 @@ class SQLiteHochzeitsDatenManager:
                             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                         )
+                    """,
+                    'geschenkliste': """
+                        CREATE TABLE geschenkliste (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            name TEXT NOT NULL,
+                            beschreibung TEXT,
+                            preis REAL,
+                            waehrung TEXT DEFAULT 'EUR',
+                            link TEXT,
+                            ist_geldgeschenk INTEGER DEFAULT 0,
+                            paypal_link TEXT,
+                            ausgewaehlt_von_gast_id INTEGER,
+                            ausgewaehlt_am DATETIME,
+                            erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            prioritaet TEXT DEFAULT 'Normal',
+                            kategorie TEXT DEFAULT 'Allgemein',
+                            bild_url TEXT,
+                            menge INTEGER DEFAULT 1,
+                            ausgewaehlt_menge INTEGER DEFAULT 0,
+                            FOREIGN KEY (ausgewaehlt_von_gast_id) REFERENCES gaeste(id) ON DELETE SET NULL,
+                            CONSTRAINT chk_ist_geldgeschenk CHECK (ist_geldgeschenk IN (0, 1)),
+                            CONSTRAINT chk_prioritaet_geschenk CHECK (prioritaet IN ('Niedrig', 'Normal', 'Hoch')),
+                            CONSTRAINT chk_menge CHECK (menge >= 1),
+                            CONSTRAINT chk_ausgewaehlt_menge CHECK (ausgewaehlt_menge >= 0 AND ausgewaehlt_menge <= menge)
+                        )
                     """
                 }
                 
@@ -6210,3 +6236,587 @@ class SQLiteHochzeitsDatenManager:
         except Exception as e:
             logger.error(f"Fehler beim Erstellen der Standard-Checkliste: {e}")
             return 0
+
+    # =============================================================================
+    # Geldgeschenk Konfiguration Management
+    # =============================================================================
+    
+    def get_geldgeschenk_config(self):
+        """
+        Lädt die Geldgeschenk-Konfiguration
+        
+        Returns:
+            Dict: Geldgeschenk-Konfiguration oder None
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                cursor.execute("SELECT * FROM geldgeschenk_config WHERE id = 1")
+                result = cursor.fetchone()
+                conn.close()
+                
+                if result:
+                    columns = [description[0] for description in cursor.description]
+                    config = dict(zip(columns, result))
+                    logger.info("✅ Geldgeschenk-Konfiguration geladen")
+                    return config
+                
+                return None
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Laden der Geldgeschenk-Konfiguration: {e}")
+            return None
+    
+    def save_geldgeschenk_config(self, name, beschreibung, paypal_link, aktiv=1):
+        """
+        Speichert oder aktualisiert die Geldgeschenk-Konfiguration
+        
+        Args:
+            name: Name des Geldgeschenks
+            beschreibung: Beschreibung (optional)
+            paypal_link: PayPal-Link
+            aktiv: Aktiv-Status (0/1)
+            
+        Returns:
+            bool: Erfolg
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                # Prüfe ob bereits eine Konfiguration existiert
+                cursor.execute("SELECT id FROM geldgeschenk_config WHERE id = 1")
+                exists = cursor.fetchone()
+                
+                if exists:
+                    # Update
+                    cursor.execute("""
+                        UPDATE geldgeschenk_config 
+                        SET name = ?, beschreibung = ?, paypal_link = ?, aktiv = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = 1
+                    """, (name, beschreibung, paypal_link, aktiv))
+                else:
+                    # Insert
+                    cursor.execute("""
+                        INSERT INTO geldgeschenk_config (id, name, beschreibung, paypal_link, aktiv)
+                        VALUES (1, ?, ?, ?, ?)
+                    """, (name, beschreibung, paypal_link, aktiv))
+                
+                conn.commit()
+                conn.close()
+                
+                logger.info(f"✅ Geldgeschenk-Konfiguration gespeichert: {name}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Speichern der Geldgeschenk-Konfiguration: {e}")
+            return False
+    
+    def waehle_geldgeschenk_aus(self, gast_id, betrag=None, notiz=None):
+        """
+        Wählt das Geldgeschenk für einen Gast aus
+        
+        Args:
+            gast_id: ID des Gastes
+            betrag: Optional: gewählter Betrag
+            notiz: Optional: Nachricht/Notiz
+            
+        Returns:
+            bool: Erfolg
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                # Prüfe ob Gast bereits Geldgeschenk ausgewählt hat
+                cursor.execute("SELECT id FROM geldgeschenk_auswahlen WHERE gast_id = ?", (gast_id,))
+                exists = cursor.fetchone()
+                
+                if exists:
+                    logger.warning(f"Gast {gast_id} hat bereits ein Geldgeschenk ausgewählt")
+                    return False
+                
+                # Neue Auswahl speichern
+                cursor.execute("""
+                    INSERT INTO geldgeschenk_auswahlen (gast_id, betrag, notiz)
+                    VALUES (?, ?, ?)
+                """, (gast_id, betrag, notiz))
+                
+                conn.commit()
+                conn.close()
+                
+                logger.info(f"✅ Geldgeschenk für Gast {gast_id} ausgewählt")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Auswählen des Geldgeschenks: {e}")
+            return False
+    
+    def gebe_geldgeschenk_frei(self, gast_id):
+        """
+        Gibt das Geldgeschenk eines Gastes frei
+        
+        Args:
+            gast_id: ID des Gastes
+            
+        Returns:
+            bool: Erfolg
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                cursor.execute("DELETE FROM geldgeschenk_auswahlen WHERE gast_id = ?", (gast_id,))
+                affected = cursor.rowcount
+                
+                conn.commit()
+                conn.close()
+                
+                if affected > 0:
+                    logger.info(f"✅ Geldgeschenk für Gast {gast_id} freigegeben")
+                    return True
+                
+                return False
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Freigeben des Geldgeschenks: {e}")
+            return False
+    
+    def get_geldgeschenk_auswahlen(self):
+        """
+        Lädt alle Geldgeschenk-Auswahlen
+        
+        Returns:
+            List[Dict]: Liste der Auswahlen
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT ga.*, g.vorname || ' ' || COALESCE(g.nachname, '') as gast_name
+                    FROM geldgeschenk_auswahlen ga
+                    LEFT JOIN gaeste g ON ga.gast_id = g.id
+                    ORDER BY ga.ausgewaehlt_am DESC
+                """)
+                
+                columns = [description[0] for description in cursor.description]
+                auswahlen = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                conn.close()
+                
+                logger.info(f"✅ {len(auswahlen)} Geldgeschenk-Auswahlen geladen")
+                return auswahlen
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Laden der Geldgeschenk-Auswahlen: {e}")
+            return []
+
+    # =============================================================================
+    # Geschenkliste Management (ohne Geldgeschenke)
+    # =============================================================================
+    
+    def get_geschenkliste(self, only_available=False):
+        """
+        Lädt alle Geschenke aus der Geschenkliste
+        
+        Args:
+            only_available: Nur verfügbare Geschenke laden (nicht ausgewählt)
+        
+        Returns:
+            List[Dict]: Liste der Geschenke
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                query = """
+                    SELECT g.*, ga.vorname || ' ' || COALESCE(ga.nachname, '') as ausgewaehlt_von_name
+                    FROM geschenkliste g
+                    LEFT JOIN gaeste ga ON g.ausgewaehlt_von_gast_id = ga.id
+                """
+                
+                if only_available:
+                    query += " WHERE g.ausgewaehlt_menge < g.menge OR g.ausgewaehlt_menge IS NULL"
+                
+                query += " ORDER BY g.kategorie, g.prioritaet DESC, g.name"
+                
+                cursor.execute(query)
+                columns = [description[0] for description in cursor.description]
+                geschenke = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                conn.close()
+                
+                logger.info(f"✅ {len(geschenke)} Geschenke geladen (only_available: {only_available})")
+                return geschenke
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Laden der Geschenkliste: {e}")
+            return []
+    
+    def get_geschenk_by_id(self, geschenk_id):
+        """
+        Lädt ein einzelnes Geschenk anhand der ID
+        
+        Args:
+            geschenk_id: ID des Geschenks
+            
+        Returns:
+            Dict: Geschenk-Daten oder None
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT g.*, ga.vorname || ' ' || COALESCE(ga.nachname, '') as ausgewaehlt_von_name
+                    FROM geschenkliste g
+                    LEFT JOIN gaeste ga ON g.ausgewaehlt_von_gast_id = ga.id
+                    WHERE g.id = ?
+                """, (geschenk_id,))
+                
+                row = cursor.fetchone()
+                conn.close()
+                
+                if row:
+                    columns = [description[0] for description in cursor.description]
+                    return dict(zip(columns, row))
+                return None
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Laden des Geschenks {geschenk_id}: {e}")
+            return None
+    
+    def add_geschenk(self, geschenk_data):
+        """
+        Fügt ein neues Geschenk zur Liste hinzu
+        
+        Args:
+            geschenk_data: Dictionary mit Geschenk-Daten
+            
+        Returns:
+            int: ID des neuen Geschenks oder 0 bei Fehler
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    INSERT INTO geschenkliste (
+                        name, beschreibung, preis, waehrung, link,
+                        prioritaet, kategorie, bild_url, menge
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    geschenk_data.get('name'),
+                    geschenk_data.get('beschreibung'),
+                    geschenk_data.get('preis'),
+                    geschenk_data.get('waehrung', 'EUR'),
+                    geschenk_data.get('link'),
+                    geschenk_data.get('prioritaet', 'Normal'),
+                    geschenk_data.get('kategorie', 'Allgemein'),
+                    geschenk_data.get('bild_url'),
+                    geschenk_data.get('menge', 1)
+                ))
+                
+                geschenk_id = cursor.lastrowid
+                conn.commit()
+                conn.close()
+                
+                logger.info(f"✅ Geschenk '{geschenk_data.get('name')}' hinzugefügt (ID: {geschenk_id})")
+                return geschenk_id
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Hinzufügen des Geschenks: {e}")
+            return 0
+    
+    def update_geschenk(self, geschenk_id, geschenk_data):
+        """
+        Aktualisiert ein vorhandenes Geschenk
+        
+        Args:
+            geschenk_id: ID des zu aktualisierenden Geschenks
+            geschenk_data: Dictionary mit neuen Daten
+            
+        Returns:
+            bool: True bei Erfolg, False bei Fehler
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                # Dynamisches Update basierend auf vorhandenen Schlüsseln
+                set_clauses = []
+                values = []
+                
+                updatable_fields = [
+                    'name', 'beschreibung', 'preis', 'waehrung', 'link', 
+                    'prioritaet', 'kategorie', 'bild_url', 'menge'
+                ]
+                
+                for field in updatable_fields:
+                    if field in geschenk_data:
+                        set_clauses.append(f"{field} = ?")
+                        values.append(geschenk_data[field])
+                
+                if not set_clauses:
+                    return True  # Nichts zu aktualisieren
+                
+                query = f"UPDATE geschenkliste SET {', '.join(set_clauses)} WHERE id = ?"
+                values.append(geschenk_id)
+                
+                cursor.execute(query, values)
+                success = cursor.rowcount > 0
+                conn.commit()
+                conn.close()
+                
+                if success:
+                    logger.info(f"✅ Geschenk {geschenk_id} aktualisiert")
+                else:
+                    logger.warning(f"⚠️ Geschenk {geschenk_id} nicht gefunden")
+                
+                return success
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Aktualisieren des Geschenks {geschenk_id}: {e}")
+            return False
+    
+    def delete_geschenk(self, geschenk_id):
+        """
+        Löscht ein Geschenk aus der Liste
+        
+        Args:
+            geschenk_id: ID des zu löschenden Geschenks
+            
+        Returns:
+            bool: True bei Erfolg, False bei Fehler
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                cursor.execute("DELETE FROM geschenkliste WHERE id = ?", (geschenk_id,))
+                success = cursor.rowcount > 0
+                conn.commit()
+                conn.close()
+                
+                if success:
+                    logger.info(f"✅ Geschenk {geschenk_id} gelöscht")
+                else:
+                    logger.warning(f"⚠️ Geschenk {geschenk_id} nicht gefunden")
+                
+                return success
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Löschen des Geschenks {geschenk_id}: {e}")
+            return False
+    
+    def waehle_geschenk_aus(self, geschenk_id, gast_id, menge=1):
+        """
+        Wählt ein Geschenk für einen Gast aus
+        
+        Args:
+            geschenk_id: ID des Geschenks
+            gast_id: ID des Gastes
+            menge: Anzahl der auszuwählenden Geschenke
+            
+        Returns:
+            bool: True bei Erfolg, False bei Fehler
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                # Prüfe verfügbare Menge
+                cursor.execute("""
+                    SELECT menge, ausgewaehlt_menge, name 
+                    FROM geschenkliste WHERE id = ?
+                """, (geschenk_id,))
+                
+                result = cursor.fetchone()
+                if not result:
+                    logger.error(f"Geschenk {geschenk_id} nicht gefunden")
+                    return False
+                
+                verfuegbare_menge, ausgewaehlt_menge, name = result
+                ausgewaehlt_menge = ausgewaehlt_menge or 0
+                verfuegbar = verfuegbare_menge - ausgewaehlt_menge
+                
+                if menge > verfuegbar:
+                    logger.error(f"Nicht genügend Geschenke verfügbar: {verfuegbar} < {menge}")
+                    return False
+                
+                # Aktualisiere Auswahl
+                neue_ausgewaehlt_menge = ausgewaehlt_menge + menge
+                
+                cursor.execute("""
+                    UPDATE geschenkliste 
+                    SET ausgewaehlt_menge = ?,
+                        ausgewaehlt_von_gast_id = ?,
+                        ausgewaehlt_am = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (neue_ausgewaehlt_menge, gast_id, geschenk_id))
+                
+                success = cursor.rowcount > 0
+                conn.commit()
+                conn.close()
+                
+                if success:
+                    logger.info(f"✅ Geschenk '{name}' (Menge: {menge}) von Gast {gast_id} ausgewählt")
+                else:
+                    logger.error(f"Fehler beim Auswählen des Geschenks {geschenk_id}")
+                
+                return success
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Auswählen des Geschenks: {e}")
+            return False
+    
+    def gebe_geschenk_frei(self, geschenk_id, gast_id=None, menge=None):
+        """
+        Gibt ein ausgewähltes Geschenk wieder frei
+        
+        Args:
+            geschenk_id: ID des Geschenks
+            gast_id: Optional - Nur freigeben wenn dieser Gast es ausgewählt hat
+            menge: Optional - Anzahl freizugeben (Standard: alle)
+            
+        Returns:
+            bool: True bei Erfolg, False bei Fehler
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                # Lade aktuellen Status
+                cursor.execute("""
+                    SELECT ausgewaehlt_menge, ausgewaehlt_von_gast_id, name, menge
+                    FROM geschenkliste WHERE id = ?
+                """, (geschenk_id,))
+                
+                result = cursor.fetchone()
+                if not result:
+                    return False
+                
+                ausgewaehlt_menge, ausgewaehlt_von_gast_id, name, total_menge = result
+                
+                # Prüfe Berechtigung falls gast_id angegeben
+                if gast_id and ausgewaehlt_von_gast_id != gast_id:
+                    logger.error(f"Gast {gast_id} kann Geschenk {geschenk_id} nicht freigeben (gehört Gast {ausgewaehlt_von_gast_id})")
+                    return False
+                
+                # Berechne neue Menge
+                if menge is None:
+                    neue_menge = 0  # Alles freigeben
+                else:
+                    neue_menge = max(0, (ausgewaehlt_menge or 0) - menge)
+                
+                # Update oder Zurücksetzen
+                if neue_menge == 0:
+                    cursor.execute("""
+                        UPDATE geschenkliste 
+                        SET ausgewaehlt_menge = 0,
+                            ausgewaehlt_von_gast_id = NULL,
+                            ausgewaehlt_am = NULL
+                        WHERE id = ?
+                    """, (geschenk_id,))
+                else:
+                    cursor.execute("""
+                        UPDATE geschenkliste 
+                        SET ausgewaehlt_menge = ?
+                        WHERE id = ?
+                    """, (neue_menge, geschenk_id))
+                
+                success = cursor.rowcount > 0
+                conn.commit()
+                conn.close()
+                
+                if success:
+                    logger.info(f"✅ Geschenk '{name}' freigegeben (neue Menge: {neue_menge})")
+                
+                return success
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Freigeben des Geschenks: {e}")
+            return False
+    
+    def get_geschenke_by_gast(self, gast_id):
+        """
+        Lädt alle von einem Gast ausgewählten Geschenke
+        
+        Args:
+            gast_id: ID des Gastes
+            
+        Returns:
+            List[Dict]: Liste der ausgewählten Geschenke
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT * FROM geschenkliste 
+                    WHERE ausgewaehlt_von_gast_id = ?
+                    ORDER BY ausgewaehlt_am DESC
+                """, (gast_id,))
+                
+                columns = [description[0] for description in cursor.description]
+                geschenke = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                conn.close()
+                
+                return geschenke
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Laden der Geschenke für Gast {gast_id}: {e}")
+            return []
+    
+    def get_geschenkliste_statistiken(self):
+        """
+        Lädt Statistiken zur Geschenkliste
+        
+        Returns:
+            Dict: Statistiken (total, ausgewählt, verfügbar, geldgeschenke)
+        """
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                # Gesamtstatistiken
+                cursor.execute("""
+                    SELECT 
+                        COUNT(*) as total_geschenke,
+                        COUNT(CASE WHEN ausgewaehlt_menge > 0 THEN 1 END) as ausgewaehlt_geschenke,
+                        COUNT(CASE WHEN ist_geldgeschenk = 1 THEN 1 END) as geldgeschenke,
+                        SUM(CASE WHEN preis IS NOT NULL THEN preis ELSE 0 END) as gesamtwert
+                    FROM geschenkliste
+                """)
+                
+                stats = cursor.fetchone()
+                conn.close()
+                
+                if stats:
+                    return {
+                        'total_geschenke': stats[0],
+                        'ausgewaehlt_geschenke': stats[1], 
+                        'verfuegbar_geschenke': stats[0] - stats[1],
+                        'geldgeschenke': stats[2],
+                        'gesamtwert': stats[3] or 0
+                    }
+                
+                return {}
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Laden der Geschenkliste-Statistiken: {e}")
+            return {}

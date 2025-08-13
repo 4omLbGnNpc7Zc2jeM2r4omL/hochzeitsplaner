@@ -250,10 +250,9 @@ window.TischplanungAPI = {
     // Alle Tische löschen
     async clearAllTables() {
         try {
-            const response = await apiRequest('/tischplanung/clear-all-tables', {
+            const result = await apiRequest('/tischplanung/clear-all-tables', {
                 method: 'DELETE',
                 });
-            const result = await response.json();
             return result;
         } catch (error) {
 

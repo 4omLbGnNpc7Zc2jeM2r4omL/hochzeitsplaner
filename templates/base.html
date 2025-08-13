@@ -108,6 +108,14 @@
                             </a>
                         </li>
                         
+                        <!-- Geschenkliste - Eigener Punkt -->
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'geschenkliste' %}active fw-bold{% endif %}" 
+                               href="{{ url_for('geschenkliste') }}" style="color: #8b7355;">
+                                <i class="bi bi-gift me-1"></i>Geschenkliste
+                            </a>
+                        </li>
+                        
                         <!-- Kontakte - Eigener Punkt -->
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'kontakte' %}active fw-bold{% endif %}" 

@@ -329,3 +329,65 @@ CREATE TABLE IF NOT EXISTS hochzeitstag_checkliste (
     CONSTRAINT chk_prioritaet_checkliste CHECK (prioritaet IN ('Niedrig', 'Normal', 'Hoch', 'Kritisch')),
     CONSTRAINT chk_erledigt CHECK (erledigt IN (0, 1))
 );
+
+-- Geldgeschenk Konfiguration
+CREATE TABLE IF NOT EXISTS geldgeschenk_config (
+    id INTEGER PRIMARY KEY CHECK (id = 1), -- Nur ein Eintrag erlaubt
+    name TEXT NOT NULL,
+    beschreibung TEXT,
+    paypal_link TEXT,
+    aktiv INTEGER DEFAULT 1, -- 0 = deaktiviert, 1 = aktiv
+    erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_aktiv CHECK (aktiv IN (0, 1))
+);
+
+-- Trigger für automatische Zeitstempel-Updates bei Geldgeschenk Config
+CREATE TRIGGER IF NOT EXISTS update_geldgeschenk_config_timestamp 
+    AFTER UPDATE ON geldgeschenk_config
+    FOR EACH ROW
+    BEGIN
+        UPDATE geldgeschenk_config SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+-- Geschenkliste Tabelle (ohne Geldgeschenk-Features)
+CREATE TABLE IF NOT EXISTS geschenkliste (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    beschreibung TEXT,
+    preis REAL,
+    waehrung TEXT DEFAULT 'EUR',
+    link TEXT, -- Link zum Shop/Produktseite
+    ausgewaehlt_von_gast_id INTEGER, -- NULL = verfügbar, sonst Gast-ID
+    ausgewaehlt_am DATETIME,
+    erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    prioritaet TEXT DEFAULT 'Normal', -- Niedrig, Normal, Hoch
+    kategorie TEXT DEFAULT 'Allgemein', -- Haushalt, Küche, Dekoration, etc.
+    bild_url TEXT, -- Optional: Bild-URL
+    menge INTEGER DEFAULT 1, -- Anzahl verfügbar (für mehrfach-Geschenke)
+    ausgewaehlt_menge INTEGER DEFAULT 0, -- Bereits ausgewählte Menge
+    FOREIGN KEY (ausgewaehlt_von_gast_id) REFERENCES gaeste(id) ON DELETE SET NULL,
+    CONSTRAINT chk_prioritaet_geschenk CHECK (prioritaet IN ('Niedrig', 'Normal', 'Hoch')),
+    CONSTRAINT chk_menge CHECK (menge >= 1),
+    CONSTRAINT chk_ausgewaehlt_menge CHECK (ausgewaehlt_menge >= 0 AND ausgewaehlt_menge <= menge)
+);
+
+-- Geldgeschenk Auswahlen (wer hat Geldgeschenk ausgewählt)
+CREATE TABLE IF NOT EXISTS geldgeschenk_auswahlen (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    gast_id INTEGER NOT NULL,
+    betrag REAL, -- Optional: gewählter Betrag
+    waehrung TEXT DEFAULT 'EUR',
+    notiz TEXT, -- Optional: Nachricht/Notiz
+    ausgewaehlt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (gast_id) REFERENCES gaeste(id) ON DELETE CASCADE
+);
+
+-- Trigger für automatische Zeitstempel-Updates bei Geschenkliste
+CREATE TRIGGER IF NOT EXISTS update_geschenkliste_timestamp 
+    AFTER UPDATE ON geschenkliste
+    FOR EACH ROW
+    BEGIN
+        UPDATE geschenkliste SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;

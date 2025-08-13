@@ -364,6 +364,31 @@ def require_role(allowed_roles):
         return decorated_function
     return decorator
 
+def require_guest_auth(f):
+    """Decorator für Gäste-Authentifizierung"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        logger.info(f"👥 Guest Auth Check: Route {request.path} von {request.remote_addr}")
+        
+        # Prüfen ob Gast eingeloggt ist
+        if 'guest_logged_in' not in session or not session['guest_logged_in']:
+            logger.warning(f"❌ Guest Auth Check: Nicht eingeloggt für Route {request.path}")
+            if request.path.startswith('/api/'):
+                return jsonify({'error': 'Guest authentication required'}), 401
+            return redirect(url_for('guest_login'))
+        
+        # Gast-ID prüfen
+        guest_id = session.get('guest_id')
+        if not guest_id:
+            logger.warning(f"❌ Guest Auth Check: Keine Gast-ID in Session")
+            if request.path.startswith('/api/'):
+                return jsonify({'error': 'Guest ID missing'}), 401
+            return redirect(url_for('guest_login'))
+        
+        logger.info(f"✅ Guest Auth Check: Gast {guest_id} authentifiziert")
+        return f(*args, **kwargs)
+    return decorated_function
+
 def login_required(f):
     """Decorator für Admin-Login-Schutz"""
     @wraps(f)
@@ -8165,6 +8190,17 @@ def api_tischplanung_auto_assign():
         tische = data_manager.get_tische()
         beziehungen = data_manager.get_gast_beziehungen()
         
+        logger.info(f"📊 Geladene Daten: {len(gaeste)} Gäste, {len(tische)} Tische, {len(beziehungen)} Beziehungen")
+        
+        # Debug: Zeige alle Beziehungen zum Brautpaar (ID -1)
+        brautpaar_beziehungen = [rel for rel in beziehungen if rel.get('gast_id_1') == -1 or rel.get('gast_id_2') == -1]
+        logger.info(f"🔍 Beziehungen zum Brautpaar: {len(brautpaar_beziehungen)}")
+        for rel in brautpaar_beziehungen:
+            gast_id = rel.get('gast_id_1') if rel.get('gast_id_2') == -1 else rel.get('gast_id_2')
+            gast = next((g for g in gaeste if g['id'] == gast_id), None)
+            gast_name = f"{gast.get('vorname', '')} {gast.get('nachname', '')}" if gast else f"ID {gast_id}"
+            logger.info(f"   💒 {gast_name} ↔ Brautpaar: {rel.get('beziehungstyp', 'Unbekannt')} (Stärke: {rel.get('staerke', 0)})")
+        
         # Erst alle Zuordnungen löschen
         data_manager.clear_all_tisch_zuordnungen()
         
@@ -8201,9 +8237,51 @@ def api_tischplanung_auto_assign():
         logger.info(f"🧮 Kapazitäts-Berechnung: {total_persons} Personen (anzahl_essen) benötigt, {current_capacity} verfügbar")
         logger.info(f"🤝 {len(beziehungen)} Beziehungen geladen für intelligente Zuordnung")
         
-        # Erstelle neue Tische wenn nötig
+        # ✨ INTELLIGENTE TISCHGRÖSSENS-BERECHNUNG mit automatischer Anpassung
+        # Maximum: 10 Personen pro Tisch, Maximum: 13 Tische
+        MAX_TISCHE = 13
+        MAX_TISCHGROESSE = 10
+        MIN_TISCHGROESSE = 4
+        
+        # Berechne optimale Tischgröße basierend auf Gästeanzahl und Tischanzahl-Limit
+        if total_persons > 0:
+            # Ideale Verteilung: Personen / maximale Tischanzahl
+            optimal_table_size = max(MIN_TISCHGROESSE, min(MAX_TISCHGROESSE, 
+                                   int(total_persons / MAX_TISCHE) + 2))  # +2 für Puffer
+            
+            # Prüfe ob mit optimaler Tischgröße das Tischlimit eingehalten wird
+            needed_tables_with_optimal = (total_persons + optimal_table_size - 1) // optimal_table_size
+            
+            if needed_tables_with_optimal > MAX_TISCHE:
+                # Tischgröße erhöhen um Limit einzuhalten
+                optimal_table_size = min(MAX_TISCHGROESSE, 
+                                       (total_persons + MAX_TISCHE - 1) // MAX_TISCHE)
+                logger.info(f"📊 Tischgröße erhöht auf {optimal_table_size} um {MAX_TISCHE} Tische-Limit einzuhalten")
+            
+            # Überschreibe Standard-Tischgröße mit optimaler Größe
+            standard_tisch_groesse = optimal_table_size
+            logger.info(f"🎯 Optimale Tischgröße berechnet: {standard_tisch_groesse} Personen pro Tisch")
+            logger.info(f"📋 Benötigte Tische: {(total_persons + standard_tisch_groesse - 1) // standard_tisch_groesse} (Max: {MAX_TISCHE})")
+        
+        # Erstelle neue Tische wenn nötig (mit neuer optimaler Tischgröße)
         if current_capacity < total_persons:
-            tables_needed = ((total_persons - current_capacity) // standard_tisch_groesse) + 1
+            tables_needed = min(MAX_TISCHE - len(tische), 
+                              ((total_persons - current_capacity) // standard_tisch_groesse) + 1)
+            
+            if len(tische) + tables_needed > MAX_TISCHE:
+                logger.warning(f"⚠️ Tischanzahl-Limit erreicht! Maximal {MAX_TISCHE} Tische erlaubt. Erhöhe Tischgrößen.")
+                # Erhöhe Tischgrößen aller bestehenden Tische
+                for tisch in tische:
+                    new_size = min(MAX_TISCHGROESSE, tisch['max_personen'] + 2)
+                    if new_size != tisch['max_personen']:
+                        data_manager.update_tisch(tisch['id'], {'max_personen': new_size})
+                        tisch['max_personen'] = new_size
+                        logger.info(f"📈 {tisch['name']} Größe erhöht auf {new_size} Personen")
+                
+                # Neuberechnung der Kapazität
+                current_capacity = sum(tisch['max_personen'] for tisch in tische)
+                tables_needed = min(MAX_TISCHE - len(tische), 1) if current_capacity < total_persons else 0
+            
             logger.info(f"🆕 Erstelle {tables_needed} neue Tische (Größe: {standard_tisch_groesse})")
             
             for i in range(tables_needed):
@@ -8231,7 +8309,7 @@ def api_tischplanung_auto_assign():
                     
                 new_table_data = {
                     'name': table_name,
-                    'max_personen': standard_tisch_groesse,
+                    'max_personen': standard_tisch_groesse,  # Verwende optimale Tischgröße
                     'x_position': 200 + (i % 4) * 220,  # 4 Tische pro Reihe, kollisionssicherer Abstand
                     'y_position': 200 + (i // 4) * 220,  # Mehr Platz zwischen den Reihen
                     'farbe': '#007bff',
@@ -8271,53 +8349,155 @@ def api_tischplanung_auto_assign():
         priority_order = {'Familie': 1, 'Freunde': 2, 'Kollegen': 3, 'Bekannte': 4}
         
         def get_guest_priority(guest):
-            # Prüfe ob Trauzeuge/in (hat Beziehung zum Brautpaar mit "Trauzeuge/in")
+            # Prüfe ob Trauzeuge/in (hat Beziehung zum Brautpaar oder entsprechende Kategorie)
             is_trauzeuge = False
             guest_relationship_score = 0
             
-            # 1. Prüfe Kategorie auf Trauzeugen
+            # 1. HÖCHSTE PRIORITÄT: Trauzeugen (Beziehung zum Brautpaar)
             if guest.get('kategorie') in ['Trauzeugen', 'Trauzeuge', 'Ehrengast']:
                 is_trauzeuge = True
+                logger.debug(f"🤵👰 Trauzeuge erkannt (Kategorie): {guest.get('vorname')} {guest.get('nachname', '')} - Kategorie: {guest.get('kategorie')}")
             
-            # 2. Prüfe Beziehungstyp "Trauzeuge/in" zum Brautpaar (ID -1)
+            # 2. Prüfe verschiedene Beziehungstypen zum Brautpaar (ID -1)
             for rel in beziehungen:
                 if ((rel.get('gast_id_1') == guest['id'] and rel.get('gast_id_2') == -1) or 
                     (rel.get('gast_id_2') == guest['id'] and rel.get('gast_id_1') == -1)):
-                    if rel.get('beziehungstyp') == 'Trauzeuge/in':
+                    beziehungstyp = rel.get('beziehungstyp', '').lower()
+                    
+                    # ERWEITERTE Trauzeuge-Erkennung - alle möglichen Varianten
+                    trauzeuge_types = [
+                        'trauzeuge', 'trauzeugin', 'trauzeuge/in', 'trauzeuge/in', 
+                        'beste_freunde', 'ehrengast', 'trauzeugen', 'trauzeuge in',
+                        'witness', 'best man', 'maid of honor'
+                    ]
+                    
+                    # INFO-Level für bessere Sichtbarkeit in Logs
+                    logger.info(f"🔍 Beziehung gefunden für {guest.get('vorname')} {guest.get('nachname', '')}: '{rel.get('beziehungstyp')}' -> '{beziehungstyp}'")
+                    
+                    if beziehungstyp in trauzeuge_types:
                         is_trauzeuge = True
+                        logger.info(f"🤵👰 TRAUZEUGE durch Beziehung erkannt: {guest.get('vorname')} {guest.get('nachname', '')} - Beziehungstyp: '{beziehungstyp}'")
+                    else:
+                        logger.info(f"❌ Beziehungstyp '{beziehungstyp}' wird NICHT als Trauzeuge erkannt")
+                    
                     # Sammle Beziehungsstärke zum Brautpaar
                     guest_relationship_score = max(guest_relationship_score, rel.get('staerke', 0))
             
-            if is_trauzeuge:
-                # Trauzeugen: Priorität 0 + Beziehungsstärke (höhere Stärke = niedrigere Zahl = höhere Priorität)
-                return 0 - (guest_relationship_score / 10.0)  # 0 bis -1 für Trauzeugen
+            # 3. NEUE PRIORITÄTS-BERECHNUNG: Berücksichtige ALLE Beziehungen zu anderen Gästen
+            total_relationship_score = guest_relationship_score  # Brautpaar-Beziehung
+            relationship_count = 1 if guest_relationship_score > 0 else 0
             
-            # Normale Kategorien-Priorität mit Beziehungsstärke
+            # Prüfe alle Beziehungen zu anderen Gästen (nicht nur Brautpaar)
+            for rel in beziehungen:
+                other_guest_id = None
+                if rel.get('gast_id_1') == guest['id'] and rel.get('gast_id_2') != -1:
+                    other_guest_id = rel.get('gast_id_2')
+                elif rel.get('gast_id_2') == guest['id'] and rel.get('gast_id_1') != -1:
+                    other_guest_id = rel.get('gast_id_1')
+                
+                if other_guest_id:
+                    # Prüfe ob der andere Gast in der aktiven Gästeliste ist
+                    other_guest = next((g for g in active_gaeste if g['id'] == other_guest_id), None)
+                    if other_guest:
+                        rel_strength = rel.get('staerke', 0)
+                        if rel_strength > 0:  # Nur positive Beziehungen zählen für Priorität
+                            total_relationship_score += rel_strength
+                            relationship_count += 1
+                            logger.debug(f"🤝 Positive Beziehung: {guest.get('vorname')} ↔ {other_guest.get('vorname')} (Stärke: {rel_strength})")
+            
+            # Durchschnittliche Beziehungsstärke berechnen
+            avg_relationship_score = total_relationship_score / relationship_count if relationship_count > 0 else 0
+            
+            # BEZIEHUNGS-BONUS: Gäste mit Beziehungen bekommen höhere Priorität
+            relationship_bonus = 0
+            if relationship_count > 0:
+                relationship_bonus = min(3, relationship_count * 0.5 + avg_relationship_score * 0.2)  # Max +3 Bonus
+                logger.debug(f"🎯 Beziehungs-Bonus für {guest.get('vorname')}: +{relationship_bonus:.1f} ({relationship_count} Beziehungen, Ø Stärke: {avg_relationship_score:.1f})")
+            
+            # ✨ UMGEKEHRTE FAMILIENNAMEN-PRIORITÄT: Gäste mit gleichem Nachnamen bekommen NIEDRIGSTE Priorität
+            nachname = guest.get('nachname', '').strip()
+            family_penalty = 0
+            if nachname:
+                # Zähle andere Gäste mit gleichem Nachnamen
+                same_lastname_count = sum(1 for g in active_gaeste 
+                                        if g.get('nachname', '').strip() == nachname and g['id'] != guest['id'])
+                if same_lastname_count > 0:
+                    # Familie-Penalty wird reduziert, wenn der Gast Beziehungen hat
+                    base_family_penalty = 10
+                    family_penalty = max(2, base_family_penalty - relationship_bonus)  # Min +2, reduziert durch Beziehungen
+                    logger.debug(f"👨‍👩‍👧‍👦 Familie {nachname}: {same_lastname_count + 1} Personen - Penalty: +{family_penalty:.1f} (reduziert durch Beziehungen)")
+            
+            if is_trauzeuge:
+                # PRIORITÄT -10: Trauzeugen = HÖCHSTE PRIORITÄT (Familie-Penalty wird IGNORIERT!)
+                # Trauzeugen haben IMMER Vorrang, auch vor Familie
+                final_trauzeuge_priority = -10 - (avg_relationship_score / 10.0) - relationship_bonus
+                logger.info(f"🤵👰 TRAUZEUGE erkannt: {guest.get('vorname')} {nachname} - Finale Priorität: {final_trauzeuge_priority:.2f} (Familie-Penalty IGNORIERT)")
+                return final_trauzeuge_priority
+            
+            # ✨ ERWEITERTE KATEGORIEN-PRIORITÄT mit Familie/Freunde +2 Bewertung
+            # Priorität 1: Familie + Familie/Freunde (+2) = höhere Priorität
+            # Priorität 2: Freunde + Familie/Freunde (+2) = höhere Priorität  
             base_priority = priority_order.get(guest.get('kategorie', 'Bekannte'), 5)
-            return base_priority - (guest_relationship_score / 10.0)  # Beziehungsstärke als Subpriority
+            
+            # Familie und Freunde bekommen zusätzlich +2 Bewertung (niedrigere Zahl = höhere Priorität)
+            if guest.get('kategorie') in ['Familie', 'Freunde']:
+                base_priority -= 2  # +2 Bewertung durch Subtraktion
+                logger.debug(f"👥 {guest.get('kategorie')}: {guest.get('vorname')} {nachname} - +2 Bewertung")
+            
+            # FINALE PRIORITÄT: Basis - Beziehungsbonus + Familie-Penalty
+            final_priority = base_priority - relationship_bonus + family_penalty
+            
+            logger.info(f"🎯 Priorität berechnet für {guest.get('vorname')} {nachname}: {final_priority:.2f} (Basis: {base_priority}, Beziehungs-Bonus: -{relationship_bonus:.1f}, Familie-Penalty: +{family_penalty:.1f}, Trauzeuge: {is_trauzeuge})")
+            return final_priority
         
         def calculate_table_compatibility(guest, table_guests):
             """
             Berechnet Kompatibilität zwischen einem Gast und bereits zugewiesenen Tischgästen
             Berücksichtigt positive und negative Beziehungen zwischen allen Gästen
+            ✨ ERWEITERT: Berücksichtigt auch Gastbeziehungen untereinander + Familiennamen-Bonus
             """
             if not table_guests:
                 return 100  # Leerer Tisch = perfekte Kompatibilität
             
             total_compatibility = 0
             relationship_count = 0
+            family_bonus = 0
+            
+            guest_nachname = guest.get('nachname', '').strip()
             
             for table_guest in table_guests:
                 if table_guest['guest_id'] == -1:  # Skip Brautpaar-Eintrag
                     continue
                     
-                # Suche Beziehung zwischen Gast und Tischgast
+                # ✨ FAMILIENNAMEN-MALUS: Gleicher Nachname = niedrigere Kompatibilität (getrennt setzen)
+                table_guest_data = next((g for g in active_gaeste if g['id'] == table_guest['guest_id']), None)
+                if table_guest_data:
+                    table_guest_nachname = table_guest_data.get('nachname', '').strip()
+                    if guest_nachname and table_guest_nachname and guest_nachname == table_guest_nachname:
+                        family_bonus -= 20  # Malus für gleichen Nachnamen (getrennt setzen)
+                        logger.debug(f"👨‍👩‍👧‍👦 Familiennamen-Malus: {guest.get('vorname')} + {table_guest_data.get('vorname')} (beide {guest_nachname}) - Malus: -20")
+                
+                # Suche direkte Beziehung zwischen Gast und Tischgast
                 relationship_strength = 0
                 for rel in beziehungen:
                     if ((rel.get('gast_id_1') == guest['id'] and rel.get('gast_id_2') == table_guest['guest_id']) or 
                         (rel.get('gast_id_1') == table_guest['guest_id'] and rel.get('gast_id_2') == guest['id'])):
                         relationship_strength = rel.get('staerke', 0)
                         break
+                
+                # ✨ ERWEITERT: Suche auch indirekte Beziehungen über andere Tischgäste
+                if relationship_strength == 0:
+                    # Prüfe ob der Gast eine Beziehung zu anderen am Tisch hat
+                    for other_table_guest in table_guests:
+                        if other_table_guest['guest_id'] == table_guest['guest_id'] or other_table_guest['guest_id'] == -1:
+                            continue
+                        
+                        # Beziehung zwischen Gast und anderem Tischgast
+                        for rel in beziehungen:
+                            if ((rel.get('gast_id_1') == guest['id'] and rel.get('gast_id_2') == other_table_guest['guest_id']) or 
+                                (rel.get('gast_id_1') == other_table_guest['guest_id'] and rel.get('gast_id_2') == guest['id'])):
+                                # Indirekte Verbindung gefunden - schwächerer Bonus
+                                relationship_strength = max(relationship_strength, rel.get('staerke', 0) * 0.5)
                 
                 # Beziehungsstärke zur Kompatibilität hinzufügen
                 if relationship_strength != 0:
@@ -8330,27 +8510,173 @@ def api_tischplanung_auto_assign():
                         total_compatibility += relationship_strength * 50  # Negative Beziehungen: -50 bis -250
             
             # Durchschnittliche Kompatibilität berechnen
+            base_compatibility = 50  # Neutral
             if relationship_count > 0:
                 avg_compatibility = total_compatibility / relationship_count
-                # Basis-Kompatibilität von 50 + Beziehungsbonus/malus
-                return max(0, min(100, 50 + avg_compatibility))
-            else:
-                # Keine Beziehungen = neutrale Kompatibilität
-                return 75
+                base_compatibility += avg_compatibility
+            
+            # Familiennamen-Malus hinzufügen (negative Werte senken Kompatibilität)
+            final_compatibility = base_compatibility + family_bonus
+            
+            # Auf 0-100 begrenzen
+            return max(0, min(100, final_compatibility))
         
         andere_gaeste_sorted = sorted(andere_gaeste, key=get_guest_priority)
         
-        logger.info(f"💒 Intelligente Gäste-Sortierung mit Trauzeugen-Priorität")
+        logger.info(f"💒 Intelligente Gäste-Sortierung: Trauzeugen (Priorität < -5) → Familie/Freunde → andere Gäste")
         for guest in andere_gaeste_sorted[:8]:  # Log erste 8 Gäste für bessere Übersicht
             priority = get_guest_priority(guest)
-            is_trauzeuge = priority < 1  # Alle Prioritäten unter 1 sind Trauzeugen
+            is_trauzeuge = priority < -5  # Nur echte Trauzeugen haben Priorität < -5
             kategorie = guest.get('kategorie', 'Unbekannt')
-            logger.info(f"   {'👰💒' if is_trauzeuge else '👤'} {guest.get('vorname', '')} {guest.get('nachname', '')} - Kategorie: {kategorie} - Priorität: {priority:.2f}")
+            nachname = guest.get('nachname', '')
+            logger.info(f"   {'👰💒' if is_trauzeuge else '👤'} {guest.get('vorname', '')} {nachname} - Kategorie: {kategorie} - Priorität: {priority:.2f}")
+        
+        # ═══════════════════════════════════════════════════════════════
+        # � PHASE 1: VOLLSTÄNDIGE BEZIEHUNGSANALYSE VOR JEDER ZUWEISUNG
+        # ═══════════════════════════════════════════════════════════════
+        logger.info(f"🧠 PHASE 1: Analysiere ALLE Beziehungen für optimale Gruppierung...")
+        
+        # 1.1 KONFLIKT-MATRIX erstellen (wer darf NICHT zusammensitzen)
+        conflict_matrix = {}
+        friend_matrix = {}
+        
+        for gast in active_gaeste:
+            gast_id = gast['id']
+            conflict_matrix[gast_id] = set()  # IDs von Gästen, die NICHT zusammensitzen dürfen
+            friend_matrix[gast_id] = {}       # ID -> Stärke von positiven Beziehungen
+        
+        logger.info(f"📊 Analysiere {len(beziehungen)} Beziehungen für {len(active_gaeste)} aktive Gäste...")
+        
+        for rel in beziehungen:
+            gast1_id = rel.get('gast_id_1')
+            gast2_id = rel.get('gast_id_2')
+            staerke = rel.get('staerke', 0)
+            typ = rel.get('beziehungstyp', 'unbekannt')
+            
+            # Prüfe ob beide Gäste aktiv sind
+            if gast1_id in conflict_matrix and gast2_id in conflict_matrix:
+                if staerke < -1:  # KONFLIKT (negative Beziehung)
+                    conflict_matrix[gast1_id].add(gast2_id)
+                    conflict_matrix[gast2_id].add(gast1_id)
+                    g1_name = next((g['vorname'] for g in active_gaeste if g['id'] == gast1_id), 'Unbekannt')
+                    g2_name = next((g['vorname'] for g in active_gaeste if g['id'] == gast2_id), 'Unbekannt')
+                    logger.warning(f"⚠️ KONFLIKT erkannt: {g1_name} ↔ {g2_name} (Stärke: {staerke}, {typ})")
+                
+                elif staerke > 0:  # FREUNDSCHAFT (positive Beziehung)
+                    friend_matrix[gast1_id][gast2_id] = staerke
+                    friend_matrix[gast2_id][gast1_id] = staerke
+                    g1_name = next((g['vorname'] for g in active_gaeste if g['id'] == gast1_id), 'Unbekannt')
+                    g2_name = next((g['vorname'] for g in active_gaeste if g['id'] == gast2_id), 'Unbekannt')
+                    logger.info(f"💚 FREUNDSCHAFT: {g1_name} ↔ {g2_name} (Stärke: {staerke}, {typ})")
+        
+        # 1.2 GRUPPEN-OPTIMIERUNG: Finde optimale Freundesgruppen unter Berücksichtigung von Konflikten
+        logger.info(f"🎯 PHASE 1.2: Berechne optimale Freundesgruppen...")
+        
+        optimal_groups = []
+        unassigned_guests = set(gast['id'] for gast in active_gaeste)
+        
+        def find_best_group_for_guest(guest_id, max_group_size=8):
+            """Findet die beste Gruppe für einen Gast unter Berücksichtigung aller Konflikte und Freundschaften"""
+            best_group = [guest_id]
+            best_score = 0
+            
+            # Finde alle möglichen Freunde (ohne Konflikte)
+            possible_friends = []
+            for friend_id, strength in friend_matrix[guest_id].items():
+                if friend_id in unassigned_guests:
+                    # Prüfe ob dieser Freund Konflikte mit bereits ausgewählten hat
+                    has_conflicts = any(friend_id in conflict_matrix[existing_id] for existing_id in best_group)
+                    if not has_conflicts:
+                        possible_friends.append((friend_id, strength))
+            
+            # Sortiere Freunde nach Stärke (beste zuerst)
+            possible_friends.sort(key=lambda x: x[1], reverse=True)
+            
+            # Füge kompatible Freunde hinzu
+            current_group = [guest_id]
+            group_score = 0
+            
+            for friend_id, strength in possible_friends:
+                if len(current_group) >= max_group_size:
+                    break
+                
+                # Prüfe Kompatibilität mit allen bereits in der Gruppe
+                compatible = True
+                for existing_id in current_group:
+                    if friend_id in conflict_matrix[existing_id]:
+                        compatible = False
+                        break
+                
+                if compatible:
+                    current_group.append(friend_id)
+                    group_score += strength
+                    
+                    # Bonus für interne Freundschaften in der Gruppe
+                    for existing_id in current_group[:-1]:
+                        if friend_id in friend_matrix[existing_id]:
+                            group_score += friend_matrix[existing_id][friend_id] * 0.5
+            
+            return current_group, group_score
+        
+        # Erstelle optimale Gruppen, beginnend mit den am besten vernetzten Gästen
+        guest_network_scores = {}
+        for gast in active_gaeste:
+            gast_id = gast['id']
+            # Netzwerk-Score = Anzahl + Stärke der Freundschaften
+            network_score = sum(friend_matrix[gast_id].values()) + len(friend_matrix[gast_id]) * 2
+            guest_network_scores[gast_id] = network_score
+        
+        # Sortiere nach Netzwerk-Score (am besten vernetzte zuerst)
+        guests_by_network = sorted(guest_network_scores.items(), key=lambda x: x[1], reverse=True)
+        
+        logger.info(f"🔗 Top 5 am besten vernetzte Gäste:")
+        for i, (guest_id, score) in enumerate(guests_by_network[:5]):
+            guest_name = next((g['vorname'] for g in active_gaeste if g['id'] == guest_id), 'Unbekannt')
+            friend_count = len(friend_matrix[guest_id])
+            logger.info(f"   {i+1}. {guest_name}: Score {score:.1f} ({friend_count} Freunde)")
+        
+        # Bilde optimale Gruppen
+        while unassigned_guests:
+            # Finde den am besten vernetzten noch nicht zugewiesenen Gast
+            best_guest_id = None
+            best_network_score = -1
+            
+            for guest_id in unassigned_guests:
+                if guest_network_scores[guest_id] > best_network_score:
+                    best_network_score = guest_network_scores[guest_id]
+                    best_guest_id = guest_id
+            
+            if best_guest_id is None:
+                # Nimm irgendeinen übrigen Gast
+                best_guest_id = next(iter(unassigned_guests))
+            
+            # Erstelle optimale Gruppe um diesen Gast
+            group, score = find_best_group_for_guest(best_guest_id)
+            optimal_groups.append({
+                'guest_ids': group,
+                'score': score,
+                'size': len(group)
+            })
+            
+            # Entferne zugewiesene Gäste
+            for guest_id in group:
+                unassigned_guests.discard(guest_id)
+            
+            # Log der Gruppe
+            group_names = [next((g['vorname'] for g in active_gaeste if g['id'] == gid), f'ID{gid}') for gid in group]
+            logger.info(f"🎭 Optimale Gruppe erstellt: {group_names} (Score: {score:.1f}, {len(group)} Personen)")
+        
+        logger.info(f"✅ PHASE 1 abgeschlossen: {len(optimal_groups)} optimale Gruppen erstellt")
+        
+        # ═══════════════════════════════════════════════════════════════
+        # 🔄 PHASE 2: INTELLIGENTE GRUPPEN-ZU-TISCH-ZUWEISUNG
+        # ═══════════════════════════════════════════════════════════════
+        logger.info(f"🪑 PHASE 2: Weise optimale Gruppen zu Tischen zu...")
         
         # 🔄 KORRIGIERTE FINALE REIHENFOLGE: Kombiniere alle Gäste und sortiere nach Priorität
-        # Entferne das manuelle Trennen von trauzeugen_gaeste und andere_gaeste
+        # WICHTIG: Jetzt verwenden wir die optimalen Gruppen statt einzelne Gäste
         all_gaeste = active_gaeste.copy()  # Alle aktiven Gäste
-        gaeste_sorted = sorted(all_gaeste, key=get_guest_priority)
+        gaeste_sorted = sorted(all_gaeste, key=get_guest_priority)  # Behalte für Prioritäts-Referenz
         
         # 💑 SPEZIELLE BRAUTTISCH-BEHANDLUNG
         # Da das Brautpaar nicht in der Gästeliste existiert, erstellen wir einen Brauttisch
@@ -8410,11 +8736,15 @@ def api_tischplanung_auto_assign():
         logger.info(f"👥 Prüfe Trauzeugen für Brauttisch...")
         
         for gast in gaeste_sorted:
-            # Nur Trauzeugen (Priorität < 1) betrachten
-            if get_guest_priority(gast) >= 1:
+            # Nur echte Trauzeugen (Priorität < -5) betrachten - Familie-Penalty betrifft Trauzeugen NICHT
+            gast_priority = get_guest_priority(gast)
+            if gast_priority >= -5:
                 break  # Alle folgenden haben niedrigere Priorität
                 
             persons_needed = gast.get('anzahl_essen', 0) or 1
+            
+            # Log für bessere Nachverfolgung
+            logger.info(f"🤵👰 Prüfe Trauzeuge für Brauttisch: {gast.get('vorname')} {gast.get('nachname', '')} - Priorität: {gast_priority:.2f}")
             
             # Prüfe ob noch Platz am Brauttisch (nach Brautpaar-Reservierung)
             if current_table_capacity + persons_needed <= current_table['max_personen']:
@@ -8445,125 +8775,167 @@ def api_tischplanung_auto_assign():
         
         logger.info(f"💑 Brauttisch final belegt: {current_table_capacity}/{current_table['max_personen']} Personen ({len(trauzeugen_am_brauttisch)} Trauzeugen + Brautpaar)")
         
-        # Entferne zugewiesene Trauzeugen aus der Hauptliste
-        gaeste_sorted = [g for g in gaeste_sorted if g not in trauzeugen_am_brauttisch]
+        # Entferne zugewiesene Trauzeugen aus den optimalen Gruppen
+        assigned_guest_ids = set(g['id'] for g in trauzeugen_am_brauttisch)
+        filtered_groups = []
+        
+        for group in optimal_groups:
+            # Entferne bereits zugewiesene Gäste aus der Gruppe
+            remaining_guests = [gid for gid in group['guest_ids'] if gid not in assigned_guest_ids]
+            if remaining_guests:
+                # Aktualisiere Gruppe
+                group['guest_ids'] = remaining_guests
+                group['size'] = len(remaining_guests)
+                filtered_groups.append(group)
+        
+        optimal_groups = filtered_groups
+        logger.info(f"🔄 Nach Brauttisch-Zuweisung: {len(optimal_groups)} Gruppen mit {sum(g['size'] for g in optimal_groups)} Gästen verbleiben")
+        
         # Nächster Tisch für andere Gäste vorbereiten
         if current_table_capacity >= current_table['max_personen'] * 0.8:  # 80% Auslastung
             current_table_index = 1  # Nächster Tisch (Index 1, da Brauttisch Index 0 ist)
             current_table_capacity = 0
         
-        # 3. ANDERE GÄSTE ZUWEISEN (nach Priorität und Beziehungskompatibilität sortiert)
-        for gast in gaeste_sorted:
-            # ⚠️ WICHTIG: Prüfe Beziehungskonflikte BEVOR Zuordnung erfolgt
-            persons_needed = gast.get('anzahl_essen', 0) or 1
+        # 3. OPTIMALE GRUPPEN ZU TISCHEN ZUWEISEN
+        logger.info(f"🎯 PHASE 2: Weise {len(optimal_groups)} optimale Gruppen zu Tischen zu...")
+        
+        # Sortiere Gruppen nach Priorität der enthaltenen Gäste (höchste Priorität zuerst)
+        def get_group_priority(group):
+            """Berechnet die Priorität einer Gruppe basierend auf dem besten Gast in der Gruppe"""
+            best_priority = float('inf')
+            for guest_id in group['guest_ids']:
+                guest = next((g for g in active_gaeste if g['id'] == guest_id), None)
+                if guest:
+                    guest_priority = get_guest_priority(guest)
+                    if guest_priority < best_priority:
+                        best_priority = guest_priority
+            return best_priority
+        
+        # Sortiere Gruppen nach Priorität
+        optimal_groups.sort(key=get_group_priority)
+        
+        logger.info(f"📊 Gruppen-Prioritäten:")
+        for i, group in enumerate(optimal_groups[:5]):  # Zeige Top 5
+            priority = get_group_priority(group)
+            group_names = [next((g['vorname'] for g in active_gaeste if g['id'] == gid), f'ID{gid}') for gid in group['guest_ids']]
+            logger.info(f"   {i+1}. {group_names} - Priorität: {priority:.2f} (Score: {group['score']:.1f})")
+        
+        # Weise jede Gruppe zum besten verfügbaren Tisch zu
+        for group in optimal_groups:
+            group_size = group['size']
+            group_guest_ids = group['guest_ids']
             
-            # Finde den BESTEN kompatiblen Tisch (mit Beziehungskompatibilität)
+            # Finde Gastobjekte für diese Gruppe
+            group_guests = [next((g for g in active_gaeste if g['id'] == gid), None) for gid in group_guest_ids]
+            group_guests = [g for g in group_guests if g is not None]
+            
+            if not group_guests:
+                continue
+            
+            # Berechne die benötigten Personen für die gesamte Gruppe
+            total_persons_needed = sum(g.get('anzahl_essen', 0) or 1 for g in group_guests)
+            
+            # Finde den besten Tisch für diese Gruppe
             best_table = None
-            best_compatibility = -1
             best_table_index = -1
+            best_compatibility = -1
             
             for table_index in range(len(tische)):
                 current_table = tische[table_index]
                 
-                # ✅ VERBESSERTE KAPAZITÄTSBERECHNUNG: Nutze assignments-Liste
+                # Prüfe Kapazität
                 current_occupancy = sum(assignment['persons_count'] for assignment in assignments if assignment['table_id'] == current_table['id'])
-                
-                # Prüfe ob Platz vorhanden
-                if current_occupancy + persons_needed > current_table['max_personen']:
+                if current_occupancy + total_persons_needed > current_table['max_personen']:
                     continue
                 
-                # BEZIEHUNGSKOMPATIBILITÄT PRÜFEN
+                # Prüfe Konflikte für ALLE Gäste in der Gruppe
                 table_guests = [assignment for assignment in assignments if assignment['table_id'] == current_table['id']]
+                has_conflict = False
                 
-                # Prüfe auf negative Beziehungen (TABU!)
-                has_negative_relationship = False
-                for table_assignment in table_guests:
-                    if table_assignment['guest_id'] == -1:  # Skip Brautpaar
-                        continue
+                for group_guest in group_guests:
+                    for table_assignment in table_guests:
+                        if table_assignment['guest_id'] == -1:  # Skip Brautpaar
+                            continue
+                            
+                        existing_guest_id = table_assignment['guest_id']
                         
-                    existing_guest_id = table_assignment['guest_id']
-                    for rel in beziehungen:
-                        if ((rel.get('gast_id_1') == gast['id'] and rel.get('gast_id_2') == existing_guest_id) or 
-                            (rel.get('gast_id_1') == existing_guest_id and rel.get('gast_id_2') == gast['id'])):
-                            # Negative Beziehungen (< -1) sind TABU!
-                            if rel.get('staerke', 0) < -1:
-                                has_negative_relationship = True
-                                logger.warning(f"❌ KONFLIKT: {gast['vorname']} kann nicht zu Tisch {current_table['name']} - negative Beziehung (Stärke: {rel.get('staerke')}) mit {table_assignment['guest_name']}")
-                                break
+                        # Prüfe negative Beziehungen
+                        for rel in beziehungen:
+                            if ((rel.get('gast_id_1') == group_guest['id'] and rel.get('gast_id_2') == existing_guest_id) or 
+                                (rel.get('gast_id_1') == existing_guest_id and rel.get('gast_id_2') == group_guest['id'])):
+                                if rel.get('staerke', 0) < -1:
+                                    has_conflict = True
+                                    logger.warning(f"❌ GRUPPENKONFLIKT: {group_guest['vorname']} (Gruppe) kann nicht zu {current_table['name']} wegen Konflikt mit {table_assignment['guest_name']}")
+                                    break
+                        
+                        if has_conflict:
+                            break
                     
-                    if has_negative_relationship:
+                    if has_conflict:
                         break
                 
-                if has_negative_relationship:
-                    continue  # Dieser Tisch ist nicht kompatibel
+                if has_conflict:
+                    continue
                 
-                # Berechne Kompatibilität basierend auf positiven Beziehungen
-                compatibility = calculate_table_compatibility(gast, table_guests)
+                # Berechne Kompatibilität für die Gruppe
+                group_compatibility = 0
+                for group_guest in group_guests:
+                    guest_compatibility = calculate_table_compatibility(group_guest, table_guests)
+                    group_compatibility += guest_compatibility
                 
-                # Bester Tisch gefunden?
-                if compatibility > best_compatibility:
-                    best_compatibility = compatibility
+                # Durchschnittliche Kompatibilität
+                avg_compatibility = group_compatibility / len(group_guests) if group_guests else 0
+                
+                # Bonus für interne Gruppen-Freundschaften (bessere Tische für zusammenhängende Gruppen)
+                internal_bonus = group['score'] * 2  # Gruppen-Score als Bonus
+                final_compatibility = min(100, avg_compatibility + internal_bonus)
+                
+                if final_compatibility > best_compatibility:
+                    best_compatibility = final_compatibility
                     best_table = current_table
                     best_table_index = table_index
             
-            # Gast zu bestem kompatiblen Tisch zuweisen
+            # Weise die gesamte Gruppe zum besten Tisch zu
             if best_table:
-                success, _ = data_manager.assign_gast_to_tisch(
-                    gast['id'],
-                    best_table['id'],
-                    position=None,
-                    zugeordnet_von='Auto-Zuweisung (Kompatibilitäts-optimiert)'
-                )
+                group_names = [f"{g['vorname']} {g.get('nachname', '')}" for g in group_guests]
+                logger.info(f"🎭 Weise Gruppe zu {best_table['name']}: {group_names} (Kompatibilität: {best_compatibility:.1f}%, {total_persons_needed} Personen)")
                 
-                if success:
-                    assigned_count += 1
-                    assignments.append({
-                        'guest_id': gast['id'],
-                        'guest_name': f"{gast['vorname']} {gast.get('nachname', '')}",
-                        'guest_category': gast.get('kategorie', 'Unbekannt'),
-                        'persons_count': persons_needed,
-                        'table_id': best_table['id'],
-                        'table_name': best_table['name'],
-                        'guest_side': gast.get('seite', 'Unbekannt')
-                    })
+                # Weise jeden Gast der Gruppe einzeln zu
+                for group_guest in group_guests:
+                    persons_needed = group_guest.get('anzahl_essen', 0) or 1
                     
-                    compatibility_emoji = "💚" if best_compatibility >= 80 else "💛" if best_compatibility >= 60 else "🟡"
-                    logger.info(f"{compatibility_emoji} {gast['vorname']} zu {best_table['name']} zugewiesen (Kompatibilität: {best_compatibility:.0f}%)")
-                    table_assigned = True
-                else:
-                    logger.error(f"❌ Fehler beim Zuweisen von {gast['vorname']} zu {best_table['name']}")
-            else:
-                success, _ = data_manager.assign_gast_to_tisch(
-                    gast['id'],
-                    current_table['id'],
-                    position=None,
-                    zugeordnet_von='Auto-Zuweisung (Beziehungs-berücksichtigt)'
-                )
-                
-                if success:
-                    assigned_count += 1
-                    assignments.append({
-                        'guest_id': gast['id'],
-                        'guest_name': f"{gast['vorname']} {gast.get('nachname', '')}",
-                        'guest_category': gast.get('kategorie', 'Unbekannt'),
-                        'persons_count': persons_needed,
-                        'table_id': current_table['id'],
-                        'table_name': current_table['name'],
-                        'guest_side': gast.get('seite', 'Unbekannt')
-                    })
-                    table_assigned = True
-                    new_occupancy = current_occupancy + persons_needed
-                    logger.info(f"✅ Gast {gast['vorname']} zu Tisch {current_table['name']} zugewiesen ({new_occupancy}/{current_table['max_personen']} Personen)")
-                    break
+                    success, _ = data_manager.assign_gast_to_tisch(
+                        group_guest['id'],
+                        best_table['id'],
+                        position=None,
+                        zugeordnet_von=f'Auto-Zuweisung (Optimale Gruppe, Kompatibilität: {best_compatibility:.0f}%)'
+                    )
+                    
+                    if success:
+                        assigned_count += 1
+                        assignments.append({
+                            'guest_id': group_guest['id'],
+                            'guest_name': f"{group_guest['vorname']} {group_guest.get('nachname', '')}",
+                            'guest_category': group_guest.get('kategorie', 'Unbekannt'),
+                            'persons_count': persons_needed,
+                            'table_id': best_table['id'],
+                            'table_name': best_table['name'],
+                            'guest_side': group_guest.get('seite', 'Unbekannt')
+                        })
+                        
+                        logger.info(f"  ✅ {group_guest['vorname']} zu {best_table['name']} zugewiesen")
+                    else:
+                        logger.error(f"  ❌ Fehler beim Zuweisen von {group_guest['vorname']} zu {best_table['name']}")
             
-            # Falls kein kompatibler Tisch gefunden - neuen Tisch erstellen
-            if not table_assigned:
-                logger.warning(f"⚠️ Kein kompatibler Tisch für {gast['vorname']} gefunden - erstelle neuen Tisch")
-                # Neuen Tisch erstellen (ähnlich wie oben)
+            else:
+                # Kein passender Tisch gefunden - erstelle neuen Tisch für die Gruppe
+                group_names = [f"{g['vorname']} {g.get('nachname', '')}" for g in group_guests]
+                logger.warning(f"⚠️ Kein geeigneter Tisch für Gruppe {group_names} - erstelle neuen Tisch")
+                
                 new_table_name = f'Tisch {len(tische) + 1}'
                 new_table_data = {
                     'name': new_table_name,
-                    'max_personen': standard_tisch_groesse,
+                    'max_personen': max(standard_tisch_groesse, total_persons_needed + 2),  # Etwas größer für Flexibilität
                     'x_position': 100 + (len(tische) % 4) * 150,
                     'y_position': 100 + (len(tische) // 4) * 150,
                     'farbe': '#007bff',
@@ -8576,26 +8948,34 @@ def api_tischplanung_auto_assign():
                     tische.append(new_table)
                     created_tables.append(new_table_name)
                     
-                    # Gast zum neuen Tisch zuweisen
-                    success, _ = data_manager.assign_gast_to_tisch(
-                        gast['id'],
-                        new_table_id,
-                        position=None,
-                        zugeordnet_von='Auto-Zuweisung (Neuer Tisch wegen Konflikten)'
-                    )
+                    logger.info(f"🆕 Neuer Tisch erstellt: {new_table_name} (Kapazität: {new_table_data['max_personen']})")
                     
-                    if success:
-                        assigned_count += 1
-                        assignments.append({
-                            'guest_id': gast['id'],
-                            'guest_name': f"{gast['vorname']} {gast.get('nachname', '')}",
-                            'guest_category': gast.get('kategorie', 'Unbekannt'),
-                            'persons_count': persons_needed,
-                            'table_id': new_table_id,
-                            'table_name': new_table_name,
-                            'guest_side': gast.get('seite', 'Unbekannt')
-                        })
-                    logger.info(f"✅ Gast {gast['vorname']} zu neuem Tisch {new_table_name} zugewiesen ({persons_needed}/{standard_tisch_groesse} Personen)")
+                    # Weise Gruppe zum neuen Tisch zu
+                    for group_guest in group_guests:
+                        persons_needed = group_guest.get('anzahl_essen', 0) or 1
+                        
+                        success, _ = data_manager.assign_gast_to_tisch(
+                            group_guest['id'],
+                            new_table_id,
+                            position=None,
+                            zugeordnet_von='Auto-Zuweisung (Neuer Tisch für optimale Gruppe)'
+                        )
+                        
+                        if success:
+                            assigned_count += 1
+                            assignments.append({
+                                'guest_id': group_guest['id'],
+                                'guest_name': f"{group_guest['vorname']} {group_guest.get('nachname', '')}",
+                                'guest_category': group_guest.get('kategorie', 'Unbekannt'),
+                                'persons_count': persons_needed,
+                                'table_id': new_table_id,
+                                'table_name': new_table_name,
+                                'guest_side': group_guest.get('seite', 'Unbekannt')
+                            })
+                            
+                            logger.info(f"  ✅ {group_guest['vorname']} zu neuem {new_table_name} zugewiesen")
+        
+        logger.info(f"✅ PHASE 2 abgeschlossen: Alle optimalen Gruppen zu Tischen zugewiesen")
         
         # Erstelle detaillierte Übersicht nach Tischen sortiert
         table_overview = {}
@@ -8613,116 +8993,87 @@ def api_tischplanung_auto_assign():
                 'name': assignment['guest_name'],
                 'category': assignment['guest_category'],
                 'persons': assignment['persons_count'],  # Das ist bereits anzahl_essen
-                'side': assignment.get('guest_side', 'Unbekannt')  # Seite hinzufügen
+                'side': assignment['guest_side']
             })
             table_overview[table_name]['total_persons'] += assignment['persons_count']
-            table_overview[table_name]['total_essen'] += assignment['persons_count']  # Gleich wie persons_count
+            table_overview[table_name]['total_essen'] += assignment['persons_count']
         
-        # ✅ BRAUTPAAR IST BEREITS IN DEN ASSIGNMENTS ENTHALTEN
-        # Keine separate Hinzufügung mehr nötig - bessere Kapazitätskontrolle
-        logger.info(f"💑 Brautpaar ist bereits korrekt in der Tischübersicht enthalten")
+        # Sortiere Tische
+        sorted_tables = sorted(table_overview.items(), key=lambda x: (
+            0 if x[0] == 'Brauttisch' else 1,  # Brauttisch zuerst
+            x[1]['table_id']  # Dann nach ID
+        ))
         
-        # Prüfe ob Brauttisch in der Übersicht vorhanden ist
-        brauttisch_found = 'Brauttisch' in table_overview
-        
-        # Falls ein Brauttisch existiert, aber noch keine Gäste zugeordnet wurden, erstelle Eintrag
-        if not brauttisch_found:
-            # Brautpaar-Namen aus Konfiguration lesen
-            config = data_manager.load_config()
-            braut_name = config.get('braut_name', 'Braut')
-            braeutigam_name = config.get('braeutigam_name', 'Bräutigam')
+        logger.info(f"📊 FINALE TISCHÜBERSICHT ({len(sorted_tables)} Tische):")
+        for table_name, table_info in sorted_tables:
+            capacity_info = f"({table_info['total_essen']} Personen)"
             
-            # Prüfe ob ein Brauttisch in der Tischliste existiert (könnte leer sein)
-            for tisch in tische:
-                if tisch.get('name') == 'Brauttisch':
-                    # Brauttisch existiert, aber keine Zuordnungen - erstelle leeren Eintrag mit Brautpaar
-                    table_overview['Brauttisch'] = {
-                        'table_id': tisch['id'],
-                        'table_name': 'Brauttisch',
-                        'guests': [{
-                            'name': f"{braut_name} & {braeutigam_name}",
-                            'category': 'Brautpaar',
-                            'persons': 2,
-                            'side': 'Beide'
-                        }],
-                        'total_persons': 2,
-                        'total_essen': 2
-                    }
-                    logger.info(f"💑 Brauttisch ohne Zuordnungen gefunden - Brautpaar ({braut_name} & {braeutigam_name}) hinzugefügt")
-                    break
-        
-        # Konvertiere zu Liste und sortiere: Brauttisch zuerst, dann Tisch 1, 2, 3...
-        table_list = list(table_overview.values())
-        def sort_table_key(table):
-            name = table['table_name']
-            if name == 'Brauttisch':
-                return 0  # Brauttisch immer zuerst
-            elif name.startswith('Tisch '):
-                try:
-                    return int(name.split(' ')[1])  # Tisch 1, 2, 3...
-                except:
-                    return 999
-            else:
-                return 999  # Andere Tische am Ende
-        
-        table_list.sort(key=sort_table_key)
-        
-        # Prüfen ob alle Gäste zugewiesen werden konnten
-        unassigned_count = len(active_gaeste) - assigned_count
-        success = unassigned_count == 0
-        
-        if unassigned_count > 0:
-            message = f'⚠️ {assigned_count} von {len(active_gaeste)} Gästen zugewiesen. {unassigned_count} Gäste konnten nicht zugewiesen werden!'
-        else:
-            message = f'✅ Alle {assigned_count} Gäste erfolgreich zugewiesen!'
-        
-        if created_tables:
-            message += f' (Neue Tische erstellt: {", ".join(created_tables)})'
-
-        logger.info(f"🎯 Auto-Zuordnung abgeschlossen: {assigned_count} Gäste zugewiesen (anzahl_essen berücksichtigt)")
-
-        # ✅ TISCHGRÖSSENS-OPTIMIERUNG: Anpassung der Tischgrößen basierend auf tatsächlicher Belegung
-        optimized_tables_count = 0
-        for table in table_list:
-            table_id = table['table_id']
-            current_occupancy = table['total_persons']
+            # Finde Tischkapazität
+            table = next((t for t in tische if t['id'] == table_info['table_id']), None)
+            if table:
+                capacity_percentage = (table_info['total_essen'] / table['max_personen']) * 100
+                capacity_info = f"({table_info['total_essen']}/{table['max_personen']} = {capacity_percentage:.0f}%)"
             
-            # Hole aktuellen Tisch aus DB für max_personen
-            current_table = next((t for t in tische if t['id'] == table_id), None)
-            if current_table:
-                current_max = current_table['max_personen']
-                
-                # Optimiere Tischgröße: min. 75% Auslastung oder exakte Belegung
-                if current_occupancy > 0:
-                    # Mindestgröße: aktuelle Belegung + 1 Platz Puffer
-                    optimal_size = max(current_occupancy + 1, 4)  # Mindestens 4 Plätze
+            logger.info(f"  🪑 {table_name} {capacity_info}:")
+            for guest in table_info['guests']:
+                # Markiere besondere Kategorien
+                if guest['category'] in ['Brautpaar']:
+                    emoji = "💑"
+                elif guest['category'] in ['Trauzeuge', 'Trauzeugin']:
+                    emoji = "👰🤵"
+                elif guest['category'] in ['Familie']:
+                    emoji = "👨‍👩‍👧‍👦"
+                else:
+                    emoji = "👤"
                     
-                    # Wenn aktueller Tisch viel zu groß ist (< 60% Auslastung), verkleinere
-                    if current_occupancy / current_max < 0.6 and optimal_size < current_max:
-                        data_manager.update_tisch(table_id, {'max_personen': optimal_size})
-                        logger.info(f"📏 Tisch {table['table_name']}: Größe optimiert von {current_max} auf {optimal_size} Plätze (Belegung: {current_occupancy})")
-                        optimized_tables_count += 1
-                        
-        if optimized_tables_count > 0:
-            message += f' (Tischgrößen optimiert: {optimized_tables_count} Tische)'
-
-        return jsonify({
-            'success': success,
-            'message': message,
+                logger.info(f"    {emoji} {guest['name']} ({guest['category']}, {guest['persons']} Pers., {guest['side']})")
+        
+        # Berechne finale Statistiken
+        total_guests_assigned = sum(t['total_essen'] for t in table_overview.values())
+        total_tables_used = len(sorted_tables)
+        total_tables_created = len(created_tables)
+        
+        # Erfolgs-Statistiken
+        success_rate = (assigned_count / len(active_gaeste)) * 100 if active_gaeste else 0
+        
+        logger.info(f"✅ AUTO-ZUWEISUNG ERFOLGREICH ABGESCHLOSSEN!")
+        logger.info(f"📈 ERFOLGS-STATISTIKEN:")
+        logger.info(f"   👥 {assigned_count}/{len(active_gaeste)} Gäste zugewiesen ({success_rate:.1f}%)")
+        logger.info(f"   🍽️ {total_guests_assigned} Personen an Tischen")
+        logger.info(f"   🪑 {total_tables_used} Tische belegt")
+        logger.info(f"   🆕 {total_tables_created} neue Tische erstellt: {', '.join(created_tables) if created_tables else 'keine'}")
+        
+        return {
+            'success': True,
+            'message': f'Erfolgreich {assigned_count} Gäste zugewiesen',
             'assigned_count': assigned_count,
             'total_guests': len(active_gaeste),
-            'unassigned_count': unassigned_count,
-            'assignments': assignments,
-            'table_overview': table_list,
-            'created_tables': created_tables,
-            'optimized_tables': optimized_tables_count,
-            'filter_used': 'Nur zugesagte Gäste' if only_confirmed else 'Alle Gäste mit Essen',
-            'relationships_used': len(beziehungen) > 0
-        })
+            'success_rate': success_rate,
+            'total_tables': total_tables_used,
+            'new_tables': created_tables,
+            'table_overview': table_overview,
+            'assignments': assignments
+        }
         
     except Exception as e:
-        logger.error(f"❌ Fehler bei automatischer Zuweisung: {e}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"❌ Fehler bei Auto-Zuweisung: {e}")
+        return {
+            'success': False,
+            'message': f'Fehler bei Auto-Zuweisung: {str(e)}',
+            'assigned_count': assigned_count,
+            'total_guests': len(active_gaeste) if 'active_gaeste' in locals() else 0
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Fehler bei Auto-Zuweisung: {e}")
+        return {
+            'success': False,
+            'message': f'Fehler bei Auto-Zuweisung: {str(e)}',
+            'assigned_count': assigned_count,
+            'total_guests': len(active_gaeste) if 'active_gaeste' in locals() else 0
+        }
+
+
 
 @app.route('/api/tischplanung/optimize-table-sizes', methods=['POST'])
 @require_auth
@@ -9112,6 +9463,494 @@ def start_server_with_ssl():
         
         print("\n👋 Auf Wiedersehen!")
         print("=" * 60)
+
+# =============================================================================
+# Geschenkliste API Routes
+# =============================================================================
+
+@app.route('/geschenkliste')
+@require_auth
+@require_role(['admin'])
+def geschenkliste():
+    """Admin-Seite für Geschenkliste-Verwaltung"""
+    return render_template('geschenkliste.html')
+
+@app.route('/guest/geschenkliste')
+@require_guest_auth
+def guest_geschenkliste():
+    """Gäste-Seite für Geschenkauswahl"""
+    gast_id = session.get('guest_id')
+    return render_template('guest_geschenkliste.html', gast_id=gast_id)
+
+# =============================================================================
+# Geldgeschenk Konfiguration API Routes
+# =============================================================================
+
+@app.route('/api/geldgeschenk/config', methods=['GET'])
+@require_auth
+@require_role(['admin'])
+def api_geldgeschenk_config_get():
+    """Lädt die Geldgeschenk-Konfiguration für Admin"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        config = data_manager.get_geldgeschenk_config()
+        
+        return jsonify({
+            'success': True,
+            'config': config
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Geldgeschenk-Konfiguration: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geldgeschenk/guest-config', methods=['GET'])
+@require_auth
+@require_role(['guest'])
+def api_geldgeschenk_guest_config():
+    """Lädt die Geldgeschenk-Konfiguration für Gäste (nur öffentliche Daten)"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        config = data_manager.get_geldgeschenk_config()
+        
+        # Für Gäste nur aktive Konfiguration und öffentliche Daten
+        if config and config.get('aktiv'):
+            guest_config = {
+                'name': config.get('name', 'Geldgeschenk'),
+                'beschreibung': config.get('beschreibung', ''),
+                'paypal_link': config.get('paypal_link', ''),
+                'aktiv': True
+            }
+        else:
+            guest_config = None
+        
+        return jsonify({
+            'success': True,
+            'config': guest_config
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Geldgeschenk-Konfiguration für Gäste: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geldgeschenk/config', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def api_geldgeschenk_config_save():
+    """Speichert die Geldgeschenk-Konfiguration"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Keine Daten empfangen'}), 400
+        
+        # Validierung
+        if not data.get('name'):
+            return jsonify({'error': 'Name ist erforderlich'}), 400
+        
+        if not data.get('paypal_link'):
+            return jsonify({'error': 'PayPal-Link ist erforderlich'}), 400
+        
+        success = data_manager.save_geldgeschenk_config(
+            name=data.get('name'),
+            beschreibung=data.get('beschreibung'),
+            paypal_link=data.get('paypal_link'),
+            aktiv=data.get('aktiv', 1)
+        )
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Geldgeschenk-Konfiguration gespeichert'
+            })
+        else:
+            return jsonify({'error': 'Fehler beim Speichern'}), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Speichern der Geldgeschenk-Konfiguration: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geldgeschenk/waehlen', methods=['POST'])
+@require_auth
+@require_role(['guest'])
+def api_geldgeschenk_waehlen():
+    """Wählt das Geldgeschenk für einen Gast aus"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        gast_id = session.get('guest_id')
+        if not gast_id:
+            return jsonify({'error': 'Gast-ID nicht gefunden'}), 400
+        
+        data = request.get_json() or {}
+        betrag = data.get('betrag')
+        notiz = data.get('notiz')
+        
+        success = data_manager.waehle_geldgeschenk_aus(gast_id, betrag, notiz)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Geldgeschenk erfolgreich ausgewählt'
+            })
+        else:
+            return jsonify({'error': 'Geldgeschenk konnte nicht ausgewählt werden oder bereits ausgewählt'}), 400
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Auswählen des Geldgeschenks: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geldgeschenk/freigeben', methods=['POST'])
+@require_auth
+@require_role(['guest'])
+def api_geldgeschenk_freigeben():
+    """Gibt das Geldgeschenk eines Gastes frei"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        gast_id = session.get('guest_id')
+        if not gast_id:
+            return jsonify({'error': 'Gast-ID nicht gefunden'}), 400
+        
+        success = data_manager.gebe_geldgeschenk_frei(gast_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Geldgeschenk erfolgreich freigegeben'
+            })
+        else:
+            return jsonify({'error': 'Geldgeschenk konnte nicht freigegeben werden'}), 400
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Freigeben des Geldgeschenks: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geldgeschenk/meine', methods=['GET'])
+@require_auth
+@require_role(['guest'])
+def api_geldgeschenk_meine():
+    """Lädt die Geldgeschenk-Auswahl des aktuellen Gastes"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        gast_id = session.get('guest_id')
+        if not gast_id:
+            return jsonify({'error': 'Gast-ID nicht gefunden'}), 400
+        
+        # Prüfe ob Gast bereits Geldgeschenk ausgewählt hat
+        alle_auswahlen = data_manager.get_geldgeschenk_auswahlen()
+        meine_auswahl = next((a for a in alle_auswahlen if a['gast_id'] == gast_id), None)
+        
+        return jsonify({
+            'success': True,
+            'ausgewaehlt': meine_auswahl is not None,
+            'auswahl': meine_auswahl
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Geldgeschenk-Auswahl: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geldgeschenk/auswahlen', methods=['GET'])
+@require_auth
+@require_role(['admin'])
+def api_geldgeschenk_auswahlen():
+    """Lädt alle Geldgeschenk-Auswahlen (nur Admin)"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        auswahlen = data_manager.get_geldgeschenk_auswahlen()
+        
+        return jsonify({
+            'success': True,
+            'auswahlen': auswahlen,
+            'count': len(auswahlen)
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Geldgeschenk-Auswahlen: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geldgeschenk/admin/freigeben/<int:gast_id>', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def api_geldgeschenk_admin_freigeben(gast_id):
+    """Gibt eine Geldgeschenk-Auswahl als Admin frei"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        success = data_manager.gebe_geldgeschenk_frei(gast_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Geldgeschenk-Auswahl erfolgreich freigegeben'
+            })
+        else:
+            return jsonify({'error': 'Geldgeschenk-Auswahl konnte nicht freigegeben werden'}), 400
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Admin-Freigeben der Geldgeschenk-Auswahl für Gast {gast_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# =============================================================================
+# Geschenkliste API Routes
+# =============================================================================
+
+@app.route('/api/geschenkliste/list', methods=['GET'])
+def api_geschenkliste_list():
+    """Lädt alle Geschenke (Admin) oder verfügbare Geschenke (Gäste)"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        # Prüfe ob Admin oder Gast angemeldet ist
+        is_logged_in = session.get('logged_in', False)
+        user_role = session.get('user_role', '')
+        
+        if not is_logged_in:
+            return jsonify({'error': 'Authentifizierung erforderlich'}), 401
+        
+        # Nur verfügbare Geschenke für Gäste, alle für Admins
+        is_guest = (user_role == 'guest')
+        only_available = is_guest
+        
+        geschenke = data_manager.get_geschenkliste(only_available=only_available)
+        
+        return jsonify({
+            'success': True,
+            'geschenke': geschenke,
+            'count': len(geschenke)
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Geschenkliste: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geschenkliste/add', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def api_geschenkliste_add():
+    """Fügt ein neues Geschenk hinzu (nur Admin)"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Keine Daten empfangen'}), 400
+        
+        # Validierung
+        if not data.get('name'):
+            return jsonify({'error': 'Name ist erforderlich'}), 400
+        
+        geschenk_id = data_manager.add_geschenk(data)
+        
+        if geschenk_id > 0:
+            return jsonify({
+                'success': True,
+                'message': 'Geschenk erfolgreich hinzugefügt',
+                'geschenk_id': geschenk_id
+            })
+        else:
+            return jsonify({'error': 'Fehler beim Hinzufügen des Geschenks'}), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Hinzufügen eines Geschenks: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geschenkliste/edit/<int:geschenk_id>', methods=['PUT'])
+@require_auth
+@require_role(['admin'])
+def api_geschenkliste_edit(geschenk_id):
+    """Bearbeitet ein vorhandenes Geschenk (nur Admin)"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Keine Daten empfangen'}), 400
+        
+        success = data_manager.update_geschenk(geschenk_id, data)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Geschenk erfolgreich aktualisiert'
+            })
+        else:
+            return jsonify({'error': 'Geschenk nicht gefunden'}), 404
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Bearbeiten des Geschenks {geschenk_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geschenkliste/delete/<int:geschenk_id>', methods=['DELETE'])
+@require_auth
+@require_role(['admin'])
+def api_geschenkliste_delete(geschenk_id):
+    """Löscht ein Geschenk (nur Admin)"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        success = data_manager.delete_geschenk(geschenk_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Geschenk erfolgreich gelöscht'
+            })
+        else:
+            return jsonify({'error': 'Geschenk nicht gefunden'}), 404
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Löschen des Geschenks {geschenk_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geschenkliste/waehlen/<int:geschenk_id>', methods=['POST'])
+@require_auth
+@require_role(['guest'])
+def api_geschenkliste_waehlen(geschenk_id):
+    """Wählt ein Geschenk für einen Gast aus"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        gast_id = session.get('guest_id')
+        if not gast_id:
+            return jsonify({'error': 'Gast-ID nicht gefunden'}), 400
+        
+        data = request.get_json() or {}
+        menge = data.get('menge', 1)
+        
+        success = data_manager.waehle_geschenk_aus(geschenk_id, gast_id, menge)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Geschenk erfolgreich ausgewählt'
+            })
+        else:
+            return jsonify({'error': 'Geschenk konnte nicht ausgewählt werden'}), 400
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Auswählen des Geschenks {geschenk_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geschenkliste/freigeben/<int:geschenk_id>', methods=['POST'])
+@require_auth
+@require_role(['guest'])
+def api_geschenkliste_freigeben(geschenk_id):
+    """Gibt ein ausgewähltes Geschenk wieder frei"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        gast_id = session.get('guest_id')
+        if not gast_id:
+            return jsonify({'error': 'Gast-ID nicht gefunden'}), 400
+        
+        data = request.get_json() or {}
+        menge = data.get('menge')
+        
+        success = data_manager.gebe_geschenk_frei(geschenk_id, gast_id, menge)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Geschenk erfolgreich freigegeben'
+            })
+        else:
+            return jsonify({'error': 'Geschenk konnte nicht freigegeben werden'}), 400
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Freigeben des Geschenks {geschenk_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geschenkliste/meine', methods=['GET'])
+@require_auth
+@require_role(['guest'])
+def api_geschenkliste_meine():
+    """Lädt alle vom aktuellen Gast ausgewählten Geschenke"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        gast_id = session.get('guest_id')
+        if not gast_id:
+            return jsonify({'error': 'Gast-ID nicht gefunden'}), 400
+        
+        geschenke = data_manager.get_geschenke_by_gast(gast_id)
+        
+        return jsonify({
+            'success': True,
+            'geschenke': geschenke,
+            'count': len(geschenke)
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Gast-Geschenke: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geschenkliste/statistiken', methods=['GET'])
+@require_auth
+@require_role(['admin'])
+def api_geschenkliste_statistiken():
+    """Lädt Statistiken zur Geschenkliste (nur Admin)"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        statistiken = data_manager.get_geschenkliste_statistiken()
+        
+        return jsonify({
+            'success': True,
+            'statistiken': statistiken
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Geschenkliste-Statistiken: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geschenkliste/admin/freigeben/<int:geschenk_id>', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def api_geschenkliste_admin_freigeben(geschenk_id):
+    """Admin kann jedes Geschenk freigeben"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
+        
+        data = request.get_json() or {}
+        menge = data.get('menge')
+        
+        success = data_manager.gebe_geschenk_frei(geschenk_id, None, menge)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Geschenk erfolgreich freigegeben'
+            })
+        else:
+            return jsonify({'error': 'Geschenk konnte nicht freigegeben werden'}), 400
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Admin-Freigeben des Geschenks {geschenk_id}: {e}")
+        return jsonify({'error': str(e)}), 500
 
 # =============================================================================
 # 2FA Admin Authentication Routes

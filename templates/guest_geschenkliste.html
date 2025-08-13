@@ -1,0 +1,119 @@
+{% extends "guest_base.html" %}
+
+{% block title %}Geschenkliste{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="page-header text-center">
+                <h1 class="page-title">🎁 Unsere Geschenkliste</h1>
+                <p class="text-muted">Wählen Sie ein Geschenk aus, das Ihnen gefällt</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meine ausgewählten Geschenke -->
+    <div class="row mb-4" id="meine-geschenke-section" style="display: none;">
+        <div class="col-12">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">✅ Ihre ausgewählten Geschenke</h5>
+                </div>
+                <div class="card-body" id="meine-geschenke-liste">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <select class="form-select" id="kategorie-filter">
+                <option value="">Alle Kategorien</option>
+                <option value="Haushalt">Haushalt</option>
+                <option value="Küche">Küche</option>
+                <option value="Dekoration">Dekoration</option>
+                <option value="Geld">Geldgeschenke</option>
+                <option value="Sonstiges">Sonstiges</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <select class="form-select" id="preis-filter">
+                <option value="">Alle Preisklassen</option>
+                <option value="0-25">bis 25 €</option>
+                <option value="25-50">25 - 50 €</option>
+                <option value="50-100">50 - 100 €</option>
+                <option value="100-200">100 - 200 €</option>
+                <option value="200+">über 200 €</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <input type="text" class="form-control" id="search-input" placeholder="🔍 Geschenke suchen...">
+        </div>
+    </div>
+
+    <!-- Geschenke Grid -->
+    <div class="row" id="geschenke-grid">
+        <!-- Wird dynamisch gefüllt -->
+    </div>
+</div>
+
+<!-- Auswahl Modal -->
+<div class="modal fade" id="auswahlModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="auswahl-title">Geschenk auswählen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="auswahl-content">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-success" id="bestaetigen-btn">
+                    <i class="fas fa-check"></i> Auswählen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PayPal Modal -->
+<div class="modal fade" id="paypalModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">💰 Geldgeschenk via PayPal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p>Sie können Ihr Geldgeschenk bequem über PayPal senden:</p>
+                <div class="my-3">
+                    <a href="#" id="paypal-link" class="btn btn-primary btn-lg" target="_blank">
+                        <i class="fab fa-paypal"></i> Zu PayPal
+                    </a>
+                </div>
+                <p class="text-muted small">Sie werden zu PayPal weitergeleitet</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <button type="button" class="btn btn-success" id="geld-bestaetigen-btn">
+                    ✅ Geldgeschenk ausgewählt
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const GAST_ID = {{ gast_id | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/guest_geschenkliste.js') }}"></script>
+{% endblock %}
