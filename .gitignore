@@ -44,11 +44,17 @@ dist/
 Pipfile.lock
 
 # IDEs
-.vscode/
+.vscode/launch.json
+.vscode/tasks.json
+.vscode/.ropeproject
 .idea/
 *.swp
 *.swo
 *~
+
+# VS Code workspace state files (aber nicht settings)
+.vscode/workspaceStorage/
+.vscode/extensions.json
 
 # OS generated files
 .DS_Store

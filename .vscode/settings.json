@@ -1,0 +1,39 @@
+{
+    // Verhindert automatische Wiederherstellung von Dateien
+    "workbench.editor.restoreViewState": false,
+    "workbench.editor.enablePreview": false,
+    "workbench.editor.enablePreviewFromQuickOpen": false,
+    
+    // Verhindert automatisches Laden der letzten Session
+    "window.restoreWindows": "none",
+    "window.restoreFullscreen": false,
+    
+    // Git-Synchronisation Einstellungen
+    "git.autofetch": false,
+    "git.confirmSync": true,
+    "git.enableSmartCommit": false,
+    "git.autoStash": false,
+    
+    // Verhindert automatische Datei-Synchronisation
+    "files.autoSave": "off",
+    "files.hotExit": "off",
+    
+    // Deaktiviert Workspace-Trust für automatische Aktionen
+    "security.workspace.trust.enabled": false,
+    
+    // Verhindert Extension-Updates die Dateien ändern könnten
+    "extensions.autoUpdate": false,
+    "extensions.autoCheckUpdates": false,
+    
+    // Python-spezifische Einstellungen
+    "python.terminal.activateEnvironment": false,
+    "python.experiments.enabled": false,
+    
+    // Telemetry und automatische Features deaktivieren
+    "telemetry.telemetryLevel": "off",
+    "workbench.enableExperiments": false,
+    
+    // Verhindert automatisches Öffnen von Dateien
+    "workbench.startupEditor": "none",
+    "editor.restoreViewState": false
+}

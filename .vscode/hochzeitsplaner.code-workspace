@@ -1,0 +1,18 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        // Workspace-spezifische Einstellungen für Datei-Wiederherstellung
+        "workbench.editor.restoreViewState": false,
+        "window.restoreWindows": "none",
+        "files.hotExit": "off",
+        "git.autofetch": false,
+        "workbench.startupEditor": "none"
+    },
+    "extensions": {
+        "recommendations": []
+    }
+}
