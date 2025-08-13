@@ -7,9 +7,21 @@
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="page-header text-center">
-                <h1 class="page-title">🎁 Unsere Geschenkliste</h1>
-                <p class="text-muted">Wählen Sie ein Geschenk aus, das Ihnen gefällt</p>
+            <div class="card border-0 shadow-sm geschenkliste-info-card">
+                <div class="card-header geschenkliste-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h1 class="page-title mb-0" style="color: #8b7355;" id="geschenkliste-titel">🎁 Unsere Geschenkliste</h1>
+                        <button class="geschenkliste-toggle" 
+                                data-bs-toggle="collapse" data-bs-target="#geschenkliste-info" 
+                                aria-expanded="true" aria-controls="geschenkliste-info"
+                                id="toggle-geschenkliste-info">
+                            <i class="bi bi-chevron-up" id="toggle-icon"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body text-center collapse show" id="geschenkliste-info">
+                    <p class="text-muted mb-0" id="geschenkliste-beschreibung">Wählen Sie ein Geschenk aus, das Ihnen gefällt</p>
+                </div>
             </div>
         </div>
     </div>

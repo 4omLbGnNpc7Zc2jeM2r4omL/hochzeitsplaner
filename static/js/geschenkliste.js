@@ -10,6 +10,7 @@ class GeschenklisteAdmin {
     init() {
         this.loadGeschenke();
         this.loadStatistiken();
+        this.loadGeschenklisteText();
         this.loadGeldgeschenkConfig();
         this.loadGeldgeschenkAuswahlen();
         this.setupEventListeners();
@@ -18,6 +19,9 @@ class GeschenklisteAdmin {
     setupEventListeners() {
         // Neue Geschenk Button
         document.getElementById('save-geschenk').addEventListener('click', () => this.saveGeschenk());
+        
+        // Geschenkliste Text Konfiguration
+        document.getElementById('save-geschenkliste-text').addEventListener('click', () => this.saveGeschenklisteText());
         
         // Geldgeschenk Konfiguration
         document.getElementById('save-geldgeschenk').addEventListener('click', () => this.saveGeldgeschenkConfig());
@@ -150,6 +154,77 @@ class GeschenklisteAdmin {
             }
         } catch (error) {
             console.error('Fehler beim Laden der Statistiken:', error);
+        }
+    }
+
+    async loadGeschenklisteText() {
+        try {
+            const response = await fetch('/api/geschenkliste/text-config');
+            const data = await response.json();
+            
+            if (data.success && data.config) {
+                this.updateGeschenklisteTextUI(data.config);
+            } else {
+                this.updateGeschenklisteTextUI(null);
+            }
+        } catch (error) {
+            console.error('Fehler beim Laden der Geschenkliste-Text-Konfiguration:', error);
+            this.updateGeschenklisteTextUI(null);
+        }
+    }
+
+    updateGeschenklisteTextUI(config) {
+        const titelInput = document.getElementById('geschenkliste-titel');
+        const beschreibungInput = document.getElementById('geschenkliste-beschreibung');
+        const statusBadge = document.getElementById('geschenkliste-text-status-badge');
+
+        if (config) {
+            titelInput.value = config.titel || 'Unsere Geschenkliste';
+            beschreibungInput.value = config.beschreibung || 'Wir haben eine kleine Geschenkliste für euch zusammengestellt.';
+            statusBadge.className = 'badge bg-success';
+            statusBadge.textContent = 'Konfiguriert';
+        } else {
+            titelInput.value = 'Unsere Geschenkliste';
+            beschreibungInput.value = 'Wir haben eine kleine Geschenkliste für euch zusammengestellt.';
+            statusBadge.className = 'badge bg-secondary';
+            statusBadge.textContent = 'Standard';
+        }
+    }
+
+    async saveGeschenklisteText() {
+        try {
+            const titel = document.getElementById('geschenkliste-titel').value.trim();
+            const beschreibung = document.getElementById('geschenkliste-beschreibung').value.trim();
+
+            if (!titel) {
+                this.showError('Titel ist erforderlich');
+                return;
+            }
+
+            const response = await fetch('/api/geschenkliste/text-config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    titel: titel,
+                    beschreibung: beschreibung
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                this.showSuccess('Geschenkliste-Text erfolgreich gespeichert');
+                this.updateGeschenklisteTextUI({
+                    titel: titel,
+                    beschreibung: beschreibung
+                });
+            } else {
+                this.showError(data.error || 'Fehler beim Speichern');
+            }
+        } catch (error) {
+            console.error('Fehler beim Speichern der Geschenkliste-Text-Konfiguration:', error);
+            this.showError('Netzwerkfehler beim Speichern');
         }
     }
 

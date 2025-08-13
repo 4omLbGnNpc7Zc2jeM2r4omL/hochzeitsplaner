@@ -2,8 +2,13 @@
 
 {% block title %}Geschenkliste Verwaltung{% endblock %}
 
+{% block extra_css %}
+<!-- Wedding Theme CSS -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/wedding-theme.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid admin-page">
     <!-- Header -->
     <div class="row">
         <div class="col-12">
@@ -21,13 +26,47 @@
         </div>
     </div>
 
+    <!-- Geschenkliste Text Konfiguration -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info">
+                    <h5 class="mb-0" style="color: #8b7355;">📝 Geschenkliste Text</h5>
+                    <small style="color: #8b7355;">Bearbeiten Sie den Titel und die Beschreibung der Geschenkliste</small>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="geschenkliste-titel" class="form-label">Titel der Geschenkliste</label>
+                            <input type="text" class="form-control" id="geschenkliste-titel" placeholder="z.B. Unsere Geschenkliste" value="Unsere Geschenkliste">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="geschenkliste-beschreibung" class="form-label">Beschreibung</label>
+                            <textarea class="form-control" id="geschenkliste-beschreibung" rows="2" placeholder="z.B. Wir haben eine kleine Geschenkliste für euch zusammengestellt.">Wir haben eine kleine Geschenkliste für euch zusammengestellt.</textarea>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <button class="btn btn-info" id="save-geschenkliste-text">
+                                <i class="fas fa-save"></i> Text speichern
+                            </button>
+                            <span class="ms-2 text-muted" id="geschenkliste-text-status">
+                                <span class="badge bg-secondary" id="geschenkliste-text-status-badge">Standard</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Geldgeschenk Konfiguration -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card border-warning">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0">💰 Geldgeschenk Konfiguration</h5>
-                    <small>Konfigurieren Sie das spezielle Geldgeschenk für Ihre Gäste</small>
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0" style="color: #8b7355;">💰 Geldgeschenk Konfiguration</h5>
+                    <small style="color: #8b7355;">Konfigurieren Sie das spezielle Geldgeschenk für Ihre Gäste</small>
                 </div>
                 <div class="card-body">
                     <div class="row">

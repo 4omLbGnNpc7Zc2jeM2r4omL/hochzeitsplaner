@@ -102,6 +102,167 @@
     border-radius: 8px;
 }
 
+/* ===== ADMIN SEITEN THEME ===== */
+/* Überschreibt Bootstrap-Klassen für Admin-Bereich */
+.admin-page .page-title {
+    color: var(--wedding-text) !important;
+    font-family: 'Dancing Script', cursive, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 600;
+}
+
+.admin-page .btn-primary {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    border: 1px solid var(--wedding-gold) !important;
+    color: var(--wedding-text) !important;
+    font-weight: 500;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.admin-page .btn-primary:hover {
+    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-gold)) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3) !important;
+    color: var(--wedding-text-dark) !important;
+}
+
+.admin-page .btn-info {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    border: 1px solid var(--wedding-gold) !important;
+    color: var(--wedding-text) !important;
+    font-weight: 500;
+    border-radius: 8px;
+}
+
+.admin-page .btn-info:hover {
+    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-gold)) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3) !important;
+}
+
+.admin-page .btn-warning {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    border: 1px solid var(--wedding-gold) !important;
+    color: var(--wedding-text) !important;
+    font-weight: 500;
+    border-radius: 8px;
+}
+
+.admin-page .btn-warning:hover {
+    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-gold)) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3) !important;
+}
+
+.admin-page .card-header.bg-info {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text) !important;
+    border: none !important;
+    border-radius: 12px 12px 0 0 !important;
+    font-weight: 500;
+}
+
+.admin-page .card-header.bg-warning {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text) !important;
+    border: none !important;
+    border-radius: 12px 12px 0 0 !important;
+    font-weight: 500;
+}
+
+.admin-page .card-header:not(.bg-info):not(.bg-warning) {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    color: var(--wedding-text) !important;
+    border: none !important;
+    border-radius: 12px 12px 0 0 !important;
+    font-weight: 500;
+}
+
+.admin-page .border-info {
+    border-color: var(--wedding-gold) !important;
+}
+
+.admin-page .border-warning {
+    border-color: var(--wedding-gold) !important;
+}
+
+.admin-page .bg-info {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+}
+
+.admin-page .bg-warning {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+}
+
+.admin-page .card {
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.1);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.admin-page .form-control:focus {
+    border-color: var(--wedding-gold);
+    box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.25);
+}
+
+.admin-page .form-select:focus {
+    border-color: var(--wedding-gold);
+    box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.25);
+}
+
+.admin-page .table {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.admin-page .table thead th {
+    background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-cream));
+    color: var(--wedding-text);
+    border: none;
+    font-weight: 600;
+}
+
+.admin-page .table-hover tbody tr:hover {
+    background-color: rgba(212, 175, 55, 0.1);
+}
+
+/* ===== GESCHENKLISTE TOGGLE BUTTON ===== */
+.geschenkliste-toggle {
+    background: none !important;
+    border: none !important;
+    color: var(--wedding-text) !important;
+    font-size: 1.2rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+.geschenkliste-toggle:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    transform: scale(1.1);
+}
+
+.geschenkliste-toggle:focus {
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.geschenkliste-info-card {
+    border: 1px solid rgba(212, 175, 55, 0.2) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.1) !important;
+}
+
+.geschenkliste-header {
+    background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)) !important;
+    border-radius: 12px 12px 0 0 !important;
+    border: none !important;
+    color: var(--wedding-text) !important;
+}
+    font-size: 0.875rem;
+    border-radius: 8px;
+}
+
 /* Modal-Button Überschreibungen */
 .modal .btn-primary {
     background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold));

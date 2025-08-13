@@ -3101,6 +3101,67 @@ class SQLiteHochzeitsDatenManager:
         except Exception as e:
             logger.error(f"Fehler beim Speichern der Konfiguration: {e}")
             return False
+
+    def get_app_config(self, config_key: str) -> dict:
+        """Lädt eine spezifische App-Konfiguration"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Stelle sicher, dass die Tabelle existiert
+                cursor.execute('''
+                CREATE TABLE IF NOT EXISTS app_config (
+                    key TEXT PRIMARY KEY,
+                    value TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                ''')
+                
+                cursor.execute('SELECT value FROM app_config WHERE key = ?', (config_key,))
+                result = cursor.fetchone()
+                
+                if result:
+                    import json
+                    return json.loads(result[0])
+                else:
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Fehler beim Laden der App-Konfiguration '{config_key}': {e}")
+            return None
+
+    def save_app_config(self, config_key: str, config_value: dict) -> bool:
+        """Speichert eine spezifische App-Konfiguration"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Stelle sicher, dass die Tabelle existiert
+                cursor.execute('''
+                CREATE TABLE IF NOT EXISTS app_config (
+                    key TEXT PRIMARY KEY,
+                    value TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                ''')
+                
+                import json
+                config_json = json.dumps(config_value, ensure_ascii=False)
+                
+                cursor.execute('''
+                INSERT OR REPLACE INTO app_config (key, value, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                ''', (config_key, config_json))
+                
+                conn.commit()
+                logger.info(f"App-Konfiguration '{config_key}' erfolgreich gespeichert")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Speichern der App-Konfiguration '{config_key}': {e}")
+            return False
     
     def backup_database(self) -> bool:
         """Erstellt ein Backup der SQLite-Datenbank"""
@@ -6793,12 +6854,13 @@ class SQLiteHochzeitsDatenManager:
                 conn = self._get_connection()
                 cursor = conn.cursor()
                 
-                # Gesamtstatistiken
+                # Gesamtstatistiken - verwende nur existierende Spalten
                 cursor.execute("""
                     SELECT 
                         COUNT(*) as total_geschenke,
-                        COUNT(CASE WHEN ausgewaehlt_menge > 0 THEN 1 END) as ausgewaehlt_geschenke,
-                        COUNT(CASE WHEN ist_geldgeschenk = 1 THEN 1 END) as geldgeschenke,
+                        COUNT(CASE WHEN ausgewaehlt_von_gast_id IS NOT NULL THEN 1 END) as ausgewaehlt_geschenke,
+                        COUNT(CASE WHEN ausgewaehlt_von_gast_id IS NULL THEN 1 END) as verfuegbar_geschenke,
+                        COUNT(CASE WHEN name LIKE '%Geld%' OR name LIKE '%Geldgeschenk%' OR beschreibung LIKE '%Geld%' THEN 1 END) as geldgeschenke,
                         SUM(CASE WHEN preis IS NOT NULL THEN preis ELSE 0 END) as gesamtwert
                     FROM geschenkliste
                 """)
@@ -6809,14 +6871,14 @@ class SQLiteHochzeitsDatenManager:
                 if stats:
                     return {
                         'total_geschenke': stats[0],
-                        'ausgewaehlt_geschenke': stats[1], 
-                        'verfuegbar_geschenke': stats[0] - stats[1],
-                        'geldgeschenke': stats[2],
-                        'gesamtwert': stats[3] or 0
+                        'ausgewaehlt_geschenke': stats[1] or 0,  # Anzahl ausgewählter Geschenke
+                        'verfuegbar_geschenke': stats[2] or 0,   # Anzahl verfügbarer Geschenke
+                        'geldgeschenke': stats[3] or 0,         # Geschenke mit "Geld" im Namen/Beschreibung
+                        'gesamtwert': stats[4] or 0
                     }
                 
                 return {}
                 
         except Exception as e:
-            logger.error(f"Fehler beim Laden der Geschenkliste-Statistiken: {e}")
+            self.logger.error(f"Fehler beim Laden der Geschenkliste-Statistiken: {e}")
             return {}

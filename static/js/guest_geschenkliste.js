@@ -7,12 +7,28 @@ class GuestGeschenkliste {
     }
 
     init() {
+        this.loadGeschenklisteTextConfig();
         this.loadGeschenke();
         this.loadMeineGeschenke();
         this.setupEventListeners();
     }
 
     setupEventListeners() {
+        // Toggle-Button für Geschenkliste-Info
+        const toggleBtn = document.getElementById('toggle-geschenkliste-info');
+        const toggleIcon = document.getElementById('toggle-icon');
+        const geschenklisteInfo = document.getElementById('geschenkliste-info');
+        
+        if (toggleBtn && toggleIcon && geschenklisteInfo) {
+            geschenklisteInfo.addEventListener('shown.bs.collapse', function() {
+                toggleIcon.className = 'bi bi-chevron-up';
+            });
+            
+            geschenklisteInfo.addEventListener('hidden.bs.collapse', function() {
+                toggleIcon.className = 'bi bi-chevron-down';
+            });
+        }
+
         // Filter
         document.getElementById('kategorie-filter').addEventListener('change', () => this.applyFilters());
         document.getElementById('preis-filter').addEventListener('change', () => this.applyFilters());
@@ -21,6 +37,28 @@ class GuestGeschenkliste {
         // Auswahl bestätigen
         document.getElementById('bestaetigen-btn').addEventListener('click', () => this.confirmSelection());
         document.getElementById('geld-bestaetigen-btn').addEventListener('click', () => this.confirmGeldgeschenk());
+    }
+
+    async loadGeschenklisteTextConfig() {
+        try {
+            const response = await fetch('/api/geschenkliste/guest-text-config');
+            const data = await response.json();
+            
+            if (data.success && data.config) {
+                const titelElement = document.getElementById('geschenkliste-titel');
+                const beschreibungElement = document.getElementById('geschenkliste-beschreibung');
+                
+                if (titelElement) {
+                    titelElement.textContent = `🎁 ${data.config.titel}`;
+                }
+                
+                if (beschreibungElement) {
+                    beschreibungElement.textContent = data.config.beschreibung;
+                }
+            }
+        } catch (error) {
+            console.error('Fehler beim Laden der Geschenkliste Text-Konfiguration:', error);
+        }
     }
 
     async loadGeschenke() {
@@ -71,7 +109,9 @@ class GuestGeschenkliste {
             div.className = 'border rounded p-3 mb-2 bg-light';
             
             const geldIcon = geschenk.ist_geldgeschenk ? '💰 ' : '🎁 ';
-            const preis = geschenk.preis ? ` - ${geschenk.preis} ${geschenk.waehrung}` : '';
+            const preis = geschenk.ist_geldgeschenk || geschenk.kategorie === 'Geld' ? 
+                ' - Wunschbetrag' : 
+                (geschenk.preis ? ` - ${geschenk.preis} ${geschenk.waehrung}` : '');
             
             div.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center">
@@ -120,7 +160,9 @@ class GuestGeschenkliste {
         col.className = 'col-md-6 col-lg-4 mb-4';
         
         const geldIcon = geschenk.ist_geldgeschenk ? '💰' : '🎁';
-        const preis = geschenk.preis ? `${geschenk.preis} ${geschenk.waehrung}` : 'Preis auf Anfrage';
+        const preis = geschenk.ist_geldgeschenk || geschenk.kategorie === 'Geld' ? 
+            'Wunschbetrag' : 
+            (geschenk.preis ? `${geschenk.preis} ${geschenk.waehrung}` : 'Preis auf Anfrage');
         const verfuegbar = geschenk.menge - (geschenk.ausgewaehlt_menge || 0);
         
         // Priorität Badge
@@ -187,7 +229,9 @@ class GuestGeschenkliste {
         
         const content = document.getElementById('auswahl-content');
         const verfuegbar = geschenk.menge - (geschenk.ausgewaehlt_menge || 0);
-        const preis = geschenk.preis ? `${geschenk.preis} ${geschenk.waehrung}` : 'Preis auf Anfrage';
+        const preis = geschenk.ist_geldgeschenk || geschenk.kategorie === 'Geld' ? 
+            'Wunschbetrag' : 
+            (geschenk.preis ? `${geschenk.preis} ${geschenk.waehrung}` : 'Preis auf Anfrage');
         
         content.innerHTML = `
             <div class="text-center">
@@ -218,10 +262,12 @@ class GuestGeschenkliste {
     }
 
     showGeldgeschenkModal(geschenk) {
-        const preis = geschenk.preis ? `${geschenk.preis} ${geschenk.waehrung}` : '';
+        const preis = geschenk.ist_geldgeschenk || geschenk.kategorie === 'Geld' ? 
+            'Ihren Wunschbetrag' : 
+            (geschenk.preis ? `${geschenk.preis} ${geschenk.waehrung}` : 'einen Betrag');
         
         document.querySelector('#paypalModal .modal-body p').innerHTML = `
-            Sie können ${preis ? `${preis} als ` : ''}Geldgeschenk bequem über PayPal senden:
+            Sie können ${preis} als Geldgeschenk bequem über PayPal senden:
         `;
 
         if (geschenk.paypal_link) {

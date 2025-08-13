@@ -411,15 +411,23 @@
             <div class="row justify-content-center">
                 <div class="col-12">
                     <!-- Geschenkliste Header -->
-                    <div class="card mb-4 border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 15px;">
-                        <div class="card-header border-0" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border-radius: 15px 15px 0 0;">
-                            <h5 class="mb-0" style="color: #8b7355; font-weight: 500;">
-                                <i class="bi bi-gift me-2"></i>
-                                Unsere Geschenkliste
-                            </h5>
+                    <div class="card mb-4 border-0 shadow-lg geschenkliste-info-card" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);">
+                        <div class="card-header border-0 geschenkliste-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0" style="color: #8b7355; font-weight: 500;" id="geschenkliste-titel">
+                                    <i class="bi bi-gift me-2"></i>
+                                    Unsere Geschenkliste
+                                </h5>
+                                <button class="geschenkliste-toggle" 
+                                        data-bs-toggle="collapse" data-bs-target="#geschenkliste-info" 
+                                        aria-expanded="true" aria-controls="geschenkliste-info"
+                                        id="toggle-geschenkliste-info">
+                                    <i class="bi bi-chevron-up" id="toggle-icon"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="card-body text-center">
-                            <p class="mb-3" style="color: #8b7355;">
+                        <div class="card-body text-center collapse show" id="geschenkliste-info">
+                            <p class="mb-3" style="color: #8b7355;" id="geschenkliste-beschreibung">
                                 Wir haben eine kleine Geschenkliste für euch zusammengestellt. 
                                 Ihr könnt euch ein Geschenk aussuchen, das euch gefällt - es wird dann für andere Gäste nicht mehr sichtbar sein.
                             </p>
@@ -1619,6 +1627,100 @@
         font-style: normal;  
         font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
     }
+
+    /* Responsive Tabellen-Design für mobile Geräte */
+    @media screen and (max-width: 768px) {
+        .table-responsive table,
+        .table-responsive thead,
+        .table-responsive tbody,
+        .table-responsive th,
+        .table-responsive td,
+        .table-responsive tr {
+            display: block;
+        }
+
+        .table-responsive thead tr {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+        }
+
+        .table-responsive tr {
+            background: white;
+            border: 1px solid var(--wedding-gold);
+            border-radius: 12px;
+            margin-bottom: 15px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(212, 175, 55, 0.1);
+        }
+
+        .table-responsive td {
+            border: none !important;
+            position: relative;
+            padding: 8px 0 !important;
+            margin-bottom: 10px;
+            display: flex !important;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-responsive td:before {
+            content: attr(data-label) ": ";
+            font-weight: bold;
+            color: var(--wedding-gold);
+            min-width: 80px;
+            flex-shrink: 0;
+            font-size: 0.9rem;
+        }
+
+        .table-responsive td:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Spezielle Styles für Action-Buttons */
+        .table-responsive td[data-label="Aktion"] {
+            margin-top: 10px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .table-responsive td[data-label="Aktion"]:before {
+            display: none;
+        }
+
+        .table-responsive td[data-label="Aktion"] button {
+            width: 100% !important;
+            padding: 12px !important;
+            font-size: 1rem !important;
+        }
+
+        /* Geschenk-Name hervorheben */
+        .table-responsive td[data-label="Geschenk"] {
+            background-color: #f8f9fa;
+            margin: -15px -15px 10px -15px;
+            padding: 15px !important;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .table-responsive td[data-label="Geschenk"]:before {
+            display: none;
+        }
+
+        /* Badge-Styles für mobile */
+        .table-responsive .badge {
+            font-size: 0.85rem;
+            padding: 6px 12px;
+        }
+    }
+
+    /* Touch-friendly Buttons für mobile */
+    @media screen and (max-width: 768px) {
+        .btn-sm {
+            padding: 10px 16px !important;
+            font-size: 0.95rem !important;
+            min-height: 44px;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -2551,18 +2653,23 @@ document.addEventListener('DOMContentLoaded', function() {
         const tbody = document.getElementById('dashboard-geschenke-tbody');
         const keineGeschenke = document.getElementById('dashboard-keine-geschenke');
         
+        if (!tbody) {
+            console.error('❌ Element dashboard-geschenke-tbody nicht gefunden');
+            return;
+        }
+        
         // Prüfe ob Geldgeschenk verfügbar ist
         const geldgeschenkVerfuegbar = geldgeschenkConfig && geldgeschenkConfig.aktiv && !meineGeldgeschenkAuswahl;
         const totalGeschenke = geschenke.length + (geldgeschenkVerfuegbar ? 1 : 0);
         
         if (totalGeschenke === 0) {
             container.style.display = 'none';
-            keineGeschenke.style.display = 'block';
+            if (keineGeschenke) keineGeschenke.style.display = 'block';
             return;
         }
 
         container.style.display = 'block';
-        keineGeschenke.style.display = 'none';
+        if (keineGeschenke) keineGeschenke.style.display = 'none';
         tbody.innerHTML = '';
 
         // Geldgeschenk als erste Zeile hinzufügen
@@ -2570,7 +2677,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const geldRow = document.createElement('tr');
             geldRow.style.backgroundColor = '#fff8e1';
             geldRow.innerHTML = `
-                <td>
+                <td data-label="Geschenk">
                     <div class="d-flex align-items-center">
                         <span class="me-2" style="font-size: 1.5rem;">💰</span>
                         <div>
@@ -2579,11 +2686,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>
                 </td>
-                <td><span class="badge" style="background-color: var(--wedding-gold); color: var(--wedding-text);">Geldgeschenk</span></td>
-                <td><strong style="color: var(--wedding-gold);">Ihr Wunschbetrag</strong></td>
-                <td><span class="badge bg-success">Immer verfügbar</span></td>
-                <td>
-                    <button class="btn btn-wedding-primary btn-sm" onclick="selectDashboardGeldgeschenk()">
+                <td data-label="Kategorie"><span class="badge" style="background-color: var(--wedding-gold); color: var(--wedding-text);">Geldgeschenk</span></td>
+                <td data-label="Preis"><strong style="color: var(--wedding-gold);">Wunschbetrag</strong></td>
+                <td data-label="Verfügbar"><span class="badge bg-success">Immer verfügbar</span></td>
+                <td data-label="Aktion">
+                    <button class="btn btn-wedding-primary btn-sm w-100" onclick="selectDashboardGeldgeschenk()">
                         <i class="bi bi-heart me-1"></i> Auswählen
                     </button>
                 </td>
@@ -2593,57 +2700,47 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Normale Geschenke als Tabellenzeilen
         geschenke.forEach(geschenk => {
-            const row = document.createElement('tr');
-            row.style.cursor = 'pointer';
-            
-            const preis = geschenk.preis ? `${geschenk.preis} ${geschenk.waehrung}` : 'Preis auf Anfrage';
-            const verfuegbar = geschenk.menge - (geschenk.ausgewaehlt_menge || 0);
-            
-            // Beschreibung kürzen
-            const beschreibung = geschenk.beschreibung || '';
-            const kurzeBeschreibung = beschreibung.length > 60 ? beschreibung.substring(0, 60) + '...' : beschreibung;
-            
-            // Priorität Badge
-            let priorityBadge = '';
-            if (geschenk.prioritaet === 'Hoch') {
-                priorityBadge = '<span class="badge bg-danger ms-1">Hoch</span>';
-            } else if (geschenk.prioritaet === 'Niedrig') {
-                priorityBadge = '<span class="badge bg-secondary ms-1">Niedrig</span>';
-            }
-
-            row.innerHTML = `
-                <td onclick="showGeschenkDetails(${geschenk.id})">
-                    <div class="d-flex align-items-center">
-                        <span class="me-2" style="font-size: 1.5rem;">🎁</span>
+            try {
+                const row = document.createElement('tr');
+                const verfuegbar = geschenk.menge - geschenk.ausgewaehlt_menge;
+                const kategorieBadgeColor = {
+                    'Haushalt': 'bg-primary',
+                    'Küche': 'bg-success', 
+                    'Dekoration': 'bg-warning',
+                    'Geld': 'bg-info',
+                    'Sonstiges': 'bg-secondary'
+                }[geschenk.kategorie] || 'bg-secondary';
+                
+                const beschreibung = geschenk.beschreibung || '';
+                
+                row.innerHTML = `
+                    <td data-label="Geschenk">
                         <div>
                             <strong style="color: var(--wedding-text);">${geschenk.name}</strong>
-                            <br><small class="text-muted">${kurzeBeschreibung}</small>
+                            ${beschreibung ? `<br><small class="text-muted">${beschreibung.substring(0, 50)}${beschreibung.length > 50 ? '...' : ''}</small>` : ''}
                         </div>
-                    </div>
-                </td>
-                <td onclick="showGeschenkDetails(${geschenk.id})">
-                    <span class="badge" style="background-color: var(--wedding-gold); color: var(--wedding-text);">${geschenk.kategorie}</span>
-                    ${priorityBadge}
-                </td>
-                <td onclick="showGeschenkDetails(${geschenk.id})">
-                    <strong style="color: var(--wedding-gold);">${preis}</strong>
-                </td>
-                <td onclick="showGeschenkDetails(${geschenk.id})">
-                    <span class="badge ${verfuegbar > 0 ? 'bg-success' : 'bg-secondary'}">${verfuegbar} verfügbar</span>
-                </td>
-                <td>
-                    <div class="btn-group" role="group">
-                        <button class="btn btn-outline-primary btn-sm" onclick="showGeschenkDetails(${geschenk.id})" title="Details anzeigen">
-                            <i class="bi bi-info-circle"></i>
+                    </td>
+                    <td data-label="Kategorie">
+                        <span class="badge ${kategorieBadgeColor}">${geschenk.kategorie || 'Sonstiges'}</span>
+                    </td>
+                    <td data-label="Preis">
+                        <strong style="color: var(--wedding-gold);">
+                            ${geschenk.kategorie === 'Geld' || geschenk.ist_geldgeschenk ? 'Wunschbetrag' : (geschenk.preis ? geschenk.preis.toFixed(2) + ' €' : 'Nicht angegeben')}
+                        </strong>
+                    </td>
+                    <td data-label="Verfügbar">
+                        <span class="badge ${verfuegbar > 0 ? 'bg-success' : 'bg-danger'}">${verfuegbar} von ${geschenk.menge}</span>
+                    </td>
+                    <td data-label="Aktion">
+                        <button class="btn btn-wedding-primary btn-sm w-100" onclick="selectDashboardGeschenk(${geschenk.id})" ${verfuegbar <= 0 ? 'disabled' : ''}>
+                            <i class="bi bi-heart me-1"></i> ${verfuegbar > 0 ? 'Auswählen' : 'Nicht verfügbar'}
                         </button>
-                        <button class="btn btn-wedding-primary btn-sm" onclick="selectDashboardGeschenk(${geschenk.id})" title="Auswählen">
-                            <i class="bi bi-heart"></i>
-                        </button>
-                    </div>
-                </td>
-            `;
-            
-            tbody.appendChild(row);
+                    </td>
+                `;
+                tbody.appendChild(row);
+            } catch (error) {
+                console.error('❌ Fehler beim Rendern von Geschenk:', geschenk, error);
+            }
         });
     }
 
@@ -2959,8 +3056,49 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => toast.remove(), 5000);
     }
 
+    // Geschenkliste Text-Konfiguration laden
+    async function loadGeschenklisteTextConfig() {
+        try {
+            const response = await fetch('/api/geschenkliste/guest-text-config');
+            const data = await response.json();
+            
+            if (data.success && data.config) {
+                const titelElement = document.getElementById('geschenkliste-titel');
+                const beschreibungElement = document.getElementById('geschenkliste-beschreibung');
+                
+                if (titelElement) {
+                    titelElement.innerHTML = `<i class="bi bi-gift me-2"></i>${data.config.titel}`;
+                }
+                
+                if (beschreibungElement) {
+                    beschreibungElement.textContent = data.config.beschreibung;
+                }
+            }
+        } catch (error) {
+            console.error('Fehler beim Laden der Geschenkliste Text-Konfiguration:', error);
+        }
+    }
+
     // Event Listeners für Dashboard Geschenkliste
     document.addEventListener('DOMContentLoaded', function() {
+        // Geschenkliste Text-Konfiguration laden
+        loadGeschenklisteTextConfig();
+        
+        // Toggle-Button für Geschenkliste-Info
+        const toggleBtn = document.getElementById('toggle-geschenkliste-info');
+        const toggleIcon = document.getElementById('toggle-icon');
+        const geschenklisteInfo = document.getElementById('geschenkliste-info');
+        
+        if (toggleBtn && toggleIcon && geschenklisteInfo) {
+            geschenklisteInfo.addEventListener('shown.bs.collapse', function() {
+                toggleIcon.className = 'bi bi-chevron-up';
+            });
+            
+            geschenklisteInfo.addEventListener('hidden.bs.collapse', function() {
+                toggleIcon.className = 'bi bi-chevron-down';
+            });
+        }
+        
         // Filter Event Listeners
         document.getElementById('dashboard-kategorie-filter')?.addEventListener('change', applyDashboardGeschenkFilter);
         document.getElementById('dashboard-preis-filter')?.addEventListener('change', applyDashboardGeschenkFilter);

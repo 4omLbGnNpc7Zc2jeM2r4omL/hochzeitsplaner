@@ -9952,6 +9952,85 @@ def api_geschenkliste_admin_freigeben(geschenk_id):
         logger.error(f"Fehler beim Admin-Freigeben des Geschenks {geschenk_id}: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/geschenkliste/text-config', methods=['GET'])
+@require_auth
+@require_role(['admin'])
+def get_geschenkliste_text_config():
+    """Geschenkliste Text-Konfiguration abrufen"""
+    try:
+        config = data_manager.get_app_config('geschenkliste_text')
+        
+        return jsonify({
+            'success': True,
+            'config': config
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Abrufen der Geschenkliste Text-Konfiguration: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geschenkliste/text-config', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def save_geschenkliste_text_config():
+    """Geschenkliste Text-Konfiguration speichern"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'Keine Daten empfangen'}), 400
+            
+        titel = data.get('titel', '').strip()
+        beschreibung = data.get('beschreibung', '').strip()
+        
+        if not titel:
+            return jsonify({'error': 'Titel ist erforderlich'}), 400
+            
+        # Konfiguration speichern
+        config = {
+            'titel': titel,
+            'beschreibung': beschreibung
+        }
+        
+        success = data_manager.save_app_config('geschenkliste_text', config)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Geschenkliste Text-Konfiguration erfolgreich gespeichert',
+                'config': config
+            })
+        else:
+            return jsonify({'error': 'Konfiguration konnte nicht gespeichert werden'}), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Speichern der Geschenkliste Text-Konfiguration: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/geschenkliste/guest-text-config', methods=['GET'])
+@require_auth
+@require_role(['admin','guest'])
+def get_geschenkliste_guest_text_config():
+    """Geschenkliste Text-Konfiguration für Gäste abrufen"""
+    try:
+        config = data_manager.get_app_config('geschenkliste_text')
+        
+        # Fallback auf Standard-Texte
+        if not config:
+            config = {
+                'titel': 'Unsere Geschenkliste',
+                'beschreibung': 'Wir haben eine kleine Geschenkliste für euch zusammengestellt.'
+            }
+        
+        return jsonify({
+            'success': True,
+            'config': config
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Abrufen der Geschenkliste Text-Konfiguration für Gäste: {e}")
+        return jsonify({'error': str(e)}), 500
+
 # =============================================================================
 # 2FA Admin Authentication Routes
 # =============================================================================
