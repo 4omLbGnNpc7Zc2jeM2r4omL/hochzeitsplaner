@@ -7164,14 +7164,35 @@ def serve_gallery_image(upload_id):
             logger.warning(f"🚫 Photo Gallery API: Upload {upload_id} not approved (status: {upload.get('admin_approved')})")
             return jsonify({'error': 'Upload nicht genehmigt'}), 403
         
-        # Datei bereitstellen
+        # Datei bereitstellen - intelligente Pfadsuche
         upload_path = get_upload_path()
-        file_path = os.path.join(upload_path, upload['filename'])
+        filename = upload['filename']
         
-        logger.info(f"📁 Photo Gallery API: Looking for file at: {file_path}")
+        # Mögliche Dateipfade in Prioritätsreihenfolge
+        possible_paths = [
+            # 1. Standard Upload-Pfad mit Dateiname
+            os.path.join(upload_path, filename),
+            # 2. Ursprünglicher Pfad aus der Datenbank (falls noch gültig)
+            upload.get('file_path', ''),
+            # 3. Alternatives Upload-Verzeichnis
+            os.path.join(DATA_DIR, 'uploads', filename),
+            # 4. Uploads-Verzeichnis im Hauptverzeichnis
+            os.path.join(os.path.dirname(__file__), 'Uploads', filename),
+            # 5. Data-Verzeichnis direkt
+            os.path.join(DATA_DIR, filename)
+        ]
         
-        if not os.path.exists(file_path):
-            logger.error(f"❌ Photo Gallery API: File not found at: {file_path}")
+        file_path = None
+        for path in possible_paths:
+            if path and os.path.exists(path):
+                file_path = path
+                logger.info(f"✅ Photo Gallery API: Found file at: {file_path}")
+                break
+                
+        if not file_path:
+            logger.error(f"❌ Photo Gallery API: File not found in any of these locations:")
+            for i, path in enumerate(possible_paths, 1):
+                logger.error(f"  {i}. {path}")
             return jsonify({'error': 'Datei nicht gefunden'}), 404
         
         logger.info(f"✅ Photo Gallery API: Serving file: {file_path} with mime_type: {upload['mime_type']}")
@@ -7294,12 +7315,35 @@ def serve_gallery_thumbnail(upload_id):
             logger.warning(f"🚫 Thumbnail API: Upload {upload_id} not approved")
             return jsonify({'error': 'Upload nicht genehmigt'}), 403
         
-        # Thumbnail erstellen und bereitstellen
+        # Thumbnail erstellen und bereitstellen - intelligente Pfadsuche
         upload_path = get_upload_path()
-        file_path = os.path.join(upload_path, upload['filename'])
+        filename = upload['filename']
         
-        if not os.path.exists(file_path):
-            logger.error(f"❌ Thumbnail API: File not found at: {file_path}")
+        # Mögliche Dateipfade in Prioritätsreihenfolge
+        possible_paths = [
+            # 1. Standard Upload-Pfad mit Dateiname
+            os.path.join(upload_path, filename),
+            # 2. Ursprünglicher Pfad aus der Datenbank (falls noch gültig)
+            upload.get('file_path', ''),
+            # 3. Alternatives Upload-Verzeichnis
+            os.path.join(DATA_DIR, 'uploads', filename),
+            # 4. Uploads-Verzeichnis im Hauptverzeichnis
+            os.path.join(os.path.dirname(__file__), 'Uploads', filename),
+            # 5. Data-Verzeichnis direkt
+            os.path.join(DATA_DIR, filename)
+        ]
+        
+        file_path = None
+        for path in possible_paths:
+            if path and os.path.exists(path):
+                file_path = path
+                logger.info(f"✅ Thumbnail API: Found file at: {file_path}")
+                break
+                
+        if not file_path:
+            logger.error(f"❌ Thumbnail API: File not found in any of these locations:")
+            for i, path in enumerate(possible_paths, 1):
+                logger.error(f"  {i}. {path}")
             return jsonify({'error': 'Datei nicht gefunden'}), 404
         
         # Prüfe ob es ein Bild ist (nur für Bilder Thumbnails erstellen)

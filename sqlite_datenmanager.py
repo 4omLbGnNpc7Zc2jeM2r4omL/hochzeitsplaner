@@ -1004,7 +1004,7 @@ class SQLiteHochzeitsDatenManager:
                 cursor = conn.cursor()
                 
                 cursor.execute("""
-                    SELECT * FROM gaeste ORDER BY id
+                    SELECT * FROM gaeste WHERE kategorie != 'System' OR kategorie IS NULL ORDER BY id
                 """)
                 
                 rows = cursor.fetchall()
@@ -1044,7 +1044,25 @@ class SQLiteHochzeitsDatenManager:
             return []
     
     def get_all_guests(self) -> list:
-        """Gibt alle Gäste zurück"""
+        """Gibt alle Gäste zurück (ohne System-Gäste)"""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.execute("SELECT * FROM gaeste WHERE kategorie != 'System' OR kategorie IS NULL ORDER BY nachname, vorname")
+                columns = [description[0] for description in cursor.description]
+                rows = cursor.fetchall()
+                
+                guests = []
+                for row in rows:
+                    guests.append(dict(zip(columns, row)))
+                
+                return guests
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Laden aller Gäste: {e}")
+            return []
+
+    def get_all_guests_including_system(self) -> list:
+        """Gibt alle Gäste zurück (inklusive System-Gäste für Admin-Funktionen)"""
         try:
             with self._get_connection() as conn:
                 cursor = conn.execute("SELECT * FROM gaeste ORDER BY nachname, vorname")
@@ -1058,7 +1076,7 @@ class SQLiteHochzeitsDatenManager:
                 return guests
                 
         except Exception as e:
-            logger.error(f"Fehler beim Laden aller Gäste: {e}")
+            logger.error(f"Fehler beim Laden aller Gäste inklusive System: {e}")
             return []
     
     def find_guest_by(self, guest_id=None, guest_code=None, email=None) -> Dict[str, Any]:
@@ -1337,10 +1355,10 @@ class SQLiteHochzeitsDatenManager:
             return {'success': False, 'message': 'Fehler beim Aktualisieren'}
     
     def get_all_guests(self) -> list:
-        """Gibt alle Gäste zurück"""
+        """Gibt alle Gäste zurück (ohne System-Gäste)"""
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute("SELECT * FROM gaeste ORDER BY nachname, vorname")
+                cursor = conn.execute("SELECT * FROM gaeste WHERE kategorie != 'System' OR kategorie IS NULL ORDER BY nachname, vorname")
                 columns = [description[0] for description in cursor.description]
                 rows = cursor.fetchall()
                 

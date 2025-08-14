@@ -2,6 +2,10 @@
 
 {% block title %}{{ brautpaar_namen or "Brautpaar heiratet" }} - Gäste-Dashboard{% endblock %}
 
+{% block head %}
+{{ super() }}
+{% endblock %}
+
 {# Überschreibe die Navigation für Gäste - ohne Burger-Menü #}
 {% block navigation %}
 <nav class="navbar navbar-expand-lg navbar-light border-bottom" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);">
@@ -54,15 +58,15 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="uploads-tab" data-bs-toggle="pill" data-bs-target="#uploads-pane" type="button" role="tab">
-                        <i class="bi bi-cloud-upload d-block d-md-inline me-md-1"></i>
-                        <span class="d-none d-md-inline">Uploads</span>
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
                     <button class="nav-link" id="geschenke-tab" data-bs-toggle="pill" data-bs-target="#geschenke-pane" type="button" role="tab">
                         <i class="bi bi-gift d-block d-md-inline me-md-1"></i>
                         <span class="d-none d-md-inline">Geschenke</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="uploads-tab" data-bs-toggle="pill" data-bs-target="#uploads-pane" type="button" role="tab">
+                        <i class="bi bi-cloud-upload d-block d-md-inline me-md-1"></i>
+                        <span class="d-none d-md-inline">Uploads</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
@@ -543,13 +547,137 @@
                                     <i class="bi bi-images me-2"></i>
                                     Foto-Galerie
                                 </h5>
-                                <button type="button" class="btn btn-outline-light btn-sm" onclick="refreshGuestGallery()">
+                                <script>
+                                // Funktion direkt hier definieren
+                                function loadGallerySimple() {
+                                    console.log('🔄 Simple Gallery Load called');
+                                    fetch('/api/approved-gallery')
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            console.log('Gallery data:', data);
+                                            window.galleryData = data; // Speichere für Modal-Galerie
+                                            const container = document.getElementById('guestGalleryContainer');
+                                            const loading = document.getElementById('guestGalleryLoading');
+                                            if (loading) loading.style.display = 'none';
+                                            if (container && data.length > 0) {
+                                                let html = '';
+                                                data.forEach((upload, index) => {
+                                                    html += '<div class="col-lg-3 col-md-4 col-sm-6 col-12">';
+                                                    html += '<div class="card">';
+                                                    html += '<div class="card-body">';
+                                                    html += '<img src="/api/gallery-thumbnail/' + upload.id + '" alt="' + upload.original_filename + '" style="width:100%; border-radius:8px; cursor:pointer;" onclick="openGalleryModal(' + index + ')">';
+                                                    html += '<p class="mt-2"><strong>' + upload.original_filename + '</strong></p>';
+                                                    html += '<p class="text-muted small">Von: Brautpaar</p>';
+                                                    html += '</div>';
+                                                    html += '</div>';
+                                                    html += '</div>';
+                                                });
+                                                container.innerHTML = html;
+                                            } else if (container) {
+                                                container.innerHTML = '<div class="col-12"><div class="text-center py-5"><i class="bi bi-images" style="font-size: 4rem; color: #d4af37; opacity: 0.5;"></i><h5 class="mt-3" style="color: #8b7355;">Noch keine Fotos</h5><p class="text-muted">Es wurden noch keine Fotos für die Galerie freigegeben.</p></div></div>';
+                                            }
+                                        })
+                                        .catch(error => console.error('Gallery error:', error));
+                                }
+                                
+                                // Modal-Galerie Funktionen
+                                let currentGalleryIndex = 0;
+                                
+                                function openGalleryModal(index) {
+                                    currentGalleryIndex = index;
+                                    showGalleryItem(index);
+                                    const modal = new bootstrap.Modal(document.getElementById('galleryModal'));
+                                    modal.show();
+                                }
+                                
+                                function showGalleryItem(index) {
+                                    if (!window.galleryData || !window.galleryData[index]) return;
+                                    
+                                    const item = window.galleryData[index];
+                                    const modalBody = document.getElementById('galleryModalBody');
+                                    const modalTitle = document.getElementById('galleryModalTitle');
+                                    const prevBtn = document.getElementById('galleryPrevBtn');
+                                    const nextBtn = document.getElementById('galleryNextBtn');
+                                    const counter = document.getElementById('galleryCounter');
+                                    
+                                    // Update counter
+                                    counter.textContent = `${index + 1} / ${window.galleryData.length}`;
+                                    
+                                    // Update title - nur "Foto" oder "Video" anzeigen
+                                    const isVideo = item.original_filename.toLowerCase().match(/\.(mp4|webm|ogg|mov|avi)$/);
+                                    modalTitle.textContent = isVideo ? 'Video' : 'Foto';
+                                    
+                                    // Update navigation buttons
+                                    prevBtn.disabled = (index === 0);
+                                    nextBtn.disabled = (index === window.galleryData.length - 1);
+                                    
+                                    if (isVideo) {
+                                        modalBody.innerHTML = `
+                                            <video controls style="width: 100%; max-height: 70vh;" preload="metadata">
+                                                <source src="/api/gallery-image/${item.id}" type="video/mp4">
+                                                Ihr Browser unterstützt das Video-Element nicht.
+                                            </video>
+                                        `;
+                                    } else {
+                                        modalBody.innerHTML = `
+                                            <img src="/api/gallery-image/${item.id}" alt="Foto" 
+                                                 style="width: 100%; max-height: 70vh; object-fit: contain;">
+                                        `;
+                                    }
+                                }
+                                
+                                function navigateGallery(direction) {
+                                    if (direction === 'prev' && currentGalleryIndex > 0) {
+                                        currentGalleryIndex--;
+                                    } else if (direction === 'next' && currentGalleryIndex < window.galleryData.length - 1) {
+                                        currentGalleryIndex++;
+                                    }
+                                    showGalleryItem(currentGalleryIndex);
+                                }
+                                
+                                // Keyboard navigation
+                                document.addEventListener('keydown', function(e) {
+                                    const modal = document.getElementById('galleryModal');
+                                    if (modal && modal.classList.contains('show')) {
+                                        if (e.key === 'ArrowLeft') {
+                                            navigateGallery('prev');
+                                        } else if (e.key === 'ArrowRight') {
+                                            navigateGallery('next');
+                                        } else if (e.key === 'Escape') {
+                                            bootstrap.Modal.getInstance(modal).hide();
+                                        }
+                                    }
+                                });
+                                </script>
+                                <button type="button" class="btn btn-outline-light btn-sm" onclick="loadGallerySimple()">
                                     <i class="bi bi-arrow-clockwise me-1"></i>
                                     <span class="d-none d-sm-inline">Aktualisieren</span>
                                 </button>
                             </div>
                         </div>
                         <div class="card-body">
+                            <script>
+                            // Auto-Load beim Tab-Wechsel
+                            document.addEventListener('DOMContentLoaded', function() {
+                                // Event Listener für Tab-Wechsel
+                                const galleryTab = document.getElementById('gallery-tab');
+                                if (galleryTab) {
+                                    galleryTab.addEventListener('shown.bs.tab', function (e) {
+                                        console.log('📸 Galerie-Tab aktiviert - lade Fotos...');
+                                        loadGallerySimple();
+                                    });
+                                }
+                                
+                                // Prüfe, ob Galerie-Tab beim Start aktiv ist
+                                setTimeout(function() {
+                                    const galleryPane = document.getElementById('gallery-pane');
+                                    if (galleryPane && galleryPane.classList.contains('show', 'active')) {
+                                        console.log('📸 Galerie-Tab ist bereits aktiv - lade Fotos...');
+                                        loadGallerySimple();
+                                    }
+                                }, 500);
+                            });
+                            </script>
                             <!-- Filter und Suche für Gäste-Galerie -->
                             <div class="row mb-3">
                                 <div class="col-md-8">
@@ -1732,12 +1860,12 @@
 <script>
 // Gäste-Galerie JavaScript - Robuste Implementierung für Tab-System
 
-let guestGalleryData = []; // Store gallery data for navigation
-let guestCurrentIndex = -1; // Current item index
-let guestGalleryLoaded = false; // Flag to prevent multiple loads
+window.guestGalleryData = []; // Store gallery data for navigation
+window.guestCurrentIndex = -1; // Current item index
+window.guestGalleryLoaded = false; // Flag to prevent multiple loads
 
 // Galerie-Laden Funktion
-function loadGuestGalleryNow() {
+window.loadGuestGalleryNow = function() {
     // Warten bis DOM-Elemente verfügbar sind
     const loading = document.getElementById('guestGalleryLoading');
     const container = document.getElementById('guestGalleryContainer');
@@ -1748,11 +1876,11 @@ function loadGuestGalleryNow() {
     }
     
     // Vermeiden von mehrfachen gleichzeitigen Loads
-    if (guestGalleryLoaded) {
+    if (window.guestGalleryLoaded) {
         return;
     }
     
-    guestGalleryLoaded = true;
+    window.guestGalleryLoaded = true;
     
     // Zeige Loading-Animation
     loading.style.display = 'block';
@@ -1767,7 +1895,7 @@ function loadGuestGalleryNow() {
         })
         .then(data => {
             // Store gallery data for navigation
-            guestGalleryData = data || [];
+            window.guestGalleryData = data || [];
             
             loading.style.display = 'none';
             
@@ -1799,8 +1927,15 @@ function loadGuestGalleryNow() {
                     </div>
                 </div>
             `;
-            guestGalleryLoaded = false; // Reset flag on error
+            window.guestGalleryLoaded = false; // Reset flag on error
         });
+}
+
+// Refresh-Funktion für Guest Gallery
+window.refreshGuestGallery = function() {
+    window.guestGalleryLoaded = false;
+    window.guestGalleryData = [];
+    window.loadGuestGalleryNow();
 }
 
 // Render-Funktion für Guest Gallery
@@ -1836,7 +1971,7 @@ function renderGuestGallery(data) {
         
         html += `
             <div class="col-lg-3 col-md-4 col-sm-6 col-12">
-                <div class="guest-gallery-item ${fileTypeClass}" onclick="openGuestFullscreen(${upload.id}, '${upload.file_type}', '${upload.original_filename}', '${displayName}', '${uploadDate}')">
+                <div class="guest-gallery-item ${fileTypeClass}" onclick="openGuestFullscreen(${upload.id}, ${JSON.stringify(upload.file_type)}, ${JSON.stringify(upload.original_filename)}, ${JSON.stringify(displayName)}, ${JSON.stringify(uploadDate)})">
                     <div class="card">
                         <div class="card-body">
                             <div class="guest-gallery-media-container">
@@ -2016,7 +2151,7 @@ document.addEventListener('DOMContentLoaded', function() {
 window.openGuestFullscreen = function(uploadId, fileType, filename, guestName, uploadDate) {
     
     // Find current index in gallery data
-    guestCurrentIndex = guestGalleryData.findIndex(item => item.id === uploadId);
+    window.guestCurrentIndex = window.guestGalleryData.findIndex(item => item.id === uploadId);
     
     const modal = new bootstrap.Modal(document.getElementById('guestFullscreenModal'));
     const modalUploadInfo = document.getElementById('guestModalUploadInfo');
@@ -2077,8 +2212,8 @@ window.openGuestFullscreen = function(uploadId, fileType, filename, guestName, u
     }
     
     // Update navigation buttons
-    prevBtn.style.display = guestCurrentIndex > 0 ? 'block' : 'none';
-    nextBtn.style.display = guestCurrentIndex < guestGalleryData.length - 1 ? 'block' : 'none';
+    prevBtn.style.display = window.guestCurrentIndex > 0 ? 'block' : 'none';
+    nextBtn.style.display = window.guestCurrentIndex < window.guestGalleryData.length - 1 ? 'block' : 'none';
     
     // Store current file info for download
     window.guestCurrentFile = { id: uploadId, filename: filename, type: fileType };
@@ -2174,15 +2309,9 @@ window.downloadGuestFile = function() {
     }
 };
 
-window.refreshGuestGallery = function() {
-    guestGalleryLoaded = false;
-    guestGalleryData = [];
-    loadGuestGalleryNow();
-};
-
 window.showGuestPrevious = function() {
-    if (guestCurrentIndex > 0) {
-        const prevItem = guestGalleryData[guestCurrentIndex - 1];
+    if (window.guestCurrentIndex > 0) {
+        const prevItem = window.guestGalleryData[guestCurrentIndex - 1];
         
         // Enhanced displayName logic - treat Administrator as Brautpaar
         let prevDisplayName;
@@ -2204,8 +2333,8 @@ window.showGuestPrevious = function() {
 };
 
 window.showGuestNext = function() {
-    if (guestCurrentIndex < guestGalleryData.length - 1) {
-        const nextItem = guestGalleryData[guestCurrentIndex + 1];
+    if (window.guestCurrentIndex < window.guestGalleryData.length - 1) {
+        const nextItem = window.guestGalleryData[guestCurrentIndex + 1];
         
         // Enhanced displayName logic - treat Administrator as Brautpaar
         let nextDisplayName;
@@ -2232,11 +2361,11 @@ window.filterGuestGallery = function() {
     
     if (!searchTerm && !typeFilter) {
         // No filters, show all
-        renderFilteredGuestGallery(guestGalleryData);
+        renderFilteredGuestGallery(window.guestGalleryData);
         return;
     }
     
-    const filtered = guestGalleryData.filter(photo => {
+    const filtered = window.guestGalleryData.filter(photo => {
         const matchesSearch = !searchTerm || 
                             photo.original_filename.toLowerCase().includes(searchTerm) ||
                             (photo.beschreibung && photo.beschreibung.toLowerCase().includes(searchTerm)) ||
@@ -2290,7 +2419,7 @@ function renderFilteredGuestGallery(filteredData) {
         
         html += `
             <div class="col-lg-3 col-md-4 col-sm-6 col-12">
-                <div class="guest-gallery-item ${fileTypeClass}" onclick="openGuestFullscreen(${upload.id}, '${upload.file_type}', '${upload.original_filename}', '${displayName}', '${uploadDate}')">
+                <div class="guest-gallery-item ${fileTypeClass}" onclick="openGuestFullscreen(${upload.id}, ${JSON.stringify(upload.file_type)}, ${JSON.stringify(upload.original_filename)}, ${JSON.stringify(displayName)}, ${JSON.stringify(uploadDate)})">
                     <div class="card">
                         <div class="card-body">
                             <div class="guest-gallery-media-container">
@@ -2345,11 +2474,11 @@ document.addEventListener('keydown', function(e) {
         switch(e.key) {
             case 'ArrowLeft':
                 e.preventDefault();
-                if (guestCurrentIndex > 0) window.showGuestPrevious();
+                if (window.guestCurrentIndex > 0) window.showGuestPrevious();
                 break;
             case 'ArrowRight':
                 e.preventDefault();
-                if (guestCurrentIndex < guestGalleryData.length - 1) window.showGuestNext();
+                if (window.guestCurrentIndex < window.guestGalleryData.length - 1) window.showGuestNext();
                 break;
             case 'Escape':
                 e.preventDefault();
@@ -2383,10 +2512,10 @@ function handleGuestSwipe() {
     const swipeDistance = guestTouchEndX - guestTouchStartX;
     
     if (Math.abs(swipeDistance) > swipeThreshold) {
-        if (swipeDistance > 0 && guestCurrentIndex > 0) {
+        if (swipeDistance > 0 && window.guestCurrentIndex > 0) {
             // Swipe right - show previous
             window.showGuestPrevious();
-        } else if (swipeDistance < 0 && guestCurrentIndex < guestGalleryData.length - 1) {
+        } else if (swipeDistance < 0 && window.guestCurrentIndex < window.guestGalleryData.length - 1) {
             // Swipe left - show next
             window.showGuestNext();
         }
@@ -2632,7 +2761,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="d-flex gap-2">
                             ${hasPaypalLink ? `
-                                <button class="btn btn-outline-primary btn-sm" onclick="window.open('${geldgeschenkConfig.paypal_link}', '_blank')" title="PayPal öffnen">
+                                <button class="btn btn-outline-primary btn-sm" onclick="window.open(${JSON.stringify(geldgeschenkConfig.paypal_link)}, '_blank')" title="PayPal öffnen">
                                     <i class="bi bi-credit-card"></i> PayPal
                                 </button>
                             ` : ''}
@@ -3127,6 +3256,32 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 </script>
+
+<!-- Galerie Modal -->
+<div class="modal fade" id="galleryModal" tabindex="-1" role="dialog" aria-labelledby="galleryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+        <div class="modal-content" style="background: #000;">
+            <div class="modal-header border-0" style="background: rgba(0,0,0,0.8);">
+                <h5 class="modal-title text-white" id="galleryModalTitle">Foto</h5>
+                <div class="d-flex align-items-center">
+                    <span class="text-white me-3" id="galleryCounter">1 / 1</span>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                </div>
+            </div>
+            <div class="modal-body p-0 d-flex align-items-center justify-content-center" style="min-height: 60vh; background: #000;" id="galleryModalBody">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            <div class="modal-footer border-0 justify-content-center" style="background: rgba(0,0,0,0.8);">
+                <button type="button" class="btn btn-outline-light" id="galleryPrevBtn" onclick="navigateGallery('prev')">
+                    <i class="bi bi-chevron-left"></i> Zurück
+                </button>
+                <button type="button" class="btn btn-outline-light ms-2" id="galleryNextBtn" onclick="navigateGallery('next')">
+                    Weiter <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 

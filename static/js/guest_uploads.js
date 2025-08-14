@@ -10,6 +10,45 @@ let allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mov', 'avi'];
 let currentGuestId = null;
 
 /**
+ * Generisches API-Request für Upload-System
+ */
+async function apiRequest(endpoint, options = {}) {
+    try {
+        const defaultOptions = {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        };
+        
+        // Add cache-busting for GET requests
+        let url = endpoint;
+        if (!url.startsWith('/api') && !url.startsWith('/settings')) {
+            url = `/api${endpoint}`;
+        }
+        if (!options.method || options.method.toUpperCase() === 'GET') {
+            const separator = endpoint.includes('?') ? '&' : '?';
+            url += `${separator}_cb=${Date.now()}`;
+        }
+        
+        const response = await fetch(url, {
+            ...defaultOptions,
+            ...options
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || `HTTP Error: ${response.status}`);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('API Request failed:', error);
+        throw error;
+    }
+}
+
+/**
  * Initialisiert das Upload-System
  */
 function initUploads() {
@@ -110,36 +149,32 @@ function setupUploadButton() {
  */
 async function loadUploadConfig() {
     try {
-        const response = await apiRequest('/upload-config');
-        if (response.ok) {
-            const config = await response.json();
-            
-            // Update maxFileSize
-            maxFileSize = (config.max_size_mb || 50) * 1024 * 1024;
-            document.getElementById('maxFileSize').textContent = config.max_size_mb || 50;
-            
-            // Update allowedExtensions
-            if (config.allowed_extensions) {
-                allowedExtensions = config.allowed_extensions.split(',').map(ext => ext.trim().toLowerCase());
-            }
-            
-            // Update file input accept attribute
-            const fileInput = document.getElementById('fileInput');
-            if (fileInput) {
-                const imageExts = allowedExtensions.filter(ext => ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext));
-                const videoExts = allowedExtensions.filter(ext => ['mp4', 'mov', 'avi', 'wmv', 'flv'].includes(ext));
-                
-                let acceptString = '';
-                if (imageExts.length > 0) acceptString += 'image/*,';
-                if (videoExts.length > 0) acceptString += 'video/*,';
-                
-                fileInput.accept = acceptString.slice(0, -1); // Remove trailing comma
-            }
-            
-
+        const config = await apiRequest('/upload-config');
+        
+        // Update maxFileSize
+        maxFileSize = (config.max_size_mb || 50) * 1024 * 1024;
+        document.getElementById('maxFileSize').textContent = config.max_size_mb || 50;
+        
+        // Update allowedExtensions
+        if (config.allowed_extensions) {
+            allowedExtensions = config.allowed_extensions.split(',').map(ext => ext.trim().toLowerCase());
         }
+        
+        // Update file input accept attribute
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput) {
+            const imageExts = allowedExtensions.filter(ext => ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext));
+            const videoExts = allowedExtensions.filter(ext => ['mp4', 'mov', 'avi', 'wmv', 'flv'].includes(ext));
+            
+            let acceptString = '';
+            if (imageExts.length > 0) acceptString += 'image/*,';
+            if (videoExts.length > 0) acceptString += 'video/*,';
+            
+            fileInput.accept = acceptString.slice(0, -1); // Remove trailing comma
+        }
+        
     } catch (error) {
-
+        console.error('Fehler beim Laden der Upload-Konfiguration:', error);
     }
 }
 
@@ -349,19 +384,11 @@ async function startUpload() {
  * Lädt die eigenen Uploads des Gastes
  */
 async function loadMyUploads() {
-
-    
     const container = document.getElementById('myUploadsContainer');
     if (!container) return;
     
     try {
-        const response = await apiRequest('/my-uploads');
-        if (!response.ok) {
-            throw new Error('Fehler beim Laden der Uploads');
-        }
-        
-        const uploads = await response.json();
-
+        const uploads = await apiRequest('/my-uploads');
         
         if (uploads.length === 0) {
             container.innerHTML = `
@@ -383,7 +410,6 @@ async function loadMyUploads() {
         });
         
     } catch (error) {
-
         container.innerHTML = `
             <div class="alert alert-danger">
                 <i class="bi bi-exclamation-triangle me-2"></i>
