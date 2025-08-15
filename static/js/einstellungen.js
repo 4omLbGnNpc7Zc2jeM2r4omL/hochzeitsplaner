@@ -214,8 +214,11 @@ function populateSettingsForm(settings) {
     // First Login Modal Base64 Daten
     if (settings.first_login_image_data) {
         document.getElementById('firstLoginImageData').value = settings.first_login_image_data;
+        console.log('✅ Einstellungen geladen: Base64-Bild vorhanden (Länge:', settings.first_login_image_data.length, ')');
         // Zeige Upload-Tab und Preview für hochgeladenes Bild
         showUploadedImagePreview(settings.first_login_image_data);
+    } else {
+        console.warn('⚠️ Einstellungen geladen: Kein Base64-Bild in first_login_image_data gefunden');
     }
     
     if (settings.first_login_text) {
@@ -1001,6 +1004,12 @@ function showFirstLoginModalPreview() {
     const invitationHeader = document.getElementById('invitationHeader').value.trim();
     const invitationRings = document.getElementById('invitationRings').value.trim();
     
+    // Debug-Logging für Bilddaten
+    console.log('🔍 First Login Preview Bilddaten:');
+    console.log('  - Base64 Data:', imageData ? `Vorhanden (${imageData.length} Zeichen)` : 'Nicht vorhanden');
+    console.log('  - URL:', imageUrl ? imageUrl : 'Nicht vorhanden');
+    console.log('  - Nur Base64 wird verwendet, URL wird ignoriert');
+    
     // Vorschau-Modal Elemente
     const previewImage = document.getElementById('previewImage');
     const previewImagePlaceholder = document.getElementById('previewImagePlaceholder');
@@ -1023,29 +1032,18 @@ function showFirstLoginModalPreview() {
         previewWeddingDate.textContent = formattedDate;
     }
     
-    // Bild-Vorschau - Priorisiere hochgeladene Bilder über URLs
-    if (imageData) {
-        // Base64-Bild direkt verwenden
+    // Bild-Vorschau - IMMER first_login_image_data verwenden, niemals URL-Fallback
+    if (imageData && imageData.trim() && imageData.length > 50) {
+        // Zusätzliche Validierung: Base64-String sollte mindestens 50 Zeichen haben
+        console.log('✅ First Login Preview: Verwende Base64-Bild (Länge:', imageData.length, ')');
         previewImage.src = imageData;
         previewImage.style.display = 'block';
         previewImagePlaceholder.style.display = 'none';
-    } else if (imageUrl) {
-        // URL-Bild laden
-        const tempImg = new Image();
-        tempImg.onload = function() {
-            previewImage.src = imageUrl;
-            previewImage.style.display = 'block';
-            previewImagePlaceholder.style.display = 'none';
-        };
-        tempImg.onerror = function() {
-            previewImage.style.display = 'none';
-            previewImagePlaceholder.innerHTML = '<i class="bi bi-exclamation-triangle text-warning" style="font-size: 3rem;"></i><br>Bild konnte nicht geladen werden';
-            previewImagePlaceholder.style.display = 'block';
-        };
-        tempImg.src = imageUrl;
     } else {
+        // Kein gültiges Base64-Bild - IMMER Placeholder zeigen (URL wird ignoriert)
+        console.warn('⚠️ First Login Preview: Kein gültiges Base64-Bild gefunden, zeige Placeholder');
         previewImage.style.display = 'none';
-        previewImagePlaceholder.innerHTML = '<i class="bi bi-heart-fill text-muted opacity-50" style="font-size: 4rem;"></i><p class="text-muted mt-2 mb-0">Hochzeitsfoto nicht konfiguriert</p>';
+        previewImagePlaceholder.innerHTML = '<i class="bi bi-heart-fill text-muted opacity-50" style="font-size: 4rem;"></i><p class="text-muted mt-2 mb-0">Bitte Base64-Bild hochladen</p>';
         previewImagePlaceholder.style.display = 'block';
     }
     
@@ -1540,27 +1538,23 @@ function getCurrentWeddingDate() {
  * Generiert das HTML für das Hochzeitsfoto (exakt wie im Gäste-Dashboard)
  */
 function generateWeddingPhotoHtml(photoData, photoUrl, index) {
-    // Priorisiere Base64-Daten über URL (genau wie im echten Modal)
-    if (photoData && photoData.trim()) {
+    // IMMER first_login_image_data verwenden - nie URL als Fallback
+    if (photoData && photoData.trim() && photoData.length > 50) {
+        // Zusätzliche Validierung: Base64-String sollte mindestens 50 Zeichen haben
+        console.log('✅ Test Template: Verwende Base64-Bild (Länge:', photoData.length, ')');
         return `
             <div id="welcomeImageContainer_${index}">
                 <img src="${photoData.trim()}" alt="Hochzeitsfoto" class="img-fluid shadow-lg" 
                      style="max-height: 200px; max-width: 100%; object-fit: cover; border-radius: 10px; border: 3px solid #f8f9fa;">
             </div>
         `;
-    } else if (photoUrl && photoUrl.trim()) {
-        return `
-            <div id="welcomeImageContainer_${index}">
-                <img src="${photoUrl.trim()}" alt="Hochzeitsfoto" class="img-fluid shadow-lg" 
-                     style="max-height: 200px; max-width: 100%; object-fit: cover; border-radius: 10px; border: 3px solid #f8f9fa;">
-            </div>
-        `;
     } else {
-        // Kein Bild - zeige Placeholder (wie im echten Modal)
+        // Kein gültiges Base64-Bild - IMMER Placeholder zeigen (URL wird ignoriert)
+        console.warn('⚠️ Test Template: Kein gültiges Base64-Bild gefunden, zeige Placeholder');
         return `
             <div class="photo-placeholder p-2" style="background: linear-gradient(45deg, #f8f9fa, #e9ecef); border-radius: 10px; border: 2px dashed #d4af37;">
                 <i class="bi bi-heart-fill text-muted opacity-50" style="font-size: 2rem;"></i>
-                <p class="text-muted mt-1 mb-0 small">Hochzeitsfoto</p>
+                <p class="text-muted mt-1 mb-0 small">Hochzeitsfoto (nur Base64 unterstützt)</p>
             </div>
         `;
     }
@@ -1576,6 +1570,12 @@ function showTestResults(results) {
     
     const weddingPhotoData = weddingPhotoDataElement ? weddingPhotoDataElement.value.trim() : '';
     const weddingPhotoUrl = weddingPhotoUrlElement ? weddingPhotoUrlElement.value.trim() : '';
+    
+    // Debug-Logging für Bilddaten
+    console.log('🔍 Test Template Bilddaten:');
+    console.log('  - Base64 Data:', weddingPhotoData ? `Vorhanden (${weddingPhotoData.length} Zeichen)` : 'Nicht vorhanden');
+    console.log('  - URL:', weddingPhotoUrl ? weddingPhotoUrl : 'Nicht vorhanden');
+    console.log('  - Nur Base64 wird verwendet, URL wird ignoriert');
     
     let modalContent = `
         <div class="modal fade" id="testResultsModal" tabindex="-1" aria-hidden="true">

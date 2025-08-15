@@ -261,8 +261,8 @@ class WebQRCardGenerator:
         else:
             print("⚠️ Keine Datenbank-Einstellungen gefunden - verwende Standard-Einstellungen")
         
-        # Basis-URL für Login (ohne GET-Parameter)
-        self.base_url = "https://pascalundkäthe-heiraten.de:8443/login"
+        # Basis-URL für Login (ohne GET-Parameter und ohne Port)
+        self.base_url = "https://pascalundkäthe-heiraten.de/login"
     
     def set_colors(self, primary=None, accent=None, background=None):
         """

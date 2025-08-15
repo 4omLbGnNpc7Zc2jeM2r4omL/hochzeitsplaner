@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+a#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Hochzeitsplaner Web-Anwendung - Standalone Version
@@ -5298,8 +5298,8 @@ def send_task_assignment_notification(aufgabe_data, aufgabe_id, is_new=True):
             logger.info(f"E-Mail-Benachrichtigung übersprungen: Keine E-Mail-Adresse für {empfaenger_name} hinterlegt")
             return
         
-        # Erstelle direkten Link zum Hochzeitsplaner
-        hochzeitsplaner_url = "https://pascalundkäthe-heiraten.de:8443/aufgabenplaner"
+        # Erstelle direkten Link zum Hochzeitsplaner (ohne Port)
+        hochzeitsplaner_url = "https://pascalundkäthe-heiraten.de/aufgabenplaner"
         
         # E-Mail-Betreff
         if is_new:

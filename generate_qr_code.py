@@ -56,21 +56,20 @@ def main():
     if not config:
         return
     
-    # URL aus Konfiguration erstellen
+    # URL aus Konfiguration erstellen (ohne Port)
     dyndns_config = config.get('dyndns', {})
     domain = dyndns_config.get('domain', '')
-    external_port = dyndns_config.get('external_port', 8443)
+    # external_port wird nicht mehr verwendet
     
     if not domain:
         print("❌ Keine Domain in der Konfiguration gefunden!")
         return
     
-    # Vollständige URL zusammenbauen
-    url = f"https://{domain}:{external_port}"
+    # Vollständige URL zusammenbauen (ohne Port)
+    url = f"https://{domain}"
     
     print(f"📡 Domain: {domain}")
-    print(f"🔌 Port: {external_port}")
-    print(f"🔗 URL: {url}")
+    print(f" URL: {url}")
     print()
     
     # QR-Code generieren

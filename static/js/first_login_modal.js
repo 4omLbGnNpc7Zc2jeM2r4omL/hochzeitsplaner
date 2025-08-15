@@ -131,8 +131,8 @@ async function checkFirstLogin() {
         console.log('  - Text:', firstLoginText);
         console.log('  - Wedding Date:', weddingDate);
 
-        if (!firstLoginImage && !firstLoginImageData && !firstLoginText) {
-            console.log('⚠️ Keine First Login Modal Daten verfügbar - Modal wird übersprungen');
+        if (!firstLoginImageData && !firstLoginText) {
+            console.log('⚠️ Keine First Login Modal Daten verfügbar (nur Base64-Bild oder Text erforderlich) - Modal wird übersprungen');
             return;
         }
 
@@ -314,8 +314,8 @@ function showFirstLoginModal(data) {
             }
         };
         
-        if (data.imageData && data.imageData.trim()) {
-            // Base64-Bild direkt verwenden
+        if (data.imageData && data.imageData.trim() && data.imageData.length > 50) {
+            // Base64-Bild direkt verwenden - zusätzliche Validierung für gültiges Base64
             console.log('🖼️ Verwende Base64-Bild (Länge:', data.imageData.length, ')');
             
             welcomeImage.onload = function() {
@@ -330,13 +330,8 @@ function showFirstLoginModal(data) {
                 imageLoaded = true;
                 clearTimeout(imageTimeout);
                 console.error('❌ Base64-Bild konnte nicht geladen werden');
-                // Versuche URL-Fallback wenn verfügbar
-                if (data.imageUrl && data.imageUrl.trim()) {
-                    console.log('🔄 Versuche URL-Fallback...');
-                    tryLoadUrlImage(data.imageUrl.trim());
-                } else {
-                    showImagePlaceholder();
-                }
+                // KEIN URL-Fallback mehr - nur Base64 akzeptieren
+                showImagePlaceholder();
             };
             
             try {
@@ -346,11 +341,9 @@ function showFirstLoginModal(data) {
                 showImagePlaceholder();
             }
             
-        } else if (data.imageUrl && data.imageUrl.trim()) {
-            // URL-Bild laden
-            tryLoadUrlImage(data.imageUrl.trim());
         } else {
-            // Kein Bild - zeige Placeholder
+            // Kein gültiges Base64-Bild - IMMER Placeholder zeigen (URL wird ignoriert)
+            console.warn('⚠️ First Login Modal: Kein gültiges Base64-Bild gefunden, zeige Placeholder');
             showImagePlaceholder();
         }
     } else {
