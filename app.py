@@ -1,4 +1,4 @@
-a#!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Hochzeitsplaner Web-Anwendung - Standalone Version
@@ -4180,11 +4180,19 @@ def api_settings_get():
                 logger.info(f"   - {field}: Base64 vorhanden (Länge: {len(field_value)} Zeichen)")
                 logger.info(f"   - {field}: Startet mit 'data:image/': {field_value.startswith('data:image/')}")
                 logger.info(f"   - {field}: Erste 50 Zeichen: {field_value[:50]}...")
-                # IMMER große Base64-Daten aus der Settings-Response entfernen um HTTP 414/Request Too Large zu vermeiden
-                # Das Bild wird über separaten Endpunkt geladen
-                logger.info(f"   - {field}: Wird über separaten Endpunkt bereitgestellt")
-                settings[field] = None  # Entferne aus Settings
-                settings['first_login_image_large'] = True  # Markiere als groß
+                # Entscheide basierend auf der aufrufenden Seite (Referer)
+                referer = request.headers.get('Referer', '')
+                is_admin_page = '/einstellungen' in referer or 'localhost:8080/einstellungen' in referer
+                
+                if is_admin_page:
+                    logger.info(f"   - {field}: Admin-Seite erkannt - Base64 in Settings belassen für Template-Tests")
+                    # Behalte Base64-Daten für Admin-Seiten (Template-Tests benötigen sie)
+                    settings['first_login_image_large'] = True  # Markiere als groß für Frontend-Info
+                else:
+                    # Für Gast-Seiten: Entferne Base64 aus Settings und nutze separaten Endpunkt
+                    logger.info(f"   - {field}: Gast-Seite (Referer: {referer}) - Wird über separaten Endpunkt bereitgestellt")
+                    settings[field] = None  # Entferne aus Settings für Gäste
+                    settings['first_login_image_large'] = True  # Markiere als groß
             else:
                 logger.info(f"   - {field}: {'Vorhanden' if field_value else 'LEER/NICHT GEFUNDEN'}")
                 if field_value and len(str(field_value)) > 0:
