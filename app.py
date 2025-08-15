@@ -4145,7 +4145,13 @@ def api_gaeste_delete(guest_id):
 def api_settings_get():
     try:
         if not data_manager:
+            logger.error("❌ Settings API: DataManager nicht initialisiert")
             return jsonify({"error": "DataManager nicht initialisiert"}), 500
+        
+        # Logging für Request-Details
+        guest_id = session.get('guest_id', 'unbekannt')
+        client_ip = request.remote_addr
+        logger.info(f"📋 Settings API aufgerufen von Gast ID: {guest_id}, IP: {client_ip}")
         
         # Verwende die strukturierte load_settings Methode
         settings = data_manager.load_settings()
@@ -4164,20 +4170,25 @@ def api_settings_get():
             if value:
                 settings[setting_key] = value
         
-        # Spezielle Behandlung für First Login Daten - Debug-Logging
+        # Spezielle Behandlung für First Login Daten - Ausführliches Debug-Logging
+        logger.info(f"🔍 First Login Daten für Gast {guest_id}:")
         first_login_fields = ['first_login_image', 'first_login_image_data', 'first_login_text']
         for field in first_login_fields:
             field_value = settings.get(field, '')
             if field == 'first_login_image_data' and field_value:
-                # Für Base64-Bilder zeige nur die Länge an
-                logger.info(f"🔍 First Login Field '{field}': Base64 vorhanden (Länge: {len(field_value)} Zeichen)")
+                # Für Base64-Bilder zeige detaillierte Informationen
+                logger.info(f"   - {field}: Base64 vorhanden (Länge: {len(field_value)} Zeichen)")
+                logger.info(f"   - {field}: Startet mit 'data:image/': {field_value.startswith('data:image/')}")
+                logger.info(f"   - {field}: Erste 50 Zeichen: {field_value[:50]}...")
                 # IMMER große Base64-Daten aus der Settings-Response entfernen um HTTP 414/Request Too Large zu vermeiden
                 # Das Bild wird über separaten Endpunkt geladen
-                logger.info(f"🚀 Base64-Bild wird über separaten Endpunkt bereitgestellt")
+                logger.info(f"   - {field}: Wird über separaten Endpunkt bereitgestellt")
                 settings[field] = None  # Entferne aus Settings
                 settings['first_login_image_large'] = True  # Markiere als groß
             else:
-                logger.info(f"🔍 First Login Field '{field}': {'Vorhanden' if field_value else 'Leer'}")
+                logger.info(f"   - {field}: {'Vorhanden' if field_value else 'LEER/NICHT GEFUNDEN'}")
+                if field_value and len(str(field_value)) > 0:
+                    logger.info(f"   - {field}: Inhalt (erste 100 Zeichen): {str(field_value)[:100]}...")
         
         # Stelle sicher, dass Hochzeitsdatum in verschiedenen Formaten verfügbar ist
         if 'hochzeitsdatum' not in settings or not settings['hochzeitsdatum']:
@@ -4244,7 +4255,9 @@ def api_settings_get():
         
         return response
     except Exception as e:
-        logger.error(f"Fehler beim Laden der Einstellungen aus SQLite: {str(e)}")
+        guest_id = session.get('guest_id', 'unbekannt')
+        logger.error(f"❌ Fehler beim Laden der Einstellungen für Gast {guest_id}: {str(e)}")
+        logger.error(f"🔍 Exception Details: {type(e).__name__}: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/settings/first-login-image")
@@ -4254,18 +4267,33 @@ def api_first_login_image():
     """Separater Endpunkt für große First Login Bilder - optimiert für Zuverlässigkeit"""
     try:
         if not data_manager:
+            logger.error("❌ First Login Image API: DataManager nicht initialisiert")
             return jsonify({"error": "DataManager nicht initialisiert"}), 500
+        
+        # Ausführliches Logging für Debugging
+        guest_id = session.get('guest_id', 'unbekannt')
+        client_ip = request.remote_addr
+        logger.info(f"🖼️ First Login Image API aufgerufen von Gast ID: {guest_id}, IP: {client_ip}")
         
         # Lade das First Login Bild direkt
         image_data = data_manager.get_setting('first_login_image_data', '')
         
-        if image_data:
-            logger.info(f"🖼️ First Login Bild geladen (Länge: {len(image_data)} Zeichen)")
+        if image_data and len(image_data.strip()) > 0:
+            # Zusätzliche Validierung
+            image_length = len(image_data)
+            is_base64 = image_data.startswith('data:image/') or (len(image_data) > 50 and image_data.isalnum() == False)
+            
+            logger.info(f"✅ First Login Bild gefunden:")
+            logger.info(f"   - Länge: {image_length} Zeichen")
+            logger.info(f"   - Startete mit 'data:image/': {image_data.startswith('data:image/')}")
+            logger.info(f"   - Scheint Base64 zu sein: {is_base64}")
+            logger.info(f"   - Erste 50 Zeichen: {image_data[:50]}...")
             
             # Stelle sicher, dass das Base64-Bild das korrekte data:image Format hat
             if not image_data.startswith('data:image/'):
                 # Füge den data:image Header hinzu (standardmäßig JPEG angenommen)
                 image_data = f"data:image/jpeg;base64,{image_data}"
+                logger.info(f"🔧 Data-URL Header hinzugefügt, neue Länge: {len(image_data)}")
             
             # Response mit optimalen Headers für Bildübertragung
             response_data = {"success": True, "image_data": image_data}
@@ -4278,13 +4306,16 @@ def api_first_login_image():
             # Kompression aktivieren falls möglich
             response.headers['Vary'] = 'Accept-Encoding'
             
+            logger.info(f"📤 First Login Bild erfolgreich an Gast {guest_id} gesendet")
             return response
         else:
-            logger.info("ℹ️ Kein First Login Bild in der Datenbank gefunden")
+            logger.warning(f"⚠️ Kein First Login Bild in der Datenbank gefunden für Gast {guest_id}")
+            logger.info(f"🔍 Debugging: image_data Wert: '{image_data}' (Typ: {type(image_data)})")
             return jsonify({"success": False, "message": "Kein First Login Bild verfügbar"})
             
     except Exception as e:
-        logger.error(f"❌ Fehler beim Laden des First Login Bildes: {str(e)}")
+        logger.error(f"❌ Fehler beim Laden des First Login Bildes für Gast {guest_id}: {str(e)}")
+        logger.error(f"🔍 Exception Details: {type(e).__name__}: {e}")
         return jsonify({"error": "Fehler beim Laden des Bildes", "details": str(e)}), 500
 
 @app.route("/api/debug/reset-first-login/<int:guest_id>", methods=['POST'])

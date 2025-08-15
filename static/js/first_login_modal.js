@@ -62,19 +62,41 @@ async function checkFirstLogin() {
         console.log('🖼️ Lade Bild separat über dedicated API...');
         try {
             const imageResponse = await fetch('/api/settings/first-login-image?t=' + Date.now());
+            console.log('📡 Image API Response Status:', imageResponse.status, imageResponse.ok);
+            
             if (imageResponse.ok) {
                 const imageResult = await imageResponse.json();
+                console.log('🔍 Image API Result:', {
+                    success: imageResult.success,
+                    has_image_data: !!imageResult.image_data,
+                    image_length: imageResult.image_data ? imageResult.image_data.length : 0,
+                    message: imageResult.message
+                });
+                
                 if (imageResult.success && imageResult.image_data) {
                     firstLoginImageData = imageResult.image_data;
-                    console.log('✅ Bild erfolgreich über separate API geladen (Länge:', imageResult.image_data.length, ')');
+                    console.log('✅ Bild erfolgreich über separate API geladen:');
+                    console.log('   - Länge:', imageResult.image_data.length, 'Zeichen');
+                    console.log('   - Startet mit data:image/:', imageResult.image_data.startsWith('data:image/'));
+                    console.log('   - Erste 50 Zeichen:', imageResult.image_data.substring(0, 50));
                 } else {
-                    console.warn('⚠️ Bild konnte nicht über separate API geladen werden:', imageResult);
+                    console.warn('⚠️ Bild konnte nicht über separate API geladen werden:');
+                    console.warn('   - Success:', imageResult.success);
+                    console.warn('   - Message:', imageResult.message);
+                    console.warn('   - Image Data vorhanden:', !!imageResult.image_data);
                 }
             } else {
-                console.error('❌ Fehler beim Laden des Bildes über separate API:', imageResponse.status);
+                console.error('❌ Fehler beim Laden des Bildes über separate API:');
+                console.error('   - Status:', imageResponse.status);
+                console.error('   - Status Text:', imageResponse.statusText);
+                const errorText = await imageResponse.text();
+                console.error('   - Response Body:', errorText);
             }
         } catch (error) {
-            console.error('❌ Exception beim Laden des Bildes über separate API:', error);
+            console.error('❌ Exception beim Laden des Bildes über separate API:');
+            console.error('   - Error Type:', error.constructor.name);
+            console.error('   - Error Message:', error.message);
+            console.error('   - Stack:', error.stack);
         }
         
         // Hochzeitsdatum mit verschiedenen Strukturen unterstützen
@@ -125,14 +147,24 @@ async function checkFirstLogin() {
             }
         }
         
-        console.log('📋 First Login Modal Daten:');
-        console.log('  - Image URL:', firstLoginImage);
-        console.log('  - Image Data (Base64):', firstLoginImageData ? 'Vorhanden' : 'Nicht vorhanden');
-        console.log('  - Text:', firstLoginText);
+        console.log('📋 First Login Modal - Finale Datenübersicht:');
+        console.log('  - Image URL (ignoriert):', firstLoginImage);
+        console.log('  - Image Data (Base64):');
+        if (firstLoginImageData) {
+            console.log('    ✅ Vorhanden - Länge:', firstLoginImageData.length, 'Zeichen');
+            console.log('    ✅ Startet mit data:image/:', firstLoginImageData.startsWith('data:image/'));
+            console.log('    ✅ Erste 50 Zeichen:', firstLoginImageData.substring(0, 50));
+        } else {
+            console.log('    ❌ NICHT vorhanden oder leer');
+        }
+        console.log('  - Text:', firstLoginText ? `"${firstLoginText.substring(0, 100)}..."` : 'Nicht vorhanden');
         console.log('  - Wedding Date:', weddingDate);
 
         if (!firstLoginImageData && !firstLoginText) {
             console.log('⚠️ Keine First Login Modal Daten verfügbar (nur Base64-Bild oder Text erforderlich) - Modal wird übersprungen');
+            console.log('🔍 Validierung Details:');
+            console.log('  - firstLoginImageData:', typeof firstLoginImageData, firstLoginImageData ? `(${firstLoginImageData.length} chars)` : '(empty)');
+            console.log('  - firstLoginText:', typeof firstLoginText, firstLoginText ? `(${firstLoginText.length} chars)` : '(empty)');
             return;
         }
 
@@ -159,9 +191,16 @@ async function checkFirstLogin() {
             console.warn('⚠️ Personalisierte Nachricht API Fehler:', personalizedResponse.status, personalizedResponse.statusText);
         }
 
-        console.log('🎯 Modal wird angezeigt mit Daten:');
-        console.log('  - Image URL:', firstLoginImage || 'Nicht vorhanden');
-        console.log('  - Image Data:', firstLoginImageData ? 'Base64 vorhanden' : 'Nicht vorhanden');
+        console.log('🎯 Modal wird angezeigt mit finalen Daten:');
+        console.log('  - Image URL (IGNORIERT):', firstLoginImage || 'Nicht vorhanden');
+        console.log('  - Image Data (VERWENDET):');
+        if (firstLoginImageData) {
+            console.log('    ✅ Base64 vorhanden - Länge:', firstLoginImageData.length);
+            console.log('    ✅ Data-URL Format:', firstLoginImageData.startsWith('data:image/'));
+            console.log('    ✅ Validierung: Länge > 50:', firstLoginImageData.length > 50);
+        } else {
+            console.log('    ❌ Kein Base64-Bild - Placeholder wird angezeigt');
+        }
         console.log('  - Fallback Text:', firstLoginText || 'Nicht vorhanden');
         console.log('  - Personalized Message:', personalizedMessage || 'Nicht vorhanden');
         console.log('  - Wedding Date:', personalizedDate || weddingDate || 'Nicht vorhanden');
@@ -316,12 +355,15 @@ function showFirstLoginModal(data) {
         
         if (data.imageData && data.imageData.trim() && data.imageData.length > 50) {
             // Base64-Bild direkt verwenden - zusätzliche Validierung für gültiges Base64
-            console.log('🖼️ Verwende Base64-Bild (Länge:', data.imageData.length, ')');
+            console.log('🖼️ Verwende Base64-Bild:');
+            console.log('   - Länge:', data.imageData.length, 'Zeichen');
+            console.log('   - Startet mit data:image/:', data.imageData.startsWith('data:image/'));
+            console.log('   - Erste 100 Zeichen:', data.imageData.substring(0, 100));
             
             welcomeImage.onload = function() {
                 imageLoaded = true;
                 clearTimeout(imageTimeout);
-                console.log('✅ Base64-Bild erfolgreich geladen');
+                console.log('✅ Base64-Bild erfolgreich im DOM geladen und angezeigt');
                 welcomeImageContainer.classList.remove('d-none');
                 welcomeImagePlaceholder.classList.add('d-none');
             };
@@ -329,21 +371,32 @@ function showFirstLoginModal(data) {
             welcomeImage.onerror = function() {
                 imageLoaded = true;
                 clearTimeout(imageTimeout);
-                console.error('❌ Base64-Bild konnte nicht geladen werden');
+                console.error('❌ Base64-Bild konnte nicht im DOM geladen werden:');
+                console.error('   - Image src length:', welcomeImage.src ? welcomeImage.src.length : 'null');
+                console.error('   - Data starts with:', data.imageData.substring(0, 50));
                 // KEIN URL-Fallback mehr - nur Base64 akzeptieren
                 showImagePlaceholder();
             };
             
             try {
                 welcomeImage.src = data.imageData.trim();
+                console.log('🔧 Base64-Daten als img.src gesetzt');
             } catch (error) {
-                console.error('❌ Fehler beim Setzen der Base64-Quelle:', error);
+                console.error('❌ Fehler beim Setzen der Base64-Quelle:');
+                console.error('   - Error Type:', error.constructor.name);
+                console.error('   - Error Message:', error.message);
                 showImagePlaceholder();
             }
             
         } else {
             // Kein gültiges Base64-Bild - IMMER Placeholder zeigen (URL wird ignoriert)
-            console.warn('⚠️ First Login Modal: Kein gültiges Base64-Bild gefunden, zeige Placeholder');
+            console.warn('⚠️ First Login Modal: Kein gültiges Base64-Bild gefunden:');
+            console.warn('   - imageData vorhanden:', !!data.imageData);
+            console.warn('   - imageData trimmed length:', data.imageData ? data.imageData.trim().length : 0);
+            console.warn('   - imageData > 50 Zeichen:', data.imageData ? data.imageData.length > 50 : false);
+            if (data.imageData) {
+                console.warn('   - Erste 50 Zeichen:', data.imageData.substring(0, 50));
+            }
             showImagePlaceholder();
         }
     } else {
