@@ -7387,6 +7387,34 @@ class SQLiteHochzeitsDatenManager:
         except Exception as e:
             self.logger.error(f"Fehler beim Laden der Playlist-Vorschläge: {e}")
             return []
+
+    def get_playlist_vorschlaege_for_guests(self):
+        """Playlist-Vorschläge für Gäste - nur 'Vorgeschlagen', sortiert nach Votes"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT 
+                    p.*,
+                    g.vorname || ' ' || COALESCE(g.nachname, '') as gast_name,
+                    (SELECT COUNT(*) FROM playlist_votes WHERE vorschlag_id = p.id) as vote_count
+                FROM playlist_vorschlaege p
+                LEFT JOIN gaeste g ON p.gast_id = g.id
+                WHERE p.status = 'Vorgeschlagen'
+                ORDER BY vote_count DESC, p.created_at DESC
+            """)
+            
+            vorschlaege = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            
+            self.logger.info(f"✅ {len(vorschlaege)} Playlist-Vorschläge für Gäste geladen")
+            return vorschlaege
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Laden der Playlist-Vorschläge für Gäste: {e}")
+            return []
     
     def add_playlist_vorschlag(self, gast_id, kuenstler, titel, album=None, anlass='Allgemein', kommentar=None, spotify_data=None):
         """Neuen Playlist-Vorschlag hinzufügen mit optionalen Spotify-Daten"""
@@ -7533,6 +7561,28 @@ class SQLiteHochzeitsDatenManager:
             
         except Exception as e:
             self.logger.error(f"Fehler beim Löschen: {e}")
+            return False
+
+    def is_track_already_processed(self, kuenstler, titel):
+        """Prüft ob ein Track bereits akzeptiert oder abgelehnt wurde"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT COUNT(*) FROM playlist_vorschlaege 
+                WHERE LOWER(kuenstler) = LOWER(?) 
+                AND LOWER(titel) = LOWER(?) 
+                AND status IN ('Akzeptiert', 'Abgelehnt')
+            """, (kuenstler, titel))
+            
+            count = cursor.fetchone()[0]
+            conn.close()
+            
+            return count > 0
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Prüfen des Track-Status: {e}")
             return False
     
     def verify_dj_login(self, username, password):

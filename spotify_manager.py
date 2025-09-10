@@ -118,8 +118,9 @@ class SpotifyManager:
                     
                     track_info = {
                         'id': track['id'],
+                        'spotify_id': track['id'],  # Alias für JavaScript
                         'name': track['name'],
-                        'artists': artists,
+                        'artist': artists,
                         'album': track['album']['name'],
                         'duration_ms': track['duration_ms'],
                         'popularity': track['popularity'],
@@ -175,8 +176,9 @@ class SpotifyManager:
                 
                 track_info = {
                     'id': track['id'],
+                    'spotify_id': track['id'],  # Alias für JavaScript
                     'name': track['name'],
-                    'artists': artists,
+                    'artist': artists,
                     'album': track['album']['name'],
                     'duration_ms': track['duration_ms'],
                     'popularity': track['popularity'],

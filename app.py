@@ -10842,7 +10842,16 @@ def require_guest_login(f):
 def get_playlist_vorschlaege():
     """Alle Playlist-Vorschläge abrufen"""
     try:
-        vorschlaege = data_manager.get_playlist_vorschlaege()
+        # Prüfe ob es ein DJ-Zugriff ist
+        is_dj = session.get('dj_logged_in', False)
+        
+        if is_dj:
+            # DJ sieht alle Vorschläge (auch akzeptierte/abgelehnte)
+            vorschlaege = data_manager.get_playlist_vorschlaege()
+        else:
+            # Gäste sehen nur noch nicht bearbeitete Vorschläge
+            vorschlaege = data_manager.get_playlist_vorschlaege_for_guests()
+            
         current_guest_id = session.get('guest_id') if session.get('logged_in') else None
         return jsonify({
             'success': True, 
