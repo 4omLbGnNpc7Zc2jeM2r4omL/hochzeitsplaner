@@ -220,14 +220,12 @@ jobs:
         Write-Host "=== Paket-Inhalt ==="
         Get-ChildItem -Path package -Recurse
         
-        Write-Host "=== Erstelle ZIP-Archiv ==="
-        Compress-Archive -Path "package/*" -DestinationPath "hochzeitsplaner-windows.zip" -Force
-        Get-ChildItem "hochzeitsplaner-windows.zip" | Format-List
+        Write-Host "=== Paket bereit für Upload ==="
     
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
         name: hochzeitsplaner-windows
-        path: hochzeitsplaner-windows.zip
+        path: package/
         retention-days: 90
-        # ZIP-Datei ist über GitHub Actions-Tab > Artifacts herunterladbar
+        # Dateien werden automatisch von GitHub als ZIP gepackt
