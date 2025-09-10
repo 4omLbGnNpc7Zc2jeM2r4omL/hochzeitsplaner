@@ -90,9 +90,16 @@ logs/
 *.temp
 
 # Config files with sensitive data (keep templates)
-# auth_config.json
-# dyndns_config.json
-# app_config.json
+auth_config.json
+auth_config.json.backup
+dyndns_config.json
+app_config.json
+hochzeitsplaner_config.json
+
+# VAPID Keys and certificates
+*.key
+*.crt
+vapid_keys.json
 
 # Documentation artifacts
 *.md.backup

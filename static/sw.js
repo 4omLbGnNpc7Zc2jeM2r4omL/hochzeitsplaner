@@ -225,9 +225,34 @@ self.addEventListener('notificationclick', (event) => {
     
     event.notification.close();
     
+    // Spezifische URLs basierend auf Notification-Typ
+    let targetUrl = '/';
+    if (event.notification.data) {
+        const data = event.notification.data;
+        if (data.url) {
+            targetUrl = data.url;
+        } else if (data.type === 'rsvp') {
+            targetUrl = `/gaesteliste${data.guest_id ? '?highlight=' + data.guest_id : ''}`;
+        } else if (data.type === 'gift') {
+            targetUrl = '/geschenkliste';
+        } else if (data.type === 'upload') {
+            targetUrl = '/upload_approval';
+        }
+    }
+    
     if (event.action === 'open' || !event.action) {
         event.waitUntil(
-            clients.openWindow('/')
+            clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+                // Prüfe ob bereits ein Tab mit der App geöffnet ist
+                for (const client of clientList) {
+                    if (client.url.includes(self.location.origin)) {
+                        client.navigate(targetUrl);
+                        return client.focus();
+                    }
+                }
+                // Andernfalls öffne neuen Tab
+                return clients.openWindow(targetUrl);
+            })
         );
     }
 });
@@ -241,6 +266,16 @@ self.addEventListener('sync', (event) => {
             // Hier könnten Offline-Änderungen synchronisiert werden
             Promise.resolve()
         );
+    }
+});
+
+// Message Handler für Skip Waiting
+self.addEventListener('message', (event) => {
+    console.log('[SW] Message erhalten:', event.data);
+    
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        console.log('[SW] Skip Waiting angefordert');
+        self.skipWaiting();
     }
 });
 

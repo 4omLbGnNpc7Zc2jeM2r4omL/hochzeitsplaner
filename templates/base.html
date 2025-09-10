@@ -42,8 +42,19 @@
     <!-- Global Alert Container (fixed position for all pages) -->
     <div id="globalAlertContainer" class="alert-container-fixed"></div>
     
+    <!-- Push Notification Banner Container -->
+    {% if session.user_role == 'admin' %}
+    <div id="pushBannerContainer"></div>
+    {% endif %}
+    
     <!-- Wedding Theme JS (load early for chart theming) -->
     <script src="{{ url_for('static', filename='js/wedding-theme.js') }}"></script>
+    
+    <!-- User Role für JavaScript verfügbar machen -->
+    <script>
+        window.userRole = '{{ session.user_role or "guest" }}';
+        console.log('👤 User Role:', window.userRole);
+    </script>
     
     <!-- Navigation -->
     {% block navigation %}
@@ -274,14 +285,36 @@
                         <span class="d-md-none">{{ (session.display_name or session.username)[:10] }}{% if (session.display_name or session.username)|length > 10 %}...{% endif %}</span>
                     </span>
                     
+                    <!-- PWA Installation Button (für alle sichtbar) -->
+                    <div class="nav-item me-2">
+                        <button id="pwaInstallBtn" class="btn btn-outline-light btn-sm d-flex align-items-center" style="display: none;">
+                            <i class="bi bi-phone me-1"></i>
+                            <span class="d-none d-sm-inline">App installieren</span>
+                            <span class="d-sm-none">App</span>
+                        </button>
+                    </div>
+                    
                     {% if session.user_role != 'guest' %}
                     <!-- Excel Export -->
                     <div class="nav-item">
                         <a class="btn btn-success btn-sm me-2 d-flex align-items-center" 
                            href="/api/export/excel" title="Excel Export">
                             <i class="bi bi-download me-1"></i>
-                            <span class="d-none d-lg-inline">Excel</span>
+                            <span class="d-none d-sm-inline">Excel</span>
+                            <span class="d-sm-none">XLS</span>
                         </a>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Push Benachrichtigungen (nur für Admins) -->
+                    {% if session.user_role == 'admin' %}
+                    <div class="nav-item me-2">
+                        <button id="pushNotificationBtn" class="btn btn-outline-wedding btn-sm d-flex align-items-center" 
+                                title="Push-Benachrichtigungen verwalten">
+                            <i class="bi bi-bell me-1"></i>
+                            <span class="d-none d-sm-inline">Benachrichtigungen</span>
+                            <span class="d-sm-none">News</span>
+                        </button>
                     </div>
                     {% endif %}
                     
@@ -290,12 +323,14 @@
                         {% if session.user_role == 'dj' %}
                             <a class="btn btn-wedding-primary btn-sm d-flex align-items-center" href="{{ url_for('dj_logout') }}" title="DJ Abmelden">
                                 <i class="bi bi-box-arrow-right me-1"></i>
-                                <span class="d-none d-lg-inline">Abmelden</span>
+                                <span class="d-none d-sm-inline">Abmelden</span>
+                                <span class="d-sm-none">Exit</span>
                             </a>
                         {% else %}
                             <a class="btn btn-wedding-primary btn-sm d-flex align-items-center" href="/logout" title="Abmelden">
                                 <i class="bi bi-box-arrow-right me-1"></i>
-                                <span class="d-none d-lg-inline">Abmelden</span>
+                                <span class="d-none d-sm-inline">Abmelden</span>
+                                <span class="d-sm-none">Exit</span>
                             </a>
                         {% endif %}
                     </div>
@@ -342,9 +377,10 @@
         // Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/static/sw.js')
+                navigator.serviceWorker.register('/static/sw.js')  // Ohne expliziten Scope
                     .then((registration) => {
                         console.log('✅ Service Worker registriert:', registration.scope);
+                        console.log('🔧 SW Script URL:', registration.active ? registration.active.scriptURL : 'Noch nicht aktiv');
                         
                         // Check for updates
                         registration.addEventListener('updatefound', () => {
@@ -361,6 +397,20 @@
                     })
                     .catch((error) => {
                         console.error('❌ Service Worker Registrierung fehlgeschlagen:', error);
+                        console.log('🔍 Fehler Details:', error.message);
+                        
+                        // Versuche sw.js direkt zu laden für Diagnose
+                        fetch('/static/sw.js')
+                            .then(response => {
+                                if (response.ok) {
+                                    console.log('✅ sw.js ist erreichbar');
+                                } else {
+                                    console.error(`❌ sw.js HTTP ${response.status}: ${response.statusText}`);
+                                }
+                            })
+                            .catch(fetchError => {
+                                console.error('❌ sw.js fetch Fehler:', fetchError.message);
+                            });
                     });
             });
         } else {
@@ -479,7 +529,83 @@
         updateOnlineStatus();
     </script>
     
+    <!-- Push Notifications (nur für Admins) -->
+    {% if session.user_role == 'admin' %}
+    <script src="{{ url_for('static', filename='js/push-notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/direct-push-button.js') }}"></script>
+    <script>
+        // Push Notification Button Event Handler
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔧 Initialisiere Push Notification Button Handler...');
+            
+            const pushBtn = document.getElementById('pushNotificationBtn');
+            console.log('🔍 Push Button gefunden:', !!pushBtn);
+            
+            if (pushBtn) {
+                // Event Handler hinzufügen
+                pushBtn.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    console.log('🔔 Push Notification Button geklickt!');
+                    
+                    // Prüfe verfügbare Manager
+                    console.log('🔍 window.pushNotificationManager:', !!window.pushNotificationManager);
+                    console.log('🔍 window.PushNotificationManager:', !!window.PushNotificationManager);
+                    
+                    // Versuche verschiedene Zugriffswege
+                    if (window.pushNotificationManager && typeof window.pushNotificationManager.toggleSubscription === 'function') {
+                        console.log('✅ Verwende window.pushNotificationManager');
+                        window.pushNotificationManager.toggleSubscription();
+                    } else if (window.PushNotificationManager) {
+                        console.log('✅ Erstelle neuen PushNotificationManager');
+                        const manager = new window.PushNotificationManager();
+                        if (manager.toggleSubscription) {
+                            manager.toggleSubscription();
+                        } else {
+                            console.error('❌ toggleSubscription Methode nicht verfügbar');
+                        }
+                    } else {
+                        console.error('❌ Kein PushNotificationManager verfügbar');
+                        console.log('🔍 Verfügbare window Objekte mit "push":', 
+                            Object.keys(window).filter(k => k.toLowerCase().includes('push')));
+                        alert('❌ Push Notification Manager nicht verfügbar. Seite neu laden?');
+                    }
+                });
+                
+                console.log('✅ Push Notification Button Event Handler hinzugefügt');
+                
+                // Test-Click Handler (für Debug)
+                pushBtn.addEventListener('mousedown', function() {
+                    console.log('🖱️ Mouse down auf Push Button');
+                });
+                
+                pushBtn.addEventListener('touchstart', function() {
+                    console.log('👆 Touch start auf Push Button');
+                });
+                
+            } else {
+                console.error('❌ Push Notification Button nicht gefunden!');
+                // Suche nach dem Button mit alternativen Methoden
+                setTimeout(() => {
+                    const btnByClass = document.querySelector('.btn-outline-wedding');
+                    const btnByIcon = document.querySelector('[title*="Push-Benachrichtigungen"]');
+                    console.log('🔍 Button by class:', !!btnByClass);
+                    console.log('🔍 Button by title:', !!btnByIcon);
+                }, 1000);
+            }
+        });
+    </script>
+    {% endif %}
+    
+    <!-- PWA Installation (für alle Benutzer) -->
+    <script src="{{ url_for('static', filename='js/pwa-install.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pwa-install-helper.js') }}"></script>
+    
+    <!-- Push Notification Banner (nur für Admins) -->
+    {% if session.user_role == 'admin' %}
+    <!-- Push Notification Banner (korrigierte Version) -->
+    <script src="{{ url_for('static', filename='js/push-notification-banner-fixed.js') }}"></script>
+    {% endif %}
+    
     {% block scripts %}{% endblock %}
 </body>
 </html>
-

@@ -339,9 +339,15 @@ def require_auth(f):
                 return jsonify({'error': 'Authentication required'}), 401
             return redirect(url_for('login'))
         
-        # Session-Timeout prüfen
+        # Session-Timeout prüfen (mit Ausnahme für Push-Subscriptions)
         if 'login_time' in session:
-            timeout_hours = auth_config['auth']['session_timeout_hours']
+            # Verwende erweiterte Session-Zeit für Push-Notification Benutzer
+            is_push_user = session.get('push_notifications_enabled', False)
+            if is_push_user:
+                timeout_hours = auth_config['auth'].get('push_notification_session_hours', 168)  # 7 Tage
+            else:
+                timeout_hours = auth_config['auth']['session_timeout_hours']
+                
             login_time = datetime.fromisoformat(session['login_time'])
             if datetime.now() - login_time > timedelta(hours=timeout_hours):
                 logger.warning(f"⏰ Auth Check: Session timeout für {session.get('username')}")
@@ -433,10 +439,23 @@ sys.path.append(current_dir)
 from sqlite_datenmanager import SQLiteHochzeitsDatenManager as HochzeitsDatenManager
 print("SQLite DataManager wird verwendet")
 
+# Push Notification Manager importieren
+try:
+    from push_notification_manager import push_manager
+    PUSH_NOTIFICATIONS_AVAILABLE = True
+    print("✅ Push Notifications verfügbar")
+except ImportError as e:
+    PUSH_NOTIFICATIONS_AVAILABLE = False
+    print(f"⚠️ Push Notifications nicht verfügbar: {e}")
+    push_manager = None
+
 # Flask App initialisieren
 app = Flask(__name__)
 app.config['SECRET_KEY'] = auth_config['app']['secret_key']
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=auth_config['auth']['session_timeout_hours'])
+
+# Debug-Modus für Entwicklung
+app.config['DEBUG'] = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
 
 # Session Cookie Configuration für DJ Authentication
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -822,6 +841,89 @@ def get_wedding_date():
     except Exception as e:
         logger.error(f"Fehler beim Laden des Hochzeitsdatums: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# =============================================================================
+# Push Notification API-Endpunkte
+# =============================================================================
+
+@app.route('/api/push/vapid-key')
+@require_auth
+def get_vapid_public_key():
+    """VAPID Public Key für Push-Subscriptions abrufen"""
+    try:
+        if not PUSH_NOTIFICATIONS_AVAILABLE or not push_manager:
+            return jsonify({'error': 'Push Notifications nicht verfügbar'}), 503
+            
+        vapid_keys = push_manager.get_vapid_keys()
+        if not vapid_keys['public_key']:
+            return jsonify({'error': 'VAPID Public Key nicht konfiguriert'}), 500
+            
+        return jsonify({
+            'success': True,
+            'publicKey': vapid_keys['public_key']  # JavaScript-freundlicher Name
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Abrufen des VAPID Public Keys: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/push/subscribe', methods=['POST'])
+@require_auth
+def subscribe_push_notifications():
+    """Push-Subscription für den aktuellen Admin speichern"""
+    try:
+        if not PUSH_NOTIFICATIONS_AVAILABLE or not push_manager:
+            return jsonify({'error': 'Push Notifications nicht verfügbar'}), 503
+            
+        subscription_data = request.get_json()
+        if not subscription_data:
+            return jsonify({'error': 'Subscription-Daten fehlen'}), 400
+            
+        # Benutzer-ID aus Session ermitteln - nutze username als identifier
+        user_id = session.get('username') or session.get('admin_id') or 'admin'
+        
+        # **DEBUG: Zeige was übergeben wird**
+        logger.info(f"🔧 Push Subscribe Request für user_id: {user_id}")
+        logger.info(f"🔧 Session data: username={session.get('username')}, role={session.get('user_role')}")
+        
+        success = push_manager.save_push_subscription(user_id, subscription_data)
+        
+        if success:
+            # Markiere Session für erweiterte Laufzeit
+            session['push_notifications_enabled'] = True
+            session.permanent = True
+            
+            logger.info(f"Push-Subscription für User {user_id} gespeichert")
+            return jsonify({'success': True, 'message': 'Push-Benachrichtigungen aktiviert'})
+        else:
+            return jsonify({'error': 'Subscription konnte nicht gespeichert werden'}), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Speichern der Push-Subscription: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/push/test', methods=['POST'])
+@require_auth
+def test_push_notification():
+    """Test-Push-Notification senden"""
+    try:
+        if not PUSH_NOTIFICATIONS_AVAILABLE or not push_manager:
+            return jsonify({'error': 'Push Notifications nicht verfügbar'}), 503
+            
+        success = push_manager.send_push_notification(
+            title="🧪 Test-Benachrichtigung",
+            body="Push-Benachrichtigungen funktionieren korrekt!",
+            data={'type': 'test', 'timestamp': datetime.now().isoformat()}
+        )
+        
+        if success:
+            return jsonify({'success': True, 'message': 'Test-Benachrichtigung gesendet'})
+        else:
+            return jsonify({'error': 'Test-Benachrichtigung konnte nicht gesendet werden'}), 500
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Senden der Test-Push-Notification: {e}")
+        return jsonify({'error': str(e)}), 500
 
 # =============================================================================
 # Weiterleitungsrouten für JavaScript-Kompatibilität
@@ -3119,6 +3221,28 @@ def update_guest_rsvp():
         )
         
         if result['success']:
+            # Push-Benachrichtigung an Admins senden (falls verfügbar)
+            if PUSH_NOTIFICATIONS_AVAILABLE and push_manager:
+                try:
+                    # Namen aus Vor- und Nachname zusammensetzen
+                    vorname = guest_data.get('vorname', '')
+                    nachname = guest_data.get('nachname', '')
+                    if nachname:
+                        guest_name = f"{vorname} {nachname}".strip()
+                    else:
+                        guest_name = vorname.strip() if vorname else 'Unbekannter Gast'
+                    
+                    push_manager.send_rsvp_notification(
+                        guest_name=guest_name,
+                        guest_id=guest_data['id'],
+                        rsvp_status=status,
+                        message=notiz
+                    )
+                    logger.info(f"Push-Benachrichtigung für RSVP von {guest_name} gesendet")
+                except Exception as push_error:
+                    logger.error(f"Fehler beim Senden der Push-Benachrichtigung: {push_error}")
+                    # Fehler nicht weiterwerfen, da RSVP-Update erfolgreich war
+            
             return jsonify(result)
         else:
             # Bei Conflict oder anderen Fehlern
@@ -10547,16 +10671,22 @@ def admin_2fa_disable():
 @require_role(['admin'])
 def admin_2fa_status():
     """2FA-Status für aktuellen Admin abrufen"""
-    admin_id = session.get('admin_id')
+    # Flexiblere ID-Erkennung
+    admin_id = session.get('admin_id') or session.get('user_id')
     if not admin_id:
-        return jsonify({'error': 'Admin-ID nicht gefunden'}), 400
+        return jsonify({'error': 'Benutzer-ID nicht gefunden'}), 400
     
-    admin_2fa = data_manager.get_admin_2fa_secret(admin_id)
-    if admin_2fa:
-        return jsonify({
-            'is_2fa_enabled': admin_2fa['is_2fa_enabled']
-        })
-    else:
+    try:
+        admin_2fa = data_manager.get_admin_2fa_secret(admin_id)
+        if admin_2fa:
+            return jsonify({
+                'is_2fa_enabled': admin_2fa['is_2fa_enabled']
+            })
+        else:
+            return jsonify({'is_2fa_enabled': False})
+    except Exception as e:
+        # Fehler loggen aber nicht an Client weiterleiten
+        print(f"2FA Status Error: {e}")
         return jsonify({'is_2fa_enabled': False})
 
 # ============= TRUSTED DEVICES MANAGEMENT =============

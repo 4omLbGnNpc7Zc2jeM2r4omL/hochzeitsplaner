@@ -1,16 +1,17 @@
 {
-  "name": "Hochzeitsplaner",
+  "name": "Hochzeitsplaner - Pascal & Käthe",
   "short_name": "Hochzeit",
   "description": "Digitaler Hochzeitsplaner für Gäste und Organisatoren",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#e91e63",
+  "theme_color": "#d4af37",
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "de-DE",
   "dir": "ltr",
   "categories": ["lifestyle", "productivity"],
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "screenshots": [
     {
       "src": "/static/images/screenshot-wide.png",

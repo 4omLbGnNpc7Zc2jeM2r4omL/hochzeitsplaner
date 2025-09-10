@@ -446,6 +446,21 @@ class SQLiteHochzeitsDatenManager:
                             FOREIGN KEY (gast_id) REFERENCES gaeste(id) ON DELETE SET NULL,
                             UNIQUE(vorschlag_id, gast_id)
                         )
+                    """,
+                    'push_subscriptions': """
+                        CREATE TABLE push_subscriptions (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            user_id TEXT NOT NULL,
+                            user_role TEXT DEFAULT 'admin',
+                            endpoint TEXT NOT NULL,
+                            p256dh_key TEXT NOT NULL,
+                            auth_key TEXT NOT NULL,
+                            user_agent TEXT,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            last_used DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            is_active INTEGER DEFAULT 1,
+                            UNIQUE(user_id, endpoint)
+                        )
                     """
                 }
                 

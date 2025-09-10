@@ -39,6 +39,15 @@
             </ul>
             
             <div class="navbar-nav">
+                <!-- PWA Installation Button (für Gäste) -->
+                <div class="nav-item me-2">
+                    <button id="pwaInstallBtn" class="btn btn-outline-light btn-sm d-flex align-items-center" style="display: none;">
+                        <i class="bi bi-phone me-1"></i>
+                        <span class="d-none d-sm-inline">App installieren</span>
+                        <span class="d-sm-none">App</span>
+                    </button>
+                </div>
+                
                 <span class="navbar-text me-3">
                     <i class="bi bi-person-heart me-1"></i>
                     Willkommen, {{ session.display_name }}!

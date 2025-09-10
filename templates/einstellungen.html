@@ -747,7 +747,7 @@
     
     <!-- 2FA Security Settings Card -->
     <div class="col-md-4">
-        <div class="card">
+        <div class="card mb-4">
             <div class="card-header">
                 <h5><i class="bi bi-shield-lock me-2"></i>Sicherheit</h5>
             </div>
@@ -794,6 +794,69 @@
                             </a>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Push Notifications Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="bi bi-bell me-2"></i>Push-Benachrichtigungen</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">
+                    Erhalten Sie sofortige Benachrichtigungen bei neuen RSVP-Eingängen mit aktuellen Statistiken.
+                </p>
+                
+                <div id="pushNotificationStatus" class="mb-3">
+                    <i class="bi bi-x-circle text-muted"></i> Push-Benachrichtigungen inaktiv
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button id="pushNotificationBtn" class="btn btn-outline-primary btn-sm">
+                        🔕 Benachrichtigungen aktivieren
+                    </button>
+                    <button id="testPushBtn" class="btn btn-outline-secondary btn-sm" style="display: none;">
+                        <i class="bi bi-send me-2"></i>Test-Benachrichtigung
+                    </button>
+                </div>
+                
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Mit aktivierten Push-Benachrichtigungen bleibt Ihre Admin-Session 
+                        automatisch 14 Tage lang aktiv.
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- PWA Installation Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="bi bi-phone me-2"></i>App Installation</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">
+                    Installieren Sie die Hochzeitsplaner-App auf Ihrem Gerät für bessere Performance 
+                    und Offline-Zugriff.
+                </p>
+                
+                <div id="pwaInstallStatus" class="mb-3">
+                    <i class="bi bi-info-circle text-muted"></i> Browser-App
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button id="pwaInstallBtn" class="btn btn-outline-primary btn-sm">
+                        📱 App installieren
+                    </button>
+                </div>
+                
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Die App funktioniert auch offline und lädt schneller als die Browser-Version.
+                    </small>
                 </div>
             </div>
         </div>
@@ -1105,6 +1168,17 @@ document.addEventListener('DOMContentLoaded', function() {
 async function check2FAStatus() {
     try {
         const response = await fetch('/admin/2fa/status');
+        
+        if (!response.ok) {
+            // Bei 400-Fehler (Bad Request) 2FA als deaktiviert behandeln
+            if (response.status === 400) {
+                console.log('2FA Status: Benutzer-ID nicht verfügbar, deaktiviert angenommen');
+                showTwoFADisabled();
+                return;
+            }
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json();
         
         const statusContainer = document.getElementById('twoFaStatus');
@@ -1124,9 +1198,21 @@ async function check2FAStatus() {
         }
     } catch (error) {
         console.error('Fehler beim Laden des 2FA-Status:', error);
-        document.getElementById('twoFaStatus').innerHTML = 
-            '<div class="alert alert-danger">Fehler beim Laden des 2FA-Status</div>';
+        // Bei Fehlern 2FA als deaktiviert anzeigen
+        showTwoFADisabled();
     }
+}
+
+function showTwoFADisabled() {
+    const statusContainer = document.getElementById('twoFaStatus');
+    const controlsContainer = document.getElementById('twoFaControls');
+    const enabledDiv = document.getElementById('twoFaEnabled');
+    const disabledDiv = document.getElementById('twoFaDisabled');
+    
+    if (statusContainer) statusContainer.innerHTML = '';
+    if (controlsContainer) controlsContainer.style.display = 'block';
+    if (enabledDiv) enabledDiv.style.display = 'none';
+    if (disabledDiv) disabledDiv.style.display = 'block';
 }
 
 async function setup2FA() {
