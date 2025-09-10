@@ -58,7 +58,6 @@ jobs:
                 ('fonts', 'fonts'),
                 ('auth_config.json', '.'),
                 ('dyndns_config.json', '.'),
-                ('app_config.json', '.'),
                 ('hochzeitsplaner_config.json', '.'),
                 ('requirements.txt', '.'),
                 ('database/schema.sql', 'database'),
@@ -180,7 +179,7 @@ jobs:
         Copy-Item "dist/hochzeitsplaner.exe" "package/"
         
         # Kopiere Konfigurationsdateien falls vorhanden
-        $configFiles = @("auth_config.json", "dyndns_config.json", "app_config.json", "hochzeitsplaner_config.json")
+        $configFiles = @("auth_config.json", "dyndns_config.json", "hochzeitsplaner_config.json")
         foreach ($file in $configFiles) {
           if (Test-Path $file) {
             Copy-Item $file "package/" -ErrorAction SilentlyContinue
