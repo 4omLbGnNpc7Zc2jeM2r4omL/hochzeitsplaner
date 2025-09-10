@@ -7,7 +7,7 @@
 let selectedFiles = [];
 let maxFileSize = 50 * 1024 * 1024; // 50MB default
 let allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mov', 'avi'];
-let currentGuestId = null;
+let uploadCurrentGuestId = null;
 
 /**
  * Generisches API-Request für Upload-System
@@ -15,10 +15,13 @@ let currentGuestId = null;
 async function apiRequest(endpoint, options = {}) {
     try {
         const defaultOptions = {
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: {}
         };
+        
+        // Only set Content-Type to application/json if we're not sending FormData
+        if (!(options.body instanceof FormData)) {
+            defaultOptions.headers['Content-Type'] = 'application/json';
+        }
         
         // Add cache-busting for GET requests
         let url = endpoint;
@@ -32,7 +35,11 @@ async function apiRequest(endpoint, options = {}) {
         
         const response = await fetch(url, {
             ...defaultOptions,
-            ...options
+            ...options,
+            headers: {
+                ...defaultOptions.headers,
+                ...options.headers
+            }
         });
         
         const data = await response.json();
@@ -43,7 +50,7 @@ async function apiRequest(endpoint, options = {}) {
         
         return data;
     } catch (error) {
-        console.error('API Request failed:', error);
+        // console.error('API Request failed:', error); // Guest console logs disabled
         throw error;
     }
 }
@@ -174,7 +181,7 @@ async function loadUploadConfig() {
         }
         
     } catch (error) {
-        console.error('Fehler beim Laden der Upload-Konfiguration:', error);
+        // console.error('Fehler beim Laden der Upload-Konfiguration:', error); // Guest console logs disabled
     }
 }
 
@@ -343,16 +350,12 @@ async function startUpload() {
                 body: formData
             });
             
-            if (response.ok) {
-                uploadedCount++;
-                const progress = Math.round((uploadedCount / totalFiles) * 100);
-                uploadProgressBar.style.width = `${progress}%`;
-                uploadProgressBar.setAttribute('aria-valuenow', progress);
-                uploadPercent.textContent = `${progress}%`;
-            } else {
-                const error = await response.json();
-                throw new Error(error.error || 'Upload fehlgeschlagen');
-            }
+            // apiRequest already handles HTTP errors, so if we reach here, it was successful
+            uploadedCount++;
+            const progress = Math.round((uploadedCount / totalFiles) * 100);
+            uploadProgressBar.style.width = `${progress}%`;
+            uploadProgressBar.setAttribute('aria-valuenow', progress);
+            uploadPercent.textContent = `${progress}%`;
         }
         
         // Erfolg

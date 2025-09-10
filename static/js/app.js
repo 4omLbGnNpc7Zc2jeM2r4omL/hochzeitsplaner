@@ -81,35 +81,35 @@ function removeDynamicSpinner() {
  * Zeigt Erfolgs-Nachricht
  */
 function showSuccess(message) {
-    console.log('showSuccess aufgerufen mit:', message);
+    // console.log('showSuccess aufgerufen mit:', message);
     const alertElement = document.getElementById('success-alert');
     const messageElement = document.getElementById('success-message');
     
-    console.log('alertElement gefunden:', alertElement);
-    console.log('messageElement gefunden:', messageElement);
+    // console.log('alertElement gefunden:', alertElement);
+    // console.log('messageElement gefunden:', messageElement);
     
     // Sicherheitsprüfung für messageElement
     if (messageElement) {
         messageElement.textContent = message;
-        console.log('Message gesetzt:', message);
+        // console.log('Message gesetzt:', message);
     } else {
-        console.log('Success message element not found, showing alert instead:', message);
+        // console.log('Success message element not found, showing alert instead:', message);
         alert('Erfolg: ' + message);
         return;
     }
     
     // Sicherheitsprüfung für alertElement
     if (alertElement) {
-        console.log('Zeige Alert an - entferne d-none Klasse');
+        // console.log('Zeige Alert an - entferne d-none Klasse');
         alertElement.classList.remove('d-none');
         
         // Automatisch nach 5 Sekunden ausblenden
         setTimeout(() => {
-            console.log('Alert automatisch ausblenden nach 5 Sekunden');
+            // console.log('Alert automatisch ausblenden nach 5 Sekunden');
             alertElement.classList.add('d-none');
         }, 5000);
     } else {
-        console.log('Success alert element not found, message was:', message);
+        // console.log('Success alert element not found, message was:', message);
         alert('Erfolg: ' + message);
     }
 }
@@ -125,7 +125,7 @@ function showError(message) {
     if (messageElement) {
         messageElement.textContent = message;
     } else {
-        console.error('Error message element not found, showing alert instead:', message);
+        // console.error('Error message element not found, showing alert instead:', message);
         alert('Fehler: ' + message);
         return;
     }
@@ -139,7 +139,7 @@ function showError(message) {
             alertElement.classList.add('d-none');
         }, 10000);
     } else {
-        console.error('Error alert element not found, message was:', message);
+        // console.error('Error alert element not found, message was:', message);
         alert('Fehler: ' + message);
     }
 }
@@ -204,6 +204,7 @@ function isValidPhone(phone) {
 async function apiRequest(endpoint, options = {}) {
     try {
         const defaultOptions = {
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json'
             }
@@ -239,12 +240,25 @@ async function apiRequest(endpoint, options = {}) {
  */
 async function loadSettings() {
     try {
+        // Für DJ Panel: Verwende Default-Werte ohne API-Aufruf
+        if (window.location.pathname === '/dj-panel') {
+            // console.log('DJ Panel detected - using default settings'); // Guest console logs disabled
+            currentSettings = {
+                braut_name: 'Braut',
+                braeutigam_name: 'Bräutigam',
+                hochzeitsdatum: ''
+            };
+            updateNavigationTitle();
+            return currentSettings;
+        }
+        
+        // Für alle anderen Seiten: Normale Settings API
         const data = await apiRequest('/settings/get');
         currentSettings = data.settings;
         updateNavigationTitle();
         return data.settings;
     } catch (error) {
-
+        // console.error('Settings load error:', error); // Guest console logs disabled
         showError('Einstellungen konnten nicht geladen werden');
         return {};
     }

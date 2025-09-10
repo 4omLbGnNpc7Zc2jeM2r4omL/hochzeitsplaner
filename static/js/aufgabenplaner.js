@@ -1553,3 +1553,65 @@ function showArchivedTasks() {
     filterAufgaben();
 }
 
+// Task Reminders Check Function
+function checkTaskReminders() {
+    console.log('🔔 Prüfe Aufgaben-Erinnerungen...');
+    
+    // Loading state
+    const button = event.target.closest('button');
+    const originalHTML = button.innerHTML;
+    button.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Prüfe...';
+    button.disabled = true;
+    
+    fetch('/admin/check-task-reminders', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (response.redirected) {
+            // Flask redirect to aufgabenplaner with flash message
+            window.location.href = response.url;
+        } else {
+            return response.json();
+        }
+    })
+    .then(data => {
+        if (data && data.success) {
+            showAlert('Erinnerungen erfolgreich geprüft und gesendet', 'success');
+        } else if (data && data.error) {
+            showAlert('Fehler beim Prüfen der Erinnerungen: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Fehler beim Prüfen der Erinnerungen:', error);
+        showAlert('Fehler beim Prüfen der Erinnerungen', 'error');
+    })
+    .finally(() => {
+        // Reset button
+        button.innerHTML = originalHTML;
+        button.disabled = false;
+    });
+}
+
+// Auto check reminders on page load (once per day)
+document.addEventListener('DOMContentLoaded', function() {
+    const lastCheck = localStorage.getItem('lastReminderCheck');
+    const today = new Date().toDateString();
+    
+    if (lastCheck !== today) {
+        // Automatically check once per day
+        setTimeout(() => {
+            console.log('🔔 Automatische Erinnerungs-Prüfung...');
+            fetch('/admin/check-task-reminders')
+                .then(() => {
+                    localStorage.setItem('lastReminderCheck', today);
+                })
+                .catch(error => {
+                    console.log('Automatische Erinnerungs-Prüfung fehlgeschlagen:', error);
+                });
+        }, 2000); // Wait 2 seconds after page load
+    }
+});
+

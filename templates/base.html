@@ -54,6 +54,11 @@
                 <a class="navbar-brand fw-bold" href="{{ url_for('guest_dashboard') }}" style="color: #8b7355;">
                     💕 {{ brautpaar_namen or "Brautpaar heiratet" }} 💕
                 </a>
+            {% elif session.user_role == 'dj' %}
+                <!-- DJ-Navigation -->
+                <a class="navbar-brand fw-bold" href="{{ url_for('dj_panel') }}" style="color: #8b7355;">
+                    🎧 DJ Panel - Playlist Management 🎧
+                </a>
             {% else %}
                 <!-- Admin-Navigation mit Hochzeitsplaner-Header -->
                 <a class="navbar-brand fw-bold" href="{{ url_for('index') }}" style="color: #8b7355;">
@@ -86,6 +91,16 @@
                             <a class="nav-link {% if request.endpoint == 'photo_gallery' %}active fw-bold{% endif %}" 
                                href="{{ url_for('photo_gallery') }}" style="color: #8b7355;">
                                 <i class="bi bi-images me-1"></i>Foto-Galerie
+                            </a>
+                        </li>
+                    </ul>
+                {% elif session.user_role == 'dj' %}
+                    <!-- DJ-Navigation - Nur für Playlist-Management -->
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'dj_panel' %}active fw-bold{% endif %}" 
+                               href="{{ url_for('dj_panel') }}" style="color: #8b7355;">
+                                <i class="bi bi-music-note-beamed me-1"></i>Playlist Management
                             </a>
                         </li>
                     </ul>
@@ -238,6 +253,12 @@
                                         <i class="bi bi-database me-2"></i>Datenbank
                                     </a>
                                 </li>
+                                <li>
+                                    <a class="dropdown-item {% if request.endpoint == 'playlist_admin' %}active{% endif %}" 
+                                       href="/playlist-admin">
+                                        <i class="bi bi-music-note-list me-2"></i>Playlist-Verwaltung
+                                    </a>
+                                </li>
                             </ul>
                         </li>
                         {% endif %}
@@ -266,10 +287,17 @@
                     
                     <!-- Abmelden -->
                     <div class="nav-item">
-                        <a class="btn btn-wedding-primary btn-sm d-flex align-items-center" href="/logout" title="Abmelden">
-                            <i class="bi bi-box-arrow-right me-1"></i>
-                            <span class="d-none d-lg-inline">Abmelden</span>
-                        </a>
+                        {% if session.user_role == 'dj' %}
+                            <a class="btn btn-wedding-primary btn-sm d-flex align-items-center" href="{{ url_for('dj_logout') }}" title="DJ Abmelden">
+                                <i class="bi bi-box-arrow-right me-1"></i>
+                                <span class="d-none d-lg-inline">Abmelden</span>
+                            </a>
+                        {% else %}
+                            <a class="btn btn-wedding-primary btn-sm d-flex align-items-center" href="/logout" title="Abmelden">
+                                <i class="bi bi-box-arrow-right me-1"></i>
+                                <span class="d-none d-lg-inline">Abmelden</span>
+                            </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

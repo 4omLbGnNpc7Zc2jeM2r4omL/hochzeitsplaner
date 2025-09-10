@@ -614,7 +614,7 @@ class OpenStreetMapIntegration {
                 
                 // Zeichne Wege zwischen Parkplätzen und Hauptlocation (falls aktiviert)
                 if (mapOptions.showRoutes && markers.length > 1) {
-                    console.log('🛣️ Starte Routen-Zeichnung...');
+                    // console.log('🛣️ Starte Routen-Zeichnung...');
                     await this.drawSimpleRoutes(map, markers);
                 }
                 
@@ -860,7 +860,7 @@ class OpenStreetMapIntegration {
      */
     async drawSimpleRoutes(map, markers) {
         try {
-            console.log('🛣️ drawSimpleRoutes aufgerufen mit', markers.length, 'Markern');
+            // console.log('🛣️ drawSimpleRoutes aufgerufen mit', markers.length, 'Markern');
             
             // Finde Hauptlocation und Parkplätze
             let mainMarker = null;
@@ -872,30 +872,30 @@ class OpenStreetMapIntegration {
                 
                 if (iconUrl.includes('marker-icon.png')) {
                     mainMarker = marker;
-                    console.log('✅ Hauptlocation gefunden');
+                    // console.log('✅ Hauptlocation gefunden');
                 } else if (iconUrl.includes('svg') || iconUrl.includes('data:image')) {
                     parkingMarkers.push(marker);
-                    console.log('🅿️ Parkplatz gefunden');
+                    // console.log('🅿️ Parkplatz gefunden');
                 }
             }
             
             if (!mainMarker || parkingMarkers.length === 0) {
-                console.log('❌ Keine passenden Marker für Routen gefunden');
+                // console.log('❌ Keine passenden Marker für Routen gefunden');
                 return;
             }
             
             const mainLatLng = mainMarker.getLatLng();
-            console.log(`Hauptlocation: ${mainLatLng.lat}, ${mainLatLng.lng}`);
+            // console.log(`Hauptlocation: ${mainLatLng.lat}, ${mainLatLng.lng}`);
             
             // Zeichne echte Routen zu allen Parkplätzen - warte auf alle
             const routePromises = parkingMarkers.map((parkingMarker, index) => {
                 const parkingLatLng = parkingMarker.getLatLng();
-                console.log(`Zeichne Route ${index + 1} zu: ${parkingLatLng.lat}, ${parkingLatLng.lng}`);
+                // console.log(`Zeichne Route ${index + 1} zu: ${parkingLatLng.lat}, ${parkingLatLng.lng}`);
                 return this.drawRealRoute(map, parkingLatLng, mainLatLng, index);
             });
             
             await Promise.all(routePromises);
-            console.log('✅ Alle Routen fertig gezeichnet');
+            // console.log('✅ Alle Routen fertig gezeichnet');
             
         } catch (error) {
             console.error('❌ Fehler in drawSimpleRoutes:', error);
@@ -913,7 +913,7 @@ class OpenStreetMapIntegration {
             // OSRM Demo Server für Fußgängerrouten (kostenlos, kein API-Key nötig)
             const apiUrl = `https://router.project-osrm.org/route/v1/foot/${startLatLng.lng},${startLatLng.lat};${endLatLng.lng},${endLatLng.lat}?overview=full&geometries=geojson`;
             
-            console.log(`🌐 Lade Route ${index + 1} von OSRM...`);
+            // console.log(`🌐 Lade Route ${index + 1} von OSRM...`);
             
             const response = await fetch(apiUrl);
             if (!response.ok) {
@@ -947,7 +947,7 @@ class OpenStreetMapIntegration {
                     </div>
                 `);
                 
-                console.log(`✅ Echte Route ${index + 1} gezeichnet: ${distance}m, ${duration} Min.`);
+                // console.log(`✅ Echte Route ${index + 1} gezeichnet: ${distance}m, ${duration} Min.`);
                 
             } else {
                 console.warn(`⚠️ Keine Route gefunden für ${index + 1}, zeichne Luftlinie`);

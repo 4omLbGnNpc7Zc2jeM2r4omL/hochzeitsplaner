@@ -35,6 +35,7 @@ if (typeof showError === 'undefined') {
 
 // Globale Variablen
 let currentFixkosten = {};
+let currentEinnahmen = {};
 
 // =============================================================================
 // Hauptfunktionen
@@ -87,6 +88,10 @@ async function loadKostenConfig() {
             currentFixkosten = config.fixed_costs || {};
             updateFixkostenDisplay();
             
+            // Einnahmen
+            currentEinnahmen = config.fixed_income || {};
+            updateEinnahmenDisplay();
+            
             // Manuelle Gästeanzahlen
             const manualGuestCounts = config.manual_guest_counts || {};
             document.getElementById('mitternachtssnackGaeste').value = manualGuestCounts.mitternachtssnack || 80;
@@ -115,6 +120,9 @@ function setupEventListeners() {
     
     // Fixkosten Form
     document.getElementById('addFixkostenForm').addEventListener('submit', handleAddFixkosten);
+    
+    // Einnahmen Form
+    document.getElementById('addEinnahmeForm').addEventListener('submit', handleAddEinnahme);
 }
 
 /**
@@ -185,6 +193,7 @@ async function saveKostenConfig() {
                 }
             },
             fixed_costs: currentFixkosten,
+            fixed_income: currentEinnahmen,
             manual_guest_counts: {
                 mitternachtssnack: parseInt(document.getElementById('mitternachtssnackGaeste').value) || 80
             }
@@ -232,6 +241,10 @@ function resetKostenConfig() {
         // Fixkosten leeren
         currentFixkosten = {};
         updateFixkostenDisplay();
+        
+        // Einnahmen leeren
+        currentEinnahmen = {};
+        updateEinnahmenDisplay();
         
         updateCalculations();
         showSuccess('Kostenkonfiguration zurückgesetzt');
@@ -379,6 +392,130 @@ async function removeFixkosten(name) {
             showError(`Fixkosten "${name}" entfernt, aber Fehler beim Speichern: ${error.message}`);
         }
     }
+}
+
+// =============================================================================
+// Einnahmen Management
+// =============================================================================
+
+/**
+ * Zeigt Einnahmen in der UI an
+ */
+function updateEinnahmenDisplay() {
+    const container = document.getElementById('einnahmenContainer');
+    container.innerHTML = '';
+
+    Object.keys(currentEinnahmen).forEach(name => {
+        const betrag = currentEinnahmen[name];
+        container.innerHTML += `
+            <div class="col-md-6 mb-3">
+                <div class="card h-100" style="border: 1px solid var(--wedding-gold); border-radius: 8px;">
+                    <div class="card-body">
+                        <h6 class="card-title mb-1" style="color: var(--wedding-text-dark);">${name}</h6>
+                        <p class="card-text h5 mb-2" style="color: var(--wedding-gold); font-weight: bold;">€ ${betrag.toFixed(2)}</p>
+                        <div class="small" style="color: var(--wedding-text);">Geplante Einnahme</div>
+                        <div class="mt-2">
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-sm btn-wedding-secondary" onclick="editEinnahme('${name}', ${betrag})" title="Bearbeiten">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="removeEinnahme('${name}')" title="Löschen" style="border-color: #dc3545; color: #dc3545;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+}
+
+/**
+ * Behandelt das Einnahme-Hinzufügen-Formular
+ */
+async function handleAddEinnahme(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const name = formData.get('name').trim();
+    const betrag = parseFloat(formData.get('betrag'));
+    
+    if (!name || betrag < 0) {
+        showError('Bitte geben Sie einen gültigen Namen und Betrag ein');
+        return;
+    }
+    
+    if (currentEinnahmen[name]) {
+        if (!confirm(`Einnahme "${name}" existiert bereits. Überschreiben?`)) {
+            return;
+        }
+    }
+    
+    // Füge zu currentEinnahmen hinzu
+    currentEinnahmen[name] = betrag;
+    updateEinnahmenDisplay();
+    
+    // Modal schließen und Form zurücksetzen
+    const modal = bootstrap.Modal.getInstance(document.getElementById('addEinnahmeModal'));
+    modal.hide();
+    event.target.reset();
+    
+    // Automatisch speichern
+    try {
+        await saveKostenConfig();
+        showSuccess(`Einnahme "${name}" hinzugefügt und gespeichert`);
+    } catch (error) {
+        showError(`Einnahme "${name}" hinzugefügt, aber Fehler beim Speichern: ${error.message}`);
+    }
+}
+
+/**
+ * Bearbeitet Einnahme
+ */
+function editEinnahme(name, currentBetrag) {
+    // Modal-Titel ändern
+    const modalTitle = document.getElementById('addEinnahmeModalLabel');
+    modalTitle.innerHTML = '<i class="fas fa-edit me-2"></i>Einnahme bearbeiten';
+    
+    // Felder vorausfüllen
+    document.getElementById('einnahmeName').value = name;
+    document.getElementById('einnahmeBetrag').value = currentBetrag;
+    
+    // Name-Feld deaktivieren (Name kann nicht geändert werden)
+    document.getElementById('einnahmeName').readOnly = true;
+    
+    // Modal öffnen
+    const modal = new bootstrap.Modal(document.getElementById('addEinnahmeModal'));
+    modal.show();
+    
+    // Event-Listener für das Schließen hinzufügen um Felder zurückzusetzen
+    const modalElement = document.getElementById('addEinnahmeModal');
+    modalElement.addEventListener('hidden.bs.modal', function resetModal() {
+        modalTitle.innerHTML = '<i class="fas fa-plus me-2"></i>Einnahme hinzufügen';
+        document.getElementById('einnahmeName').readOnly = false;
+        document.getElementById('addEinnahmeForm').reset();
+        modalElement.removeEventListener('hidden.bs.modal', resetModal);
+    });
+}
+
+/**
+ * Entfernt Einnahme
+ */
+function removeEinnahme(name) {
+    if (!confirm(`Einnahme "${name}" wirklich löschen?`)) {
+        return;
+    }
+    
+    delete currentEinnahmen[name];
+    updateEinnahmenDisplay();
+    
+    // Automatisch speichern
+    saveKostenConfig().then(() => {
+        showSuccess(`Einnahme "${name}" gelöscht und gespeichert`);
+    }).catch(error => {
+        showError(`Einnahme "${name}" gelöscht, aber Fehler beim Speichern: ${error.message}`);
+    });
 }
 
 // =============================================================================

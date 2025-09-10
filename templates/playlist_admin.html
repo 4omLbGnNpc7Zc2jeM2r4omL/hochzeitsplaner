@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Playlist-Verwaltung - {{ brautpaar_namen }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-music me-2"></i>
+                    Playlist-Verwaltung
+                </h2>
+                <a href="/admin" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Zurück zur Administration
+                </a>
+            </div>
+
+            <!-- Playlist Übersicht -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        Alle Musikwünsche
+                        <span id="vorschlag-count" class="badge bg-primary ms-2">{{ vorschlaege|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if vorschlaege %}
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="playlist-table">
+                            <thead>
+                                <tr>
+                                    <th>Künstler</th>
+                                    <th>Titel</th>
+                                    <th>Album</th>
+                                    <th>Gast</th>
+                                    <th>Anlass</th>
+                                    <th>Votes</th>
+                                    <th>Erstellt</th>
+                                    <th>Kommentar</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="playlist-tbody">
+                                {% for vorschlag in vorschlaege %}
+                                <tr id="row-{{ vorschlag.id }}">
+                                    <td>{{ vorschlag.kuenstler }}</td>
+                                    <td>
+                                        {{ vorschlag.titel }}
+                                        {% if vorschlag.preview_url %}
+                                        <button class="btn btn-sm btn-outline-primary ms-2" 
+                                                onclick="playPreview('{{ vorschlag.preview_url }}')"
+                                                title="30s Vorschau">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ vorschlag.album or '-' }}</td>
+                                    <td>{{ vorschlag.gast_name or 'Anonymer Gast' }}</td>
+                                    <td>{{ vorschlag.anlass or 'Allgemein' }}</td>
+                                    <td>
+                                        <span class="badge bg-success">{{ vorschlag.vote_count or 0 }}</span>
+                                    </td>
+                                    <td>{{ vorschlag.created_at[:16] if vorschlag.created_at else '-' }}</td>
+                                    <td>
+                                        {% if vorschlag.kommentar %}
+                                        <button class="btn btn-sm btn-outline-info" 
+                                                title="{{ vorschlag.kommentar }}"
+                                                data-bs-toggle="tooltip">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger" 
+                                                onclick="deleteVorschlag({{ vorschlag.id }})"
+                                                title="Löschen">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-music fa-3x mb-3"></i>
+                        <p>Noch keine Musikwünsche vorhanden.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Audio Player für Previews -->
+<audio id="preview-player" controls style="display: none;"></audio>
+
+<!-- Erfolg/Fehler Toasts -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="success-toast" class="toast" role="alert">
+        <div class="toast-header bg-success text-white">
+            <i class="fas fa-check me-2"></i>
+            <strong class="me-auto">Erfolg</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body" id="success-message"></div>
+    </div>
+    
+    <div id="error-toast" class="toast" role="alert">
+        <div class="toast-header bg-danger text-white">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong class="me-auto">Fehler</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body" id="error-message"></div>
+    </div>
+</div>
+
+<script>
+// Tooltip initialisieren
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
+// Preview abspielen
+function playPreview(url) {
+    const player = document.getElementById('preview-player');
+    player.src = url;
+    player.style.display = 'block';
+    player.play();
+    
+    // Nach 30 Sekunden stoppen
+    setTimeout(() => {
+        player.pause();
+        player.style.display = 'none';
+    }, 30000);
+}
+
+// Vorschlag löschen
+function deleteVorschlag(vorschlagId) {
+    // Show wedding-themed confirmation modal instead of browser popup
+    showAdminMusikLoeschenModal(vorschlagId);
+}
+
+// Wedding-themed modal for admin music deletion confirmation
+function showAdminMusikLoeschenModal(vorschlagId) {
+    const modal = document.getElementById('adminMusikLoeschenModal');
+    
+    // Set up the confirmation handler
+    const confirmBtn = document.getElementById('confirmAdminMusikLoeschen');
+    confirmBtn.onclick = function() {
+        performAdminMusikLoeschen(vorschlagId);
+        bootstrap.Modal.getInstance(modal).hide();
+    };
+    
+    // Show the modal
+    new bootstrap.Modal(modal).show();
+}
+
+// Perform the actual deletion
+function performAdminMusikLoeschen(vorschlagId) {
+    
+    fetch(`/api/admin/playlist/delete/${vorschlagId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Zeile aus Tabelle entfernen
+            const row = document.getElementById(`row-${vorschlagId}`);
+            if (row) {
+                row.remove();
+            }
+            
+            // Zähler aktualisieren
+            const count = document.getElementById('vorschlag-count');
+            const currentCount = parseInt(count.textContent);
+            count.textContent = currentCount - 1;
+            
+            showToast('success', data.message);
+        } else {
+            showToast('error', data.error || 'Fehler beim Löschen');
+        }
+    })
+    .catch(error => {
+        console.error('Fehler:', error);
+        showToast('error', 'Netzwerkfehler beim Löschen');
+    });
+}
+
+// Toast anzeigen
+function showToast(type, message) {
+    const toast = document.getElementById(`${type}-toast`);
+    const messageEl = document.getElementById(`${type}-message`);
+    messageEl.textContent = message;
+    
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+}
+</script>
+
+<!-- Wedding-Theme Modal für Musikwunsch Löschung -->
+<div class="modal fade" id="adminMusikLoeschenModal" tabindex="-1" aria-labelledby="adminMusikLoeschenModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background: linear-gradient(135deg, #f8f4e6 0%, #fff5f5 100%); border: 2px solid #d4a574;">
+            <div class="modal-header" style="border-bottom: 2px solid #d4a574; background: linear-gradient(135deg, #8b7355 0%, #a0616a 100%);">
+                <h5 class="modal-title" id="adminMusikLoeschenModalLabel" style="color: white; font-family: 'Dancing Script', cursive; font-size: 1.8rem;">
+                    <i class="bi bi-music-note me-2"></i>Musikwunsch löschen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center" style="padding: 2rem;">
+                <div style="font-size: 3rem; color: #d4a574; margin-bottom: 1rem;">🎵</div>
+                <p style="font-size: 1.1rem; color: #5d4037; margin-bottom: 1.5rem;">
+                    Sind Sie sicher, dass Sie diesen Musikwunsch löschen möchten?
+                </p>
+                <p style="color: #8b7355; font-style: italic;">
+                    Diese Aktion kann nicht rückgängig gemacht werden.
+                </p>
+            </div>
+            <div class="modal-footer" style="border-top: 2px solid #d4a574; background: rgba(212, 165, 116, 0.1);">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="background: #9e9e9e;">
+                    <i class="bi bi-x-circle me-1"></i>Abbrechen
+                </button>
+                <button type="button" class="btn" id="confirmAdminMusikLoeschen" 
+                        style="background: linear-gradient(135deg, #8b7355 0%, #a0616a 100%); color: white; border: none;">
+                    <i class="bi bi-trash me-1"></i>Löschen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

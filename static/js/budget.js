@@ -97,30 +97,58 @@ function displayBudget(budgetItems = null, isEmpty = false) {
         const kategorie = item.kategorie || 'Unbekannt';
         const beschreibung = item.beschreibung || 'Ohne Beschreibung';
         const details = item.details || '';
+        const typ = item.typ || 'Ausgabe';
         const menge = parseFloat(item.menge || 0);
         const einzelpreis = parseFloat(item.einzelpreis || 0);
         const gesamtpreis = parseFloat(item.gesamtpreis || 0);
         const ausgegeben = parseFloat(item.ausgegeben || 0);
         
+        // Typ-Badge
+        let typBadge = '';
+        let typStyle = '';
+        if (typ === 'Einnahme') {
+            typBadge = '💰 Einnahme';
+            typStyle = 'background: linear-gradient(135deg, #28a745, #20c997); color: white;';
+        } else {
+            typBadge = '💳 Ausgabe';
+            typStyle = 'background: linear-gradient(135deg, #dc3545, #c82333); color: white;';
+        }
+        
         // Status berechnen
         let statusBadge = '';
         let statusStyle = '';
-        if (ausgegeben === 0) {
-            statusBadge = 'Geplant';
-            statusStyle = 'background: linear-gradient(135deg, #6c757d, #495057); color: white;';
-        } else if (ausgegeben < gesamtpreis) {
-            statusBadge = 'Teilweise';
-            statusStyle = 'background: linear-gradient(135deg, #ffc107, #e0a800); color: var(--wedding-text-dark);';
-        } else if (ausgegeben === gesamtpreis) {
-            statusBadge = 'Bezahlt';
-            statusStyle = 'background: linear-gradient(135deg, #28a745, #20c997); color: white;';
+        
+        if (typ === 'Einnahme') {
+            // Bei Einnahmen nur den erhaltenen Betrag anzeigen
+            if (ausgegeben === 0) {
+                statusBadge = 'Nicht erhalten';
+                statusStyle = 'background: linear-gradient(135deg, #6c757d, #495057); color: white;';
+            } else {
+                statusBadge = 'Erhalten';
+                statusStyle = 'background: linear-gradient(135deg, #28a745, #20c997); color: white;';
+            }
         } else {
-            statusBadge = 'Überzogen';
-            statusStyle = 'background: linear-gradient(135deg, #dc3545, #c82333); color: white;';
+            // Bei Ausgaben wie gewohnt
+            if (ausgegeben === 0) {
+                statusBadge = 'Geplant';
+                statusStyle = 'background: linear-gradient(135deg, #6c757d, #495057); color: white;';
+            } else if (ausgegeben < gesamtpreis) {
+                statusBadge = 'Teilweise';
+                statusStyle = 'background: linear-gradient(135deg, #ffc107, #e0a800); color: var(--wedding-text-dark);';
+            } else if (ausgegeben === gesamtpreis) {
+                statusBadge = 'Bezahlt';
+                statusStyle = 'background: linear-gradient(135deg, #28a745, #20c997); color: white;';
+            } else {
+                statusBadge = 'Überzogen';
+                statusStyle = 'background: linear-gradient(135deg, #dc3545, #c82333); color: white;';
+            }
         }
         
         return `
             <tr style="border: none;">
+                <td style="border: none; padding: 12px 8px;">
+                    <span class="badge" style="${typStyle} border-radius: 12px; padding: 6px 12px; font-weight: 500;">${typBadge}</span>
+                </td>
                 <td style="border: none; padding: 12px 8px;">
                     <span class="badge" style="background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)); color: var(--wedding-text-dark); border-radius: 12px; padding: 6px 12px; font-weight: 500;">${kategorie}</span>
                 </td>
@@ -133,7 +161,10 @@ function displayBudget(budgetItems = null, isEmpty = false) {
                 <td class="text-center" style="border: none; padding: 12px 8px; color: var(--wedding-text-dark);">${menge}</td>
                 <td class="text-end" style="border: none; padding: 12px 8px; color: var(--wedding-text-dark);">${formatCurrency(einzelpreis)}</td>
                 <td class="text-end" style="border: none; padding: 12px 8px;">
-                    <strong style="color: var(--wedding-text-dark);">${formatCurrency(gesamtpreis)}</strong>
+                    ${typ === 'Einnahme' ? 
+                        '<span style="color: var(--wedding-text); font-style: italic;">-</span>' : 
+                        `<strong style="color: var(--wedding-text-dark);">${formatCurrency(gesamtpreis)}</strong>`
+                    }
                 </td>
                 <td class="text-end" style="border: none; padding: 12px 8px; color: var(--wedding-text-dark);">${formatCurrency(ausgegeben)}</td>
                 <td style="border: none; padding: 12px 8px; text-align: center;">
@@ -161,34 +192,64 @@ function displayBudget(budgetItems = null, isEmpty = false) {
 }
 
 function updateBudgetSummary() {
-    const gesamtgeplant = currentBudget.reduce((sum, item) => sum + (parseFloat(item.gesamtpreis) || 0), 0);
-    const gesamtausgegeben = currentBudget.reduce((sum, item) => sum + (parseFloat(item.ausgegeben) || 0), 0);
-    const verbleibend = gesamtgeplant - gesamtausgegeben;
+    // Separate Ausgaben und Einnahmen
+    const ausgaben = currentBudget.filter(item => (item.typ || 'Ausgabe') === 'Ausgabe');
+    const einnahmen = currentBudget.filter(item => (item.typ || 'Ausgabe') === 'Einnahme');
+    
+    const gesamtgeplantAusgaben = ausgaben.reduce((sum, item) => sum + (parseFloat(item.gesamtpreis) || 0), 0);
+    const gesamtausgegeben = ausgaben.reduce((sum, item) => sum + (parseFloat(item.ausgegeben) || 0), 0);
+    // Einnahmen haben keine "geplanten" Beträge - nur erhaltene
+    const gesamterhalten = einnahmen.reduce((sum, item) => sum + (parseFloat(item.ausgegeben) || 0), 0);
+    
+    // Netto-Berechnung (ohne geplante Einnahmen)
+    const nettoGeplant = gesamtgeplantAusgaben;  // Keine geplanten Einnahmen abziehen
+    const nettoTatsächlich = gesamtausgegeben - gesamterhalten;
+    const verbleibend = nettoGeplant - nettoTatsächlich;
     const anzahlPositionen = currentBudget.length;
+    
+    // Geplante Ausgaben nach Geschenken
+    const geplantNachGeschenken = gesamtgeplantAusgaben - gesamterhalten;
     
     // Update Budget-Karten
     const plannedElement = document.getElementById('budgetPlanned');
+    const plannedAfterGiftsElement = document.getElementById('budgetPlannedAfterGifts');
     const spentElement = document.getElementById('budgetSpent');
+    const incomeElement = document.getElementById('budgetIncome');
     const remainingElement = document.getElementById('budgetRemaining');
     const remainingCard = document.getElementById('remainingCard');
     
-    if (plannedElement) plannedElement.textContent = formatCurrency(gesamtgeplant);
+    if (plannedElement) plannedElement.textContent = formatCurrency(gesamtgeplantAusgaben);
+    if (plannedAfterGiftsElement) {
+        plannedAfterGiftsElement.textContent = formatCurrency(geplantNachGeschenken);
+        // Färbung je nach Wert
+        if (geplantNachGeschenken < gesamtgeplantAusgaben * 0.8) {
+            // Deutliche Ersparnis - grün
+            plannedAfterGiftsElement.style.color = '#28a745';
+        } else if (geplantNachGeschenken < gesamtgeplantAusgaben * 0.9) {
+            // Moderate Ersparnis - orange
+            plannedAfterGiftsElement.style.color = '#fd7e14';
+        } else {
+            // Geringe/keine Ersparnis - normal
+            plannedAfterGiftsElement.style.color = 'var(--wedding-text-dark)';
+        }
+    }
     if (spentElement) spentElement.textContent = formatCurrency(gesamtausgegeben);
+    if (incomeElement) incomeElement.textContent = formatCurrency(gesamterhalten);
     if (remainingElement) {
-        remainingElement.textContent = formatCurrency(verbleibend);
+        remainingElement.textContent = formatCurrency(nettoTatsächlich);
         
-        // Färbe die Verbleibend-Karte je nach verbleibendem Budget
+        // Färbe die Netto-Kosten-Karte je nach Betrag
         if (remainingCard) {
             const cardBody = remainingCard.querySelector('.card-body');
             if (cardBody) {
-                if (verbleibend >= 0) {
-                    // Positives Budget - Wedding-Theme grüne Töne
+                if (nettoTatsächlich <= nettoGeplant) {
+                    // Innerhalb des Budgets - Wedding-Theme grüne Töne
                     cardBody.style.background = 'linear-gradient(135deg, #d4edda, #c3e6cb)';
                     cardBody.style.color = '#155724';
                     const icon = cardBody.querySelector('i');
                     if (icon) icon.style.color = '#155724';
                 } else {
-                    // Negatives Budget - Wedding-Theme rote Töne
+                    // Über dem Budget - Wedding-Theme rote Töne
                     cardBody.style.background = 'linear-gradient(135deg, #f8d7da, #f1b0b7)';
                     cardBody.style.color = '#721c24';
                     const icon = cardBody.querySelector('i');
@@ -201,7 +262,7 @@ function updateBudgetSummary() {
     // Update Summary Badge
     const summaryElement = document.getElementById('budgetSummary');
     if (summaryElement) {
-        summaryElement.textContent = `${anzahlPositionen} Positionen - Geplant: ${formatCurrency(gesamtgeplant)}`;
+        summaryElement.textContent = `${anzahlPositionen} Positionen - Netto: ${formatCurrency(nettoTatsächlich)}`;
     }
 }
 
@@ -272,6 +333,7 @@ function openBudgetModal(itemId = -1) {
             title.textContent = 'Budget Position bearbeiten';
             
             document.getElementById('budgetKategorie').value = item.kategorie || '';
+            document.getElementById('budgetTyp').value = item.typ || 'Ausgabe';
             document.getElementById('budgetBeschreibung').value = item.beschreibung || '';
             document.getElementById('budgetDetails').value = item.details || '';
             document.getElementById('budgetMenge').value = item.menge || 1;
@@ -289,6 +351,7 @@ function openBudgetModal(itemId = -1) {
         document.getElementById('budgetMenge').value = 1;
         document.getElementById('budgetEinzelpreis').value = 0;
         document.getElementById('budgetAusgegeben').value = 0;
+        document.getElementById('budgetTyp').value = 'Ausgabe';
         updateGesamtpreis();
     }
     
@@ -312,12 +375,24 @@ async function handleSaveBudgetItem() {
     
     const budgetData = {
         kategorie: document.getElementById('budgetKategorie').value,
+        typ: document.getElementById('budgetTyp').value,
         beschreibung: document.getElementById('budgetBeschreibung').value,
         details: document.getElementById('budgetDetails').value,
         menge: parseFloat(document.getElementById('budgetMenge').value),
         einzelpreis: parseFloat(document.getElementById('budgetEinzelpreis').value),
         ausgegeben: parseFloat(document.getElementById('budgetAusgegeben').value) || 0
     };
+    
+    // Gesamtpreis berechnen - aber bei Einnahmen immer 0 (keine "geplanten" Einnahmen)
+    if (budgetData.typ === 'Einnahme') {
+        budgetData.gesamtpreis = 0;  // Keine geplanten Einnahmen
+        // Bei Einnahmen ist "ausgegeben" = "erhalten", verwende Einzelpreis * Menge falls nicht explizit gesetzt
+        if (budgetData.ausgegeben === 0) {
+            budgetData.ausgegeben = budgetData.menge * budgetData.einzelpreis;
+        }
+    } else {
+        budgetData.gesamtpreis = budgetData.menge * budgetData.einzelpreis;
+    }
     
     try {
         HochzeitsplanerApp.showLoading();

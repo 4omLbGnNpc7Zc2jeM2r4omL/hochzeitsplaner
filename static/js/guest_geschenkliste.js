@@ -3,6 +3,7 @@ class GuestGeschenkliste {
     constructor() {
         this.geschenke = [];
         this.meineGeschenke = [];
+        this.currentFreigabeId = null;
         this.init();
     }
 
@@ -37,6 +38,9 @@ class GuestGeschenkliste {
         // Auswahl bestätigen
         document.getElementById('bestaetigen-btn').addEventListener('click', () => this.confirmSelection());
         document.getElementById('geld-bestaetigen-btn').addEventListener('click', () => this.confirmGeldgeschenk());
+        
+        // Freigabe bestätigen
+        document.getElementById('freigabe-bestaetigen-btn').addEventListener('click', () => this.confirmFreigabe());
     }
 
     async loadGeschenklisteTextConfig() {
@@ -57,7 +61,7 @@ class GuestGeschenkliste {
                 }
             }
         } catch (error) {
-            console.error('Fehler beim Laden der Geschenkliste Text-Konfiguration:', error);
+            // console.error('Fehler beim Laden der Geschenkliste Text-Konfiguration:', error); // Guest console logs disabled
         }
     }
 
@@ -73,7 +77,7 @@ class GuestGeschenkliste {
                 this.showError('Fehler beim Laden der Geschenke');
             }
         } catch (error) {
-            console.error('Fehler beim Laden der Geschenke:', error);
+            // console.error('Fehler beim Laden der Geschenke:', error); // Guest console logs disabled
             this.showError('Netzwerkfehler beim Laden der Geschenke');
         }
     }
@@ -88,7 +92,7 @@ class GuestGeschenkliste {
                 this.renderMeineGeschenke();
             }
         } catch (error) {
-            console.error('Fehler beim Laden der eigenen Geschenke:', error);
+            // console.error('Fehler beim Laden der eigenen Geschenke:', error); // Guest console logs disabled
         }
     }
 
@@ -306,7 +310,7 @@ class GuestGeschenkliste {
                 this.showError(data.error || 'Fehler beim Auswählen des Geschenks');
             }
         } catch (error) {
-            console.error('Fehler beim Auswählen:', error);
+            // console.error('Fehler beim Auswählen:', error); // Guest console logs disabled
             this.showError('Netzwerkfehler beim Auswählen');
         }
     }
@@ -334,16 +338,23 @@ class GuestGeschenkliste {
                 this.showError(data.error || 'Fehler beim Auswählen des Geldgeschenks');
             }
         } catch (error) {
-            console.error('Fehler beim Auswählen:', error);
+            // console.error('Fehler beim Auswählen:', error); // Guest console logs disabled
             this.showError('Netzwerkfehler beim Auswählen');
         }
     }
 
     async freigebenGeschenk(geschenkId) {
-        if (!confirm('Sind Sie sicher, dass Sie dieses Geschenk wieder freigeben möchten?')) return;
+        // Zeige Wedding-Theme Modal statt Browser-Popup
+        this.currentFreigabeId = geschenkId;
+        const modal = new bootstrap.Modal(document.getElementById('freigabeModal'));
+        modal.show();
+    }
+
+    async confirmFreigabe() {
+        if (!this.currentFreigabeId) return;
 
         try {
-            const response = await fetch(`/api/geschenkliste/freigeben/${geschenkId}`, {
+            const response = await fetch(`/api/geschenkliste/freigeben/${this.currentFreigabeId}`, {
                 method: 'POST'
             });
 
@@ -351,15 +362,18 @@ class GuestGeschenkliste {
             
             if (data.success) {
                 this.showSuccess('Geschenk erfolgreich freigegeben');
+                bootstrap.Modal.getInstance(document.getElementById('freigabeModal')).hide();
                 this.loadGeschenke();
                 this.loadMeineGeschenke();
             } else {
                 this.showError(data.error || 'Fehler beim Freigeben');
             }
         } catch (error) {
-            console.error('Fehler beim Freigeben:', error);
+            // console.error('Fehler beim Freigeben:', error); // Guest console logs disabled
             this.showError('Netzwerkfehler beim Freigeben');
         }
+        
+        this.currentFreigabeId = null;
     }
 
     applyFilters() {

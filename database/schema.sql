@@ -61,16 +61,20 @@ CREATE TABLE IF NOT EXISTS zeitplan (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Budget Kategorien
-CREATE TABLE IF NOT EXISTS budget_kategorien (
+-- Budget/Kosten Tabelle
+CREATE TABLE IF NOT EXISTS budget (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    geplant REAL DEFAULT 0.0,
+    kategorie TEXT NOT NULL,
+    beschreibung TEXT NOT NULL,
+    details TEXT,
+    menge REAL DEFAULT 1.0,
+    einzelpreis REAL DEFAULT 0.0,
+    gesamtpreis REAL DEFAULT 0.0,
     ausgegeben REAL DEFAULT 0.0,
-    farbe TEXT DEFAULT '#007bff',
-    beschreibung TEXT,
+    typ TEXT DEFAULT 'Ausgabe', -- 'Ausgabe' oder 'Einnahme'
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_typ CHECK (typ IN ('Ausgabe', 'Einnahme'))
 );
 
 -- Budget Posten
@@ -318,15 +322,17 @@ CREATE TABLE IF NOT EXISTS hochzeitstag_checkliste (
     titel TEXT NOT NULL,
     beschreibung TEXT,
     kategorie TEXT DEFAULT 'Allgemein',
-    prioritaet TEXT DEFAULT 'Normal',
+    prioritaet INTEGER DEFAULT 1, -- Priority als INTEGER für Sortierung
+    uhrzeit TEXT, -- Uhrzeit für den Checklisten-Eintrag
     erledigt INTEGER DEFAULT 0, -- 0 = offen, 1 = erledigt
-    reihenfolge INTEGER DEFAULT 0,
+    erledigt_am DATETIME,
+    erledigt_von TEXT,
+    sort_order INTEGER DEFAULT 0,
     ist_standard INTEGER DEFAULT 0, -- 0 = benutzer-erstellt, 1 = standard-checkliste
     faellig_wochen_vor_hochzeit INTEGER, -- Wochen vor Hochzeit (z.B. 12 = 12 Wochen vorher)
-    erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-    erledigt_am DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     notizen TEXT,
-    CONSTRAINT chk_prioritaet_checkliste CHECK (prioritaet IN ('Niedrig', 'Normal', 'Hoch', 'Kritisch')),
     CONSTRAINT chk_erledigt CHECK (erledigt IN (0, 1))
 );
 
@@ -371,6 +377,61 @@ CREATE TABLE IF NOT EXISTS geschenkliste (
     CONSTRAINT chk_prioritaet_geschenk CHECK (prioritaet IN ('Niedrig', 'Normal', 'Hoch')),
     CONSTRAINT chk_menge CHECK (menge >= 1),
     CONSTRAINT chk_ausgewaehlt_menge CHECK (ausgewaehlt_menge >= 0 AND ausgewaehlt_menge <= menge)
+);
+
+-- Playlist Vorschläge für DJ/Musik
+CREATE TABLE IF NOT EXISTS playlist_vorschlaege (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    gast_id INTEGER,
+    kuenstler TEXT NOT NULL,
+    titel TEXT NOT NULL,
+    album TEXT,
+    anlass TEXT NOT NULL,
+    kommentar TEXT,
+    status TEXT DEFAULT 'Vorgeschlagen', -- Vorgeschlagen, Akzeptiert, Abgelehnt
+    spotify_id TEXT,                      -- Spotify Track ID
+    spotify_url TEXT,                     -- Link zum Spotify Track
+    preview_url TEXT,                     -- 30-Sekunden Preview URL
+    image_url TEXT,                       -- Albumcover URL
+    duration_ms INTEGER,                  -- Trackdauer in Millisekunden
+    release_date TEXT,                    -- Veröffentlichungsdatum
+    popularity INTEGER,                   -- Spotify Popularitäts-Score
+    erstellt_am TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (gast_id) REFERENCES gaeste(id) ON DELETE SET NULL
+);
+
+-- Playlist Votes (um mehrfaches Voten zu verhindern)
+CREATE TABLE IF NOT EXISTS playlist_votes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    vorschlag_id INTEGER NOT NULL,
+    gast_id INTEGER NOT NULL,
+    vote_type TEXT DEFAULT 'up', -- 'up' oder 'down'
+    voted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (vorschlag_id) REFERENCES playlist_vorschlaege(id) ON DELETE CASCADE,
+    FOREIGN KEY (gast_id) REFERENCES gaeste(id) ON DELETE CASCADE,
+    UNIQUE(vorschlag_id, gast_id) -- Ein Gast kann nur einmal per Vorschlag voten
+);
+
+-- DJ Benutzer (spezielle Rolle für Playlist-Management)
+CREATE TABLE IF NOT EXISTS dj_users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    email TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_login DATETIME
+);
+
+-- Aufgaben Erinnerungen (für Email-Benachrichtigungen)
+CREATE TABLE IF NOT EXISTS aufgaben_erinnerungen (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    aufgabe_id INTEGER NOT NULL,
+    email_gesendet INTEGER DEFAULT 0, -- 0 = noch nicht gesendet, 1 = gesendet
+    erinnerungs_datum DATETIME, -- Berechnet: deadline - 3 Tage
+    gesendet_am DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (aufgabe_id) REFERENCES aufgaben(id) ON DELETE CASCADE
 );
 
 -- Geldgeschenk Auswahlen (wer hat Geldgeschenk ausgewählt)

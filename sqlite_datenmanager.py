@@ -46,6 +46,9 @@ class SQLiteHochzeitsDatenManager:
         Args:
             data_directory: Pfad zum Datenverzeichnis (Standard: ./data)
         """
+        # Logger initialisieren
+        self.logger = logging.getLogger(__name__)
+        
         self.data_directory = data_directory or os.path.join(os.path.dirname(__file__), 'data')
         self.data_dir = self.data_directory  # Alias für Kompatibilität
         self.db_path = os.path.join(self.data_directory, 'hochzeit.db')
@@ -90,40 +93,9 @@ class SQLiteHochzeitsDatenManager:
                         logger.info("🔄 Konvertiere tischplanung_config von key/value zu spezifischen Spalten...")
                         self._migrate_tischplanung_config(conn)
                 
-                # Schema laden und ausführen (aber nur wenn nötig)
+                # Schema laden und ausführen (mit verbesserter Fehlerbehandlung)
                 if os.path.exists(self.schema_path):
-                    # Sichere Schema-Ausführung: Probiere es und handhabe Konflikte
-                    try:
-                        with open(self.schema_path, 'r', encoding='utf-8') as f:
-                            schema_sql = f.read()
-                        
-                        # Falls tischplanung_config bereits existiert, führe nur den nicht-konfliktträchigen Teil aus
-                        if table_exists and has_specific_columns:
-                            # Führe Schema ohne tischplanung_config aus
-                            schema_lines = schema_sql.split('\n')
-                            safe_lines = []
-                            skip_until_semicolon = False
-                            
-                            for line in schema_lines:
-                                if 'tischplanung_config' in line:
-                                    skip_until_semicolon = True
-                                    continue
-                                elif skip_until_semicolon:
-                                    if ';' in line:
-                                        skip_until_semicolon = False
-                                    continue
-                                else:
-                                    safe_lines.append(line)
-                            
-                            schema_sql = '\n'.join(safe_lines)
-                        
-                        conn.executescript(schema_sql)
-                        
-                    except sqlite3.OperationalError as e:
-                        if 'tischplanung_config' in str(e):
-                            logger.warning(f"Schema-Konflikt ignoriert: {e}")
-                        else:
-                            raise
+                    self._apply_schema_safely(conn)
                 else:
                     # Basis-Schema falls Datei nicht vorhanden
                     self._create_basic_schema(conn)
@@ -137,9 +109,70 @@ class SQLiteHochzeitsDatenManager:
                 # Alle wichtigen Tabellen sicherstellen
                 self._ensure_all_tables()
                 
+                # Checkliste-Tabelle migrieren falls nötig
+                self._migrate_checkliste_table()
+                
+                # Budget-Tabelle migrieren falls nötig
+                self._migrate_budget_table()
+                
         except Exception as e:
             logger.error(f"Fehler bei Datenbankinitialisierung: {e}")
             raise
+    
+    def _apply_schema_safely(self, conn):
+        """Wendet das Schema sicher an und überspringt bereits existierende Tabellen"""
+        try:
+            with open(self.schema_path, 'r', encoding='utf-8') as f:
+                schema_content = f.read()
+            
+            # Teile Schema in einzelne CREATE TABLE Statements
+            statements = []
+            current_statement = []
+            in_create_table = False
+            
+            for line in schema_content.split('\n'):
+                line = line.strip()
+                if not line or line.startswith('--'):
+                    continue
+                
+                if line.upper().startswith('CREATE TABLE'):
+                    in_create_table = True
+                    current_statement = [line]
+                elif in_create_table:
+                    current_statement.append(line)
+                    if ');' in line:
+                        statements.append('\n'.join(current_statement))
+                        current_statement = []
+                        in_create_table = False
+                else:
+                    # Andere Statements (PRAGMA, etc.)
+                    if line.strip():
+                        statements.append(line)
+            
+            # Führe jedes Statement einzeln aus
+            for statement in statements:
+                try:
+                    if statement.upper().startswith('CREATE TABLE'):
+                        # Extrahiere Tabellennamen
+                        table_name = statement.split('(')[0].split()[-1].strip()
+                        if 'IF NOT EXISTS' not in statement.upper():
+                            # Füge IF NOT EXISTS hinzu wenn nicht vorhanden
+                            statement = statement.replace('CREATE TABLE', 'CREATE TABLE IF NOT EXISTS')
+                    
+                    conn.execute(statement)
+                    
+                except sqlite3.OperationalError as e:
+                    if 'already exists' in str(e).lower():
+                        logger.info(f"ℹ️  Tabelle existiert bereits - überspringe")
+                    else:
+                        logger.warning(f"Schema-Statement übersprungen: {e}")
+                        
+            logger.info("📋 Schema erfolgreich angewendet")
+            
+        except Exception as e:
+            logger.error(f"Fehler beim Anwenden des Schemas: {e}")
+            # Fallback auf Basis-Schema
+            self._create_basic_schema(conn)
     
     def _create_basic_schema(self, conn):
         """Erstellt das Basis-Schema falls schema.sql nicht vorhanden"""
@@ -201,6 +234,16 @@ class SQLiteHochzeitsDatenManager:
                 erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
                 bearbeitet_am DATETIME DEFAULT CURRENT_TIMESTAMP,
                 CONSTRAINT chk_prioritaet CHECK (prioritaet IN ('Niedrig', 'Normal', 'Hoch', 'Dringend'))
+            );
+            
+            -- DJ-Benutzer Tabelle
+            CREATE TABLE IF NOT EXISTS dj_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                display_name TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                last_login DATETIME
             );
         """)
     
@@ -347,6 +390,62 @@ class SQLiteHochzeitsDatenManager:
                             CONSTRAINT chk_menge CHECK (menge >= 1),
                             CONSTRAINT chk_ausgewaehlt_menge CHECK (ausgewaehlt_menge >= 0 AND ausgewaehlt_menge <= menge)
                         )
+                    """,
+                    'hochzeitstag_checkliste': """
+                        CREATE TABLE hochzeitstag_checkliste (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            titel TEXT NOT NULL,
+                            beschreibung TEXT,
+                            kategorie TEXT DEFAULT 'Allgemein',
+                            prioritaet INTEGER DEFAULT 1,
+                            uhrzeit TEXT,
+                            erledigt INTEGER DEFAULT 0,
+                            erledigt_am DATETIME,
+                            erledigt_von TEXT,
+                            sort_order INTEGER DEFAULT 0,
+                            ist_standard INTEGER DEFAULT 0,
+                            faellig_wochen_vor_hochzeit INTEGER,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            notizen TEXT,
+                            CONSTRAINT chk_erledigt CHECK (erledigt IN (0, 1))
+                        )
+                    """,
+                    'playlist_vorschlaege': """
+                        CREATE TABLE playlist_vorschlaege (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            gast_id INTEGER,
+                            kuenstler TEXT NOT NULL,
+                            titel TEXT NOT NULL,
+                            album TEXT,
+                            genre TEXT,
+                            anlass TEXT NOT NULL,
+                            kommentar TEXT,
+                            votes INTEGER DEFAULT 0,
+                            status TEXT DEFAULT 'Vorgeschlagen',
+                            spotify_id TEXT,
+                            spotify_url TEXT,
+                            preview_url TEXT,
+                            image_url TEXT,
+                            duration_ms INTEGER,
+                            release_date TEXT,
+                            popularity INTEGER,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (gast_id) REFERENCES gaeste(id) ON DELETE SET NULL
+                        )
+                    """,
+                    'playlist_votes': """
+                        CREATE TABLE playlist_votes (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            vorschlag_id INTEGER NOT NULL,
+                            gast_id INTEGER,
+                            vote_type TEXT DEFAULT 'up',
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (vorschlag_id) REFERENCES playlist_vorschlaege(id) ON DELETE CASCADE,
+                            FOREIGN KEY (gast_id) REFERENCES gaeste(id) ON DELETE SET NULL,
+                            UNIQUE(vorschlag_id, gast_id)
+                        )
                     """
                 }
                 
@@ -359,10 +458,71 @@ class SQLiteHochzeitsDatenManager:
                 conn.commit()
                 conn.close()
                 
+                # Spalten in bestehenden Tabellen sicherstellen
+                self._ensure_table_columns()
+                
                 logger.info("✅ Alle wichtigen Tabellen überprüft und sichergestellt")
                 
         except Exception as e:
             logger.error(f"Fehler beim Sicherstellen der Tabellen: {e}")
+            raise
+    
+    def _ensure_table_columns(self):
+        """Stellt sicher, dass alle erforderlichen Spalten in bestehenden Tabellen vorhanden sind"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Definition der erforderlichen Spalten pro Tabelle
+                required_columns = {
+                    'playlist_vorschlaege': {
+                        'spotify_id': 'TEXT',
+                        'spotify_url': 'TEXT',
+                        'preview_url': 'TEXT',
+                        'image_url': 'TEXT',
+                        'duration_ms': 'INTEGER',
+                        'release_date': 'TEXT',
+                        'popularity': 'INTEGER'
+                    },
+                    'gaeste': {
+                        'first_login': 'INTEGER DEFAULT 1',
+                        'first_login_at': 'DATETIME',
+                        'guest_code': 'TEXT UNIQUE',
+                        'guest_password': 'TEXT',
+                        'max_personen': 'INTEGER'
+                    }
+                }
+                
+                for table_name, columns in required_columns.items():
+                    # Prüfe ob Tabelle existiert
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+                    if not cursor.fetchone():
+                        logger.info(f"ℹ️  Tabelle {table_name} existiert nicht - überspringe Spalten-Check")
+                        continue
+                    
+                    # Prüfe existierende Spalten
+                    cursor.execute(f"PRAGMA table_info({table_name})")
+                    existing_columns = {row[1] for row in cursor.fetchall()}
+                    
+                    # Füge fehlende Spalten hinzu
+                    for col_name, col_type in columns.items():
+                        if col_name not in existing_columns:
+                            try:
+                                cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}")
+                                logger.info(f"✅ Spalte {col_name} zu {table_name} hinzugefügt")
+                            except sqlite3.OperationalError as e:
+                                if 'duplicate column name' in str(e):
+                                    logger.info(f"ℹ️  Spalte {col_name} in {table_name} existiert bereits")
+                                else:
+                                    logger.error(f"❌ Fehler beim Hinzufügen von {col_name} zu {table_name}: {e}")
+                
+                conn.commit()
+                conn.close()
+                logger.info("🔧 Spalten-Überprüfung abgeschlossen")
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Sicherstellen der Spalten: {e}")
             raise
     
     def _get_connection(self, timeout: float = 30.0) -> sqlite3.Connection:
@@ -372,6 +532,227 @@ class SQLiteHochzeitsDatenManager:
         conn.execute("PRAGMA busy_timeout = 30000")
         conn.execute("PRAGMA journal_mode = WAL")
         return conn
+    
+    def _migrate_checkliste_table(self):
+        """Migriert die hochzeitstag_checkliste Tabelle zur neuen Struktur"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Prüfen ob Tabelle existiert
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='hochzeitstag_checkliste'")
+                if not cursor.fetchone():
+                    logger.info("📋 Checkliste-Tabelle existiert nicht - wird erstellt")
+                    conn.close()
+                    return
+                
+                # Aktuelle Spalten prüfen
+                cursor.execute("PRAGMA table_info(hochzeitstag_checkliste)")
+                columns = {row[1]: row[2] for row in cursor.fetchall()}
+                
+                logger.info(f"📋 Aktuelle Checkliste-Spalten: {list(columns.keys())}")
+                
+                # Prüfen ob uhrzeit Spalte fehlt
+                missing_columns = []
+                expected_columns = {
+                    'uhrzeit': 'TEXT',
+                    'erledigt_von': 'TEXT', 
+                    'sort_order': 'INTEGER',
+                    'created_at': 'DATETIME',
+                    'updated_at': 'DATETIME'
+                }
+                
+                for col_name, col_type in expected_columns.items():
+                    if col_name not in columns:
+                        missing_columns.append((col_name, col_type))
+                
+                # Fehlende Spalten hinzufügen
+                for col_name, col_type in missing_columns:
+                    logger.info(f"📋 Füge fehlende Spalte hinzu: {col_name}")
+                    default_value = ""
+                    if col_type == 'INTEGER':
+                        default_value = "DEFAULT 0"
+                    elif col_type == 'DATETIME':
+                        default_value = "DEFAULT CURRENT_TIMESTAMP"
+                    
+                    alter_sql = f"ALTER TABLE hochzeitstag_checkliste ADD COLUMN {col_name} {col_type} {default_value}"
+                    cursor.execute(alter_sql)
+                
+                # Priorität von TEXT zu INTEGER migrieren falls nötig
+                if 'prioritaet' in columns and columns['prioritaet'] == 'TEXT':
+                    logger.info("📋 Migriere Priorität von TEXT zu INTEGER")
+                    # Backup der Daten
+                    cursor.execute("SELECT id, prioritaet FROM hochzeitstag_checkliste")
+                    priority_data = cursor.fetchall()
+                    
+                    # Priorität-Mapping
+                    priority_map = {
+                        'Niedrig': 1,
+                        'Normal': 2, 
+                        'Hoch': 3,
+                        'Kritisch': 4
+                    }
+                    
+                    # Temporäre Spalte hinzufügen
+                    cursor.execute("ALTER TABLE hochzeitstag_checkliste ADD COLUMN prioritaet_new INTEGER DEFAULT 1")
+                    
+                    # Daten konvertieren
+                    for row_id, old_priority in priority_data:
+                        new_priority = priority_map.get(old_priority, 1)
+                        cursor.execute("UPDATE hochzeitstag_checkliste SET prioritaet_new = ? WHERE id = ?", 
+                                     (new_priority, row_id))
+                    
+                    # Tabelle neu erstellen
+                    cursor.execute("""
+                        CREATE TABLE hochzeitstag_checkliste_new (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            titel TEXT NOT NULL,
+                            beschreibung TEXT,
+                            kategorie TEXT DEFAULT 'Allgemein',
+                            prioritaet INTEGER DEFAULT 1,
+                            uhrzeit TEXT,
+                            erledigt INTEGER DEFAULT 0,
+                            erledigt_am DATETIME,
+                            erledigt_von TEXT,
+                            sort_order INTEGER DEFAULT 0,
+                            ist_standard INTEGER DEFAULT 0,
+                            faellig_wochen_vor_hochzeit INTEGER,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            notizen TEXT,
+                            CONSTRAINT chk_erledigt CHECK (erledigt IN (0, 1))
+                        )
+                    """)
+                    
+                    # Daten kopieren
+                    cursor.execute("""
+                        INSERT INTO hochzeitstag_checkliste_new 
+                        (id, titel, beschreibung, kategorie, prioritaet, uhrzeit, erledigt, 
+                         erledigt_am, erledigt_von, sort_order, ist_standard, 
+                         faellig_wochen_vor_hochzeit, created_at, updated_at, notizen)
+                        SELECT id, titel, beschreibung, kategorie, prioritaet_new, 
+                               COALESCE(uhrzeit, ''), erledigt, erledigt_am, 
+                               COALESCE(erledigt_von, ''), COALESCE(sort_order, 0), 
+                               COALESCE(ist_standard, 0), faellig_wochen_vor_hochzeit,
+                               COALESCE(created_at, CURRENT_TIMESTAMP), 
+                               COALESCE(updated_at, CURRENT_TIMESTAMP), notizen
+                        FROM hochzeitstag_checkliste
+                    """)
+                    
+                    # Alte Tabelle löschen und neue umbenennen
+                    cursor.execute("DROP TABLE hochzeitstag_checkliste")
+                    cursor.execute("ALTER TABLE hochzeitstag_checkliste_new RENAME TO hochzeitstag_checkliste")
+                    
+                    logger.info("✅ Checkliste-Tabelle erfolgreich migriert")
+                
+                conn.commit()
+                conn.close()
+                
+        except Exception as e:
+            logger.error(f"Fehler bei Checkliste-Migration: {e}")
+            # Bei Fehler versuchen wir die Tabelle neu zu erstellen
+            try:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                cursor.execute("DROP TABLE IF EXISTS hochzeitstag_checkliste")
+                cursor.execute("""
+                    CREATE TABLE hochzeitstag_checkliste (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        titel TEXT NOT NULL,
+                        beschreibung TEXT,
+                        kategorie TEXT DEFAULT 'Allgemein',
+                        prioritaet INTEGER DEFAULT 1,
+                        uhrzeit TEXT,
+                        erledigt INTEGER DEFAULT 0,
+                        erledigt_am DATETIME,
+                        erledigt_von TEXT,
+                        sort_order INTEGER DEFAULT 0,
+                        ist_standard INTEGER DEFAULT 0,
+                        faellig_wochen_vor_hochzeit INTEGER,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        notizen TEXT,
+                        CONSTRAINT chk_erledigt CHECK (erledigt IN (0, 1))
+                    )
+                """)
+                conn.commit()
+                conn.close()
+                logger.info("✅ Checkliste-Tabelle neu erstellt nach Migrationsfehler")
+            except Exception as e2:
+                logger.error(f"Fehler beim Neuerstellen der Checkliste-Tabelle: {e2}")
+    
+    def _migrate_budget_table(self):
+        """Migriert die Budget-Tabelle um Einnahmen/Geldgeschenke zu unterstützen"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Prüfen ob Budget-Tabelle existiert
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='budget'")
+                if not cursor.fetchone():
+                    logger.info("💰 Budget-Tabelle existiert nicht - wird erstellt")
+                    conn.close()
+                    return
+                
+                # Aktuelle Spalten prüfen
+                cursor.execute("PRAGMA table_info(budget)")
+                columns = {row[1]: row[2] for row in cursor.fetchall()}
+                
+                logger.info(f"💰 Aktuelle Budget-Spalten: {list(columns.keys())}")
+                
+                # Prüfen ob 'typ' Spalte fehlt
+                if 'typ' not in columns:
+                    logger.info("💰 Füge 'typ' Spalte zur Budget-Tabelle hinzu")
+                    cursor.execute("ALTER TABLE budget ADD COLUMN typ TEXT DEFAULT 'Ausgabe'")
+                    
+                    # Constraint hinzufügen (SQLite hat Einschränkungen bei ALTER TABLE mit CONSTRAINT)
+                    # Wir erstellen eine neue Tabelle mit dem Constraint
+                    logger.info("💰 Erstelle Budget-Tabelle mit Constraint neu...")
+                    
+                    # Backup der bestehenden Daten
+                    cursor.execute("SELECT * FROM budget")
+                    budget_data = cursor.fetchall()
+                    
+                    # Neue Tabelle erstellen
+                    cursor.execute("""
+                        CREATE TABLE budget_new (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            kategorie TEXT NOT NULL,
+                            beschreibung TEXT NOT NULL,
+                            details TEXT,
+                            menge REAL DEFAULT 1.0,
+                            einzelpreis REAL DEFAULT 0.0,
+                            gesamtpreis REAL DEFAULT 0.0,
+                            ausgegeben REAL DEFAULT 0.0,
+                            typ TEXT DEFAULT 'Ausgabe',
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT chk_typ CHECK (typ IN ('Ausgabe', 'Einnahme'))
+                        )
+                    """)
+                    
+                    # Daten kopieren (alle bestehenden als 'Ausgabe' markieren)
+                    for row in budget_data:
+                        cursor.execute("""
+                            INSERT INTO budget_new 
+                            (id, kategorie, beschreibung, details, menge, einzelpreis, 
+                             gesamtpreis, ausgegeben, typ, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Ausgabe', ?, ?)
+                        """, row)
+                    
+                    # Alte Tabelle löschen und neue umbenennen
+                    cursor.execute("DROP TABLE budget")
+                    cursor.execute("ALTER TABLE budget_new RENAME TO budget")
+                    
+                    logger.info("✅ Budget-Tabelle erfolgreich migriert für Einnahmen/Ausgaben")
+                
+                conn.commit()
+                conn.close()
+                
+        except Exception as e:
+            logger.error(f"Fehler bei Budget-Migration: {e}")
     
     # =============================================================================
     # Legacy Data Migration 
@@ -918,8 +1299,10 @@ class SQLiteHochzeitsDatenManager:
                         einzelpreis REAL DEFAULT 0.0,
                         gesamtpreis REAL DEFAULT 0.0,
                         ausgegeben REAL DEFAULT 0.0,
+                        typ TEXT DEFAULT 'Ausgabe',
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT chk_typ CHECK (typ IN ('Ausgabe', 'Einnahme'))
                     )
                 """)
                 
@@ -1894,9 +2277,11 @@ class SQLiteHochzeitsDatenManager:
                         menge,
                         einzelpreis,
                         gesamtpreis,
-                        ausgegeben
+                        ausgegeben,
+                        typ
                     FROM budget 
                     ORDER BY 
+                        typ DESC,
                         CASE 
                             WHEN details LIKE '%Personen ×%' OR details LIKE '%Kinder ×%' OR details = 'Pauschalpreis' THEN 0
                             ELSE 1 
@@ -1987,6 +2372,7 @@ class SQLiteHochzeitsDatenManager:
             fixed_costs = {}
             detailed_costs = {}
             manual_guest_counts = {}
+            fixed_income = {}  # Neue Variable für Einnahmen
             
             with self._lock:
                 conn = sqlite3.connect(self.db_path)
@@ -1998,6 +2384,15 @@ class SQLiteHochzeitsDatenManager:
                 if row and row[0]:
                     try:
                         fixed_costs = json.loads(row[0])
+                    except:
+                        pass
+                
+                # Lade fixed_income aus SQLite (neu)
+                cursor.execute("SELECT wert FROM einstellungen WHERE schluessel = 'kosten_fixed_income'")
+                row = cursor.fetchone()
+                if row and row[0]:
+                    try:
+                        fixed_income = json.loads(row[0])
                     except:
                         pass
                 
@@ -2032,6 +2427,11 @@ class SQLiteHochzeitsDatenManager:
                         "Fotograf": 1200,
                         "Sonstiges": 300
                     },
+                    "fixed_income": {
+                        "Geldgeschenk Eltern Braut": 2000,
+                        "Geldgeschenk Eltern Bräutigam": 2000,
+                        "Geschenke Gäste (geschätzt)": 1500
+                    },
                     "detailed_costs": {
                         "weisser_saal": {
                             "Grundgebühr": 50,
@@ -2055,6 +2455,7 @@ class SQLiteHochzeitsDatenManager:
             
             return {
                 "fixed_costs": fixed_costs,
+                "fixed_income": fixed_income,
                 "detailed_costs": detailed_costs,
                 "manual_guest_counts": manual_guest_counts
             }
@@ -2073,6 +2474,10 @@ class SQLiteHochzeitsDatenManager:
                 if 'fixed_costs' in config:
                     cursor.execute("INSERT OR REPLACE INTO einstellungen (schluessel, wert, typ) VALUES (?, ?, ?)", 
                                  ('kosten_fixed_costs', json.dumps(config['fixed_costs']), 'json'))
+                
+                if 'fixed_income' in config:
+                    cursor.execute("INSERT OR REPLACE INTO einstellungen (schluessel, wert, typ) VALUES (?, ?, ?)", 
+                                 ('kosten_fixed_income', json.dumps(config['fixed_income']), 'json'))
                 
                 if 'detailed_costs' in config:
                     cursor.execute("INSERT OR REPLACE INTO einstellungen (schluessel, wert, typ) VALUES (?, ?, ?)", 
@@ -2827,36 +3232,66 @@ class SQLiteHochzeitsDatenManager:
             with self._get_connection() as conn:
                 cursor = conn.execute("""
                     SELECT 
-                        SUM(gesamtpreis) as total_planned,
-                        SUM(ausgegeben) as total_spent,
-                        kategorie
+                        SUM(CASE WHEN typ = 'Ausgabe' THEN gesamtpreis ELSE 0 END) as total_planned_expenses,
+                        SUM(CASE WHEN typ = 'Ausgabe' THEN ausgegeben ELSE 0 END) as total_spent_expenses,
+                        SUM(CASE WHEN typ = 'Einnahme' THEN gesamtpreis ELSE 0 END) as total_planned_income,
+                        SUM(CASE WHEN typ = 'Einnahme' THEN ausgegeben ELSE 0 END) as total_received_income,
+                        kategorie,
+                        typ
                     FROM budget 
-                    GROUP BY kategorie
+                    GROUP BY kategorie, typ
                 """)
                 rows = cursor.fetchall()
                 
-                total_planned = 0
-                total_spent = 0
+                total_planned_expenses = 0
+                total_spent_expenses = 0
+                total_planned_income = 0
+                total_received_income = 0
                 categories = {}
                 
                 for row in rows:
-                    planned = row[0] or 0
-                    spent = row[1] or 0
-                    kategorie = row[2] or 'Sonstiges'
+                    planned_exp = row[0] or 0
+                    spent_exp = row[1] or 0
+                    planned_inc = row[2] or 0
+                    received_inc = row[3] or 0
+                    kategorie = row[4] or 'Sonstiges'
+                    typ = row[5] or 'Ausgabe'
                     
-                    total_planned += planned
-                    total_spent += spent
-                    categories[kategorie] = {
-                        'planned': planned,
-                        'spent': spent
-                    }
+                    if typ == 'Ausgabe':
+                        total_planned_expenses += planned_exp
+                        total_spent_expenses += spent_exp
+                    else:  # Einnahme
+                        total_planned_income += planned_inc
+                        total_received_income += received_inc
+                    
+                    if kategorie not in categories:
+                        categories[kategorie] = {
+                            'planned_expenses': 0,
+                            'spent_expenses': 0,
+                            'planned_income': 0,
+                            'received_income': 0
+                        }
+                    
+                    if typ == 'Ausgabe':
+                        categories[kategorie]['planned_expenses'] += planned_exp
+                        categories[kategorie]['spent_expenses'] += spent_exp
+                    else:
+                        categories[kategorie]['planned_income'] += planned_inc
+                        categories[kategorie]['received_income'] += received_inc
                 
-                remaining = total_planned - total_spent
+                # Netto-Berechnung: Ausgaben minus Einnahmen
+                total_planned_net = total_planned_expenses - total_planned_income
+                total_spent_net = total_spent_expenses - total_received_income
+                remaining_net = total_planned_net - total_spent_net
                 
                 return {
-                    'planned': total_planned,
-                    'spent': total_spent,
-                    'remaining': remaining,
+                    'planned': total_planned_expenses,
+                    'spent': total_spent_expenses,
+                    'income_planned': total_planned_income,
+                    'income_received': total_received_income,
+                    'net_planned': total_planned_net,
+                    'net_spent': total_spent_net,
+                    'remaining': remaining_net,
                     'categories': categories
                 }
                 
@@ -2865,6 +3300,10 @@ class SQLiteHochzeitsDatenManager:
             return {
                 'planned': 0,
                 'spent': 0,
+                'income_planned': 0,
+                'income_received': 0,
+                'net_planned': 0,
+                'net_spent': 0,
                 'remaining': 0,
                 'categories': {}
             }
@@ -3580,8 +4019,8 @@ class SQLiteHochzeitsDatenManager:
                 conn.execute("""
                     INSERT INTO budget (
                         kategorie, beschreibung, details, menge, 
-                        einzelpreis, gesamtpreis, ausgegeben
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        einzelpreis, gesamtpreis, ausgegeben, typ
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     item.get('kategorie', ''),
                     item.get('beschreibung', ''),
@@ -3589,7 +4028,8 @@ class SQLiteHochzeitsDatenManager:
                     float(item.get('menge', 0)),
                     float(item.get('einzelpreis', 0)),
                     float(item.get('gesamtpreis', 0)),
-                    float(item.get('ausgegeben', 0))
+                    float(item.get('ausgegeben', 0)),
+                    item.get('typ', 'Ausgabe')
                 ))
                 conn.commit()
                 return True
@@ -3605,7 +4045,7 @@ class SQLiteHochzeitsDatenManager:
                 conn.execute("""
                     UPDATE budget SET 
                         kategorie=?, beschreibung=?, details=?, menge=?, 
-                        einzelpreis=?, gesamtpreis=?, ausgegeben=?
+                        einzelpreis=?, gesamtpreis=?, ausgegeben=?, typ=?
                     WHERE id=?
                 """, (
                     item.get('kategorie', ''),
@@ -3615,6 +4055,7 @@ class SQLiteHochzeitsDatenManager:
                     float(item.get('einzelpreis', 0)),
                     float(item.get('gesamtpreis', 0)),
                     float(item.get('ausgegeben', 0)),
+                    item.get('typ', 'Ausgabe'),
                     item_id
                 ))
                 conn.commit()
@@ -6900,3 +7341,323 @@ class SQLiteHochzeitsDatenManager:
         except Exception as e:
             self.logger.error(f"Fehler beim Laden der Geschenkliste-Statistiken: {e}")
             return {}
+
+    # =============================================================================
+    # Playlist Management
+    # =============================================================================
+    
+    def get_playlist_vorschlaege(self):
+        """Alle Playlist-Vorschläge mit Voting-Informationen und Spotify-Daten abrufen"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT 
+                    p.*,
+                    g.vorname || ' ' || COALESCE(g.nachname, '') as gast_name,
+                    (SELECT COUNT(*) FROM playlist_votes WHERE vorschlag_id = p.id) as vote_count
+                FROM playlist_vorschlaege p
+                LEFT JOIN gaeste g ON p.gast_id = g.id
+                ORDER BY vote_count DESC, p.created_at DESC
+            """)
+            
+            vorschlaege = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            
+            self.logger.info(f"✅ {len(vorschlaege)} Playlist-Vorschläge geladen")
+            return vorschlaege
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Laden der Playlist-Vorschläge: {e}")
+            return []
+    
+    def add_playlist_vorschlag(self, gast_id, kuenstler, titel, album=None, anlass='Allgemein', kommentar=None, spotify_data=None):
+        """Neuen Playlist-Vorschlag hinzufügen mit optionalen Spotify-Daten"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Basis-Daten
+            columns = ['gast_id', 'kuenstler', 'titel', 'album', 'anlass', 'kommentar']
+            values = [gast_id, kuenstler, titel, album, anlass, kommentar]
+            placeholders = ['?'] * 6
+            
+            # Spotify-Daten hinzufügen, falls vorhanden
+            if spotify_data:
+                spotify_fields = [
+                    ('spotify_id', 'spotify_id'),
+                    ('spotify_url', 'spotify_url'),
+                    ('preview_url', 'preview_url'),
+                    ('image_url', 'image_url'),
+                    ('duration_ms', 'duration_ms'),
+                    ('release_date', 'release_date'),
+                    ('popularity', 'popularity')
+                ]
+                
+                for field_name, data_key in spotify_fields:
+                    if spotify_data.get(data_key):
+                        columns.append(field_name)
+                        values.append(spotify_data[data_key])
+                        placeholders.append('?')
+            
+            query = f"""
+                INSERT INTO playlist_vorschlaege ({', '.join(columns)})
+                VALUES ({', '.join(placeholders)})
+            """
+            
+            cursor.execute(query, values)
+            conn.commit()
+            vorschlag_id = cursor.lastrowid
+            conn.close()
+            
+            self.logger.info(f"✅ Playlist-Vorschlag hinzugefügt: {kuenstler} - {titel}")
+            return vorschlag_id
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Hinzufügen des Playlist-Vorschlags: {e}")
+            return None
+    
+    def vote_playlist_vorschlag(self, gast_id, vorschlag_id):
+        """Für einen Playlist-Vorschlag voten (einmalig pro Gast)"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Prüfen ob bereits gevotet
+            cursor.execute("""
+                SELECT id FROM playlist_votes 
+                WHERE gast_id = ? AND vorschlag_id = ?
+            """, (gast_id, vorschlag_id))
+            
+            if cursor.fetchone():
+                conn.close()
+                return False  # Bereits gevotet
+            
+            # Vote hinzufügen
+            cursor.execute("""
+                INSERT INTO playlist_votes (gast_id, vorschlag_id, vote_type)
+                VALUES (?, ?, 'up')
+            """, (gast_id, vorschlag_id))
+            
+            conn.commit()
+            conn.close()
+            
+            self.logger.info(f"✅ Vote hinzugefügt: Gast {gast_id} für Vorschlag {vorschlag_id}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Voten: {e}")
+            return False
+    
+    def update_playlist_status(self, vorschlag_id, status):
+        """Status eines Playlist-Vorschlags aktualisieren (DJ-Funktion)"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                UPDATE playlist_vorschlaege 
+                SET status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (status, vorschlag_id))
+            
+            conn.commit()
+            affected_rows = cursor.rowcount
+            conn.close()
+            
+            if affected_rows > 0:
+                self.logger.info(f"✅ Playlist-Status aktualisiert: {vorschlag_id} -> {status}")
+                return True
+            
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Status-Update: {e}")
+            return False
+    
+    def delete_playlist_vorschlag(self, vorschlag_id, gast_id=None):
+        """Playlist-Vorschlag löschen (nur eigene oder als Admin)"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Prüfe ob der Vorschlag existiert und berechtigt ist
+            if gast_id:
+                cursor.execute("""
+                    SELECT id FROM playlist_vorschlaege 
+                    WHERE id = ? AND gast_id = ?
+                """, (vorschlag_id, gast_id))
+            else:
+                # Admin-Zugriff - kann alle löschen
+                cursor.execute("""
+                    SELECT id FROM playlist_vorschlaege 
+                    WHERE id = ?
+                """, (vorschlag_id,))
+            
+            if not cursor.fetchone():
+                conn.close()
+                return False
+            
+            # Lösche zuerst die Votes
+            cursor.execute("DELETE FROM playlist_votes WHERE vorschlag_id = ?", (vorschlag_id,))
+            
+            # Lösche den Vorschlag
+            cursor.execute("DELETE FROM playlist_vorschlaege WHERE id = ?", (vorschlag_id,))
+            
+            conn.commit()
+            affected_rows = cursor.rowcount
+            conn.close()
+            
+            if affected_rows > 0:
+                self.logger.info(f"✅ Playlist-Vorschlag gelöscht: {vorschlag_id}")
+                return True
+            
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Löschen: {e}")
+            return False
+    
+    def verify_dj_login(self, username, password):
+        """DJ-Login verifizieren"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Erstelle Standard-DJ-Account falls nicht vorhanden
+            cursor.execute("SELECT id FROM dj_users WHERE username = ?", (username,))
+            if not cursor.fetchone() and username == 'dj' and password == 'dj2025':
+                password_hash = hashlib.sha256(password.encode()).hexdigest()
+                cursor.execute("""
+                    INSERT INTO dj_users (username, password_hash, display_name)
+                    VALUES (?, ?, ?)
+                """, (username, password_hash, 'DJ'))
+                conn.commit()
+                self.logger.info("✅ Standard-DJ-Account erstellt")
+            
+            # Login verifizieren
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            cursor.execute("""
+                SELECT id FROM dj_users 
+                WHERE username = ? AND password_hash = ?
+            """, (username, password_hash))
+            
+            result = cursor.fetchone()
+            
+            if result:
+                # Last login aktualisieren
+                cursor.execute("""
+                    UPDATE dj_users SET last_login = CURRENT_TIMESTAMP 
+                    WHERE username = ?
+                """, (username,))
+                conn.commit()
+                self.logger.info(f"✅ DJ-Login erfolgreich: {username}")
+            
+            conn.close()
+            return bool(result)
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim DJ-Login: {e}")
+            return False
+
+    # =============================================================================
+    # Aufgaben-Erinnerungen
+    # =============================================================================
+    
+    def check_and_create_task_reminders(self):
+        """Prüft Aufgaben und erstellt Erinnerungen 3 Tage vor Deadline"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Aufgaben finden, die in 3 Tagen fällig sind und noch keine Erinnerung haben
+            drei_tage_vorher = datetime.now() + timedelta(days=3)
+            
+            cursor.execute("""
+                SELECT a.id, a.titel, a.deadline, a.zustaendig_email
+                FROM aufgaben a
+                LEFT JOIN aufgaben_erinnerungen r ON a.id = r.aufgabe_id
+                WHERE a.deadline IS NOT NULL 
+                AND DATE(a.deadline) = DATE(?)
+                AND a.erledigt = 0
+                AND r.id IS NULL
+                AND a.zustaendig_email IS NOT NULL
+            """, (drei_tage_vorher.strftime('%Y-%m-%d'),))
+            
+            aufgaben = cursor.fetchall()
+            
+            for aufgabe in aufgaben:
+                # Erinnerung erstellen
+                cursor.execute("""
+                    INSERT INTO aufgaben_erinnerungen 
+                    (aufgabe_id, erinnerungs_datum, email_gesendet)
+                    VALUES (?, ?, 0)
+                """, (aufgabe[0], drei_tage_vorher))
+                
+                self.logger.info(f"📋 Erinnerung erstellt für Aufgabe: {aufgabe[1]}")
+            
+            conn.commit()
+            conn.close()
+            
+            return len(aufgaben)
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Erstellen der Aufgaben-Erinnerungen: {e}")
+            return 0
+    
+    def get_pending_task_reminders(self):
+        """Alle noch nicht gesendeten Erinnerungen abrufen"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT 
+                    r.id as reminder_id,
+                    r.erinnerungs_datum,
+                    a.id as aufgabe_id,
+                    a.titel,
+                    a.beschreibung,
+                    a.deadline,
+                    a.zustaendig_email,
+                    a.zustaendig
+                FROM aufgaben_erinnerungen r
+                JOIN aufgaben a ON r.aufgabe_id = a.id
+                WHERE r.email_gesendet = 0
+                AND DATE(r.erinnerungs_datum) <= DATE('now')
+                ORDER BY r.erinnerungs_datum
+            """)
+            
+            reminders = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            
+            return reminders
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Laden der Erinnerungen: {e}")
+            return []
+    
+    def mark_reminder_sent(self, reminder_id):
+        """Erinnerung als gesendet markieren"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                UPDATE aufgaben_erinnerungen 
+                SET email_gesendet = 1, gesendet_am = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (reminder_id,))
+            
+            conn.commit()
+            conn.close()
+            
+            self.logger.info(f"✅ Erinnerung {reminder_id} als gesendet markiert")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Markieren der Erinnerung: {e}")
+            return False

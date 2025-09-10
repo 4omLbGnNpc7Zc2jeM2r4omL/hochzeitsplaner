@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}DJ Login - Playlist Management{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-lg border-0" style="border-radius: 15px; background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);">
+                <div class="card-header text-center border-0" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border-radius: 15px 15px 0 0;">
+                    <h4 class="mb-0" style="color: #8b7355; font-weight: 600;">
+                        <i class="bi bi-headphones me-2"></i>DJ Login
+                    </h4>
+                    <p class="mb-0 mt-1" style="color: #8b7355; font-size: 0.9rem;">Playlist Management System</p>
+                </div>
+                <div class="card-body p-4">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="username" class="form-label" style="color: #8b7355; font-weight: 500;">
+                                <i class="bi bi-person me-1"></i>Benutzername
+                            </label>
+                            <input type="text" class="form-control" id="username" name="username" required 
+                                   style="border: 2px solid #d4af37; border-radius: 10px; padding: 12px;"
+                                   placeholder="DJ-Benutzername">
+                        </div>
+                        <div class="mb-4">
+                            <label for="password" class="form-label" style="color: #8b7355; font-weight: 500;">
+                                <i class="bi bi-lock me-1"></i>Passwort
+                            </label>
+                            <input type="password" class="form-control" id="password" name="password" required 
+                                   style="border: 2px solid #d4af37; border-radius: 10px; padding: 12px;"
+                                   placeholder="Passwort">
+                        </div>
+                        <button type="submit" class="btn w-100" 
+                                style="background: linear-gradient(135deg, #d4af37, #f4e4bc); color: #8b7355; border: none; border-radius: 10px; padding: 12px; font-weight: 600;">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>Anmelden
+                        </button>
+                    </form>
+                    
+                    <div class="text-center mt-4">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Zugang nur für autorisierte DJs
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,5 +1,10 @@
 {
   "database_path": "D:\\Hochzeitsplaner\\data",
   "setup_completed": true,
-  "created_at": "2025-08-02 22:37:48.354818"
+  "created_at": "2025-08-02 22:37:48.354818",
+  "spotify": {
+    "client_id": "490c7b12c9144bafb671f1e5c7e677fe",
+    "client_secret": "8f2df0581887409b8b649149d4ff01a5",
+    "enabled": true
+  }
 }

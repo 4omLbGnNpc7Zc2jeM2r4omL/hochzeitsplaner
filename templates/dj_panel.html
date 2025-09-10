@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+
+{% block title %}DJ Panel - Playlist Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 style="color: var(--wedding-text);">
+                    <i class="bi bi-headphones me-2"></i>DJ Panel - Playlist Management
+                </h1>
+                <div>
+                    <span class="badge me-2" style="background: var(--wedding-gold); color: var(--wedding-text-dark);">
+                        <i class="bi bi-person me-1"></i>{{ session.dj_username }}
+                    </span>
+                    <a href="{{ url_for('dj_login') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-box-arrow-right me-1"></i>Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiken -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center" style="background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)); border: 1px solid var(--wedding-gold);">
+                <div class="card-body">
+                    <h3 class="text-primary" id="total-songs">{{ vorschlaege|length }}</h3>
+                    <small class="text-muted">Gesamt Vorschläge</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center" style="background: linear-gradient(135deg, #d4edda, #c3e6cb); border: 1px solid #28a745;">
+                <div class="card-body">
+                    <h3 class="text-success" id="accepted-songs">{{ vorschlaege|selectattr('status', 'equalto', 'Akzeptiert')|list|length }}</h3>
+                    <small class="text-muted">Akzeptiert</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center" style="background: linear-gradient(135deg, #fff3cd, #ffeaa7); border: 1px solid #ffc107;">
+                <div class="card-body">
+                    <h3 class="text-warning" id="pending-songs">{{ vorschlaege|selectattr('status', 'equalto', 'Vorgeschlagen')|list|length }}</h3>
+                    <small class="text-muted">Ausstehend</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center" style="background: linear-gradient(135deg, #f8d7da, #f1b0b7); border: 1px solid #dc3545;">
+                <div class="card-body">
+                    <h3 class="text-danger" id="rejected-songs">{{ vorschlaege|selectattr('status', 'equalto', 'Abgelehnt')|list|length }}</h3>
+                    <small class="text-muted">Abgelehnt</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter und Suche -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <select class="form-select" id="status-filter" style="border-color: var(--wedding-gold);">
+                <option value="">Alle Status</option>
+                <option value="Vorgeschlagen">Vorgeschlagen</option>
+                <option value="Akzeptiert">Akzeptiert</option>
+                <option value="Abgelehnt">Abgelehnt</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <select class="form-select" id="anlass-filter" style="border-color: var(--wedding-gold);">
+                <option value="">Alle Anlässe</option>
+                <option value="Allgemein">Allgemein</option>
+                <option value="Einzug">Einzug der Braut</option>
+                <option value="Trauung">Trauzeremonie</option>
+                <option value="Eröffnungstanz">Eröffnungstanz</option>
+                <option value="Party">Party/Feier</option>
+                <option value="Slow">Langsame Tänze</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <input type="text" class="form-control" id="search-input" placeholder="Suche nach Künstler oder Titel..." 
+                   style="border-color: var(--wedding-gold);">
+        </div>
+    </div>
+
+    <!-- Playlist Tabelle -->
+    <div class="card shadow-lg" style="border: 1px solid var(--wedding-gold); border-radius: 15px;">
+        <div class="card-header" style="background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)); color: var(--wedding-text-dark);">
+            <h5 class="mb-0">
+                <i class="bi bi-music-note-list me-2"></i>Musikwünsche der Gäste
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead style="background: rgba(212, 175, 55, 0.1);">
+                        <tr>
+                            <th>Künstler</th>
+                            <th>Titel</th>
+                            <th>Anlass</th>
+                            <th>Von Gast</th>
+                            <th>Votes</th>
+                            <th>Status</th>
+                            <th>Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody id="playlist-table-body">
+                        {% for vorschlag in vorschlaege %}
+                        <tr data-id="{{ vorschlag.id }}" data-status="{{ vorschlag.status }}" data-anlass="{{ vorschlag.anlass }}">
+                            <td><strong>{{ vorschlag.kuenstler }}</strong></td>
+                            <td>{{ vorschlag.titel }}
+                                {% if vorschlag.album %}
+                                    <br><small class="text-muted">{{ vorschlag.album }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge" style="background: var(--wedding-light-gold); color: var(--wedding-text-dark);">
+                                    {{ vorschlag.anlass }}
+                                </span>
+                            </td>
+                            <td>{{ vorschlag.gast_name or 'Unbekannt' }}</td>
+                            <td>
+                                <span class="badge bg-primary">
+                                    <i class="bi bi-heart-fill me-1"></i>{{ vorschlag.vote_count or 0 }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if vorschlag.status == 'Akzeptiert' %}
+                                    <span class="badge bg-success">{{ vorschlag.status }}</span>
+                                {% elif vorschlag.status == 'Abgelehnt' %}
+                                    <span class="badge bg-danger">{{ vorschlag.status }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">{{ vorschlag.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-sm btn-success" onclick="updateStatus({{ vorschlag.id }}, 'Akzeptiert')" 
+                                            title="Akzeptieren" {% if vorschlag.status == 'Akzeptiert' %}disabled{% endif %}>
+                                        <i class="bi bi-check"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="updateStatus({{ vorschlag.id }}, 'Abgelehnt')" 
+                                            title="Ablehnen" {% if vorschlag.status == 'Abgelehnt' %}disabled{% endif %}>
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary" onclick="updateStatus({{ vorschlag.id }}, 'Vorgeschlagen')" 
+                                            title="Zurücksetzen" {% if vorschlag.status == 'Vorgeschlagen' %}disabled{% endif %}>
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                    </button>
+                                </div>
+                                {% if vorschlag.kommentar %}
+                                    <button class="btn btn-sm btn-outline-info ms-1" onclick="showComment('{{ vorschlag.kommentar|e }}')" 
+                                            title="Kommentar anzeigen">
+                                        <i class="bi bi-chat-dots"></i>
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Kommentar Modal -->
+<div class="modal fade" id="commentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background: var(--wedding-gold); color: var(--wedding-text-dark);">
+                <h5 class="modal-title">Kommentar zum Musikwunsch</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="comment-content">
+                <!-- Kommentar wird hier eingefügt -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Modal -->
+<div class="modal fade" id="errorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border: 2px solid var(--wedding-gold); border-radius: 15px; background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold));">
+            <div class="modal-header" style="background: var(--wedding-gold); color: var(--wedding-text-dark); border-radius: 13px 13px 0 0; border: none;">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Fehler</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="background: rgba(255, 255, 255, 0.9); color: var(--wedding-text-dark); font-weight: 500; padding: 2rem;">
+                <div id="error-content" style="background: rgba(212, 175, 55, 0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--wedding-gold);">
+                    <!-- Fehlermeldung wird hier eingefügt -->
+                </div>
+            </div>
+            <div class="modal-footer" style="background: rgba(255, 255, 255, 0.9); border-top: 1px solid var(--wedding-gold); border-radius: 0 0 13px 13px;">
+                <button type="button" class="btn" data-bs-dismiss="modal" style="background: var(--wedding-gold); color: var(--wedding-text-dark); border: none; font-weight: 500; border-radius: 8px;">
+                    <i class="bi bi-check-circle me-1"></i>Verstanden
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// DJ Panel JavaScript
+function updateStatus(vorschlagId, newStatus) {
+    console.log('🎯 updateStatus called:', vorschlagId, newStatus);
+    
+    // Debug: Check if apiRequest exists
+    if (typeof apiRequest !== 'function') {
+        console.error('❌ apiRequest function not found! app.js not loaded?');
+        showError('JavaScript Fehler: apiRequest Funktion nicht gefunden');
+        return;
+    }
+    
+    console.log('✅ apiRequest function found, making API call...');
+    
+    apiRequest('/dj/playlist/update-status', {
+        method: 'POST',
+        body: JSON.stringify({
+            vorschlag_id: vorschlagId,
+            status: newStatus
+        })
+    })
+    .then(data => {
+        if (data.success) {
+            location.reload(); // Seite neu laden für Update
+        } else {
+            showError('Fehler beim Update: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Fehler beim Update: ' + error.message);
+    });
+}
+
+function showComment(comment) {
+    document.getElementById('comment-content').textContent = comment;
+    new bootstrap.Modal(document.getElementById('commentModal')).show();
+}
+
+function showError(message) {
+    document.getElementById('error-content').textContent = message;
+    new bootstrap.Modal(document.getElementById('errorModal')).show();
+}
+
+// Filter Funktionalität
+document.getElementById('status-filter').addEventListener('change', filterTable);
+document.getElementById('anlass-filter').addEventListener('change', filterTable);
+document.getElementById('search-input').addEventListener('input', filterTable);
+
+function filterTable() {
+    const statusFilter = document.getElementById('status-filter').value;
+    const anlassFilter = document.getElementById('anlass-filter').value;
+    const searchTerm = document.getElementById('search-input').value.toLowerCase();
+    
+    const rows = document.querySelectorAll('#playlist-table-body tr');
+    
+    rows.forEach(row => {
+        const status = row.dataset.status;
+        const anlass = row.dataset.anlass;
+        const text = row.textContent.toLowerCase();
+        
+        const statusMatch = !statusFilter || status === statusFilter;
+        const anlassMatch = !anlassFilter || anlass === anlassFilter;
+        const searchMatch = !searchTerm || text.includes(searchTerm);
+        
+        if (statusMatch && anlassMatch && searchMatch) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

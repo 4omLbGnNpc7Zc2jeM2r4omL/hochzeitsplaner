@@ -324,11 +324,17 @@ def require_auth(f):
         
         logger.info(f"🔐 Auth Check: Route {request.path} von {request.remote_addr}")
         logger.info(f"🔐 Auth Check: Session logged_in: {session.get('logged_in', False)}")
+        logger.info(f"🔐 Auth Check: Session dj_logged_in: {session.get('dj_logged_in', False)}")
         logger.info(f"🔐 Auth Check: Session user: {session.get('username', 'none')}")
+        logger.info(f"🔐 Auth Check: Session user_role: {session.get('user_role', 'none')}")
         
-        # Prüfen ob Benutzer eingeloggt ist
-        if 'logged_in' not in session or not session['logged_in']:
+        # Prüfen ob Benutzer eingeloggt ist (Gast oder DJ)
+        guest_logged_in = session.get('logged_in', False)
+        dj_logged_in = session.get('dj_logged_in', False)
+        
+        if not guest_logged_in and not dj_logged_in:
             logger.warning(f"❌ Auth Check: Nicht eingeloggt für Route {request.path}")
+            logger.warning(f"❌ Auth Check: Session-Inhalt: {dict(session)}")
             if request.path.startswith('/api/'):
                 return jsonify({'error': 'Authentication required'}), 401
             return redirect(url_for('login'))
@@ -431,6 +437,13 @@ print("SQLite DataManager wird verwendet")
 app = Flask(__name__)
 app.config['SECRET_KEY'] = auth_config['app']['secret_key']
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=auth_config['auth']['session_timeout_hours'])
+
+# Session Cookie Configuration für DJ Authentication
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True for HTTPS only
+app.config['SESSION_COOKIE_NAME'] = 'hochzeitsplaner_session'
+app.config['SESSION_COOKIE_PATH'] = '/'
 
 # Flask Logging komplett deaktivieren für saubere Ausgabe
 import logging
@@ -742,16 +755,21 @@ def protect_api_routes():
     # Login-Route und statische Dateien nicht schützen
     if (request.endpoint == 'login' or 
         request.path.startswith('/static/') or
-        request.path == '/favicon.ico'):
+        request.path == '/favicon.ico' or
+        request.path == '/api/dj/session-debug'):  # Session-Debug für DJ-Troubleshooting
         return
     
     # ALLE API-Routen erfordern Authentifizierung
     if request.path.startswith('/api/'):
-        if 'logged_in' not in session or not session['logged_in']:
+        # DJ Authentication oder normale Authentication
+        is_dj_logged_in = session.get('dj_logged_in', False)
+        is_normal_logged_in = session.get('logged_in', False)
+        
+        if not (is_dj_logged_in or is_normal_logged_in):
             return jsonify({'error': 'Authentication required'}), 401
         
-        # Session-Timeout prüfen
-        if 'login_time' in session:
+        # Session-Timeout prüfen nur für normale Sessions
+        if is_normal_logged_in and 'login_time' in session:
             timeout_hours = auth_config['auth']['session_timeout_hours']
             login_time = datetime.fromisoformat(session['login_time'])
             if datetime.now() - login_time > timedelta(hours=timeout_hours):
@@ -762,6 +780,48 @@ def protect_api_routes():
 @app.route('/api/test')
 def test_route():
     return jsonify({'status': 'API funktioniert', 'timestamp': str(datetime.now())})
+
+# Wedding Date API für Countdown
+@app.route('/api/wedding-date')
+def get_wedding_date():
+    """Hochzeitsdatum und Namen aus den Einstellungen für Countdown abrufen"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        # Hochzeitsdatum aus Einstellungen laden
+        hochzeitsdatum = data_manager.get_setting('hochzeitsdatum')
+        
+        # Namen aus Einstellungen laden
+        braut_name = data_manager.get_setting('braut_name', 'Braut')
+        braeutigam_name = data_manager.get_setting('braeutigam_name', 'Bräutigam')
+        
+        if hochzeitsdatum:
+            # Standardzeit ist 14:00, falls keine Zeit in der DB gespeichert ist
+            if 'T' not in hochzeitsdatum and ':' not in hochzeitsdatum:
+                # Nur Datum vorhanden, füge Standardzeit hinzu
+                hochzeitsdatum += 'T14:00:00'
+            elif ' ' in hochzeitsdatum:
+                # Datum mit Leerzeichen zwischen Datum und Zeit
+                hochzeitsdatum = hochzeitsdatum.replace(' ', 'T')
+            
+            return jsonify({
+                'success': True, 
+                'date': hochzeitsdatum,
+                'formatted_date': hochzeitsdatum,
+                'braut_name': braut_name,
+                'braeutigam_name': braeutigam_name,
+                'couple_names': f"{braut_name} & {braeutigam_name}"
+            })
+        else:
+            return jsonify({
+                'success': False, 
+                'error': 'Hochzeitsdatum nicht in Einstellungen gefunden'
+            }), 404
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Laden des Hochzeitsdatums: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # =============================================================================
 # Weiterleitungsrouten für JavaScript-Kompatibilität
@@ -1115,8 +1175,28 @@ def api_budget_auto_generate():
                 'menge': menge,
                 'einzelpreis': einzelpreis,
                 'gesamtpreis': gesamtpreis,
-                'ausgegeben': ausgegeben  # Übernehme bestehenden ausgegebenen Betrag
+                'ausgegeben': ausgegeben,  # Übernehme bestehenden ausgegebenen Betrag
+                'typ': 'Ausgabe'
             })
+        
+        # Füge Einnahmen aus der Kostenkonfiguration hinzu
+        fixed_income = kosten_config_raw.get('fixed_income', {})
+        for beschreibung, betrag in fixed_income.items():
+            if betrag > 0:  # Nur positive Einnahmen berücksichtigen
+                # Bei Einnahmen: kein "geplanter" Betrag, nur "erhaltener" Betrag
+                key = f"Geldgeschenke:{beschreibung}"
+                ausgegeben = ausgegeben_map.get(key, betrag)  # Default: vollständig erhalten
+                
+                budget_items.append({
+                    'kategorie': 'Geldgeschenke',
+                    'beschreibung': beschreibung,
+                    'details': 'Erhaltene Einnahme',
+                    'menge': 1,
+                    'einzelpreis': betrag,
+                    'gesamtpreis': 0,  # Keine "geplanten" Einnahmen
+                    'ausgegeben': betrag,  # Bei Einnahmen bedeutet "ausgegeben" = "erhalten"
+                    'typ': 'Einnahme'
+                })
         
         # Berechne Gesamtsumme - stelle sicher, dass alle gesamtpreis-Werte numerisch sind
         gesamtsumme = sum(float(item.get('gesamtpreis', 0) or 0) for item in budget_items)
@@ -1629,9 +1709,18 @@ def logout():
 # Routen
 @app.route('/')
 @require_auth
-@require_role(['admin', 'user'])
 def index():
-    return render_template('index.html')
+    # Rolle-basierte Weiterleitung
+    user_role = session.get('user_role', 'guest')
+    if user_role == 'dj':
+        return redirect(url_for('dj_panel'))
+    elif user_role == 'guest':
+        return redirect(url_for('guest_dashboard'))
+    elif user_role in ['admin', 'user']:
+        return render_template('index.html')
+    else:
+        flash('Unbekannte Benutzerrolle.', 'error')
+        return redirect(url_for('login'))
 
 @app.route('/gaesteliste')
 @require_auth
@@ -1709,6 +1798,38 @@ def database_admin():
     except Exception as e:
         app.logger.error(f"Fehler in database_admin(): {e}")
         return render_template('error.html', error_message=f"Fehler beim Laden der Datenbank-Verwaltung: {str(e)}")
+
+
+@app.route('/playlist-admin')
+@require_auth
+@require_role(['admin'])
+def playlist_admin():
+    """Playlist-Verwaltung für Admins"""
+    try:
+        vorschlaege = data_manager.get_playlist_vorschlaege()
+        return render_template('playlist_admin.html', vorschlaege=vorschlaege)
+    except Exception as e:
+        app.logger.error(f"Fehler in playlist_admin(): {e}")
+        return render_template('error.html', error_message=f"Fehler beim Laden der Playlist-Verwaltung: {str(e)}")
+
+
+@app.route('/api/admin/playlist/delete/<int:vorschlag_id>', methods=['DELETE'])
+@require_auth
+@require_role(['admin'])
+def admin_delete_playlist_vorschlag(vorschlag_id):
+    """Admin: Playlist-Vorschlag löschen"""
+    try:
+        result = data_manager.delete_playlist_vorschlag(vorschlag_id)
+        
+        if result:
+            return jsonify({'success': True, 'message': 'Musikwunsch erfolgreich gelöscht!'})
+        else:
+            return jsonify({'success': False, 'error': 'Musikwunsch nicht gefunden'}), 404
+            
+    except Exception as e:
+        logging.error(f"Fehler beim Admin-Löschen: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/einladungs-generator')
 @require_auth
@@ -2601,8 +2722,34 @@ def api_notizen_delete(notiz_id):
 @require_role(['guest'])
 def guest_dashboard():
     """Gäste-Dashboard"""
-    # Die brautpaar_namen Variable wird automatisch durch inject_global_vars() bereitgestellt
-    return render_template('guest_dashboard.html')
+    try:
+        # Die brautpaar_namen Variable wird automatisch durch inject_global_vars() bereitgestellt
+        return render_template('guest_dashboard.html')
+    except Exception as e:
+        logging.error(f"Fehler beim Rendern des Guest Dashboards: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        # Return a simple error page instead of another template that might also fail
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Guest Dashboard Error</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 40px; }}
+                .error {{ background: #ffebee; color: #c62828; padding: 20px; border-radius: 5px; }}
+            </style>
+        </head>
+        <body>
+            <h1>Guest Dashboard Error</h1>
+            <div class="error">
+                <p>Es gab einen Fehler beim Laden des Guest Dashboards:</p>
+                <pre>{str(e)}</pre>
+            </div>
+            <p><a href="/logout">Zur Anmeldung zurückkehren</a></p>
+        </body>
+        </html>
+        """
 
 # Guest API-Endpunkte
 @app.route('/api/guest/data')
@@ -4139,14 +4286,63 @@ def api_gaeste_delete(guest_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route("/api/dj/settings", methods=['GET'])
+def api_dj_settings():
+    """Spezielle Settings API nur für DJs - vereinfachte Authentifizierung"""
+    try:
+        # Debug session information
+        logger.info(f"🔍 DJ Settings API called with session: {dict(session)}")
+        logger.info(f"🔍 Session keys: {list(session.keys())}")
+        logger.info(f"🔍 dj_logged_in value: {session.get('dj_logged_in')}")
+        
+        # Einfache DJ-Session-Prüfung
+        if not session.get('dj_logged_in'):
+            logger.warning(f"❌ DJ Settings API: Nicht als DJ eingeloggt")
+            return jsonify({'error': 'DJ Authentication required'}), 401
+            
+        logger.info(f"📋 DJ Settings API erfolgreich aufgerufen")
+        
+        if not data_manager:
+            logger.error("❌ DJ Settings API: DataManager nicht initialisiert")
+            return jsonify({"error": "DataManager nicht initialisiert"}), 500
+        
+        # Minimale Settings für DJ
+        dj_settings = {
+            'braut_name': data_manager.get_setting('braut_name', 'Braut'),
+            'braeutigam_name': data_manager.get_setting('braeutigam_name', 'Bräutigam'),
+            'hochzeitsdatum': data_manager.get_setting('hochzeitsdatum', ''),
+        }
+        logger.info(f"📋 DJ Settings zurückgegeben: {dj_settings}")
+        return jsonify({"settings": dj_settings})
+        
+    except Exception as e:
+        logger.error(f"❌ Fehler in DJ Settings API: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route("/api/settings/get")
 @require_auth
-@require_role(['admin', 'user', 'guest'])
+@require_role(['admin', 'user', 'guest', 'dj'])
 def api_settings_get():
     try:
+        logger.info(f"🔍 Settings API: Benutzer-Session: logged_in={session.get('logged_in')}, dj_logged_in={session.get('dj_logged_in')}, user_role={session.get('user_role')}")
+        
         if not data_manager:
             logger.error("❌ Settings API: DataManager nicht initialisiert")
             return jsonify({"error": "DataManager nicht initialisiert"}), 500
+        
+        # Spezielle Behandlung für DJ-Benutzer
+        user_role = session.get('user_role', 'guest')
+        if user_role == 'dj':
+            logger.info(f"📋 Settings API für DJ-Benutzer")
+            # Minimale Settings für DJ
+            dj_settings = {
+                'braut_name': data_manager.get_setting('braut_name', 'Braut'),
+                'braeutigam_name': data_manager.get_setting('braeutigam_name', 'Bräutigam'),
+                'hochzeitsdatum': data_manager.get_setting('hochzeitsdatum', ''),
+            }
+            logger.info(f"📋 DJ Settings zurückgegeben: {dj_settings}")
+            return jsonify({"settings": dj_settings})
         
         # Logging für Request-Details
         guest_id = session.get('guest_id', 'unbekannt')
@@ -10497,6 +10693,429 @@ def admin_register():
         
         flash('Admin-Benutzer erfolgreich erstellt!', 'success')
         return redirect(url_for('login'))
+
+# =============================================================================
+# Playlist API Routes
+# =============================================================================
+
+def require_guest_login(f):
+    """Decorator to require guest login"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('guest_id'):
+            return jsonify({'success': False, 'error': 'Login required'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@app.route('/api/playlist/vorschlaege', methods=['GET'])
+def get_playlist_vorschlaege():
+    """Alle Playlist-Vorschläge abrufen"""
+    try:
+        vorschlaege = data_manager.get_playlist_vorschlaege()
+        current_guest_id = session.get('guest_id') if session.get('logged_in') else None
+        return jsonify({
+            'success': True, 
+            'vorschlaege': vorschlaege,
+            'current_guest_id': current_guest_id
+        })
+    except Exception as e:
+        logging.error(f"Fehler beim Laden der Playlist-Vorschläge: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/playlist/add', methods=['POST'])
+@require_guest_login
+def add_playlist_vorschlag():
+    """Neuen Playlist-Vorschlag hinzufügen mit Spotify-Integration"""
+    try:
+        from spotify_manager import SpotifyManager
+        
+        data = request.get_json()
+        gast_id = session.get('guest_id')
+        
+        # Spotify-Daten sind jetzt erforderlich
+        spotify_data = data.get('spotify_data')
+        if not spotify_data:
+            return jsonify({'success': False, 'error': 'Spotify-Daten sind erforderlich'}), 400
+        
+        # Detailierte Spotify-Informationen abrufen
+        spotify_manager = SpotifyManager()
+        track_response = spotify_manager.get_track_details(spotify_data['spotify_id'])
+        
+        if not track_response or not track_response.get('success'):
+            return jsonify({'success': False, 'error': 'Spotify-Track nicht gefunden'}), 400
+        
+        track_details = track_response['track']
+        
+        result = data_manager.add_playlist_vorschlag(
+            gast_id=gast_id,
+            kuenstler=track_details['artist'],
+            titel=track_details['name'],
+            album=track_details.get('album'),
+            anlass='Allgemein',  # Standardwert, da Anlass-Feld entfernt wurde
+            kommentar=data.get('kommentar'),
+            spotify_data=spotify_data
+        )
+        
+        if result:
+            return jsonify({'success': True, 'message': 'Musikwunsch hinzugefügt!'})
+        else:
+            return jsonify({'success': False, 'error': 'Fehler beim Hinzufügen'}), 500
+            
+    except Exception as e:
+        logging.error(f"Fehler beim Hinzufügen des Playlist-Vorschlags: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/playlist/vote', methods=['POST'])
+@require_guest_login
+def vote_playlist():
+    """Für einen Playlist-Vorschlag voten"""
+    try:
+        data = request.get_json()
+        gast_id = session.get('guest_id')
+        vorschlag_id = data['vorschlag_id']
+        
+        result = data_manager.vote_playlist_vorschlag(gast_id, vorschlag_id)
+        
+        if result:
+            return jsonify({'success': True, 'message': 'Vote erfolgreich!'})
+        else:
+            return jsonify({'success': False, 'error': 'Du hast bereits für diesen Song gevotet'}), 400
+            
+    except Exception as e:
+        logging.error(f"Fehler beim Voten: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/playlist/delete/<int:vorschlag_id>', methods=['DELETE'])
+@require_guest_login
+def delete_playlist_vorschlag(vorschlag_id):
+    """Eigenen Playlist-Vorschlag löschen"""
+    try:
+        gast_id = session.get('guest_id')
+        result = data_manager.delete_playlist_vorschlag(vorschlag_id, gast_id)
+        
+        if result:
+            return jsonify({'success': True, 'message': 'Musikwunsch erfolgreich gelöscht!'})
+        else:
+            return jsonify({'success': False, 'error': 'Musikwunsch nicht gefunden oder nicht berechtigt'}), 403
+            
+    except Exception as e:
+        logging.error(f"Fehler beim Löschen: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================================================
+# DJ Panel Routes
+# =============================================================================
+
+@app.route('/dj-login', methods=['GET', 'POST'])
+def dj_login():
+    """DJ Login-Seite"""
+    try:
+        if request.method == 'POST':
+            username = request.form.get('username')
+            password = request.form.get('password')
+            
+            if username and password:
+                try:
+                    if data_manager.verify_dj_login(username, password):
+                        # Session als permanent markieren für bessere Persistenz
+                        session.permanent = True
+                        
+                        session['dj_logged_in'] = True
+                        session['dj_username'] = username
+                        session['username'] = username  # Für base.html Kompatibilität
+                        session['display_name'] = 'DJ'  # Für base.html Kompatibilität
+                        session['user_role'] = 'dj'  # Rolle setzen
+                        session['login_time'] = datetime.now().isoformat()  # Session-Timeout
+                        
+                        # NEUER ANSATZ: Einfacher DJ Token für API-Calls
+                        session['dj_api_token'] = f"dj_token_{username}_{datetime.now().timestamp()}"
+                        
+                        logger.info(f"✅ DJ {username} erfolgreich eingeloggt!")
+                        logger.info(f"🔑 DJ Token generiert: {session['dj_api_token']}")
+                        logger.info(f"🍪 Session ID: {session.sid if hasattr(session, 'sid') else 'Unknown'}")
+                        
+                        return redirect(url_for('dj_panel'))
+                    else:
+                        flash('Ungültige Anmeldedaten', 'error')
+                except Exception as e:
+                    logger.error(f"Fehler bei DJ-Login-Verifizierung: {e}")
+                    flash('Fehler bei der Anmeldung. Bitte versuchen Sie es später erneut.', 'error')
+            else:
+                flash('Bitte füllen Sie alle Felder aus.', 'error')
+        
+        # Verwende eigenständige DJ-Login Seite (ohne base.html)
+        try:
+            return render_template('dj_login_standalone.html')
+        except Exception as template_error:
+            logger.error(f"Template-Fehler in dj_login_standalone.html: {template_error}")
+            # Einfache HTML-Fallback-Seite
+            return '''
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>DJ Login</title>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+                <style>
+                    body { 
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        min-height: 100vh; 
+                        display: flex; 
+                        align-items: center; 
+                    }
+                    .login-card {
+                        background: white;
+                        border-radius: 15px;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                        padding: 2rem;
+                        max-width: 400px;
+                        width: 100%;
+                    }
+                    .btn-gold {
+                        background: linear-gradient(135deg, #d4af37, #f4e4bc);
+                        color: #8b7355;
+                        border: none;
+                        font-weight: 600;
+                    }
+                    .form-control:focus {
+                        border-color: #d4af37;
+                        box-shadow: 0 0 0 0.2rem rgba(212, 175, 55, 0.25);
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="row justify-content-center">
+                        <div class="col-12 col-sm-8 col-md-6 col-lg-4">
+                            <div class="login-card">
+                                <div class="text-center mb-4">
+                                    <i class="bi bi-headphones text-warning" style="font-size: 3rem;"></i>
+                                    <h3 class="mt-3 text-dark">DJ Login</h3>
+                                    <p class="text-muted">Playlist Management System</p>
+                                </div>
+                                <form method="POST">
+                                    <div class="mb-3">
+                                        <label class="form-label">
+                                            <i class="bi bi-person me-1"></i>Benutzername
+                                        </label>
+                                        <input type="text" name="username" class="form-control" required>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="form-label">
+                                            <i class="bi bi-lock me-1"></i>Passwort
+                                        </label>
+                                        <input type="password" name="password" class="form-control" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-gold w-100 py-2">
+                                        <i class="bi bi-box-arrow-in-right me-2"></i>Anmelden
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            '''
+    except Exception as e:
+        logger.error(f"Kritischer Fehler in dj_login(): {e}")
+        return f"<h1>DJ Login Fehler</h1><p>Fehlerdetails: {str(e)}</p><p>Bitte Administrator kontaktieren.</p>", 500
+
+
+@app.route('/dj-panel')
+def dj_panel():
+    """DJ Panel für Playlist-Management"""
+    if not session.get('dj_logged_in'):
+        return redirect(url_for('dj_login'))
+    
+    try:
+        vorschlaege = data_manager.get_playlist_vorschlaege()
+        return render_template('dj_panel.html', vorschlaege=vorschlaege)
+    except Exception as e:
+        logging.error(f"Fehler beim Laden des DJ-Panels: {e}")
+        flash('Fehler beim Laden der Playlist', 'error')
+        return render_template('dj_panel.html', vorschlaege=[])
+
+
+@app.route('/api/dj/playlist/update-status', methods=['POST'])
+def update_playlist_status():
+    """DJ kann Playlist-Status aktualisieren"""
+    logger.info(f"🔍 Playlist update API called")
+    logger.info(f"🔍 Session keys: {list(session.keys())}")
+    logger.info(f"🔍 Full session: {dict(session)}")
+    logger.info(f"🔍 dj_logged_in value: {session.get('dj_logged_in')}")
+    logger.info(f"🔍 Request headers: {dict(request.headers)}")
+    
+    if not session.get('dj_logged_in'):
+        logger.warning("❌ DJ not logged in - returning 401")
+        return jsonify({'success': False, 'error': 'Nicht autorisiert'}), 401
+    
+    try:
+        data = request.get_json()
+        result = data_manager.update_playlist_status(data['vorschlag_id'], data['status'])
+        
+        if result:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'Fehler beim Update'}), 500
+            
+    except Exception as e:
+        logging.error(f"Fehler beim Status-Update: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/dj-logout')
+def dj_logout():
+    """DJ Logout"""
+    session.clear()
+    flash('Sie wurden erfolgreich abgemeldet.', 'success')
+    return redirect(url_for('dj_login'))
+
+
+@app.route('/api/dj/session-debug')
+def dj_session_debug():
+    """Debug route to check DJ session - NO AUTH REQUIRED"""
+    return jsonify({
+        'session_keys': list(session.keys()),
+        'session_data': dict(session),
+        'dj_logged_in': session.get('dj_logged_in'),
+        'user_agent': request.headers.get('User-Agent'),
+        'cookies': dict(request.cookies),
+        'session_cookie_name': app.session_cookie_name,
+        'session_id': request.cookies.get(app.session_cookie_name, 'NOT_FOUND')
+    })
+
+
+# Spotify Integration Routes
+@app.route('/api/spotify/search')
+@require_guest_login
+def spotify_search():
+    """Spotify Song-Suche für Gäste"""
+    query = request.args.get('q', '').strip()
+    limit = min(int(request.args.get('limit', 20)), 50)  # Max 50
+    
+    if not query:
+        return jsonify({'success': False, 'error': 'Suchbegriff erforderlich'})
+    
+    try:
+        from spotify_manager import SpotifyManager
+        spotify = SpotifyManager()
+        
+        if not spotify.get_access_token():
+            return jsonify({'success': False, 'error': 'Spotify nicht verfügbar'})
+        
+        result = spotify.search_tracks(query, limit)
+        
+        if result.get('success'):
+            return jsonify({
+                'success': True,
+                'tracks': result['tracks']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Spotify-Suche fehlgeschlagen')
+            })
+            
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'error': 'Spotify-Integration nicht konfiguriert'
+        })
+    except Exception as e:
+        logging.error(f"Spotify Search Error: {e}")
+        return jsonify({'success': False, 'error': 'Suchfehler'})
+
+
+@app.route('/api/spotify/track/<spotify_id>')
+@require_guest_login
+def spotify_track_details(spotify_id):
+    """Detaillierte Track-Informationen von Spotify"""
+    try:
+        from spotify_manager import SpotifyManager
+        spotify = SpotifyManager()
+        
+        result = spotify.get_track_details(spotify_id)
+        
+        if result.get('success'):
+            return jsonify({
+                'success': True,
+                'track': result['track']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Track nicht gefunden')
+            })
+            
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'error': 'Spotify-Integration nicht konfiguriert'
+        })
+    except Exception as e:
+        logging.error(f"Spotify Track Details Error: {e}")
+        return jsonify({'success': False, 'error': 'Fehler beim Laden'})
+
+
+@app.route('/admin/check-task-reminders')
+@require_role(['admin'])
+def check_task_reminders():
+    """Admin Route zum manuellen Prüfen und Senden von Aufgaben-Erinnerungen"""
+    try:
+        # Überprüfe und erstelle Erinnerungen
+        data_manager.check_and_create_task_reminders()
+        
+        # Hole ausstehende Erinnerungen
+        pending_reminders = data_manager.get_pending_task_reminders()
+        
+        sent_count = 0
+        for reminder in pending_reminders:
+            try:
+                # E-Mail senden
+                subject = f"Erinnerung: Aufgabe '{reminder['aufgabe_titel']}' ist bald fällig"
+                body = f"""
+Hallo {reminder['zustaendiger']},
+
+dies ist eine automatische Erinnerung für Ihre Aufgabe:
+
+Aufgabe: {reminder['aufgabe_titel']}
+Fälligkeitsdatum: {reminder['faelligkeit']}
+Kategorie: {reminder['kategorie'] or 'Nicht angegeben'}
+
+Bitte stellen Sie sicher, dass Sie diese Aufgabe rechtzeitig erledigen.
+
+Diese Erinnerung wurde automatisch 3 Tage vor dem Fälligkeitsdatum gesendet.
+
+Mit freundlichen Grüßen
+Ihr Hochzeitsplaner-System
+                """
+                
+                # Hier würde normalerweise die E-Mail gesendet werden
+                # email_manager.send_email(reminder['email'], subject, body)
+                
+                # Erinnerung als gesendet markieren
+                data_manager.mark_reminder_sent(reminder['id'])
+                sent_count += 1
+                
+            except Exception as e:
+                logging.error(f"Fehler beim Senden der Erinnerung {reminder['id']}: {e}")
+        
+        flash(f'{sent_count} Erinnerungen erfolgreich gesendet', 'success')
+        return redirect(url_for('aufgabenplaner'))
+        
+    except Exception as e:
+        logging.error(f"Fehler beim Überprüfen der Aufgaben-Erinnerungen: {e}")
+        flash('Fehler beim Überprüfen der Erinnerungen', 'error')
+        return redirect(url_for('aufgabenplaner'))
+
 
 if __name__ == '__main__':
     if not data_manager:

@@ -8,7 +8,7 @@
 // ===============================================
 
 async function checkFirstLogin() {
-    console.log('🚀 First Login Modal Check gestartet');
+    // console.log('🚀 First Login Modal Check gestartet'); // Guest console logs disabled
     
     try {
         // Prüfe ob der Gast zum ersten Mal eingeloggt ist (aus URL Parameter)
@@ -16,11 +16,11 @@ async function checkFirstLogin() {
         const isFirstLogin = urlParams.get('first_login') === '1';
         
         if (!isFirstLogin) {
-            console.log('⏭️ Kein First Login Parameter - Modal wird übersprungen');
+            // console.log('⏭️ Kein First Login Parameter - Modal wird übersprungen'); // Guest console logs disabled
             return;
         }
 
-        console.log('✅ First Login Parameter erkannt - lade Daten...');
+        // console.log('✅ First Login Parameter erkannt - lade Daten...'); // Guest console logs disabled
 
         // Lade zunächst nur die Settings (ohne große Bilder) und personalisierte Nachricht
         const [settingsResponse, personalizedResponse] = await Promise.all([
@@ -28,28 +28,26 @@ async function checkFirstLogin() {
             fetch('/api/guest/first-login-message?t=' + Date.now()) // Cache-buster
         ]);
 
-        console.log('📡 API Responses erhalten:');
-        console.log('  - Settings Response:', settingsResponse.status, settingsResponse.ok);
-        console.log('  - Personalized Response:', personalizedResponse.status, personalizedResponse.ok);
+        // console.log('📡 API Responses erhalten:'); // Guest console logs disabled
+        // console.log('  - Settings Response:', settingsResponse.status, settingsResponse.ok); // Guest console logs disabled
+        // console.log('  - Personalized Response:', personalizedResponse.status, personalizedResponse.ok); // Guest console logs disabled
 
         if (!settingsResponse.ok) {
-            console.error('❌ Settings API Fehler:', settingsResponse.status, settingsResponse.statusText);
+            // console.error('❌ Settings API Fehler:', settingsResponse.status, settingsResponse.statusText); // Guest console logs disabled
             return;
         }
 
         const settingsResult = await settingsResponse.json();
-        console.log('📋 Settings API Result erhalten');
-        
-        if (!settingsResult.success) {
-            console.error('❌ Settings API Erfolg = false:', settingsResult);
-            return;
-        }
+        // console.log('📋 Settings API Result erhalten'); // Guest console logs disabled
 
-        // First Login Modal Daten extrahieren
+        if (!settingsResult.success) {
+            // console.error('❌ Settings API Erfolg = false:', settingsResult); // Guest console logs disabled
+            return;
+        }        // First Login Modal Daten extrahieren
         const settings = settingsResult.settings || {};
         
         // Debugging für bessere Fehlererkennung
-        console.log('🔍 First Login Modal - Geladene Settings (ohne große Bilder)');
+        // console.log('🔍 First Login Modal - Geladene Settings (ohne große Bilder)'); // Guest console logs disabled
         
         // Extraktion der First Login Daten
         const firstLoginImage = settings.first_login_image || settings['first_login_image'] || '';
@@ -59,44 +57,44 @@ async function checkFirstLogin() {
         let firstLoginImageData = settings.first_login_image_data || settings['first_login_image_data'] || '';
         
         // IMMER das Bild separat laden, um Probleme mit zu großen Responses zu vermeiden
-        console.log('🖼️ Lade Bild separat über dedicated API...');
+        // console.log('🖼️ Lade Bild separat über dedicated API...'); // Guest console logs disabled
         try {
             const imageResponse = await fetch('/api/settings/first-login-image?t=' + Date.now());
-            console.log('📡 Image API Response Status:', imageResponse.status, imageResponse.ok);
+            // console.log('📡 Image API Response Status:', imageResponse.status, imageResponse.ok); // Guest console logs disabled
             
             if (imageResponse.ok) {
                 const imageResult = await imageResponse.json();
-                console.log('🔍 Image API Result:', {
-                    success: imageResult.success,
-                    has_image_data: !!imageResult.image_data,
-                    image_length: imageResult.image_data ? imageResult.image_data.length : 0,
-                    message: imageResult.message
-                });
+                // console.log('🔍 Image API Result:', {
+                //     success: imageResult.success,
+                //     has_image_data: !!imageResult.image_data,
+                //     image_length: imageResult.image_data ? imageResult.image_data.length : 0,
+                //     message: imageResult.message
+                // }); // Guest console logs disabled
                 
                 if (imageResult.success && imageResult.image_data) {
                     firstLoginImageData = imageResult.image_data;
-                    console.log('✅ Bild erfolgreich über separate API geladen:');
-                    console.log('   - Länge:', imageResult.image_data.length, 'Zeichen');
-                    console.log('   - Startet mit data:image/:', imageResult.image_data.startsWith('data:image/'));
-                    console.log('   - Erste 50 Zeichen:', imageResult.image_data.substring(0, 50));
+                    // console.log('✅ Bild erfolgreich über separate API geladen:'); // Guest console logs disabled
+                    // console.log('   - Länge:', imageResult.image_data.length, 'Zeichen'); // Guest console logs disabled
+                    // console.log('   - Startet mit data:image/:', imageResult.image_data.startsWith('data:image/')); // Guest console logs disabled
+                    // console.log('   - Erste 50 Zeichen:', imageResult.image_data.substring(0, 50)); // Guest console logs disabled
                 } else {
-                    console.warn('⚠️ Bild konnte nicht über separate API geladen werden:');
-                    console.warn('   - Success:', imageResult.success);
-                    console.warn('   - Message:', imageResult.message);
-                    console.warn('   - Image Data vorhanden:', !!imageResult.image_data);
+                    // console.warn('⚠️ Bild konnte nicht über separate API geladen werden:'); // Guest console logs disabled
+                    // console.warn('   - Success:', imageResult.success); // Guest console logs disabled
+                    // console.warn('   - Message:', imageResult.message); // Guest console logs disabled
+                    // console.warn('   - Image Data vorhanden:', !!imageResult.image_data); // Guest console logs disabled
                 }
             } else {
-                console.error('❌ Fehler beim Laden des Bildes über separate API:');
-                console.error('   - Status:', imageResponse.status);
-                console.error('   - Status Text:', imageResponse.statusText);
+                // console.error('❌ Fehler beim Laden des Bildes über separate API:'); // Guest console logs disabled
+                // console.error('   - Status:', imageResponse.status); // Guest console logs disabled
+                // console.error('   - Status Text:', imageResponse.statusText); // Guest console logs disabled
                 const errorText = await imageResponse.text();
-                console.error('   - Response Body:', errorText);
+                // console.error('   - Response Body:', errorText); // Guest console logs disabled
             }
         } catch (error) {
-            console.error('❌ Exception beim Laden des Bildes über separate API:');
-            console.error('   - Error Type:', error.constructor.name);
-            console.error('   - Error Message:', error.message);
-            console.error('   - Stack:', error.stack);
+            // console.error('❌ Exception beim Laden des Bildes über separate API:'); // Guest console logs disabled
+            // console.error('   - Error Type:', error.constructor.name); // Guest console logs disabled
+            // console.error('   - Error Message:', error.message); // Guest console logs disabled
+            // console.error('   - Stack:', error.stack); // Guest console logs disabled
         }
         
         // Hochzeitsdatum mit verschiedenen Strukturen unterstützen
@@ -113,7 +111,7 @@ async function checkFirstLogin() {
         for (const dateSource of dateSources) {
             if (dateSource) {
                 weddingDate = dateSource;
-                console.log('📅 Hochzeitsdatum gefunden:', weddingDate, 'aus Quelle:', dateSource);
+                // console.log('📅 Hochzeitsdatum gefunden:', weddingDate, 'aus Quelle:', dateSource); // Guest console logs disabled
                 break;
             }
         }
@@ -123,9 +121,9 @@ async function checkFirstLogin() {
             try {
                 const hochzeitObj = JSON.parse(settings.hochzeit);
                 weddingDate = hochzeitObj.datum;
-                console.log('📅 Hochzeitsdatum aus JSON-String extrahiert:', weddingDate);
+                // console.log('📅 Hochzeitsdatum aus JSON-String extrahiert:', weddingDate); // Guest console logs disabled
             } catch (e) {
-                console.warn('🟡 Hochzeit-Daten konnten nicht geparst werden:', settings.hochzeit);
+                // console.warn('🟡 Hochzeit-Daten konnten nicht geparst werden:', settings.hochzeit); // Guest console logs disabled
             }
         }
         
@@ -141,30 +139,30 @@ async function checkFirstLogin() {
             for (const fallbackSource of fallbackSources) {
                 if (fallbackSource) {
                     weddingDate = fallbackSource;
-                    console.log('📅 Hochzeitsdatum aus Fallback gefunden:', weddingDate);
+                    // console.log('📅 Hochzeitsdatum aus Fallback gefunden:', weddingDate); // Guest console logs disabled
                     break;
                 }
             }
         }
         
-        console.log('📋 First Login Modal - Finale Datenübersicht:');
-        console.log('  - Image URL (ignoriert):', firstLoginImage);
-        console.log('  - Image Data (Base64):');
+        // console.log('📋 First Login Modal - Finale Datenübersicht:'); // Guest console logs disabled
+        // console.log('  - Image URL (ignoriert):', firstLoginImage); // Guest console logs disabled
+        // console.log('  - Image Data (Base64):'); // Guest console logs disabled
         if (firstLoginImageData) {
-            console.log('    ✅ Vorhanden - Länge:', firstLoginImageData.length, 'Zeichen');
-            console.log('    ✅ Startet mit data:image/:', firstLoginImageData.startsWith('data:image/'));
-            console.log('    ✅ Erste 50 Zeichen:', firstLoginImageData.substring(0, 50));
+            // console.log('    ✅ Vorhanden - Länge:', firstLoginImageData.length, 'Zeichen'); // Guest console logs disabled
+            // console.log('    ✅ Startet mit data:image/:', firstLoginImageData.startsWith('data:image/')); // Guest console logs disabled
+            // console.log('    ✅ Erste 50 Zeichen:', firstLoginImageData.substring(0, 50)); // Guest console logs disabled
         } else {
-            console.log('    ❌ NICHT vorhanden oder leer');
+            // console.log('    ❌ NICHT vorhanden oder leer'); // Guest console logs disabled
         }
-        console.log('  - Text:', firstLoginText ? `"${firstLoginText.substring(0, 100)}..."` : 'Nicht vorhanden');
-        console.log('  - Wedding Date:', weddingDate);
+        // console.log('  - Text:', firstLoginText ? `"${firstLoginText.substring(0, 100)}..."` : 'Nicht vorhanden'); // Guest console logs disabled
+        // console.log('  - Wedding Date:', weddingDate); // Guest console logs disabled
 
         if (!firstLoginImageData && !firstLoginText) {
-            console.log('⚠️ Keine First Login Modal Daten verfügbar (nur Base64-Bild oder Text erforderlich) - Modal wird übersprungen');
-            console.log('🔍 Validierung Details:');
-            console.log('  - firstLoginImageData:', typeof firstLoginImageData, firstLoginImageData ? `(${firstLoginImageData.length} chars)` : '(empty)');
-            console.log('  - firstLoginText:', typeof firstLoginText, firstLoginText ? `(${firstLoginText.length} chars)` : '(empty)');
+            // console.log('⚠️ Keine First Login Modal Daten verfügbar (nur Base64-Bild oder Text erforderlich) - Modal wird übersprungen'); // Guest console logs disabled
+            // console.log('🔍 Validierung Details:'); // Guest console logs disabled
+            // console.log('  - firstLoginImageData:', typeof firstLoginImageData, firstLoginImageData ? `(${firstLoginImageData.length} chars)` : '(empty)'); // Guest console logs disabled
+            // console.log('  - firstLoginText:', typeof firstLoginText, firstLoginText ? `(${firstLoginText.length} chars)` : '(empty)'); // Guest console logs disabled
             return;
         }
 
@@ -175,20 +173,20 @@ async function checkFirstLogin() {
         if (personalizedResponse.ok) {
             try {
                 const personalizedResult = await personalizedResponse.json();
-                console.log('💬 Personalized Message API Result:', personalizedResult);
+                // console.log('💬 Personalized Message API Result:', personalizedResult); // Guest console logs disabled
                 
                 if (personalizedResult.success) {
                     personalizedMessage = personalizedResult.message;
                     personalizedDate = personalizedResult.wedding_date;
-                    console.log('✅ Personalisierte Nachricht geladen:', personalizedMessage ? 'Vorhanden' : 'Leer');
+                    // console.log('✅ Personalisierte Nachricht geladen:', personalizedMessage ? 'Vorhanden' : 'Leer'); // Guest console logs disabled
                 } else {
-                    console.warn('⚠️ Personalisierte Nachricht API Erfolg = false:', personalizedResult);
+                    // console.warn('⚠️ Personalisierte Nachricht API Erfolg = false:', personalizedResult); // Guest console logs disabled
                 }
             } catch (error) {
-                console.error('❌ Fehler beim Parsen der personalisierten Nachricht:', error);
+                // console.error('❌ Fehler beim Parsen der personalisierten Nachricht:', error); // Guest console logs disabled
             }
         } else {
-            console.warn('⚠️ Personalisierte Nachricht API Fehler:', personalizedResponse.status, personalizedResponse.statusText);
+            // console.warn('⚠️ Personalisierte Nachricht API Fehler:', personalizedResponse.status, personalizedResponse.statusText); // Guest console logs disabled
         }
 
         console.log('🎯 Modal wird angezeigt mit finalen Daten:');
@@ -219,8 +217,8 @@ async function checkFirstLogin() {
         window.history.replaceState({}, document.title, newUrl);
         
     } catch (error) {
-        console.error('❌ Kritischer Fehler in checkFirstLogin:', error);
-        console.error('Stack Trace:', error.stack);
+        // console.error('❌ Kritischer Fehler in checkFirstLogin:', error); // Guest console logs disabled
+        // console.error('Stack Trace:', error.stack); // Guest console logs disabled
         
         // Fallback: Zeige wenigstens ein einfaches Modal falls möglich
         try {
@@ -236,16 +234,16 @@ async function checkFirstLogin() {
                     keyboard: false
                 });
                 bootstrapModal.show();
-                console.log('🆘 Fallback-Modal angezeigt');
+                // console.log('🆘 Fallback-Modal angezeigt'); // Guest console logs disabled
             }
         } catch (fallbackError) {
-            console.error('❌ Selbst Fallback-Modal fehlgeschlagen:', fallbackError);
+            // console.error('❌ Selbst Fallback-Modal fehlgeschlagen:', fallbackError); // Guest console logs disabled
         }
     }
 }
 
 function showFirstLoginModal(data) {
-    console.log('🎭 First Login Modal wird angezeigt mit Daten:', data);
+    // console.log('🎭 First Login Modal wird angezeigt mit Daten:', data); // Guest console logs disabled
     
     const modal = document.getElementById('firstLoginModal');
     const welcomeImage = document.getElementById('welcomeImage');
@@ -255,17 +253,17 @@ function showFirstLoginModal(data) {
     const weddingDateDisplay = document.getElementById('weddingDateDisplay');
     
     if (!modal) {
-        console.error('❌ First Login Modal Element nicht gefunden!');
+        // console.error('❌ First Login Modal Element nicht gefunden!'); // Guest console logs disabled
         return;
     }
     
-    console.log('📱 Modal-Elemente gefunden:');
-    console.log('  - Modal:', modal ? '✅' : '❌');
-    console.log('  - Welcome Image:', welcomeImage ? '✅' : '❌');
-    console.log('  - Image Container:', welcomeImageContainer ? '✅' : '❌');
-    console.log('  - Image Placeholder:', welcomeImagePlaceholder ? '✅' : '❌');
-    console.log('  - Welcome Text:', welcomeText ? '✅' : '❌');
-    console.log('  - Wedding Date Display:', weddingDateDisplay ? '✅' : '❌');
+    // console.log('📱 Modal-Elemente gefunden:'); // Guest console logs disabled
+    // console.log('  - Modal:', modal ? '✅' : '❌'); // Guest console logs disabled
+    // console.log('  - Welcome Image:', welcomeImage ? '✅' : '❌'); // Guest console logs disabled
+    // console.log('  - Image Container:', welcomeImageContainer ? '✅' : '❌'); // Guest console logs disabled
+    // console.log('  - Image Placeholder:', welcomeImagePlaceholder ? '✅' : '❌'); // Guest console logs disabled
+    // console.log('  - Welcome Text:', welcomeText ? '✅' : '❌'); // Guest console logs disabled
+    // console.log('  - Wedding Date Display:', weddingDateDisplay ? '✅' : '❌'); // Guest console logs disabled
     
     // Hochzeitsdatum setzen (falls verfügbar)
     if (data.weddingDate && weddingDateDisplay) {

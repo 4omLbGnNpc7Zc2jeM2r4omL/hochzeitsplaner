@@ -21,13 +21,16 @@
 
 <!-- Budget Übersicht -->
 <div class="row mb-4">
-    <div class="col-md-4 mb-3">
+    <div class="col-md-3 mb-3">
         <div class="card-wedding-stat shadow-lg">
-            <div class="card-body" style="background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)); color: var(--wedding-text); border-radius: 15px;">
+            <div class="card-body" style="background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-light-gold)); color: var(--wedding-text); border-radius: 15px; padding-left: 25px;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="card-title mb-1" style="color: var(--wedding-text-dark); font-weight: 600;">Geplant</h6>
-                        <h4 id="budgetPlanned" style="color: var(--wedding-text-dark); font-weight: bold;">0,00 €</h4>
+                        <h6 class="card-title mb-1" style="color: var(--wedding-text-dark); font-weight: 600;">Ausgaben Geplant</h6>
+                        <h4 id="budgetPlanned" style="color: var(--wedding-text-dark); font-weight: bold; margin-bottom: 4px;">0,00 €</h4>
+                        <div style="font-size: 0.9rem; color: var(--wedding-text); font-weight: 500;">
+                            Nach Geschenken: <span id="budgetPlannedAfterGifts" style="color: var(--wedding-text-dark); font-weight: bold;">0,00 €</span>
+                        </div>
                     </div>
                     <div class="align-self-center">
                         <i class="bi bi-clipboard-check" style="font-size: 2.5rem; color: var(--wedding-text);"></i>
@@ -37,9 +40,9 @@
         </div>
     </div>
     
-    <div class="col-md-4 mb-3">
+    <div class="col-md-3 mb-3">
         <div class="card-wedding-stat shadow-lg">
-            <div class="card-body" style="background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)); color: var(--wedding-text); border-radius: 15px;">
+            <div class="card-body" style="background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)); color: var(--wedding-text); border-radius: 15px; padding-left: 25px;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h6 class="card-title mb-1" style="color: var(--wedding-text-dark); font-weight: 600;">Ausgegeben</h6>
@@ -53,12 +56,28 @@
         </div>
     </div>
     
-    <div class="col-md-4 mb-3">
-        <div class="card-wedding-stat shadow-lg" id="remainingCard">
-            <div class="card-body" style="background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-gold)); color: var(--wedding-text); border-radius: 15px;">
+    <div class="col-md-3 mb-3">
+        <div class="card-wedding-stat shadow-lg">
+            <div class="card-body" style="background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-gold)); color: var(--wedding-text); border-radius: 15px; padding-left: 25px;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="card-title mb-1" style="color: var(--wedding-text-dark); font-weight: 600;">Verbleibend</h6>
+                        <h6 class="card-title mb-1" style="color: var(--wedding-text-dark); font-weight: 600;">Einnahmen</h6>
+                        <h4 id="budgetIncome" style="color: var(--wedding-text-dark); font-weight: bold;">0,00 €</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-coin" style="font-size: 2.5rem; color: var(--wedding-text);"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card-wedding-stat shadow-lg" id="remainingCard">
+            <div class="card-body" style="background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-gold)); color: var(--wedding-text); border-radius: 15px; padding-left: 25px;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title mb-1" style="color: var(--wedding-text-dark); font-weight: 600;">Netto-Kosten</h6>
                         <h4 id="budgetRemaining" style="color: var(--wedding-text-dark); font-weight: bold;">0,00 €</h4>
                     </div>
                     <div class="align-self-center">
@@ -83,13 +102,14 @@
                     <table class="table table-hover" id="budgetTable">
                         <thead style="background: linear-gradient(135deg, var(--wedding-light-gold), var(--wedding-cream)); color: var(--wedding-text-dark);">
                             <tr>
+                                <th style="border: none; font-weight: 600;">Typ</th>
                                 <th style="border: none; font-weight: 600;">Kategorie</th>
                                 <th style="border: none; font-weight: 600;">Beschreibung</th>
                                 <th style="border: none; font-weight: 600;">Details</th>
                                 <th style="border: none; font-weight: 600;" class="text-center">Menge</th>
                                 <th style="border: none; font-weight: 600;" class="text-end">Einzelpreis</th>
                                 <th style="border: none; font-weight: 600;" class="text-end">Geplant</th>
-                                <th style="border: none; font-weight: 600;" class="text-end">Ausgegeben</th>
+                                <th style="border: none; font-weight: 600;" class="text-end">Tatsächlich</th>
                                 <th style="border: none; font-weight: 600;" class="text-center">Status</th>
                                 <th style="border: none; font-weight: 600;" class="text-center">Aktionen</th>
                             </tr>
@@ -126,7 +146,16 @@
                             <option value="Fotografie">📸 Fotografie</option>
                             <option value="Musik">🎵 Musik</option>
                             <option value="Blumen">💐 Blumen</option>
+                            <option value="Geldgeschenke">💰 Geldgeschenke</option>
                             <option value="Sonstiges">📦 Sonstiges</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="budgetTyp" class="form-label fw-semibold" style="color: var(--wedding-text-dark);">Typ</label>
+                        <select class="form-select" id="budgetTyp" required style="border: 2px solid var(--wedding-light-gold); border-radius: 10px;">
+                            <option value="Ausgabe">💳 Ausgabe</option>
+                            <option value="Einnahme">💰 Einnahme (z.B. Geldgeschenk)</option>
                         </select>
                     </div>
                     

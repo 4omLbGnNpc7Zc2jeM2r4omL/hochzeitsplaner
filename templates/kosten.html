@@ -172,6 +172,24 @@
         </div>
     </div>
 
+    <!-- Einnahmen/Geldgeschenke mit Wedding-Theme -->
+    <div class="card mb-4" style="background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-gold)); border: 2px solid var(--wedding-gold); border-radius: 15px; box-shadow: 0 8px 32px rgba(212, 175, 55, 0.1);">
+        <div class="card-header" style="background: linear-gradient(135deg, var(--wedding-gold), var(--wedding-cream)); color: var(--wedding-text-dark); border-radius: 13px 13px 0 0; border: none;">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-coins me-2"></i>💰 Einnahmen / Geldgeschenke
+            </h5>
+        </div>
+        <div class="card-body" style="background: rgba(255, 255, 255, 0.9);">
+            <div class="row" id="einnahmenContainer">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+            <hr style="border-color: var(--wedding-gold);">
+            <button class="btn btn-wedding-secondary" data-bs-toggle="modal" data-bs-target="#addEinnahmeModal">
+                <i class="fas fa-plus me-2"></i>Einnahme hinzufügen
+            </button>
+        </div>
+    </div>
+
     <!-- Kostenübersicht mit Wedding-Theme -->
     <div class="card" style="background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold)); border: 2px solid var(--wedding-gold); border-radius: 15px; box-shadow: 0 8px 32px rgba(212, 175, 55, 0.1);">
         <div class="card-header" style="background: var(--wedding-gold); color: var(--wedding-text-dark); border-radius: 13px 13px 0 0; border: none;">
@@ -239,6 +257,44 @@
         </div>
     </div>
 </div>
+
+<!-- Modal: Einnahme hinzufügen mit Wedding-Theme -->
+<div class="modal fade" id="addEinnahmeModal" tabindex="-1" aria-labelledby="addEinnahmeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border: 2px solid var(--wedding-gold); border-radius: 15px; background: linear-gradient(135deg, var(--wedding-cream), var(--wedding-light-gold));">
+            <div class="modal-header" style="background: var(--wedding-gold); color: var(--wedding-text-dark); border-radius: 13px 13px 0 0; border: none;">
+                <h5 class="modal-title" id="addEinnahmeModalLabel">
+                    <i class="fas fa-plus me-2"></i>Einnahme hinzufügen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen" style="filter: brightness(0.8);"></button>
+            </div>
+            <form id="addEinnahmeForm">
+                <div class="modal-body" style="background: rgba(255, 255, 255, 0.9);">
+                    <div class="mb-3">
+                        <label for="einnahmeName" class="form-label" style="color: var(--wedding-text-dark); font-weight: 500;">Bezeichnung *</label>
+                        <input type="text" class="form-control" id="einnahmeName" name="name" required 
+                               placeholder="z.B. Geldgeschenk Eltern, Spende von Freunden" style="border-color: var(--wedding-gold);">
+                    </div>
+                    <div class="mb-3">
+                        <label for="einnahmeBetrag" class="form-label" style="color: var(--wedding-text-dark); font-weight: 500;">Betrag *</label>
+                        <div class="input-group">
+                            <span class="input-group-text" style="background: var(--wedding-light-gold); border-color: var(--wedding-gold); color: var(--wedding-text-dark);">€</span>
+                            <input type="number" class="form-control" id="einnahmeBetrag" name="betrag" 
+                                   step="0.01" min="0" required style="border-color: var(--wedding-gold);">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="background: rgba(255, 255, 255, 0.9); border-top: 1px solid var(--wedding-gold);">
+                    <button type="button" class="btn btn-wedding-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-wedding-primary">
+                        <i class="fas fa-save me-2"></i>Hinzufügen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}

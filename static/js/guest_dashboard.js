@@ -46,7 +46,7 @@ async function apiRequest(endpoint, options = {}) {
         
         return data;
     } catch (error) {
-        console.error('API Request failed:', error);
+        // console.error('API Request failed:', error); // Guest console logs disabled
         throw error;
     }
 }

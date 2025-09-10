@@ -143,6 +143,30 @@ class ConfigManager:
             'is_first_run': self.is_first_run(),
             'config': self.config
         }
+    
+    # Spotify Configuration
+    def get_spotify_client_id(self):
+        """Holt die Spotify Client ID"""
+        return self.config.get('spotify', {}).get('client_id', '')
+    
+    def get_spotify_client_secret(self):
+        """Holt das Spotify Client Secret"""
+        return self.config.get('spotify', {}).get('client_secret', '')
+    
+    def get_spotify_enabled(self):
+        """Prüft ob Spotify Integration aktiviert ist"""
+        return self.config.get('spotify', {}).get('enabled', False)
+    
+    def set_spotify_config(self, client_id, client_secret, enabled=True):
+        """Setzt die Spotify Konfiguration"""
+        if 'spotify' not in self.config:
+            self.config['spotify'] = {}
+        
+        self.config['spotify']['client_id'] = client_id
+        self.config['spotify']['client_secret'] = client_secret
+        self.config['spotify']['enabled'] = enabled
+        
+        return self.save_config()
 
 # Für direkten Import
 def get_data_directory():

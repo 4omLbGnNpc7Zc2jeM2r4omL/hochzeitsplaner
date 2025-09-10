@@ -33,6 +33,41 @@
 {% endblock %}
 
 {% block content %}
+<!-- Dezenter Countdown -->
+<div class="container-fluid p-0 mb-3">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(244, 228, 188, 0.1)); border-radius: 15px; overflow: hidden;">
+                <div class="card-body text-center py-3">
+                    <div class="d-flex align-items-center justify-content-center">
+                        <i class="bi bi-heart-fill me-2" style="color: var(--wedding-gold); font-size: 1.2rem;"></i>
+                        <div id="weddingCountdown" class="d-flex align-items-center gap-3 flex-wrap justify-content-center">
+                            <div class="countdown-item">
+                                <span class="countdown-number" id="countdown-days">--</span>
+                                <small class="countdown-label">Tage</small>
+                            </div>
+                            <div class="countdown-separator">:</div>
+                            <div class="countdown-item">
+                                <span class="countdown-number" id="countdown-hours">--</span>
+                                <small class="countdown-label">Std</small>
+                            </div>
+                            <div class="countdown-separator">:</div>
+                            <div class="countdown-item">
+                                <span class="countdown-number" id="countdown-minutes">--</span>
+                                <small class="countdown-label">Min</small>
+                            </div>
+                        </div>
+                        <i class="bi bi-heart-fill ms-2" style="color: var(--wedding-gold); font-size: 1.2rem;"></i>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted" style="font-style: italic;" id="countdown-subtitle">bis zur Hochzeit</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Mobile-optimierte Navigation -->
 <div class="container-fluid p-0">
     <!-- Mobile Tab-Navigation -->
@@ -61,6 +96,12 @@
                     <button class="nav-link" id="geschenke-tab" data-bs-toggle="pill" data-bs-target="#geschenke-pane" type="button" role="tab">
                         <i class="bi bi-gift d-block d-md-inline me-md-1"></i>
                         <span class="d-none d-md-inline">Geschenke</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="playlist-tab" data-bs-toggle="pill" data-bs-target="#playlist-pane" type="button" role="tab">
+                        <i class="bi bi-music-note d-block d-md-inline me-md-1"></i>
+                        <span class="d-none d-md-inline">Musik</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
@@ -159,7 +200,7 @@
                                 </div>
                                 
                                 <div class="mb-3">
-                                    <label for="guestNotiz" class="form-label fw-bold" style="color: #8b7355;">Nachricht (optional)</label>
+                                    <label for="guestNotiz" class="form-label fw-bold" style="color: #8b7355;">Mitteilungen (Allergien, Unverträglichkeiten...)</label>
                                     <textarea class="form-control" id="guestNotiz" rows="3" placeholder="Allergien, Wünsche, Grüße..."
                                               style="border: 2px solid #d4af37; border-radius: 8px;"></textarea>
                                 </div>
@@ -310,6 +351,118 @@
                                             <div style="height: 300px; width: 100%; position: relative; overflow: hidden; border-radius: 8px; border: 2px solid #f8f9fa;">
                                                 <div id="guestHochzeitslocationMap" style="height: 100%; width: 100%;"></div>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Playlist Tab -->
+        <div class="tab-pane fade" id="playlist-pane" role="tabpanel">
+            <div class="row justify-content-center">
+                <div class="col-12 col-md-10 col-lg-8">
+                    <!-- Musikwünsche Card -->
+                    <div class="card mb-4 border-0 shadow-lg" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 15px;">
+                        <div class="card-header border-0" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); border-radius: 15px 15px 0 0;">
+                            <h5 class="mb-0" style="color: #8b7355; font-weight: 500;">
+                                <i class="bi bi-music-note me-2"></i>
+                                Musikwünsche für die Hochzeit
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-4">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Teilt eure Musikwünsche mit uns! Welche Songs sollen auf keinen Fall fehlen?
+                            </p>
+                            
+                            <!-- Neuen Musikwunsch hinzufügen -->
+                            <div class="card mb-4" style="background: linear-gradient(135deg, #faf8f0 0%, #f8f6f0 100%); border: 1px solid #d4af37;">
+                                <div class="card-body">
+                                    <h6 class="card-title" style="color: #8b7355;">
+                                        <i class="bi bi-plus-circle me-2"></i>Neuen Musikwunsch hinzufügen
+                                    </h6>
+                                    <form id="playlistForm">
+                                        <!-- Spotify Search -->
+                                        <div class="mb-3">
+                                            <label for="spotify-search" class="form-label">
+                                                <i class="bi bi-spotify" style="color: #1db954;"></i>
+                                                Song auf Spotify suchen
+                                            </label>
+                                            <input type="text" class="form-control" id="spotify-search" 
+                                                   placeholder="Künstler oder Songtitel eingeben..." 
+                                                   style="border-color: #d4af37;">
+                                            <div id="spotify-results" class="mt-2"></div>
+                                        </div>
+                                        
+                                        <!-- Selected Song Display -->
+                                        <div id="selected-song-display" class="mb-3" style="display: none;">
+                                            <div class="card" style="border: 2px solid #1db954; background: rgba(29, 185, 84, 0.1);">
+                                                <div class="card-body">
+                                                    <div class="row align-items-center">
+                                                        <div class="col-2">
+                                                            <img id="selected-cover" src="" alt="Cover" 
+                                                                 class="img-fluid rounded" style="max-height: 60px;">
+                                                        </div>
+                                                        <div class="col-8">
+                                                            <h6 id="selected-title" class="mb-1"></h6>
+                                                            <p id="selected-artist" class="mb-0 text-muted"></p>
+                                                            <small id="selected-album" class="text-muted"></small>
+                                                        </div>
+                                                        <div class="col-2 text-end">
+                                                            <button type="button" class="btn btn-sm btn-success" 
+                                                                    id="preview-btn" style="display: none;">
+                                                                <i class="bi bi-play-fill"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                                                    onclick="clearSpotifySelection()">
+                                                                <i class="bi bi-x"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="playlist-kommentar" class="form-label">Kommentar (optional)</label>
+                                            <textarea class="form-control" id="playlist-kommentar" rows="2" 
+                                                    placeholder="Warum ist dieser Song wichtig für euch?" 
+                                                    style="border-color: #d4af37;"></textarea>
+                                        </div>
+                                        
+                                        <!-- Hidden Spotify fields -->
+                                        <input type="hidden" id="spotify-id">
+                                        <input type="hidden" id="spotify-url">
+                                        <input type="hidden" id="preview-url">
+                                        <input type="hidden" id="image-url">
+                                        <input type="hidden" id="duration-ms">
+                                        <input type="hidden" id="release-date">
+                                        <input type="hidden" id="popularity">
+                                        
+                                        <button type="submit" class="btn" style="background: linear-gradient(135deg, #d4af37, #f4e4bc); color: #8b7355; border: none; border-radius: 8px;">
+                                            <i class="bi bi-plus-circle me-2"></i>Musikwunsch hinzufügen
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            
+                            <!-- Existing Playlist Vorschläge -->
+                            <div class="card" style="border: 1px solid #d4af37;">
+                                <div class="card-header" style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(244, 228, 188, 0.1));">
+                                    <h6 class="mb-0" style="color: #8b7355;">
+                                        <i class="bi bi-music-note-list me-2"></i>Alle Musikwünsche
+                                        <span class="badge ms-2" style="background: #d4af37; color: #8b7355;" id="playlist-count">0</span>
+                                    </h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div id="playlist-vorschlaege">
+                                        <div class="text-center py-4 text-muted">
+                                            <i class="bi bi-music-note" style="font-size: 3rem; opacity: 0.3;"></i>
+                                            <p class="mt-2">Noch keine Musikwünsche vorhanden</p>
                                         </div>
                                     </div>
                                 </div>
@@ -548,13 +701,44 @@
                                     Foto-Galerie
                                 </h5>
                                 <script>
+                                // Helper function for safe Bootstrap modal handling
+                                function safeBootstrapModal(elementId, action = 'show', options = {}) {
+                                    try {
+                                        if (typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+                                            return null;
+                                        }
+                                        
+                                        const element = document.getElementById(elementId);
+                                        if (!element) {
+                                            return null;
+                                        }
+                                        
+                                        if (action === 'show') {
+                                            const modal = new bootstrap.Modal(element, options);
+                                            modal.show();
+                                            return modal;
+                                        } else if (action === 'hide') {
+                                            const modal = bootstrap.Modal.getInstance(element);
+                                            if (modal) {
+                                                modal.hide();
+                                            }
+                                            return modal;
+                                        } else if (action === 'getInstance') {
+                                            return bootstrap.Modal.getInstance(element);
+                                        }
+                                    } catch (error) {
+                                        // Silent fail to prevent console spam
+                                        return null;
+                                    }
+                                }
+                                
                                 // Funktion direkt hier definieren
                                 function loadGallerySimple() {
-                                    console.log('🔄 Simple Gallery Load called');
+                                    // console.log('🔄 Simple Gallery Load called');
                                     fetch('/api/approved-gallery')
                                         .then(response => response.json())
                                         .then(data => {
-                                            console.log('Gallery data:', data);
+                                            // console.log('Gallery data:', data);
                                             window.galleryData = data; // Speichere für Modal-Galerie
                                             const container = document.getElementById('guestGalleryContainer');
                                             const loading = document.getElementById('guestGalleryLoading');
@@ -565,7 +749,7 @@
                                                     html += '<div class="col-lg-3 col-md-4 col-sm-6 col-12">';
                                                     html += '<div class="card">';
                                                     html += '<div class="card-body">';
-                                                    html += '<img src="/api/gallery-thumbnail/' + upload.id + '" alt="' + upload.original_filename + '" style="width:100%; border-radius:8px; cursor:pointer;" onclick="openGalleryModal(' + index + ')">';
+                                                    html += '<img src="/api/gallery-thumbnail/' + upload.id + '" alt="' + upload.original_filename + '" style="width:100%; border-radius:8px; cursor:pointer;" data-gallery-index="' + index + '" class="gallery-image">';
                                                     html += '<p class="mt-2"><strong>' + upload.original_filename + '</strong></p>';
                                                     html += '<p class="text-muted small">Von: Brautpaar</p>';
                                                     html += '</div>';
@@ -573,21 +757,45 @@
                                                     html += '</div>';
                                                 });
                                                 container.innerHTML = html;
+                                                
+                                                // Event-Delegation für Galerie-Bilder
+                                                container.addEventListener('click', function(e) {
+                                                    if (e.target.classList.contains('gallery-image')) {
+                                                        const index = parseInt(e.target.getAttribute('data-gallery-index'));
+                                                        openGalleryModal(index);
+                                                    }
+                                                });
                                             } else if (container) {
                                                 container.innerHTML = '<div class="col-12"><div class="text-center py-5"><i class="bi bi-images" style="font-size: 4rem; color: #d4af37; opacity: 0.5;"></i><h5 class="mt-3" style="color: #8b7355;">Noch keine Fotos</h5><p class="text-muted">Es wurden noch keine Fotos für die Galerie freigegeben.</p></div></div>';
                                             }
                                         })
-                                        .catch(error => console.error('Gallery error:', error));
+                                        .catch(error => {/* console.error('Gallery error:', error); */});
                                 }
                                 
                                 // Modal-Galerie Funktionen
                                 let currentGalleryIndex = 0;
                                 
                                 function openGalleryModal(index) {
+                                    if (!window.galleryData || !window.galleryData[index]) {
+                                        return;
+                                    }
+                                    
                                     currentGalleryIndex = index;
                                     showGalleryItem(index);
-                                    const modal = new bootstrap.Modal(document.getElementById('galleryModal'));
-                                    modal.show();
+                                    
+                                    // Try safe modal opening
+                                    const result = safeBootstrapModal('galleryModal', 'show');
+                                    
+                                    // Fallback: If safe modal fails, try manual modal opening
+                                    if (!result) {
+                                        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                                            const modalElement = document.getElementById('galleryModal');
+                                            if (modalElement) {
+                                                const modal = new bootstrap.Modal(modalElement);
+                                                modal.show();
+                                            }
+                                        }
+                                    }
                                 }
                                 
                                 function showGalleryItem(index) {
@@ -600,29 +808,36 @@
                                     const nextBtn = document.getElementById('galleryNextBtn');
                                     const counter = document.getElementById('galleryCounter');
                                     
-                                    // Update counter
-                                    counter.textContent = `${index + 1} / ${window.galleryData.length}`;
+                                    // Update counter if available
+                                    if (counter) {
+                                        counter.textContent = `${index + 1} / ${window.galleryData.length}`;
+                                    }
                                     
                                     // Update title - nur "Foto" oder "Video" anzeigen
-                                    const isVideo = item.original_filename.toLowerCase().match(/\.(mp4|webm|ogg|mov|avi)$/);
-                                    modalTitle.textContent = isVideo ? 'Video' : 'Foto';
+                                    if (modalTitle) {
+                                        const isVideo = item.original_filename.toLowerCase().match(/\.(mp4|webm|ogg|mov|avi)$/);
+                                        modalTitle.textContent = isVideo ? 'Video' : 'Foto';
+                                    }
                                     
-                                    // Update navigation buttons
-                                    prevBtn.disabled = (index === 0);
-                                    nextBtn.disabled = (index === window.galleryData.length - 1);
+                                    // Update navigation buttons if available
+                                    if (prevBtn) prevBtn.disabled = (index === 0);
+                                    if (nextBtn) nextBtn.disabled = (index === window.galleryData.length - 1);
                                     
-                                    if (isVideo) {
-                                        modalBody.innerHTML = `
-                                            <video controls style="width: 100%; max-height: 70vh;" preload="metadata">
-                                                <source src="/api/gallery-image/${item.id}" type="video/mp4">
-                                                Ihr Browser unterstützt das Video-Element nicht.
-                                            </video>
-                                        `;
-                                    } else {
-                                        modalBody.innerHTML = `
-                                            <img src="/api/gallery-image/${item.id}" alt="Foto" 
-                                                 style="width: 100%; max-height: 70vh; object-fit: contain;">
-                                        `;
+                                    if (modalBody) {
+                                        const isVideo = item.original_filename.toLowerCase().match(/\.(mp4|webm|ogg|mov|avi)$/);
+                                        if (isVideo) {
+                                            modalBody.innerHTML = `
+                                                <video controls style="width: 100%; max-height: 70vh;" preload="metadata">
+                                                    <source src="/api/gallery-image/${item.id}" type="video/mp4">
+                                                    Ihr Browser unterstützt das Video-Element nicht.
+                                                </video>
+                                            `;
+                                        } else {
+                                            modalBody.innerHTML = `
+                                                <img src="/api/gallery-image/${item.id}" alt="Foto" 
+                                                     style="width: 100%; max-height: 70vh; object-fit: contain;">
+                                            `;
+                                        }
                                     }
                                 }
                                 
@@ -644,7 +859,7 @@
                                         } else if (e.key === 'ArrowRight') {
                                             navigateGallery('next');
                                         } else if (e.key === 'Escape') {
-                                            bootstrap.Modal.getInstance(modal).hide();
+                                            safeBootstrapModal('galleryModal', 'hide');
                                         }
                                     }
                                 });
@@ -663,7 +878,7 @@
                                 const galleryTab = document.getElementById('gallery-tab');
                                 if (galleryTab) {
                                     galleryTab.addEventListener('shown.bs.tab', function (e) {
-                                        console.log('📸 Galerie-Tab aktiviert - lade Fotos...');
+                                        // console.log('📸 Galerie-Tab aktiviert - lade Fotos...');
                                         loadGallerySimple();
                                     });
                                 }
@@ -672,7 +887,7 @@
                                 setTimeout(function() {
                                     const galleryPane = document.getElementById('gallery-pane');
                                     if (galleryPane && galleryPane.classList.contains('show', 'active')) {
-                                        console.log('📸 Galerie-Tab ist bereits aktiv - lade Fotos...');
+                                        // console.log('📸 Galerie-Tab ist bereits aktiv - lade Fotos...');
                                         loadGallerySimple();
                                     }
                                 }, 500);
@@ -1037,9 +1252,128 @@
     </div>
 </div>
 
+<!-- Wedding-Theme Geschenk Auswahl Bestätigungs-Modal -->
+<div class="modal fade" id="geschenkAuswahlModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);">
+            <div class="modal-header border-0 text-center">
+                <div class="w-100">
+                    <h4 class="modal-title mb-0" style="color: #2d3436; font-family: 'Dancing Script', cursive; font-size: 2rem;">
+                        💝 Geschenk auswählen
+                    </h4>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: invert(1);"></button>
+            </div>
+            <div class="modal-body text-center px-4 py-3">
+                <div class="mb-3">
+                    <i class="fas fa-gift fa-3x" style="color: #e17055;"></i>
+                </div>
+                <h5 class="mb-2" style="color: #2d3436; font-weight: 600;" id="geschenkAuswahlName">
+                    Geschenk Name
+                </h5>
+                <p class="mb-3" style="color: #636e72;">
+                    <span id="geschenkAuswahlText">Möchten Sie dieses Geschenk auswählen?</span>
+                </p>
+                
+                <!-- Menge Auswahl (wird nur angezeigt wenn nötig) -->
+                <div id="mengeAuswahlContainer" style="display: none;" class="mb-3">
+                    <div class="bg-white bg-opacity-50 rounded-3 p-3">
+                        <label for="mengeAuswahl" class="form-label fw-bold" style="color: #2d3436;">
+                            <i class="fas fa-calculator me-2"></i>Anzahl auswählen:
+                        </label>
+                        <div class="row align-items-center">
+                            <div class="col-4">
+                                <button class="btn btn-outline-secondary" type="button" id="mengeMinus" style="width: 100%;">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                            </div>
+                            <div class="col-4">
+                                <input type="number" class="form-control text-center fw-bold" id="mengeAuswahl" 
+                                       value="1" min="1" style="border: 2px solid #ddd; font-size: 1.2rem;">
+                            </div>
+                            <div class="col-4">
+                                <button class="btn btn-outline-secondary" type="button" id="mengePlus" style="width: 100%;">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <small class="text-muted mt-2 d-block">
+                            <span id="verfuegbareAnzahl">Verfügbar: 1 Stück</span>
+                        </small>
+                    </div>
+                </div>
+                
+                <p class="text-muted mb-0 small">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Das Geschenk wird dann für andere Gäste nicht mehr sichtbar sein.
+                </p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center gap-3">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Abbrechen
+                </button>
+                <button type="button" class="btn px-4" id="geschenkAuswahl-bestaetigen-btn" 
+                        style="background: linear-gradient(45deg, #e17055, #fd79a8); border: none; color: white;">
+                    <i class="fas fa-heart me-2"></i>Auswählen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Zusätzliche Schriftarten -->
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@300;400;500;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+    
+    /* Countdown Styles */
+    .countdown-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 45px;
+    }
+    
+    .countdown-number {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: var(--wedding-gold);
+        line-height: 1;
+    }
+    
+    .countdown-label {
+        font-size: 0.75rem;
+        color: var(--wedding-text);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 2px;
+    }
+    
+    .countdown-separator {
+        color: var(--wedding-gold);
+        font-size: 1.2rem;
+        font-weight: bold;
+        opacity: 0.7;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 0.7; }
+        50% { opacity: 0.3; }
+    }
+    
+    @media (max-width: 576px) {
+        .countdown-number {
+            font-size: 1.2rem;
+        }
+        .countdown-label {
+            font-size: 0.7rem;
+        }
+        .countdown-separator {
+            font-size: 1rem;
+        }
+    }
     
     .text-elegant {
         font-family: 'Playfair Display', serif !important;
@@ -1329,9 +1663,8 @@
             rgba(74, 144, 226, 0.2) 0%, 
             rgba(156, 39, 176, 0.3) 50%,
             rgba(233, 30, 99, 0.2) 100%
+        );
         transition: all 0.4s ease;
-        });
-    }
     }
 
     .guest-gallery-item:hover .guest-video-overlay-gradient {
@@ -2153,7 +2486,8 @@ window.openGuestFullscreen = function(uploadId, fileType, filename, guestName, u
     // Find current index in gallery data
     window.guestCurrentIndex = window.guestGalleryData.findIndex(item => item.id === uploadId);
     
-    const modal = new bootstrap.Modal(document.getElementById('guestFullscreenModal'));
+    const modal = safeBootstrapModal('guestFullscreenModal', 'show');
+    if (!modal) return;
     const modalUploadInfo = document.getElementById('guestModalUploadInfo');
     const fullscreenImage = document.getElementById('guestFullscreenImage');
     const fullscreenVideo = document.getElementById('guestFullscreenVideo');
@@ -2246,8 +2580,6 @@ window.openGuestFullscreen = function(uploadId, fileType, filename, guestName, u
     
     // Store interval for cleanup
     window.guestCurrentSizeForceInterval = sizeForceInterval;
-    
-    modal.show();
 };
 
 window.closeGuestFullscreen = function() {
@@ -2258,40 +2590,12 @@ window.closeGuestFullscreen = function() {
         document.activeElement.blur();
     }
     
-    const modal = bootstrap.Modal.getInstance(document.getElementById('guestFullscreenModal'));
-    if (modal) {
-
-        modal.hide();
-    } else {
-
-        // Fallback: manually hide modal
-        const modalElement = document.getElementById('guestFullscreenModal');
-        if (modalElement) {
-            modalElement.style.display = 'none';
-            modalElement.classList.remove('show');
-            modalElement.setAttribute('aria-hidden', 'true');
-            
-            // Remove ALL backdrops
-            const backdrops = document.querySelectorAll('.modal-backdrop');
-            backdrops.forEach(backdrop => {
-
-                backdrop.remove();
-            });
-            
-            // Restore body scroll and state
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
-            document.body.style.paddingRight = '';
-            
-
-        }
-    }
+    safeBootstrapModal('guestFullscreenModal', 'hide');
     
     // Additional safety timeout to force cleanup
     setTimeout(function() {
         const remainingBackdrops = document.querySelectorAll('.modal-backdrop');
         if (remainingBackdrops.length > 0) {
-
             remainingBackdrops.forEach(backdrop => backdrop.remove());
             document.body.classList.remove('modal-open');
             document.body.style.overflow = '';
@@ -2626,7 +2930,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadDashboardGeschenkliste() {
         try {
-            console.log('🎁 Lade Dashboard Geschenkliste...');
+            // console.log('🎁 Lade Dashboard Geschenkliste...');
             
             // Loading anzeigen
             document.getElementById('dashboard-geschenke-loading').style.display = 'block';
@@ -2634,16 +2938,22 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('dashboard-keine-geschenke').style.display = 'none';
 
             // Verfügbare Geschenke laden
-            console.log('📡 API Request: /api/geschenkliste/list');
+            // console.log('📡 API Request: /api/geschenkliste/list');
             const response = await fetch('/api/geschenkliste/list');
-            console.log('📡 Response Status:', response.status, response.statusText);
+            // console.log('📡 Response Status:', response.status, response.statusText);
             
             const data = await response.json();
-            console.log('📡 Response Data:', data);
+            // console.log('📡 Response Data:', data);
             
             if (data.success) {
                 dashboardGeschenke = data.geschenke.filter(g => g.ausgewaehlt_menge < g.menge);
-                console.log('✅ Verfügbare Geschenke:', dashboardGeschenke.length);
+                
+                // Sicherstellen, dass alle Geschenke eine ID haben
+                dashboardGeschenke.forEach((geschenk, index) => {
+                    if (!geschenk.id && !geschenk.ID) {
+                        console.error('Geschenk ohne ID gefunden:', geschenk);
+                    }
+                });
                 
                 // Geldgeschenk-Konfiguration laden
                 await loadGeldgeschenkConfig();
@@ -2654,11 +2964,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Geschenke rendern
                 renderDashboardGeschenke(dashboardGeschenke);
             } else {
-                console.error('❌ Fehler beim Laden der Geschenke:', data.error);
+                // console.error('❌ Fehler beim Laden der Geschenke:', data.error);
                 showDashboardToast('Fehler beim Laden der Geschenke: ' + (data.error || 'Unbekannter Fehler'), 'error');
             }
         } catch (error) {
-            console.error('❌ Netzwerkfehler beim Laden der Geschenkliste:', error);
+            // console.error('❌ Netzwerkfehler beim Laden der Geschenkliste:', error);
             showDashboardToast('Netzwerkfehler beim Laden der Geschenkliste', 'error');
         } finally {
             document.getElementById('dashboard-geschenke-loading').style.display = 'none';
@@ -2667,34 +2977,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadGeldgeschenkConfig() {
         try {
-            console.log('💰 Lade Geldgeschenk-Konfiguration...');
+            // console.log('💰 Lade Geldgeschenk-Konfiguration...');
             const response = await fetch('/api/geldgeschenk/guest-config');
-            console.log('💰 Config Response Status:', response.status);
+            // console.log('💰 Config Response Status:', response.status);
             
             const data = await response.json();
-            console.log('💰 Config Data:', data);
+            // console.log('💰 Config Data:', data);
             
             if (data.success && data.config) {
                 geldgeschenkConfig = data.config;
-                console.log('✅ Geldgeschenk-Config geladen:', geldgeschenkConfig);
+                // console.log('✅ Geldgeschenk-Config geladen:', geldgeschenkConfig);
             } else {
-                console.log('ℹ️ Keine Geldgeschenk-Konfiguration verfügbar');
+                // console.log('ℹ️ Keine Geldgeschenk-Konfiguration verfügbar');
             }
 
             // Meine Geldgeschenk-Auswahl laden
-            console.log('🔍 Lade meine Geldgeschenk-Auswahl...');
+            // console.log('🔍 Lade meine Geldgeschenk-Auswahl...');
             const meineResponse = await fetch('/api/geldgeschenk/meine');
-            console.log('🔍 Meine Response Status:', meineResponse.status);
+            // console.log('🔍 Meine Response Status:', meineResponse.status);
             
             const meineData = await meineResponse.json();
-            console.log('🔍 Meine Data:', meineData);
+            // console.log('🔍 Meine Data:', meineData);
             
             if (meineData.success) {
                 meineGeldgeschenkAuswahl = meineData.ausgewaehlt ? meineData.auswahl : null;
-                console.log('✅ Meine Geldgeschenk-Auswahl:', meineGeldgeschenkAuswahl);
+                // console.log('✅ Meine Geldgeschenk-Auswahl:', meineGeldgeschenkAuswahl);
             }
         } catch (error) {
-            console.error('❌ Fehler beim Laden der Geldgeschenk-Konfiguration:', error);
+            // console.error('❌ Fehler beim Laden der Geldgeschenk-Konfiguration:', error);
         }
     }
 
@@ -2708,7 +3018,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderDashboardMeineGeschenke();
             }
         } catch (error) {
-            console.error('Fehler beim Laden eigener Geschenke:', error);
+            // console.error('Fehler beim Laden eigener Geschenke:', error);
         }
     }
 
@@ -2783,7 +3093,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const keineGeschenke = document.getElementById('dashboard-keine-geschenke');
         
         if (!tbody) {
-            console.error('❌ Element dashboard-geschenke-tbody nicht gefunden');
+            // console.error('❌ Element dashboard-geschenke-tbody nicht gefunden');
             return;
         }
         
@@ -2861,14 +3171,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         <span class="badge ${verfuegbar > 0 ? 'bg-success' : 'bg-danger'}">${verfuegbar} von ${geschenk.menge}</span>
                     </td>
                     <td data-label="Aktion">
-                        <button class="btn btn-wedding-primary btn-sm w-100" onclick="selectDashboardGeschenk(${geschenk.id})" ${verfuegbar <= 0 ? 'disabled' : ''}>
+                        <button class="btn btn-wedding-primary btn-sm w-100" onclick="selectDashboardGeschenk('${geschenk.id || geschenk.ID || 'ERROR_NO_ID'}')" ${verfuegbar <= 0 ? 'disabled' : ''}>
                             <i class="bi bi-heart me-1"></i> ${verfuegbar > 0 ? 'Auswählen' : 'Nicht verfügbar'}
                         </button>
                     </td>
                 `;
                 tbody.appendChild(row);
             } catch (error) {
-                console.error('❌ Fehler beim Rendern von Geschenk:', geschenk, error);
+                // console.error('❌ Fehler beim Rendern von Geschenk:', geschenk, error);
             }
         });
     }
@@ -2932,7 +3242,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         showDashboardToast(data.error || 'Fehler beim Auswählen des Geldgeschenks', 'error');
                     }
                 } catch (error) {
-                    console.error('Fehler beim Auswählen des Geldgeschenks:', error);
+                    // console.error('Fehler beim Auswählen des Geldgeschenks:', error);
                     showDashboardToast('Netzwerkfehler beim Auswählen', 'error');
                 }
             });
@@ -2972,37 +3282,102 @@ document.addEventListener('DOMContentLoaded', function() {
                     showDashboardToast(data.error || 'Fehler beim Freigeben', 'error');
                 }
             } catch (error) {
-                console.error('Fehler beim Freigeben des Geldgeschenks:', error);
+                // console.error('Fehler beim Freigeben des Geldgeschenks:', error);
                 showDashboardToast('Netzwerkfehler beim Freigeben', 'error');
             }
         });
     }
 
     async function selectDashboardGeschenk(geschenkId) {
-        const geschenk = dashboardGeschenke.find(g => g.id === geschenkId);
-        if (!geschenk) return;
+        // ID sicherstellen (falls als String übergeben)
+        const numericId = parseInt(geschenkId);
+        
+        if (!geschenkId || geschenkId === 'null' || isNaN(numericId)) {
+            console.error('Ungültige Geschenk-ID:', geschenkId);
+            return;
+        }
+        
+        const geschenk = dashboardGeschenke.find(g => g.id === numericId || g.id === geschenkId);
+        if (!geschenk) {
+            console.error('Geschenk nicht gefunden für ID:', geschenkId);
+            return;
+        }
 
-        // Normales Geschenk - Bestätigung
+        // Normales Geschenk - Wedding-Theme Modal verwenden
+
+        // Normales Geschenk - Wedding-Theme Modal verwenden
         const verfuegbar = geschenk.menge - (geschenk.ausgewaehlt_menge || 0);
-        let menge = 1;
+        
+        // Modal-Inhalte setzen
+        document.getElementById('geschenkAuswahlName').textContent = geschenk.name;
+        
+        const mengeContainer = document.getElementById('mengeAuswahlContainer');
+        const mengeInput = document.getElementById('mengeAuswahl');
+        const verfuegbareAnzahl = document.getElementById('verfuegbareAnzahl');
         
         if (verfuegbar > 1) {
-            const mengeInput = prompt(`Wie viele "${geschenk.name}" möchten Sie auswählen?\n\nVerfügbar: ${verfuegbar} Stück`, '1');
-            if (!mengeInput || mengeInput === '' || isNaN(mengeInput)) return;
-            menge = parseInt(mengeInput);
+            // Menge-Auswahl anzeigen
+            mengeContainer.style.display = 'block';
+            mengeInput.max = verfuegbar;
+            mengeInput.value = 1;
+            verfuegbareAnzahl.textContent = `Verfügbar: ${verfuegbar} Stück`;
+            
+            // Plus/Minus Buttons Event Listener
+            document.getElementById('mengePlus').onclick = () => {
+                if (parseInt(mengeInput.value) < verfuegbar) {
+                    mengeInput.value = parseInt(mengeInput.value) + 1;
+                }
+            };
+            document.getElementById('mengeMinus').onclick = () => {
+                if (parseInt(mengeInput.value) > 1) {
+                    mengeInput.value = parseInt(mengeInput.value) - 1;
+                }
+            };
+            
+            document.getElementById('geschenkAuswahlText').textContent = 
+                `Wie viele "${geschenk.name}" möchten Sie auswählen?`;
+        } else {
+            // Keine Menge-Auswahl nötig
+            mengeContainer.style.display = 'none';
+            mengeInput.value = 1;
+            document.getElementById('geschenkAuswahlText').textContent = 
+                `Möchten Sie "${geschenk.name}" auswählen?`;
+        }
+        
+        // Event Listener für Bestätigung (alte entfernen)
+        const confirmBtn = document.getElementById('geschenkAuswahl-bestaetigen-btn');
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        
+        // Geschenk ID explizit am Button speichern
+        newConfirmBtn.setAttribute('data-geschenk-id', numericId);
+        
+        newConfirmBtn.addEventListener('click', () => {
+            const gespeicherteGeschenkId = newConfirmBtn.getAttribute('data-geschenk-id');
+            
+            const menge = parseInt(document.getElementById('mengeAuswahl').value);
             if (menge < 1 || menge > verfuegbar) {
                 alert('Ungültige Menge!');
                 return;
             }
-        }
-
-        const bestätigung = confirm(`"${geschenk.name}" ${menge > 1 ? `(${menge}x)` : ''} auswählen?\n\nDas Geschenk wird dann für andere Gäste nicht mehr sichtbar sein.`);
-        if (bestätigung) {
-            confirmDashboardSelection(geschenkId, menge);
-        }
+            
+            // Modal schließen und Auswahl bestätigen
+            bootstrap.Modal.getInstance(document.getElementById('geschenkAuswahlModal')).hide();
+            confirmDashboardSelection(gespeicherteGeschenkId, menge);
+        });
+        
+        // Modal anzeigen
+        const modal = new bootstrap.Modal(document.getElementById('geschenkAuswahlModal'));
+        modal.show();
     }
 
     async function confirmDashboardSelection(geschenkId, menge) {
+        if (!geschenkId || geschenkId === 'null' || geschenkId === null) {
+            console.error('Fehler: Ungültige Geschenk-ID:', geschenkId);
+            showDashboardToast('Fehler: Ungültige Geschenk-ID', 'error');
+            return;
+        }
+        
         try {
             const response = await fetch(`/api/geschenkliste/waehlen/${geschenkId}`, {
                 method: 'POST',
@@ -3022,7 +3397,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 showDashboardToast(data.error || 'Fehler beim Auswählen des Geschenks', 'error');
             }
         } catch (error) {
-            console.error('Fehler beim Auswählen:', error);
+            // console.error('Fehler beim Auswählen:', error);
             showDashboardToast('Netzwerkfehler beim Auswählen', 'error');
         }
     }
@@ -3066,7 +3441,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     showDashboardToast(data.error || 'Fehler beim Freigeben', 'error');
                 }
             } catch (error) {
-                console.error('Fehler beim Freigeben:', error);
+                // console.error('Fehler beim Freigeben:', error);
                 showDashboardToast('Netzwerkfehler beim Freigeben', 'error');
             }
         });
@@ -3204,7 +3579,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         } catch (error) {
-            console.error('Fehler beim Laden der Geschenkliste Text-Konfiguration:', error);
+            // console.error('Fehler beim Laden der Geschenkliste Text-Konfiguration:', error);
         }
     }
 
@@ -3236,25 +3611,125 @@ document.addEventListener('DOMContentLoaded', function() {
         // Tab Event Listener
         const geschenkeTab = document.getElementById('geschenke-tab');
         if (geschenkeTab) {
-            console.log('✅ Geschenke-Tab Event Listener hinzugefügt');
+            // console.log('✅ Geschenke-Tab Event Listener hinzugefügt');
             geschenkeTab.addEventListener('click', function() {
-                console.log('🖱️ Geschenke-Tab geklickt');
+                // console.log('🖱️ Geschenke-Tab geklickt');
                 // Kleine Verzögerung für Tab-Transition
                 setTimeout(() => {
                     loadDashboardGeschenkliste();
                 }, 100);
             });
         } else {
-            console.error('❌ Geschenke-Tab nicht gefunden!');
+            // console.error('❌ Geschenke-Tab nicht gefunden!');
         }
 
         // Initial load falls bereits im Tab
         const currentPane = document.querySelector('.tab-pane.active');
         if (currentPane && currentPane.id === 'geschenke-pane') {
-            console.log('🚀 Initial Load: Bereits im Geschenke-Tab');
+            // console.log('🚀 Initial Load: Bereits im Geschenke-Tab');
             loadDashboardGeschenkliste();
         }
     });
+
+    // Wedding Countdown Functionality
+    function initializeWeddingCountdown() {
+        // Hochzeitsdatum aus API laden
+        fetch('/api/wedding-date')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const weddingDate = new Date(data.date);
+                    
+                    // Countdown-Untertitel mit Namen aktualisieren
+                    const subtitleElement = document.getElementById('countdown-subtitle');
+                    if (subtitleElement && data.couple_names) {
+                        subtitleElement.textContent = `bis zur Hochzeit von ${data.couple_names}`;
+                    }
+                    
+                    startCountdown(weddingDate);
+                } else {
+                    // console.warn('Hochzeitsdatum nicht verfügbar:', data.error);
+                    // Countdown ausblenden wenn kein Datum verfügbar
+                    hideCountdown();
+                }
+            })
+            .catch(error => {
+                // console.error('Fehler beim Laden des Hochzeitsdatums:', error);
+                hideCountdown();
+            });
+        
+        function startCountdown(weddingDate) {
+            function updateCountdown() {
+                const now = new Date();
+                const difference = weddingDate - now;
+                
+                if (difference > 0) {
+                    const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+                    
+                    document.getElementById('countdown-days').textContent = days.toString().padStart(2, '0');
+                    document.getElementById('countdown-hours').textContent = hours.toString().padStart(2, '0');
+                    document.getElementById('countdown-minutes').textContent = minutes.toString().padStart(2, '0');
+                } else {
+                    // Hochzeit ist vorbei - Countdown ausblenden
+                    hideCountdown();
+                    clearInterval(window.countdownInterval);
+                }
+            }
+            
+            // Initial update
+            updateCountdown();
+            
+            // Update every minute und Intervall speichern für cleanup
+            window.countdownInterval = setInterval(updateCountdown, 60000);
+        }
+        
+        function hideCountdown() {
+            // Gesamten Countdown-Container ausblenden
+            const countdownContainer = document.querySelector('.card:has(#weddingCountdown)');
+            if (countdownContainer) {
+                countdownContainer.style.display = 'none';
+            }
+            
+            // Fallback: nur den Countdown-Bereich ausblenden
+            const countdownElement = document.getElementById('weddingCountdown');
+            if (countdownElement) {
+                countdownElement.style.display = 'none';
+            }
+        }
+    }
+
+    // Initialize countdown when page loads
+    initializeWeddingCountdown();
+    
+    
+</script>
+
+<!-- Playlist JavaScript -->
+<script src="{{ url_for('static', filename='js/playlist.js') }}"></script>
+
+<script>
+    // Initialize playlist tab if it exists
+    if (document.getElementById('playlist-tab')) {
+        // Load playlist when tab is first clicked
+        document.getElementById('playlist-tab').addEventListener('click', function() {
+            if (!this.dataset.loaded) {
+                setTimeout(() => {
+                    loadPlaylistTab();
+                }, 100);
+                this.dataset.loaded = 'true';
+            }
+        });
+        
+        // If playlist tab is already active, load immediately
+        if (document.getElementById('playlist-tab').classList.contains('active')) {
+            setTimeout(() => {
+                loadPlaylistTab();
+                document.getElementById('playlist-tab').dataset.loaded = 'true';
+            }, 500);
+        }
+    }
 </script>
 
 <!-- Galerie Modal -->
@@ -3284,5 +3759,3 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 {% endblock %}
-
-
