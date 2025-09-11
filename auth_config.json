@@ -23,8 +23,9 @@
     "session_timeout_hours": 168,
     "push_notification_session_hours": 336,
     "vapid_keys": {
-      "public_key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2jn3Wvowy4h1tHnSVDRa_IAR3EPYIpKXUo-FwZv3qxh94HMkHS6xFvAwehAy7cNDUCCaotEZcvpBhVeHvT6kFA",
-      "private_key": "MHcCAQEEIHHDHO02oTNVFtJE0r-dCIYIlyHMzTDL8f0e3gFRP9OboAoGCCqGSM49AwEHoUQDQgAE2jn3Wvowy4h1tHnSVDRa_IAR3EPYIpKXUo-FwZv3qxh94HMkHS6xFvAwehAy7cNDUCCaotEZcvpBhVeHvT6kFA",
+      "public_key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZmvyWUdvQZm30YNxkALZBkjEacFKIrjVwkGfyh49mCo6_FWgNL2cz6cBs6IV7AbseVe0F-5l6f7ri4QOSU9ZxA",
+      "public_key_raw": "BGZr8llHb0GZt9GDcZAC2QZIxGnBSiK41cJBn8oePZgqOvxVoDS9nM-nAbOiFewG7HlXtBfuZen-64uEDklPWcQ",
+      "private_key": "MHcCAQEEIJevatM8BM7lCHTlayOURgPzceg4eX4bCIwrcNxxxi_VoAoGCCqGSM49AwEHoUQDQgAEZmvyWUdvQZm30YNxkALZBkjEacFKIrjVwkGfyh49mCo6_FWgNL2cz6cBs6IV7AbseVe0F-5l6f7ri4QOSU9ZxA",
       "email": "mailto:hochzeitsplaner@consultingschumacher.de"
     }
   },

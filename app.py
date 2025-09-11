@@ -857,11 +857,29 @@ def get_vapid_public_key():
         vapid_keys = push_manager.get_vapid_keys()
         if not vapid_keys['public_key']:
             return jsonify({'error': 'VAPID Public Key nicht konfiguriert'}), 500
-            
-        return jsonify({
-            'success': True,
-            'publicKey': vapid_keys['public_key']  # JavaScript-freundlicher Name
-        })
+        
+        # User-Agent auslesen für Safari-Erkennung
+        user_agent = request.headers.get('User-Agent', '').lower()
+        is_safari = ('safari' in user_agent and 'chrome' not in user_agent) or \
+                   'iphone' in user_agent or 'ipad' in user_agent or 'ipod' in user_agent
+        
+        # Safari bekommt raw format, Chrome bekommt DER format
+        if is_safari and 'public_key_raw' in vapid_keys and vapid_keys['public_key_raw']:
+            logger.info(f"🍎 Safari/iOS erkannt - liefere raw P-256 VAPID Key")
+            return jsonify({
+                'success': True,
+                'publicKey': vapid_keys['public_key_raw'],  # Raw format für Safari
+                'format': 'raw',
+                'browser': 'safari'
+            })
+        else:
+            logger.info(f"🔧 Chrome/Desktop erkannt - liefere DER VAPID Key")
+            return jsonify({
+                'success': True,
+                'publicKey': vapid_keys['public_key'],  # DER format für Chrome
+                'format': 'der',
+                'browser': 'chrome'
+            })
         
     except Exception as e:
         logger.error(f"Fehler beim Abrufen des VAPID Public Keys: {e}")

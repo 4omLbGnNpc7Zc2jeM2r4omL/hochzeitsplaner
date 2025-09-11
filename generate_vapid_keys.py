@@ -25,12 +25,27 @@ def generate_vapid_keys():
         
         # Public Key ableiten
         public_key = private_key.get_verifying_key()
+        
+        # DER-Format für Chrome/Desktop
         public_key_der = public_key.to_der()
         public_key_b64 = base64.urlsafe_b64encode(public_key_der).decode('utf-8').rstrip('=')
         
+        # Raw uncompressed format für Safari/iOS
+        # P-256 uncompressed: 0x04 + 32 bytes X + 32 bytes Y = 65 bytes
+        public_key_point = public_key.pubkey.point
+        x_bytes = public_key_point.x().to_bytes(32, byteorder='big')
+        y_bytes = public_key_point.y().to_bytes(32, byteorder='big')
+        public_key_raw = b'\x04' + x_bytes + y_bytes  # 65 bytes total
+        public_key_raw_b64 = base64.urlsafe_b64encode(public_key_raw).decode('utf-8').rstrip('=')
+        
+        print(f"🔧 DER Public Key Length: {len(public_key_der)} bytes")
+        print(f"🔧 Raw Public Key Length: {len(public_key_raw)} bytes")
+        print(f"🔧 Raw starts with 0x04: {public_key_raw[0] == 0x04}")
+        
         return {
             'private_key': private_key_b64,
-            'public_key': public_key_b64
+            'public_key': public_key_b64,  # DER format for Chrome
+            'public_key_raw': public_key_raw_b64  # Raw format for Safari
         }
         
     except ImportError:
@@ -56,6 +71,7 @@ def update_auth_config(vapid_keys):
         
         config['auth']['vapid_keys'] = {
             'public_key': vapid_keys['public_key'],
+            'public_key_raw': vapid_keys['public_key_raw'],  # Safari/iOS format
             'private_key': vapid_keys['private_key'],
             'email': config['auth'].get('vapid_keys', {}).get('email', 'mailto:hochzeitsplaner@schumacher-it-consulting.de')
         }

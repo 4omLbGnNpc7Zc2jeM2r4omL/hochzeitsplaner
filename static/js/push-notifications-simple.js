@@ -327,53 +327,17 @@ class PushNotificationManager {
             
             // console.log('🔧 Full Array Length:', fullArray.length);
             
-            // Safari/iOS spezifische Behandlung
-            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent) || /iPad|iPhone|iPod/.test(navigator.userAgent);
-            
-            if (isSafari) {
-                // console.log('🍎 Safari/iOS erkannt - verwende strenge P-256 Validierung');
-                
-                // Safari braucht exakt 65 Bytes für P-256 uncompressed key
-                // Format: 0x04 + 32 Bytes X + 32 Bytes Y = 65 Bytes
-                if (fullArray.length === 91) {
-                    // DER-Format: Extrahiere die letzten 65 Bytes
-                    const p256Key = fullArray.slice(-65);
-                    
-                    // Validiere P-256 uncompressed format (muss mit 0x04 beginnen)
-                    if (p256Key.length === 65 && p256Key[0] === 0x04) {
-                        // console.log('✅ Gültiger P-256 uncompressed key für Safari');
-                        return p256Key;
-                    } else {
-                        console.error('❌ Safari: Ungültiger P-256 Key Format. Erwartet: 65 Bytes mit 0x04 Prefix');
-                        throw new Error('Invalid P-256 public key format for Safari');
-                    }
-                } else if (fullArray.length === 65) {
-                    // Bereits raw P-256 Format
-                    if (fullArray[0] === 0x04) {
-                        // console.log('✅ Raw P-256 Format für Safari korrekt');
-                        return fullArray;
-                    } else {
-                        console.error('❌ Safari: P-256 Key muss mit 0x04 beginnen (uncompressed)');
-                        throw new Error('P-256 key must start with 0x04 for Safari');
-                    }
-                } else {
-                    console.error('❌ Safari: Ungültige VAPID Key Länge:', fullArray.length, 'Erwartet: 65 oder 91 Bytes');
-                    throw new Error(`Invalid VAPID key length for Safari: ${fullArray.length} bytes`);
-                }
+            // Server liefert bereits das richtige Format je nach Browser
+            // Keine weitere Konvertierung nötig
+            if (fullArray.length === 65 && fullArray[0] === 0x04) {
+                // console.log('✅ Raw P-256 Format (Safari/iOS)');
+                return fullArray;
+            } else if (fullArray.length === 91) {
+                // console.log('✅ DER Format - extrahiere P-256 Key');
+                return fullArray.slice(-65); // Letzten 65 Bytes extrahieren
             } else {
-                // Chrome/Desktop: Bisherige Logik
-                if (fullArray.length === 91) {
-                    // console.log('🔧 DER-Format erkannt, extrahiere P-256 Key (65 Bytes)...');
-                    const p256Key = fullArray.slice(-65); // Letzten 65 Bytes
-                    // console.log('✅ P-256 Key Length:', p256Key.length);
-                    return p256Key;
-                } else if (fullArray.length === 65) {
-                    // console.log('✅ Raw P-256 Format bereits korrekt');
-                    return fullArray;
-                } else {
-                    console.warn('⚠️ Unerwartete VAPID Key Länge:', fullArray.length);
-                    return fullArray;
-                }
+                // console.log('✅ Andere Länge, verwende wie geliefert:', fullArray.length);
+                return fullArray;
             }
             
         } catch (error) {
