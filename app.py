@@ -859,30 +859,66 @@ def get_vapid_public_key():
             return jsonify({'error': 'VAPID Public Key nicht konfiguriert'}), 500
         
         # User-Agent auslesen für Safari-Erkennung
-        user_agent = request.headers.get('User-Agent', '').lower()
-        is_safari = ('safari' in user_agent and 'chrome' not in user_agent) or \
-                   'iphone' in user_agent or 'ipad' in user_agent or 'ipod' in user_agent
+        user_agent = request.headers.get('User-Agent', '')
+        client_ip = request.remote_addr
+        
+        logger.info(f"🔑 VAPID Key Request von IP: {client_ip}")
+        logger.info(f"🔑 User-Agent: {user_agent}")
+        
+        is_safari = ('safari' in user_agent.lower() and 'chrome' not in user_agent.lower()) or \
+                   'iphone' in user_agent.lower() or 'ipad' in user_agent.lower() or 'ipod' in user_agent.lower()
+        
+        logger.info(f"🔑 Safari erkannt: {is_safari}")
+        logger.info(f"🔑 Verfügbare Keys: public_key={bool(vapid_keys.get('public_key'))}, public_key_raw={bool(vapid_keys.get('public_key_raw'))}")
         
         # Safari bekommt raw format, Chrome bekommt DER format
         if is_safari and 'public_key_raw' in vapid_keys and vapid_keys['public_key_raw']:
-            logger.info(f"🍎 Safari/iOS erkannt - liefere raw P-256 VAPID Key")
+            key_to_send = vapid_keys['public_key_raw']
+            logger.info(f"🍎 Safari/iOS - sende RAW Key: {key_to_send[:20]}... (Länge: {len(key_to_send)})")
+            
+            # Decode und prüfe das Format
+            try:
+                import base64
+                padding = '='.repeat((4 - len(key_to_send) % 4) % 4)
+                base64_fixed = (key_to_send + padding).replace('-', '+').replace('_', '/')
+                decoded = base64.b64decode(base64_fixed)
+                logger.info(f"🔍 Dekodierte Key-Länge: {len(decoded)} bytes")
+                if len(decoded) > 0:
+                    logger.info(f"🔍 Erstes Byte (sollte 0x04 sein): 0x{decoded[0]:02x}")
+            except Exception as decode_error:
+                logger.error(f"❌ Fehler beim Dekodieren des Raw Keys: {decode_error}")
+            
             return jsonify({
                 'success': True,
-                'publicKey': vapid_keys['public_key_raw'],  # Raw format für Safari
+                'publicKey': key_to_send,
                 'format': 'raw',
-                'browser': 'safari'
+                'browser': 'safari',
+                'keyLength': len(key_to_send),
+                'debug': {
+                    'userAgent': user_agent,
+                    'isSafari': is_safari,
+                    'hasRawKey': bool(vapid_keys.get('public_key_raw'))
+                }
             })
         else:
-            logger.info(f"🔧 Chrome/Desktop erkannt - liefere DER VAPID Key")
+            key_to_send = vapid_keys['public_key']
+            logger.info(f"🔧 Chrome/Desktop - sende DER Key: {key_to_send[:20]}... (Länge: {len(key_to_send)})")
+            
             return jsonify({
                 'success': True,
-                'publicKey': vapid_keys['public_key'],  # DER format für Chrome
+                'publicKey': key_to_send,
                 'format': 'der',
-                'browser': 'chrome'
+                'browser': 'chrome',
+                'keyLength': len(key_to_send),
+                'debug': {
+                    'userAgent': user_agent,
+                    'isSafari': is_safari,
+                    'hasRawKey': bool(vapid_keys.get('public_key_raw'))
+                }
             })
         
     except Exception as e:
-        logger.error(f"Fehler beim Abrufen des VAPID Public Keys: {e}")
+        logger.error(f"❌ Fehler beim Abrufen des VAPID Public Keys: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/push/subscribe', methods=['POST'])

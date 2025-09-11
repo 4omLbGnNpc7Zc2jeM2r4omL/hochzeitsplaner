@@ -85,22 +85,43 @@ class PushNotificationManager {
     
     async loadVapidKey() {
         try {
-            // console.log('🔧 Lade VAPID Key von Server...');
+            console.log('🔧 Lade VAPID Key von Server...');
+            console.log('🔧 User Agent:', navigator.userAgent);
+            
             const response = await fetch('/api/push/vapid-key');
-            // console.log('🔧 VAPID Key Response Status:', response.status);
+            console.log('🔧 VAPID Key Response Status:', response.status);
             
             if (response.ok) {
                 const data = await response.json();
-                // console.log('🔧 Response Data:', data);
+                console.log('🔧 Response Data:', data);
                 
                 if (!data.publicKey) {
                     console.error('❌ VAPID Public Key nicht in Response gefunden');
                     return;
                 }
                 
+                console.log('🔍 Server Debug Info:');
+                console.log('  - Format:', data.format);
+                console.log('  - Browser:', data.browser);
+                console.log('  - Key Length:', data.keyLength);
+                console.log('  - User Agent Match:', data.debug?.isSafari);
+                console.log('  - Has Raw Key:', data.debug?.hasRawKey);
+                
                 this.vapidPublicKey = data.publicKey;
-                // console.log('✅ VAPID Public Key geladen');
-                // console.log('🔧 Key Sample:', data.publicKey.substring(0, 30) + '...');
+                console.log('✅ VAPID Public Key geladen');
+                console.log('🔧 Key Sample:', data.publicKey.substring(0, 30) + '...');
+                console.log('🔧 Full Key Length:', data.publicKey.length);
+                
+                // Teste Konvertierung sofort
+                try {
+                    const testArray = this.urlBase64ToUint8Array(this.vapidPublicKey);
+                    console.log('🔧 Test Konvertierung erfolgreich, Array Length:', testArray.length);
+                    if (testArray.length > 0) {
+                        console.log('🔧 Erstes Byte:', '0x' + testArray[0].toString(16).padStart(2, '0'));
+                    }
+                } catch (testError) {
+                    console.error('❌ Test Konvertierung fehlgeschlagen:', testError);
+                }
                 
             } else {
                 console.error('❌ VAPID Key API Fehler, Status:', response.status);
@@ -309,7 +330,8 @@ class PushNotificationManager {
     }
     
     urlBase64ToUint8Array(base64String) {
-        // console.log('🔧 Konvertiere VAPID Key, Original Length:', base64String.length);
+        console.log('🔧 Konvertiere VAPID Key, Original Length:', base64String.length);
+        console.log('🔧 Original String Sample:', base64String.substring(0, 30) + '...');
         
         try {
             const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -317,26 +339,36 @@ class PushNotificationManager {
                 .replace(/-/g, '+')
                 .replace(/_/g, '/');
             
+            console.log('🔧 Nach URL-safe Konvertierung:', base64.substring(0, 30) + '...');
+            
             const rawData = window.atob(base64);
-            // console.log('🔧 Raw Data Length:', rawData.length);
+            console.log('🔧 Raw Data Length:', rawData.length);
             
             const fullArray = new Uint8Array(rawData.length);
             for (let i = 0; i < rawData.length; ++i) {
                 fullArray[i] = rawData.charCodeAt(i);
             }
             
-            // console.log('🔧 Full Array Length:', fullArray.length);
+            console.log('🔧 Full Array Length:', fullArray.length);
+            if (fullArray.length > 0) {
+                console.log('🔧 Erstes Byte:', '0x' + fullArray[0].toString(16).padStart(2, '0'));
+            }
             
             // Server liefert bereits das richtige Format je nach Browser
             // Keine weitere Konvertierung nötig
             if (fullArray.length === 65 && fullArray[0] === 0x04) {
-                // console.log('✅ Raw P-256 Format (Safari/iOS)');
+                console.log('✅ Raw P-256 Format (Safari/iOS) - perfekt!');
                 return fullArray;
             } else if (fullArray.length === 91) {
-                // console.log('✅ DER Format - extrahiere P-256 Key');
-                return fullArray.slice(-65); // Letzten 65 Bytes extrahieren
+                console.log('✅ DER Format - extrahiere P-256 Key');
+                const extracted = fullArray.slice(-65);
+                console.log('🔧 Extrahierte Länge:', extracted.length);
+                if (extracted.length > 0) {
+                    console.log('🔧 Extrahiertes erstes Byte:', '0x' + extracted[0].toString(16).padStart(2, '0'));
+                }
+                return extracted;
             } else {
-                // console.log('✅ Andere Länge, verwende wie geliefert:', fullArray.length);
+                console.log('✅ Andere Länge, verwende wie geliefert:', fullArray.length);
                 return fullArray;
             }
             
