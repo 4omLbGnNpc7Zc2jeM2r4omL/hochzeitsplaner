@@ -182,8 +182,10 @@ class PushNotificationBanner {
 
             this.showStatus('✅ Service Worker bereit', 'info');
 
-            // Schritt 3: VAPID Key laden
+            // Schritt 3: VAPID Key laden mit Safari-Erkennung
             this.showStatus('🔑 Schritt 3: VAPID Schlüssel laden...', 'info');
+            console.log('🔧 User Agent:', navigator.userAgent);
+            
             const vapidResponse = await fetch('/api/push/vapid-key');
             
             if (!vapidResponse.ok) {
@@ -196,10 +198,21 @@ class PushNotificationBanner {
                 throw new Error('VAPID Public Key nicht verfügbar');
             }
 
+            // Debug: Server Response anzeigen
+            console.log('🔍 Server VAPID Response:', vapidData);
+            console.log('🔍 Format:', vapidData.format);
+            console.log('🔍 Browser:', vapidData.browser);
+            console.log('🔍 Key Length:', vapidData.keyLength);
+            console.log('🔍 Has Raw Key:', vapidData.debug?.hasRawKey);
+
             // Schritt 4: Push Subscription erstellen
             this.showStatus('📧 Schritt 4: Push Subscription erstellen...', 'info');
             
             const applicationServerKey = this.urlBase64ToUint8Array(vapidData.publicKey);
+            console.log('🔧 Converted applicationServerKey length:', applicationServerKey.length);
+            if (applicationServerKey.length > 0) {
+                console.log('🔧 First byte:', '0x' + applicationServerKey[0].toString(16).padStart(2, '0'));
+            }
             
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
@@ -292,12 +305,17 @@ class PushNotificationBanner {
     }
 
     urlBase64ToUint8Array(base64String) {
+        console.log('🔧 [Banner] Konvertiere VAPID Key, Original Length:', base64String.length);
+        console.log('🔧 [Banner] Original String Sample:', base64String.substring(0, 30) + '...');
+        
         try {
             // Bereinige und formatiere den Key
             const cleanBase64 = base64String.trim().replace(/\s/g, '');
             const padding = '='.repeat((4 - cleanBase64.length % 4) % 4);
             const paddedBase64 = cleanBase64 + padding;
             const base64 = paddedBase64.replace(/-/g, '+').replace(/_/g, '/');
+            
+            console.log('🔧 [Banner] Nach URL-safe Konvertierung:', base64.substring(0, 30) + '...');
             
             // Dekodiere zu Uint8Array
             const rawData = window.atob(base64);
@@ -307,22 +325,38 @@ class PushNotificationBanner {
                 outputArray[i] = rawData.charCodeAt(i);
             }
             
-            // P-256 Format validieren und korrigieren
-            if (outputArray.length === 64) {
-                // 64-Byte Key: 0x04 Prefix hinzufügen für uncompressed format
+            console.log('🔧 [Banner] Dekodierte Array Length:', outputArray.length);
+            if (outputArray.length > 0) {
+                console.log('🔧 [Banner] Erstes Byte:', '0x' + outputArray[0].toString(16).padStart(2, '0'));
+            }
+            
+            // Server liefert bereits das richtige Format je nach Browser
+            // Für Safari: Raw 65-Byte P-256 key, für Chrome: DER format
+            if (outputArray.length === 65 && outputArray[0] === 0x04) {
+                console.log('✅ [Banner] Raw P-256 Format (Safari/iOS) - perfekt!');
+                return outputArray;
+            } else if (outputArray.length === 91) {
+                console.log('✅ [Banner] DER Format - extrahiere P-256 Key');
+                const extracted = outputArray.slice(-65);
+                console.log('🔧 [Banner] Extrahierte Länge:', extracted.length);
+                if (extracted.length > 0) {
+                    console.log('🔧 [Banner] Extrahiertes erstes Byte:', '0x' + extracted[0].toString(16).padStart(2, '0'));
+                }
+                return extracted;
+            } else if (outputArray.length === 64) {
+                // Fallback: 64-Byte Key mit 0x04 Prefix erweitern
+                console.log('🔧 [Banner] 64-Byte Key - füge 0x04 Prefix hinzu');
                 const prefixedArray = new Uint8Array(65);
                 prefixedArray[0] = 0x04;
                 prefixedArray.set(outputArray, 1);
                 return prefixedArray;
-            } else if (outputArray.length === 65 && outputArray[0] === 0x04) {
-                // Bereits korrekte uncompressed P-256 key
-                return outputArray;
             } else {
-                // Andere Länge: unverändert zurückgeben
+                console.log('✅ [Banner] Andere Länge, verwende wie geliefert:', outputArray.length);
                 return outputArray;
             }
             
         } catch (error) {
+            console.error('❌ [Banner] VAPID Key Konvertierung fehlgeschlagen:', error);
             throw new Error(`VAPID Key Konvertierung fehlgeschlagen: ${error.message}`);
         }
     }
