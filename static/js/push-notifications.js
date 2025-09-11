@@ -7,6 +7,7 @@ class PushNotificationManager {
     constructor() {
         this.isSupported = false;
         this.isSubscribed = false;
+        this.isReady = false;
         this.registration = null;
         this.subscription = null;
         this.vapidPublicKey = null;
@@ -127,6 +128,10 @@ class PushNotificationManager {
             // UI aktualisieren
             this.updateUI();
             
+            // Initialisierung abgeschlossen
+            this.isReady = true;
+            console.log('✅ Push Notification Manager erfolgreich initialisiert');
+            
         } catch (error) {
             console.error('❌ Fehler beim Initialisieren der Push Notifications:', error);
             
@@ -135,6 +140,8 @@ class PushNotificationManager {
                 console.error('🍎 iOS Safari Fehler Details:', error.message);
                 alert(`🍎 iOS Safari Push Notification Fehler: ${error.message}`);
             }
+            
+            this.isReady = true; // Auch bei Fehlern als bereit markieren
         }
     }
     
@@ -430,6 +437,58 @@ class PushNotificationManager {
         } catch (error) {
             console.error('Fehler beim Deaktivieren der Push Notifications:', error);
             this.showNotification('❌ Fehler beim Deaktivieren der Push-Benachrichtigungen', 'error');
+            return false;
+        }
+    }
+    
+    /**
+     * Toggle-Funktion für Push Notifications
+     * Wird von einstellungen.html erwartet
+     */
+    async toggleSubscription() {
+        console.log('🔔 toggleSubscription aufgerufen, aktueller Status:', this.isSubscribed);
+        console.log('🔧 Manager bereit:', this.isReady);
+        console.log('🔧 Unterstützt:', this.isSupported);
+        console.log('🔧 VAPID Key vorhanden:', !!this.vapidPublicKey);
+        
+        // Warten bis Manager bereit ist
+        if (!this.isReady) {
+            console.log('⏳ Warte auf Manager-Initialisierung...');
+            let attempts = 0;
+            const maxAttempts = 50; // 5 Sekunden Maximum
+            
+            while (!this.isReady && attempts < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            
+            if (!this.isReady) {
+                console.error('❌ Manager-Initialisierung Timeout');
+                this.showNotification('❌ Push Notification System nicht bereit', 'error');
+                return false;
+            }
+        }
+        
+        try {
+            if (this.isSubscribed) {
+                console.log('🔕 Deaktiviere Push Notifications...');
+                const success = await this.unsubscribe();
+                if (success) {
+                    console.log('✅ Push Notifications erfolgreich deaktiviert');
+                    return true;
+                }
+            } else {
+                console.log('🔔 Aktiviere Push Notifications...');
+                const success = await this.subscribe();
+                if (success) {
+                    console.log('✅ Push Notifications erfolgreich aktiviert');
+                    return true;
+                }
+            }
+            return false;
+        } catch (error) {
+            console.error('❌ Fehler beim Toggle der Push Notifications:', error);
+            this.showNotification('❌ Fehler beim Ändern der Push-Benachrichtigungen: ' + error.message, 'error');
             return false;
         }
     }
