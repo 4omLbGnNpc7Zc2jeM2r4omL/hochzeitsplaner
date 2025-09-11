@@ -847,7 +847,6 @@ def get_wedding_date():
 # =============================================================================
 
 @app.route('/api/push/vapid-key')
-@require_auth
 def get_vapid_public_key():
     """VAPID Public Key für Push-Subscriptions abrufen"""
     try:

@@ -386,8 +386,10 @@ CREATE TABLE IF NOT EXISTS playlist_vorschlaege (
     kuenstler TEXT NOT NULL,
     titel TEXT NOT NULL,
     album TEXT,
+    genre TEXT,
     anlass TEXT NOT NULL,
     kommentar TEXT,
+    votes INTEGER DEFAULT 0,
     status TEXT DEFAULT 'Vorgeschlagen', -- Vorgeschlagen, Akzeptiert, Abgelehnt
     spotify_id TEXT,                      -- Spotify Track ID
     spotify_url TEXT,                     -- Link zum Spotify Track
@@ -396,7 +398,8 @@ CREATE TABLE IF NOT EXISTS playlist_vorschlaege (
     duration_ms INTEGER,                  -- Trackdauer in Millisekunden
     release_date TEXT,                    -- Veröffentlichungsdatum
     popularity INTEGER,                   -- Spotify Popularitäts-Score
-    erstellt_am TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (gast_id) REFERENCES gaeste(id) ON DELETE SET NULL
 );
 
@@ -404,11 +407,11 @@ CREATE TABLE IF NOT EXISTS playlist_vorschlaege (
 CREATE TABLE IF NOT EXISTS playlist_votes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     vorschlag_id INTEGER NOT NULL,
-    gast_id INTEGER NOT NULL,
+    gast_id INTEGER,
     vote_type TEXT DEFAULT 'up', -- 'up' oder 'down'
-    voted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (vorschlag_id) REFERENCES playlist_vorschlaege(id) ON DELETE CASCADE,
-    FOREIGN KEY (gast_id) REFERENCES gaeste(id) ON DELETE CASCADE,
+    FOREIGN KEY (gast_id) REFERENCES gaeste(id) ON DELETE SET NULL,
     UNIQUE(vorschlag_id, gast_id) -- Ein Gast kann nur einmal per Vorschlag voten
 );
 
