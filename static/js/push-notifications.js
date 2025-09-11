@@ -17,8 +17,11 @@ class PushNotificationManager {
     }
     
     async init() {
+        console.log('🚀 INIT STARTET - Push Notification Manager Initialisierung beginnt...');
+        
         // **AUSFÜHRLICHES iOS DEBUGGING**
         console.log('🔧 Push Notification Manager wird initialisiert...');
+        console.log('🔧 VERSION: 2025-09-11-DEBUG-1'); // Zeitstempel für Cache-Test
         console.log('🔧 User Agent:', navigator.userAgent);
         console.log('🔧 Service Worker Support:', 'serviceWorker' in navigator);
         console.log('🔧 Push Manager Support:', 'PushManager' in window);
@@ -89,10 +92,100 @@ class PushNotificationManager {
         
         this.isSupported = true;
         
+        // **NEUE STRATEGIE: VAPID Key zuerst laden, Service Worker später**
+        console.log('🚀 Neue Strategie: VAPID Key wird sofort geladen...');
+        
         try {
-            // Service Worker registrieren
+            // VAPID Public Key laden (unabhängig vom Service Worker)
+            console.log('🔧 Lade VAPID Key...');
+            await this.loadVapidKey();
+            
+            // Prüfen ob VAPID Key erfolgreich geladen wurde  
+            if (!this.vapidPublicKey) {
+                console.error('❌ VAPID Key konnte nicht geladen werden');
+                this.isSupported = false;
+            } else {
+                console.log('✅ VAPID Key erfolgreich geladen');
+            }
+            
+        } catch (error) {
+            console.error('❌ Fehler beim Laden des VAPID Keys:', error);
+            this.isSupported = false;
+        }
+        
+        // Manager als ready markieren
+        this.isReady = true;
+        console.log('✅ Push Notification Manager bereit, VAPID Key:', !!this.vapidPublicKey);
+        
+        // UI aktualisieren
+        this.updateUI();
+    }
+    
+    async loadServiceWorkerAsync() {
+        // Service Worker asynchron laden (für spätere Subscription-Funktionalität)
+        console.log('🔄 Service Worker wird asynchron geladen...');
+        try {
             this.registration = await navigator.serviceWorker.ready;
-            console.log('✅ Service Worker bereit für Push Notifications');
+            console.log('✅ Service Worker nachträglich geladen');
+        } catch (error) {
+            console.warn('⚠️ Service Worker konnte nicht geladen werden:', error);
+        }
+    }
+            
+            // Strategie 1: Sofort prüfen ob SW bereits bereit ist
+            if (navigator.serviceWorker.controller) {
+                this.registration = await navigator.serviceWorker.ready;
+                console.log('✅ Service Worker sofort bereit');
+            } else {
+                // Strategie 2: Warte auf Service Worker mit mehreren Fallbacks
+                let swReady = false;
+                
+                // Versuch 1: navigator.serviceWorker.ready (3 Sekunden)
+                try {
+                    const serviceWorkerTimeout = new Promise((_, reject) => {
+                        setTimeout(() => reject(new Error('SW Ready Timeout')), 3000);
+                    });
+                    
+                    this.registration = await Promise.race([
+                        navigator.serviceWorker.ready,
+                        serviceWorkerTimeout
+                    ]);
+                    swReady = true;
+                    console.log('✅ Service Worker über ready bereit');
+                } catch {
+                    console.warn('⏰ navigator.serviceWorker.ready Timeout');
+                }
+                
+                // Versuch 2: Warte auf Controller (weitere 4 Sekunden)
+                if (!swReady) {
+                    console.log('🔄 Warte auf Service Worker Controller...');
+                    
+                    const controllerPromise = new Promise((resolve, reject) => {
+                        const timeout = setTimeout(() => reject(new Error('Controller Timeout')), 4000);
+                        
+                        const checkController = () => {
+                            if (navigator.serviceWorker.controller) {
+                                clearTimeout(timeout);
+                                resolve();
+                            } else {
+                                setTimeout(checkController, 100);
+                            }
+                        };
+                        checkController();
+                    });
+                    
+                    try {
+                        await controllerPromise;
+                        this.registration = await navigator.serviceWorker.ready;
+                        swReady = true;
+                        console.log('✅ Service Worker über Controller bereit');
+                    } catch {
+                        console.error('❌ Alle Service Worker Strategien fehlgeschlagen');
+                        this.isSupported = false;
+                        return;
+                    }
+                }
+            }
             
             // Für iOS Safari: PushManager Verfügbarkeit nach SW Registration prüfen
             if (isIOS) {
@@ -111,7 +204,16 @@ class PushNotificationManager {
             this.loadStoredStatus();
             
             // Aktuelle Subscription prüfen
-            this.subscription = await this.registration.pushManager.getSubscription();
+            console.log('🔧 Prüfe Push Subscription... Registration:', !!this.registration);
+            console.log('🔧 PushManager verfügbar:', !!this.registration?.pushManager);
+            
+            try {
+                this.subscription = await this.registration.pushManager.getSubscription();
+                console.log('🔧 Aktuelle Subscription:', !!this.subscription);
+            } catch (error) {
+                console.error('❌ Fehler beim Prüfen der Subscription:', error);
+                this.subscription = null;
+            }
             
             // Status abgleichen
             if (this.subscription && !this.isSubscribed) {
@@ -123,14 +225,23 @@ class PushNotificationManager {
             }
             
             // VAPID Public Key laden
+            console.log('🔧 Lade VAPID Key...');
             await this.loadVapidKey();
+            
+            // Prüfen ob VAPID Key erfolgreich geladen wurde
+            if (!this.vapidPublicKey) {
+                console.error('❌ VAPID Key konnte nicht geladen werden - Manager nicht bereit');
+                this.isSupported = false;
+            } else {
+                console.log('✅ VAPID Key erfolgreich geladen');
+            }
             
             // UI aktualisieren
             this.updateUI();
             
             // Initialisierung abgeschlossen
             this.isReady = true;
-            console.log('✅ Push Notification Manager erfolgreich initialisiert');
+            console.log('✅ Push Notification Manager erfolgreich initialisiert, VAPID Key:', !!this.vapidPublicKey);
             
         } catch (error) {
             console.error('❌ Fehler beim Initialisieren der Push Notifications:', error);
@@ -198,6 +309,14 @@ class PushNotificationManager {
             
             if (response.ok) {
                 const data = await response.json();
+                console.log('🔧 Response Data:', data);
+                
+                if (!data.publicKey) {
+                    console.error('❌ VAPID Public Key nicht in Response gefunden');
+                    console.error('❌ Response Structure:', Object.keys(data));
+                    return;
+                }
+                
                 this.vapidPublicKey = data.publicKey;
                 console.log('✅ VAPID Public Key geladen');
                 console.log('🔧 Key Length:', data.publicKey.length);
@@ -220,9 +339,17 @@ class PushNotificationManager {
                 console.error('❌ VAPID Public Key konnte nicht geladen werden, Status:', response.status);
                 const errorText = await response.text();
                 console.error('❌ Error Response:', errorText);
+                
+                // Prüfe ob API existiert
+                if (response.status === 404) {
+                    console.error('❌ API Route /api/push/vapid-key nicht gefunden - Server-Problem?');
+                } else if (response.status === 401 || response.status === 403) {
+                    console.error('❌ Keine Berechtigung für VAPID Key API');
+                }
             }
         } catch (error) {
-            console.error('❌ Fehler beim Laden des VAPID Public Keys:', error);
+            console.error('❌ Netzwerk-Fehler beim Laden des VAPID Public Keys:', error);
+            console.error('❌ Error Details:', error.message);
         }
     }
     

@@ -393,7 +393,10 @@ async function loadMyUploads() {
     try {
         const uploads = await apiRequest('/my-uploads');
         
-        if (uploads.length === 0) {
+        // Debug: Log the uploads to see what we're getting
+        console.log('Uploads received:', uploads);
+        
+        if (!uploads || uploads.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-4">
                     <i class="bi bi-cloud-upload text-muted" style="font-size: 3rem;"></i>
@@ -407,12 +410,19 @@ async function loadMyUploads() {
         // Uploads anzeigen
         container.innerHTML = '';
         
-        uploads.forEach(upload => {
-            const uploadCard = createUploadCard(upload);
-            container.appendChild(uploadCard);
+        uploads.forEach((upload, index) => {
+            try {
+                console.log(`Processing upload ${index}:`, upload);
+                const uploadCard = createUploadCard(upload);
+                container.appendChild(uploadCard);
+            } catch (cardError) {
+                console.error(`Error creating card for upload ${index}:`, cardError, upload);
+                // Continue with next upload instead of breaking
+            }
         });
         
     } catch (error) {
+        console.error('Error in loadMyUploads:', error);
         container.innerHTML = `
             <div class="alert alert-danger">
                 <i class="bi bi-exclamation-triangle me-2"></i>
@@ -431,9 +441,14 @@ function createUploadCard(upload) {
     const card = document.createElement('div');
     card.className = 'card mb-3';
     
+    // Sichere Verarbeitung der Datei-Eigenschaften
+    const safeFileName = upload.original_filename || 'Unbenannte Datei';
+    const safeMimeType = upload.mime_type || 'application/octet-stream';
+    const safeDescription = upload.beschreibung || '';
+    
     // Bestimme Icon und Typ
-    const isImage = upload.mime_type.startsWith('image/');
-    const isVideo = upload.mime_type.startsWith('video/');
+    const isImage = safeMimeType.startsWith('image/');
+    const isVideo = safeMimeType.startsWith('video/');
     
     let icon = 'bi-file-earmark';
     let typeText = 'Datei';
@@ -446,6 +461,9 @@ function createUploadCard(upload) {
         typeText = 'Video';
     }
     
+    // Sichere Verarbeitung für onclick-Handler - Filename für Modal escapen
+    const escapedFileName = safeFileName.replace(/'/g, "\\'").replace(/"/g, '\\"');
+    
     card.innerHTML = `
         <div class="card-body">
             <div class="row align-items-center">
@@ -453,11 +471,11 @@ function createUploadCard(upload) {
                     <i class="bi ${icon}" style="font-size: 2rem; color: #d4af37;"></i>
                 </div>
                 <div class="col-7 col-md-8">
-                    <h6 class="mb-1">${upload.original_filename}</h6>
+                    <h6 class="mb-1">${safeFileName}</h6>
                     <p class="mb-1 text-muted small">
                         ${typeText} • ${formatFileSize(upload.file_size)} • ${formatDate(upload.upload_date)}
                     </p>
-                    ${upload.beschreibung ? `<p class="mb-0 small text-secondary">${upload.beschreibung}</p>` : ''}
+                    ${safeDescription ? `<p class="mb-0 small text-secondary">${safeDescription}</p>` : ''}
                 </div>
                 <div class="col-3 col-md-3 text-end">
                     <div class="btn-group btn-group-sm" role="group">
@@ -467,7 +485,7 @@ function createUploadCard(upload) {
                         <button type="button" class="btn btn-outline-success" onclick="downloadUpload(${upload.id})" title="Herunterladen">
                             <i class="bi bi-download"></i>
                         </button>
-                        <button type="button" class="btn btn-outline-danger" onclick="deleteUpload(${upload.id})" title="Löschen">
+                        <button type="button" class="btn btn-outline-danger" onclick="deleteUpload(${upload.id}, '${escapedFileName}')" title="Löschen">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
@@ -500,25 +518,73 @@ function downloadUpload(uploadId) {
  * Löscht einen Upload
  * @param {number} uploadId - ID des Uploads
  */
-async function deleteUpload(uploadId) {
-    if (!confirm('Möchtest du diese Datei wirklich löschen?')) {
+async function deleteUpload(uploadId, fileName = null) {
+    // Modal-Elemente abrufen
+    const deleteModal = document.getElementById('deleteUploadModal');
+    const fileNameElement = document.getElementById('deleteUploadFileName');
+    const confirmButton = document.getElementById('confirmDeleteUpload');
+    
+    if (!deleteModal || !fileNameElement || !confirmButton) {
+        // Fallback auf confirm Dialog wenn Modal nicht verfügbar
+        if (!confirm('Möchtest du diese Datei wirklich löschen?')) {
+            return;
+        }
+        await performDeleteUpload(uploadId);
         return;
     }
     
+    // Dateiname im Modal setzen
+    fileNameElement.textContent = fileName || `Upload #${uploadId}`;
+    
+    // Event-Handler für Bestätigung
+    const handleConfirmDelete = async () => {
+        confirmButton.removeEventListener('click', handleConfirmDelete);
+        
+        // Modal schließen
+        const bootstrapModal = bootstrap.Modal.getInstance(deleteModal);
+        if (bootstrapModal) {
+            bootstrapModal.hide();
+        }
+        
+        // Upload löschen
+        await performDeleteUpload(uploadId);
+    };
+    
+    // Event-Handler setzen
+    confirmButton.addEventListener('click', handleConfirmDelete);
+    
+    // Modal anzeigen
     try {
-        const response = await apiRequest(`/delete-upload/${uploadId}`, {
+        const bootstrapModal = new bootstrap.Modal(deleteModal);
+        bootstrapModal.show();
+    } catch (error) {
+        console.error('Modal konnte nicht angezeigt werden:', error);
+        // Fallback auf confirm Dialog
+        if (confirm('Möchtest du diese Datei wirklich löschen?')) {
+            await performDeleteUpload(uploadId);
+        }
+    }
+}
+
+/**
+ * Führt das tatsächliche Löschen des Uploads durch
+ * @param {number} uploadId - ID des Uploads
+ */
+async function performDeleteUpload(uploadId) {
+    try {
+        const result = await apiRequest(`/delete-upload/${uploadId}`, {
             method: 'DELETE'
         });
         
-        if (response.ok) {
-            showAlert('Upload gelöscht', 'Die Datei wurde erfolgreich gelöscht.', 'success');
-            loadMyUploads(); // Neu laden
-        } else {
-            const error = await response.json();
-            throw new Error(error.error || 'Löschen fehlgeschlagen');
-        }
+        // apiRequest already handles HTTP errors and parses JSON
+        // If we reach here, the deletion was successful
+        showAlert('Upload gelöscht', 'Die Datei wurde erfolgreich gelöscht.', 'success');
+        
+        // Uploads neu laden um die Ansicht zu aktualisieren
+        await loadMyUploads();
+        
     } catch (error) {
-
+        console.error('Fehler beim Löschen des Uploads:', error);
         showAlert('Löschen fehlgeschlagen', error.message, 'danger');
     }
 }

@@ -12,22 +12,6 @@
   "dir": "ltr",
   "categories": ["lifestyle", "productivity"],
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
-  "screenshots": [
-    {
-      "src": "/static/images/screenshot-wide.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Hochzeitsplaner Dashboard"
-    },
-    {
-      "src": "/static/images/screenshot-narrow.png", 
-      "sizes": "640x1136",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Hochzeitsplaner Mobile"
-    }
-  ],
   "icons": [
     {
       "src": "/static/icons/icon-72x72.png",

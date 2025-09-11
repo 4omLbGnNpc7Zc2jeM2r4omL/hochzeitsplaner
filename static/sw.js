@@ -3,8 +3,30 @@
  * Ermöglicht Offline-Funktionalität und App-Installation
  */
 
-const CACHE_NAME = 'hochzeitsplaner-v1.0.0';
-const STATIC_CACHE_NAME = 'hochzeitsplaner-static-v1.0.0';
+const CACHE_NAME = 'hochzeitsplaner-v1.0.1';
+const STATIC_CACHE_NAME = 'hochzeits        const options = {
+            body: data.body || 'Neue Mitteilung',
+            icon: '/static/icons/android-chrome-192x192.png', // Größeres Icon für bessere Sichtbarkeit
+            badge: '/static/icons/apple-touch-icon.png', // Kleines Badge-Icon
+            image: data.image || null, // Optional: Großes Bild in der Notification
+            tag: 'hochzeitsplaner-notification',
+            renotify: true,
+            requireInteraction: false,
+            silent: false, // Sound abspielen
+            timestamp: Date.now(),
+            data: data, // Daten für Click-Handling
+            actions: [
+                {
+                    action: 'open',
+                    title: '✨ Öffnen',
+                    icon: '/static/icons/favicon-32x32.png'
+                },
+                {
+                    action: 'close',
+                    title: '❌ Schließen'
+                }
+            ]
+        };.1';
 
 // Dateien die immer gecacht werden sollen
 const STATIC_FILES = [

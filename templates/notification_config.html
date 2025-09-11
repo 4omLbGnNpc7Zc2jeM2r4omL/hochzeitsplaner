@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+
+{% block title %}Push-Notification Konfiguration{% endblock %}
+
+{% block extra_head %}
+<style>
+    .config-section {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .config-section h3 {
+        color: #333;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #d4af37;
+        padding-bottom: 5px;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+        color: #555;
+    }
+    
+    .form-group input, 
+    .form-group select, 
+    .form-group textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .form-group textarea {
+        resize: vertical;
+        min-height: 60px;
+    }
+    
+    .notification-type {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+        background: #fafafa;
+    }
+    
+    .notification-type h4 {
+        margin-top: 0;
+        color: #d4af37;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    
+    .btn-save {
+        background: #d4af37;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background 0.3s;
+    }
+    
+    .btn-save:hover {
+        background: #b8941f;
+    }
+    
+    .btn-test {
+        background: #5bc0de;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background 0.3s;
+    }
+    
+    .btn-test:hover {
+        background: #46b8da;
+    }
+    
+    .status-message {
+        padding: 10px;
+        border-radius: 4px;
+        margin: 10px 0;
+        display: none;
+    }
+    
+    .status-message.success {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+    
+    .status-message.error {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+    
+    .preview-box {
+        border: 2px dashed #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        background: #f9f9f9;
+        text-align: center;
+        margin-top: 15px;
+    }
+    
+    .preview-notification {
+        display: inline-block;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 15px;
+        max-width: 350px;
+        text-align: left;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .preview-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .preview-icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        margin-right: 10px;
+        background: #ddd;
+        display: inline-block;
+    }
+    
+    .preview-title {
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .preview-body {
+        color: #666;
+        font-size: 14px;
+        line-height: 1.4;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <h1>🔔 Push-Notification Konfiguration</h1>
+            <p>Hier kannst du einstellen, wie Push-Notifications angezeigt werden und wer als Absender erscheint.</p>
+            
+            <div id="status-message" class="status-message"></div>
+            
+            <form id="notification-config-form">
+                <!-- Allgemeine Einstellungen -->
+                <div class="config-section">
+                    <h3>🏠 Allgemeine Einstellungen</h3>
+                    
+                    <div class="form-group">
+                        <label for="app_name">App-Name (erscheint als Absender):</label>
+                        <input type="text" id="app_name" name="app_name" placeholder="z.B. Pascal & Käthe Hochzeit">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="default_title">Standard-Titel:</label>
+                        <input type="text" id="default_title" name="default_title" placeholder="z.B. Hochzeitsplaner">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="default_icon">Standard-Icon:</label>
+                        <select id="default_icon" name="default_icon">
+                            <option value="/static/icons/android-chrome-192x192.png">Android Chrome 192x192</option>
+                            <option value="/static/icons/android-chrome-512x512.png">Android Chrome 512x512</option>
+                            <option value="/static/icons/apple-touch-icon.png">Apple Touch Icon</option>
+                            <option value="/static/icons/favicon-32x32.png">Favicon 32x32</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="badge_icon">Badge-Icon (kleines Icon):</label>
+                        <select id="badge_icon" name="badge_icon">
+                            <option value="/static/icons/apple-touch-icon.png">Apple Touch Icon</option>
+                            <option value="/static/icons/favicon-32x32.png">Favicon 32x32</option>
+                            <option value="/static/icons/favicon-16x16.png">Favicon 16x16</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="default_sound" name="default_sound"> 
+                            Sound abspielen
+                        </label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="require_interaction" name="require_interaction"> 
+                            Benutzer-Interaktion erforderlich (Notification bleibt bis zum Klicken)
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Notification-Typen -->
+                <div class="config-section">
+                    <h3>📱 Notification-Typen</h3>
+                    
+                    <div class="notification-type">
+                        <h4>🎉 RSVP-Notifications</h4>
+                        <div class="form-group">
+                            <label for="rsvp_title">Titel:</label>
+                            <input type="text" id="rsvp_title" name="rsvp_title" placeholder="z.B. 🎉 Neue RSVP">
+                        </div>
+                        <div class="form-group">
+                            <label for="rsvp_icon">Icon:</label>
+                            <select id="rsvp_icon" name="rsvp_icon">
+                                <option value="/static/icons/android-chrome-192x192.png">Android Chrome 192x192</option>
+                                <option value="/static/icons/android-chrome-512x512.png">Android Chrome 512x512</option>
+                                <option value="/static/icons/apple-touch-icon.png">Apple Touch Icon</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="rsvp_template">Nachrichten-Template:</label>
+                            <textarea id="rsvp_template" name="rsvp_template" placeholder="z.B. {guest_name} {status_text}\n📊 Status: {zugesagt} zugesagt 👍, {abgesagt} abgesagt 👎, {offen} offen">{guest_name} {status_text}
+📊 Status: {zugesagt} zugesagt 👍, {abgesagt} abgesagt 👎, {offen} offen</textarea>
+                            <small style="color: #666; font-size: 12px;">
+                                Verfügbare Platzhalter: {guest_name}, {status_text}, {zugesagt}, {abgesagt}, {offen}, {message}
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="notification-type">
+                        <h4>🎁 Geschenk-Notifications</h4>
+                        <div class="form-group">
+                            <label for="gift_title">Titel:</label>
+                            <input type="text" id="gift_title" name="gift_title" placeholder="z.B. 🎁 Geschenk-Update">
+                        </div>
+                        <div class="form-group">
+                            <label for="gift_icon">Icon:</label>
+                            <select id="gift_icon" name="gift_icon">
+                                <option value="/static/icons/android-chrome-192x192.png">Android Chrome 192x192</option>
+                                <option value="/static/icons/android-chrome-512x512.png">Android Chrome 512x512</option>
+                                <option value="/static/icons/apple-touch-icon.png">Apple Touch Icon</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="gift_template">Nachrichten-Template:</label>
+                            <textarea id="gift_template" name="gift_template" placeholder="z.B. {guest_name} hat '{gift_name}' ausgewählt">{guest_name} hat '{gift_name}' ausgewählt</textarea>
+                            <small style="color: #666; font-size: 12px;">
+                                Verfügbare Platzhalter: {guest_name}, {gift_name}
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="notification-type">
+                        <h4>📷 Upload-Notifications</h4>
+                        <div class="form-group">
+                            <label for="upload_title">Titel:</label>
+                            <input type="text" id="upload_title" name="upload_title" placeholder="z.B. 📷 Neues Foto">
+                        </div>
+                        <div class="form-group">
+                            <label for="upload_icon">Icon:</label>
+                            <select id="upload_icon" name="upload_icon">
+                                <option value="/static/icons/android-chrome-192x192.png">Android Chrome 192x192</option>
+                                <option value="/static/icons/android-chrome-512x512.png">Android Chrome 512x512</option>
+                                <option value="/static/icons/apple-touch-icon.png">Apple Touch Icon</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="upload_template">Nachrichten-Template:</label>
+                            <textarea id="upload_template" name="upload_template" placeholder="z.B. {guest_name} hat {file_count} {file_text} hochgeladen">{guest_name} hat {file_count} {file_text} hochgeladen</textarea>
+                            <small style="color: #666; font-size: 12px;">
+                                Verfügbare Platzhalter: {guest_name}, {file_count}, {file_text}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Vorschau -->
+                <div class="config-section">
+                    <h3>👀 Vorschau</h3>
+                    <p>So würde eine RSVP-Notification aussehen:</p>
+                    
+                    <div class="preview-box">
+                        <div class="preview-notification">
+                            <div class="preview-header">
+                                <img class="preview-icon" id="preview-icon" src="/static/icons/android-chrome-192x192.png" alt="Icon">
+                                <div>
+                                    <div class="preview-title" id="preview-title">🎉 Neue RSVP</div>
+                                    <small id="preview-sender">Pascal & Käthe Hochzeit</small>
+                                </div>
+                            </div>
+                            <div class="preview-body">
+                                Max Mustermann hat zugesagt<br>
+                                📊 Status: 15 zugesagt 👍, 3 abgesagt 👎, 12 offen
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Aktions-Buttons -->
+                <div class="action-buttons">
+                    <button type="button" class="btn-save" onclick="saveConfig()">💾 Konfiguration speichern</button>
+                    <button type="button" class="btn-test" onclick="testNotification()">🧪 Test-Notification senden</button>
+                    <button type="button" class="btn-cleanup" onclick="cleanupSubscriptions()" style="background-color: #dc3545;">🧹 Subscriptions bereinigen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentConfig = {};
+
+// Konfiguration beim Laden der Seite abrufen
+document.addEventListener('DOMContentLoaded', function() {
+    loadConfig();
+});
+
+function loadConfig() {
+    fetch('/api/admin/notification-config')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentConfig = data.config;
+                populateForm(data.config);
+                updatePreview();
+            } else {
+                showMessage('Fehler beim Laden der Konfiguration', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Fehler:', error);
+            showMessage('Fehler beim Laden der Konfiguration', 'error');
+        });
+}
+
+function populateForm(config) {
+    const notifConfig = config.notification_config || {};
+    
+    // Allgemeine Einstellungen
+    document.getElementById('app_name').value = notifConfig.app_name || '';
+    document.getElementById('default_title').value = notifConfig.default_title || '';
+    document.getElementById('default_icon').value = notifConfig.default_icon || '';
+    document.getElementById('badge_icon').value = notifConfig.badge_icon || '';
+    document.getElementById('default_sound').checked = notifConfig.default_sound !== false;
+    document.getElementById('require_interaction').checked = notifConfig.require_interaction === true;
+    
+    // Notification-Typen
+    const types = notifConfig.notification_types || {};
+    if (types.rsvp) {
+        document.getElementById('rsvp_title').value = types.rsvp.title || '';
+        document.getElementById('rsvp_icon').value = types.rsvp.icon || '';
+        document.getElementById('rsvp_template').value = types.rsvp.template || '{guest_name} {status_text}\n📊 Status: {zugesagt} zugesagt 👍, {abgesagt} abgesagt 👎, {offen} offen';
+    }
+    if (types.gift) {
+        document.getElementById('gift_title').value = types.gift.title || '';
+        document.getElementById('gift_icon').value = types.gift.icon || '';
+        document.getElementById('gift_template').value = types.gift.template || '{guest_name} hat \'{gift_name}\' ausgewählt';
+    }
+    if (types.upload) {
+        document.getElementById('upload_title').value = types.upload.title || '';
+        document.getElementById('upload_icon').value = types.upload.icon || '';
+        document.getElementById('upload_template').value = types.upload.template || '{guest_name} hat {file_count} {file_text} hochgeladen';
+    }
+}
+
+function updatePreview() {
+    const appName = document.getElementById('app_name').value || 'Hochzeitsplaner';
+    const rsvpTitle = document.getElementById('rsvp_title').value || '🎉 Neue RSVP';
+    const rsvpIcon = document.getElementById('rsvp_icon').value || '/static/icons/android-chrome-192x192.png';
+    
+    document.getElementById('preview-title').textContent = rsvpTitle;
+    document.getElementById('preview-sender').textContent = appName;
+    document.getElementById('preview-icon').src = rsvpIcon;
+}
+
+function saveConfig() {
+    const config = {
+        notification_config: {
+            app_name: document.getElementById('app_name').value,
+            default_title: document.getElementById('default_title').value,
+            default_icon: document.getElementById('default_icon').value,
+            badge_icon: document.getElementById('badge_icon').value,
+            default_sound: document.getElementById('default_sound').checked,
+            require_interaction: document.getElementById('require_interaction').checked,
+            vibrate_pattern: [200, 100, 200],
+            actions: [
+                {
+                    action: "open",
+                    title: "✨ Öffnen",
+                    icon: "/static/icons/favicon-32x32.png"
+                },
+                {
+                    action: "close",
+                    title: "❌ Schließen"
+                }
+            ],
+            notification_types: {
+                rsvp: {
+                    title: document.getElementById('rsvp_title').value,
+                    icon: document.getElementById('rsvp_icon').value,
+                    template: document.getElementById('rsvp_template').value,
+                    tag: "rsvp-notification"
+                },
+                gift: {
+                    title: document.getElementById('gift_title').value,
+                    icon: document.getElementById('gift_icon').value,
+                    template: document.getElementById('gift_template').value,
+                    tag: "gift-notification"
+                },
+                upload: {
+                    title: document.getElementById('upload_title').value,
+                    icon: document.getElementById('upload_icon').value,
+                    template: document.getElementById('upload_template').value,
+                    tag: "upload-notification"
+                }
+            }
+        }
+    };
+    
+    fetch('/api/admin/notification-config', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({config: config})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage('Konfiguration erfolgreich gespeichert! ✅', 'success');
+            updatePreview();
+        } else {
+            showMessage('Fehler beim Speichern: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Fehler:', error);
+        showMessage('Fehler beim Speichern der Konfiguration', 'error');
+    });
+}
+
+function testNotification() {
+    // Test-Notification über die vorhandene Test-API senden
+    fetch('/api/push/test', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage('Test-Notification gesendet! 📱 Prüfe deine Benachrichtigungen.', 'success');
+        } else {
+            showMessage('Fehler beim Senden der Test-Notification: ' + (data.message || data.error), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Fehler:', error);
+        showMessage('Fehler beim Senden der Test-Notification', 'error');
+    });
+}
+
+// Push-Subscriptions bereinigen
+function cleanupSubscriptions() {
+    if (!confirm('⚠️ Warnung: Dies löscht ALLE Push-Subscriptions! Benutzer müssen sich erneut für Benachrichtigungen anmelden.\n\nFortfahren?')) {
+        return;
+    }
+    
+    fetch('/api/push/cleanup', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage('🧹 Alle Push-Subscriptions erfolgreich bereinigt!', 'success');
+        } else {
+            showMessage('Fehler beim Bereinigen: ' + (data.message || data.error), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Fehler:', error);
+        showMessage('Fehler beim Bereinigen der Subscriptions', 'error');
+    });
+}
+
+function showMessage(message, type) {
+    const statusDiv = document.getElementById('status-message');
+    statusDiv.textContent = message;
+    statusDiv.className = 'status-message ' + type;
+    statusDiv.style.display = 'block';
+    
+    // Nach 5 Sekunden ausblenden
+    setTimeout(() => {
+        statusDiv.style.display = 'none';
+    }, 5000);
+}
+
+// Vorschau aktualisieren, wenn sich Felder ändern
+document.addEventListener('change', updatePreview);
+document.addEventListener('input', updatePreview);
+</script>
+{% endblock %}

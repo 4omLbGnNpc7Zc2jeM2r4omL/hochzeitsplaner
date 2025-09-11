@@ -1,0 +1,46 @@
+{
+  "notification_config": {
+    "app_name": "Pascal & Käthe Hochzeit",
+    "default_title": "Hochzeitsplaner",
+    "default_icon": "/static/icons/apple-touch-icon.png",
+    "badge_icon": "/static/icons/apple-touch-icon.png",
+    "default_sound": true,
+    "require_interaction": false,
+    "vibrate_pattern": [
+      200,
+      100,
+      200
+    ],
+    "actions": [
+      {
+        "action": "open",
+        "title": "✨ Öffnen",
+        "icon": "/static/icons/favicon-32x32.png"
+      },
+      {
+        "action": "close",
+        "title": "❌ Schließen"
+      }
+    ],
+    "notification_types": {
+      "rsvp": {
+        "title": "🎉 Neue RSVP",
+        "icon": "/static/icons/apple-touch-icon.png",
+        "template": "{guest_name} {status_text}\n📊 Status: {zugesagt} zugesagt 👍, {abgesagt} abgesagt 👎, {offen} offen",
+        "tag": "rsvp-notification"
+      },
+      "gift": {
+        "title": "🎁 Geschenk-Update",
+        "icon": "/static/icons/apple-touch-icon.png",
+        "template": "{guest_name} hat '{gift_name}' ausgewählt",
+        "tag": "gift-notification"
+      },
+      "upload": {
+        "title": "📷 Neues Foto",
+        "icon": "/static/icons/apple-touch-icon.png",
+        "template": "{guest_name} hat {file_count} neue(s) Foto(s) hochgeladen",
+        "tag": "upload-notification"
+      }
+    }
+  }
+}

@@ -221,7 +221,7 @@
                         {% if session.user_role == 'admin' %}
                         <!-- Administration -->
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle {% if request.endpoint in ['guest_credentials_page', 'gaeste_uploads', 'upload_approval', 'database_admin', 'einstellungen'] %}active fw-bold{% endif %}" 
+                            <a class="nav-link dropdown-toggle {% if request.endpoint in ['guest_credentials_page', 'gaeste_uploads', 'upload_approval', 'database_admin', 'einstellungen', 'notification_config_page'] %}active fw-bold{% endif %}" 
                                href="#" role="button" data-bs-toggle="dropdown" style="color: #8b7355;">
                                 <i class="bi bi-gear-wide-connected me-1"></i>Administration
                             </a>
@@ -230,6 +230,12 @@
                                     <a class="dropdown-item {% if request.endpoint == 'einstellungen' %}active{% endif %}" 
                                        href="{{ url_for('einstellungen') }}">
                                         <i class="bi bi-gear me-2"></i>Einstellungen
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item {% if request.endpoint == 'notification_config_page' %}active{% endif %}" 
+                                       href="{{ url_for('notification_config_page') }}">
+                                        <i class="bi bi-bell me-2"></i>Push-Notifications
                                     </a>
                                 </li>
                                 <li><hr class="dropdown-divider"></li>
@@ -531,7 +537,7 @@
     
     <!-- Push Notifications (nur für Admins) -->
     {% if session.user_role == 'admin' %}
-    <script src="{{ url_for('static', filename='js/push-notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/push-notifications-simple.js') }}"></script>
     <script src="{{ url_for('static', filename='js/direct-push-button.js') }}"></script>
     <script>
         // Push Notification Button Event Handler

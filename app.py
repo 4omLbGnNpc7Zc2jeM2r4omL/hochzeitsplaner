@@ -775,7 +775,8 @@ def protect_api_routes():
     if (request.endpoint == 'login' or 
         request.path.startswith('/static/') or
         request.path == '/favicon.ico' or
-        request.path == '/api/dj/session-debug'):  # Session-Debug für DJ-Troubleshooting
+        request.path == '/api/dj/session-debug' or  # Session-Debug für DJ-Troubleshooting
+        request.path == '/api/push/vapid-key'):  # VAPID Key muss öffentlich zugänglich sein
         return
     
     # ALLE API-Routen erfordern Authentifizierung
@@ -922,6 +923,22 @@ def test_push_notification():
             
     except Exception as e:
         logger.error(f"Fehler beim Senden der Test-Push-Notification: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/push/cleanup', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+def cleanup_push_subscriptions():
+    """Bereinige alle Push-Subscriptions (für VAPID-Probleme)"""
+    try:
+        if not PUSH_NOTIFICATIONS_AVAILABLE or not push_manager:
+            return jsonify({'error': 'Push Notifications nicht verfügbar'}), 503
+            
+        push_manager.force_cleanup_all_subscriptions()
+        return jsonify({'success': True, 'message': 'Alle Push-Subscriptions bereinigt'})
+            
+    except Exception as e:
+        logger.error(f"Fehler beim Bereinigen der Push-Subscriptions: {e}")
         return jsonify({'error': str(e)}), 500
 
 # =============================================================================
@@ -3848,6 +3865,95 @@ def get_database_info():
     except Exception as e:
         logger.error(f"Fehler beim Abrufen der Datenbank-Informationen: {e}")
         return jsonify({'success': False, 'message': f'Serverfehler: {str(e)}'})
+
+@app.route('/api/admin/notification-config', methods=['GET', 'POST'])
+@require_auth
+@require_role(['admin'])
+def admin_notification_config():
+    """API-Endpunkt zum Verwalten der Push-Notification-Konfiguration"""
+    try:
+        if request.method == 'GET':
+            # Aktuelle Konfiguration laden
+            try:
+                with open('notification_config.json', 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                return jsonify({'success': True, 'config': config})
+            except FileNotFoundError:
+                # Standard-Konfiguration zurückgeben
+                default_config = {
+                    "notification_config": {
+                        "app_name": "Pascal & Käthe Hochzeit",
+                        "default_title": "Hochzeitsplaner",
+                        "default_icon": "/static/icons/android-chrome-192x192.png",
+                        "badge_icon": "/static/icons/apple-touch-icon.png",
+                        "default_sound": True,
+                        "require_interaction": False,
+                        "vibrate_pattern": [200, 100, 200],
+                        "actions": [
+                            {
+                                "action": "open",
+                                "title": "✨ Öffnen",
+                                "icon": "/static/icons/favicon-32x32.png"
+                            },
+                            {
+                                "action": "close",
+                                "title": "❌ Schließen"
+                            }
+                        ],
+                        "notification_types": {
+                            "rsvp": {
+                                "title": "🎉 Neue RSVP",
+                                "icon": "/static/icons/android-chrome-192x192.png",
+                                "template": "{guest_name} {status_text}\n📊 Status: {zugesagt} zugesagt 👍, {abgesagt} abgesagt 👎, {offen} offen",
+                                "tag": "rsvp-notification"
+                            },
+                            "gift": {
+                                "title": "🎁 Geschenk-Update",
+                                "icon": "/static/icons/android-chrome-192x192.png",
+                                "template": "{guest_name} hat '{gift_name}' ausgewählt",
+                                "tag": "gift-notification"
+                            },
+                            "upload": {
+                                "title": "📷 Neues Foto",
+                                "icon": "/static/icons/android-chrome-192x192.png",
+                                "template": "{guest_name} hat {file_count} {file_text} hochgeladen",
+                                "tag": "upload-notification"
+                            }
+                        }
+                    }
+                }
+                return jsonify({'success': True, 'config': default_config})
+        
+        elif request.method == 'POST':
+            # Konfiguration speichern
+            data = request.get_json()
+            if not data or 'config' not in data:
+                return jsonify({'success': False, 'message': 'Keine gültige Konfiguration übermittelt'})
+            
+            try:
+                with open('notification_config.json', 'w', encoding='utf-8') as f:
+                    json.dump(data['config'], f, ensure_ascii=False, indent=2)
+                
+                # Push Notification Manager neu laden lassen
+                if push_manager:
+                    push_manager.reload_notification_config()
+                    logger.info("🔄 Push-Notification-Konfiguration neu geladen")
+                
+                return jsonify({'success': True, 'message': 'Konfiguration erfolgreich gespeichert'})
+            except Exception as e:
+                return jsonify({'success': False, 'message': f'Fehler beim Speichern: {str(e)}'})
+        
+    except Exception as e:
+        logger.error(f"Fehler bei Notification-Konfiguration: {e}")
+        return jsonify({'success': False, 'message': f'Serverfehler: {str(e)}'})
+
+@app.route('/notification-config')
+@require_auth
+@require_role(['admin'])
+def notification_config_page():
+    """Push-Notification Konfigurationsseite (nur für Admins)"""
+    return render_template('notification_config.html')
+
 
 @app.route('/api/admin/test-invitation-generation', methods=['POST'])
 @require_auth
@@ -6894,23 +7000,32 @@ def download_upload(upload_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/delete-upload/<int:upload_id>', methods=['DELETE'])
+@require_auth
 def delete_upload(upload_id):
     """Löscht einen Upload"""
     try:
+        logger.info(f"🗑️ DELETE Upload Request: upload_id={upload_id}, user_role={session.get('user_role')}, guest_id={session.get('guest_id')}")
+        
         if not data_manager:
             return jsonify({'error': 'Datenbank nicht verfügbar'}), 500
         
         # Prüfe Berechtigung
         upload = data_manager.get_upload_by_id(upload_id)
         if not upload:
+            logger.error(f"❌ Upload {upload_id} nicht gefunden")
             return jsonify({'error': 'Upload nicht gefunden'}), 404
         
-        # Gäste können nur ihre eigenen Uploads löschen
-        if 'guest_id' in session and upload['gast_id'] != session['guest_id']:
-            return jsonify({'error': 'Nicht autorisiert'}), 403
+        logger.info(f"🔍 Upload gefunden: gast_id={upload['gast_id']}, filename={upload.get('filename', 'unknown')}")
         
-        # Admin kann alle löschen
-        elif 'admin' not in session and 'guest_id' not in session:
+        # Gäste können nur ihre eigenen Uploads löschen, Admins können alle löschen
+        user_role = session.get('user_role', '')
+        if user_role == 'guest':
+            gast_id = session.get('guest_id')
+            if upload['gast_id'] != gast_id:
+                logger.error(f"❌ Berechtigung verweigert: Upload gehört Gast {upload['gast_id']}, angemeldet als Gast {gast_id}")
+                return jsonify({'error': 'Nicht autorisiert - Sie können nur Ihre eigenen Uploads löschen'}), 403
+        elif user_role != 'admin':
+            logger.error(f"❌ Berechtigung verweigert: user_role={user_role}")
             return jsonify({'error': 'Nicht autorisiert'}), 401
         
         # Upload löschen
@@ -6923,9 +7038,12 @@ def delete_upload(upload_id):
             
             if os.path.exists(file_path):
                 os.remove(file_path)
+                logger.info(f"🗑️ Datei gelöscht: {file_path}")
             
+            logger.info(f"✅ Upload {upload_id} erfolgreich gelöscht")
             return jsonify({'message': 'Upload erfolgreich gelöscht'})
         else:
+            logger.error(f"❌ Fehler beim Löschen von Upload {upload_id} in der Datenbank")
             return jsonify({'error': 'Fehler beim Löschen'}), 500
             
     except Exception as e:
@@ -7905,6 +8023,26 @@ def process_upload(file, gast_id, description):
         )
         
         if upload_id:
+            # Push-Notification für neuen Upload senden
+            try:
+                guest_info = data_manager.get_guest_by_id(gast_id)
+                if guest_info:
+                    vorname = guest_info.get('vorname', '').strip()
+                    nachname = guest_info.get('nachname', '').strip()
+                    guest_name = f"{vorname} {nachname}".strip()
+                    if not guest_name:
+                        guest_name = f'Gast {gast_id}'
+                else:
+                    guest_name = f'Gast {gast_id}'
+                
+                if push_manager:
+                    push_manager.send_upload_notification(guest_name, 1)
+                    logger.info(f"📱 Push-Notification für Upload von {guest_name} gesendet")
+            except Exception as e:
+                logger.error(f"Fehler beim Senden der Upload-Notification: {e}")
+                import traceback
+                logger.error(f"❌ Traceback: {traceback.format_exc()}")
+            
             return {'success': True, 'upload_id': upload_id}
         else:
             # Datei löschen wenn DB-Eintrag fehlschlägt
@@ -10032,6 +10170,34 @@ def api_geldgeschenk_waehlen():
         success = data_manager.waehle_geldgeschenk_aus(gast_id, betrag, notiz)
         
         if success:
+            # Push-Notification für Geldgeschenk-Auswahl senden
+            try:
+                logger.info(f"🔧 DEBUG: Starte Push-Notification für Geldgeschenk von Gast {gast_id}, Betrag: {betrag}")
+                
+                guest_info = data_manager.get_guest_by_id(gast_id)
+                if guest_info:
+                    vorname = guest_info.get('vorname', '').strip()
+                    nachname = guest_info.get('nachname', '').strip()
+                    guest_name = f"{vorname} {nachname}".strip()
+                    if not guest_name:
+                        guest_name = f'Gast {gast_id}'
+                else:
+                    guest_name = f'Gast {gast_id}'
+                logger.info(f"🔧 DEBUG: Gast-Name: {guest_name}")
+                
+                logger.info(f"🔧 DEBUG: push_manager verfügbar: {push_manager is not None}")
+                if push_manager:
+                    betrag_text = f"{betrag}€" if betrag else "Geldgeschenk"
+                    logger.info(f"🔧 DEBUG: Betrag-Text: {betrag_text}")
+                    push_manager.send_gift_notification(guest_name, betrag_text)
+                    logger.info(f"📱 Push-Notification für Geldgeschenk-Auswahl von {guest_name} gesendet")
+                else:
+                    logger.warning("⚠️ push_manager nicht verfügbar für Geldgeschenk-Notification")
+            except Exception as e:
+                logger.error(f"❌ Fehler beim Senden der Gift-Notification: {e}")
+                import traceback
+                logger.error(f"❌ Traceback: {traceback.format_exc()}")
+            
             return jsonify({
                 'success': True,
                 'message': 'Geldgeschenk erfolgreich ausgewählt'
@@ -10276,6 +10442,36 @@ def api_geschenkliste_waehlen(geschenk_id):
         success = data_manager.waehle_geschenk_aus(geschenk_id, gast_id, menge)
         
         if success:
+            # Push-Notification für Geschenk-Auswahl senden
+            try:
+                logger.info(f"🔧 DEBUG: Starte Push-Notification für Geschenk {geschenk_id} von Gast {gast_id}")
+                
+                guest_info = data_manager.get_guest_by_id(gast_id)
+                if guest_info:
+                    vorname = guest_info.get('vorname', '').strip()
+                    nachname = guest_info.get('nachname', '').strip()
+                    guest_name = f"{vorname} {nachname}".strip()
+                    if not guest_name:
+                        guest_name = f'Gast {gast_id}'
+                else:
+                    guest_name = f'Gast {gast_id}'
+                logger.info(f"🔧 DEBUG: Gast-Name: {guest_name}")
+                
+                geschenk_info = data_manager.get_geschenk_by_id(geschenk_id)
+                geschenk_name = geschenk_info.get('name', f'Geschenk {geschenk_id}') if geschenk_info else f'Geschenk {geschenk_id}'
+                logger.info(f"🔧 DEBUG: Geschenk-Name: {geschenk_name}")
+                
+                logger.info(f"🔧 DEBUG: push_manager verfügbar: {push_manager is not None}")
+                if push_manager:
+                    push_manager.send_gift_notification(guest_name, geschenk_name)
+                    logger.info(f"📱 Push-Notification für Geschenk-Auswahl von {guest_name} gesendet")
+                else:
+                    logger.warning("⚠️ push_manager nicht verfügbar für Geschenk-Notification")
+            except Exception as e:
+                logger.error(f"❌ Fehler beim Senden der Gift-Notification: {e}")
+                import traceback
+                logger.error(f"❌ Traceback: {traceback.format_exc()}")
+            
             return jsonify({
                 'success': True,
                 'message': 'Geschenk erfolgreich ausgewählt'

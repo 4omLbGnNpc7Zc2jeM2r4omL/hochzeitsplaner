@@ -24,6 +24,52 @@ class PushNotificationManager:
         vapid_config = self.auth_config.get('auth', {}).get('vapid_keys', {})
         self.vapid_keys = vapid_config
         
+        # Notification-Konfiguration laden
+        self.notification_config = self.load_notification_config()
+        
+        # Bereinige ungültige Subscriptions beim Start
+        self.cleanup_invalid_subscriptions()
+        
+    def load_notification_config(self):
+        """Lade notification_config.json"""
+        try:
+            with open('notification_config.json', 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                logger.info("📱 Notification-Konfiguration erfolgreich geladen")
+                return config.get('notification_config', {})
+        except FileNotFoundError:
+            logger.warning("⚠️ notification_config.json nicht gefunden")
+            return self.get_default_notification_config()
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ Fehler beim Laden der notification_config.json: {e}")
+            return self.get_default_notification_config()
+    
+    def reload_notification_config(self):
+        """Lade die Notification-Konfiguration neu"""
+        self.notification_config = self.load_notification_config()
+    
+    def get_default_notification_config(self):
+        """Standard-Notification-Konfiguration"""
+        return {
+            "app_name": "Hochzeitsplaner",
+            "default_title": "Hochzeitsplaner",
+            "default_icon": "/static/icons/android-chrome-192x192.png",
+            "badge_icon": "/static/icons/apple-touch-icon.png",
+            "default_sound": True,
+            "require_interaction": False,
+            "vibrate_pattern": [200, 100, 200],
+            "actions": [
+                {
+                    "action": "open",
+                    "title": "✨ Öffnen",
+                    "icon": "/static/icons/favicon-32x32.png"
+                }
+            ],
+            "notification_types": {
+                "rsvp": {"title": "🎉 Neue RSVP", "icon": "/static/icons/android-chrome-192x192.png", "tag": "rsvp-notification"}
+            }
+        }
+        
     def load_auth_config(self):
         """Lade auth_config.json direkt"""
         try:
@@ -179,8 +225,8 @@ class PushNotificationManager:
             if 'connection' in locals():
                 connection.close()
     
-    def send_push_notification(self, title: str, body: str, data: Optional[Dict] = None) -> bool:
-        """Sende Push-Notification an alle Admins"""
+    def send_push_notification(self, title: str, body: str, data: Optional[Dict] = None, notification_type: str = 'default') -> bool:
+        """Sende Push-Notification an alle Admins mit konfigurierbaren Einstellungen"""
         try:
             subscriptions = self.get_admin_subscriptions()
             if not subscriptions:
@@ -192,13 +238,20 @@ class PushNotificationManager:
                 logger.error("VAPID-Schlüssel nicht vollständig konfiguriert")
                 return False
             
+            # Notification-Konfiguration für den Type verwenden
+            type_config = self.notification_config.get('notification_types', {}).get(notification_type, {})
+            
             notification_data = {
-                'title': title,
+                'title': type_config.get('title', title),
                 'body': body,
-                'icon': '/static/icons/apple-touch-icon.png',
-                'badge': '/static/icons/apple-touch-icon.png',
-                'tag': 'hochzeitsplaner-admin',
+                'icon': type_config.get('icon', self.notification_config.get('default_icon', '/static/icons/android-chrome-192x192.png')),
+                'badge': self.notification_config.get('badge_icon', '/static/icons/apple-touch-icon.png'),
+                'tag': type_config.get('tag', f'hochzeitsplaner-{notification_type}'),
                 'timestamp': datetime.now().isoformat(),
+                'silent': not self.notification_config.get('default_sound', True),
+                'requireInteraction': self.notification_config.get('require_interaction', False),
+                'vibrate': self.notification_config.get('vibrate_pattern', [200, 100, 200]),
+                'actions': self.notification_config.get('actions', []),
                 'data': data or {}
             }
             
@@ -222,10 +275,27 @@ class PushNotificationManager:
                     
                 except WebPushException as e:
                     failed_sends += 1
-                    logger.error(f"❌ Push-Notification fehlgeschlagen für User {subscription['user_id']}: {e}")
+                    user_id = subscription['user_id']
+                    logger.error(f"❌ Push-Notification fehlgeschlagen für User {user_id}: {e}")
                     
                     # Bei ungültiger Subscription: deaktivieren
+                    should_deactivate = False
+                    
                     if e.response and e.response.status_code in [410, 413]:
+                        # Gone oder Payload zu groß
+                        should_deactivate = True
+                        logger.info(f"🗑️ Deaktiviere Subscription wegen HTTP {e.response.status_code}")
+                    elif e.response and e.response.status_code == 400:
+                        # VAPID-Probleme prüfen
+                        try:
+                            response_body = e.response.text if hasattr(e.response, 'text') else str(e)
+                            if 'VapidPkHashMismatch' in response_body or 'vapid' in response_body.lower():
+                                should_deactivate = True
+                                logger.info(f"🗑️ Deaktiviere Subscription wegen VAPID-Fehler: {response_body}")
+                        except:
+                            pass
+                    
+                    if should_deactivate:
                         self._deactivate_subscription(subscription['endpoint'])
             
             logger.info(f"Push-Notifications: {successful_sends} erfolgreich, {failed_sends} fehlgeschlagen")
@@ -251,10 +321,63 @@ class PushNotificationManager:
             """, (endpoint,))
             
             connection.commit()
-            logger.info(f"Ungültige Subscription deaktiviert: {endpoint}")
+            logger.info(f"🗑️ Ungültige Subscription deaktiviert: {endpoint[:50]}...")
             
         except Exception as e:
             logger.error(f"Fehler beim Deaktivieren der Subscription: {e}")
+        finally:
+            if 'connection' in locals() and connection:
+                connection.close()
+    
+    def cleanup_invalid_subscriptions(self):
+        """Bereinige alle Subscriptions mit VAPID-Fehlern"""
+        try:
+            connection = self.get_connection()
+            if not connection:
+                return
+                
+            cursor = connection.cursor()
+            
+            # Lösche alle Subscriptions - aggressivere Bereinigung
+            # Bei VAPID-Problemen sind meist alle betroffen
+            cursor.execute("""
+                DELETE FROM push_subscriptions 
+                WHERE last_used < datetime('now', '-1 days')
+                OR created_at < datetime('now', '-3 days')
+            """)
+            
+            deleted_count = cursor.rowcount
+            connection.commit()
+            
+            if deleted_count > 0:
+                logger.info(f"🧹 {deleted_count} ungültige Subscriptions bereinigt")
+            else:
+                logger.info("🧹 Keine alten Subscriptions zum Bereinigen gefunden")
+            
+        except Exception as e:
+            logger.error(f"Fehler beim Bereinigen der Subscriptions: {e}")
+        finally:
+            if 'connection' in locals() and connection:
+                connection.close()
+    
+    def force_cleanup_all_subscriptions(self):
+        """Bereinige ALLE Subscriptions (für VAPID-Neugenerierung)"""
+        try:
+            connection = self.get_connection()
+            if not connection:
+                return
+                
+            cursor = connection.cursor()
+            
+            # Lösche alle Subscriptions
+            cursor.execute("DELETE FROM push_subscriptions")
+            deleted_count = cursor.rowcount
+            connection.commit()
+            
+            logger.info(f"🧹 FORCE CLEANUP: {deleted_count} Subscriptions gelöscht")
+            
+        except Exception as e:
+            logger.error(f"Fehler beim Force-Cleanup: {e}")
         finally:
             if 'connection' in locals() and connection:
                 connection.close()
@@ -299,8 +422,6 @@ class PushNotificationManager:
     def send_rsvp_notification(self, guest_name: str, guest_id: int, 
                               rsvp_status: str, message: str = "") -> bool:
         """Sende Benachrichtigung bei neuer RSVP mit Statistiken"""
-        title = "🎉 Neue RSVP eingegangen!"
-        
         status_text = {
             'zugesagt': 'hat zugesagt',
             'abgesagt': 'hat abgesagt', 
@@ -310,9 +431,19 @@ class PushNotificationManager:
         # Hole aktuelle Statistiken
         stats = self.get_rsvp_statistics()
         
-        body = f"{guest_name} {status_text}\n"
-        body += f"📊 Status: {stats['zugesagt']} zugesagt, "
-        body += f"{stats['abgesagt']} abgesagt, {stats['offen']} offen"
+        # Verwende Template aus Konfiguration oder Fallback
+        rsvp_config = self.notification_config.get('notification_types', {}).get('rsvp', {})
+        template = rsvp_config.get('template', '{guest_name} {status_text}\n📊 Status: {zugesagt} zugesagt 👍, {abgesagt} abgesagt 👎, {offen} offen')
+        
+        # Template-Variablen ersetzen
+        body = template.format(
+            guest_name=guest_name,
+            status_text=status_text,
+            zugesagt=stats['zugesagt'],
+            abgesagt=stats['abgesagt'],
+            offen=stats['offen'],
+            gesamt=stats['gesamt']
+        )
         
         if message:
             body += f"\n💬 {message[:40]}{'...' if len(message) > 40 else ''}"
@@ -326,12 +457,20 @@ class PushNotificationManager:
             'url': f'/gaesteliste?highlight={guest_id}'
         }
         
-        return self.send_push_notification(title, body, data)
+        # Verwende 'rsvp' notification_type für konfigurierbare Einstellungen
+        return self.send_push_notification("", body, data, 'rsvp')
     
     def send_gift_notification(self, guest_name: str, gift_name: str) -> bool:
         """Sende Benachrichtigung bei neuer Geschenkauswahl"""
-        title = "🎁 Neues Geschenk ausgewählt!"
-        body = f"{guest_name} hat '{gift_name}' ausgewählt"
+        # Verwende Template aus Konfiguration oder Fallback
+        gift_config = self.notification_config.get('notification_types', {}).get('gift', {})
+        template = gift_config.get('template', '{guest_name} hat \'{gift_name}\' ausgewählt')
+        
+        # Template-Variablen ersetzen
+        body = template.format(
+            guest_name=guest_name,
+            gift_name=gift_name
+        )
         
         data = {
             'type': 'gift',
@@ -340,13 +479,23 @@ class PushNotificationManager:
             'url': '/geschenkliste'
         }
         
-        return self.send_push_notification(title, body, data)
+        return self.send_push_notification("", body, data, 'gift')
     
     def send_upload_notification(self, guest_name: str, file_count: int) -> bool:
         """Sende Benachrichtigung bei neuen Uploads"""
-        title = "📸 Neue Dateien hochgeladen!"
+        # Verwende Template aus Konfiguration oder Fallback
+        upload_config = self.notification_config.get('notification_types', {}).get('upload', {})
+        template = upload_config.get('template', '{guest_name} hat {file_count} {file_text} hochgeladen')
+        
+        # File-Text bestimmen
         file_text = "Datei" if file_count == 1 else "Dateien"
-        body = f"{guest_name} hat {file_count} {file_text} hochgeladen"
+        
+        # Template-Variablen ersetzen
+        body = template.format(
+            guest_name=guest_name,
+            file_count=file_count,
+            file_text=file_text
+        )
         
         data = {
             'type': 'upload',
@@ -355,7 +504,7 @@ class PushNotificationManager:
             'url': '/upload_approval'
         }
         
-        return self.send_push_notification(title, body, data)
+        return self.send_push_notification("", body, data, 'upload')
     
     def cleanup_old_subscriptions(self, days: int = 30):
         """Entferne alte, inaktive Subscriptions"""
