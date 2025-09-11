@@ -185,16 +185,37 @@ class PushNotificationManager {
     
     async loadVapidKey() {
         try {
+            console.log('🔧 Lade VAPID Key von Server...');
             const response = await fetch('/api/push/vapid-key');
+            console.log('🔧 VAPID Key Response Status:', response.status);
+            
             if (response.ok) {
                 const data = await response.json();
                 this.vapidPublicKey = data.publicKey;
-                console.log('VAPID Public Key geladen');
+                console.log('✅ VAPID Public Key geladen');
+                console.log('🔧 Key Length:', data.publicKey.length);
+                console.log('🔧 Key Sample:', data.publicKey.substring(0, 30) + '...');
+                
+                // Test VAPID Key Format
+                try {
+                    const testArray = this.urlBase64ToUint8Array(this.vapidPublicKey);
+                    console.log('✅ VAPID Key Format-Test erfolgreich, Array Length:', testArray.length);
+                    
+                    // Chrome erwartet 65 Bytes für P-256 ECDSA Keys
+                    if (testArray.length !== 65) {
+                        console.warn('⚠️ VAPID Key ungewöhnliche Länge:', testArray.length, '(erwartet: 65)');
+                    }
+                } catch (error) {
+                    console.error('❌ VAPID Key Format-Test fehlgeschlagen:', error);
+                }
+                
             } else {
-                console.error('VAPID Public Key konnte nicht geladen werden');
+                console.error('❌ VAPID Public Key konnte nicht geladen werden, Status:', response.status);
+                const errorText = await response.text();
+                console.error('❌ Error Response:', errorText);
             }
         } catch (error) {
-            console.error('Fehler beim Laden des VAPID Public Keys:', error);
+            console.error('❌ Fehler beim Laden des VAPID Public Keys:', error);
         }
     }
     
@@ -204,12 +225,40 @@ class PushNotificationManager {
             this.showNotification('❌ Push-Benachrichtigungen werden nicht unterstützt', 'error');
             return false;
         }
-        
+
         try {
-            // **iOS DEBUGGING: Zeige detaillierte Infos**
+            // **BROWSER DETECTION**
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isSecure = location.protocol === 'https:';
+            const isChrome = /Chrome/.test(navigator.userAgent) && !/Edge/.test(navigator.userAgent);
+            const isSecure = location.protocol === 'https:' || location.hostname === 'localhost';
             
+            console.log('🔧 Browser Detection:');
+            console.log('  - iOS:', isIOS);
+            console.log('  - Chrome:', isChrome);
+            console.log('  - Secure Context:', isSecure);
+            console.log('  - User Activation:', navigator.userActivation ? navigator.userActivation.hasBeenActive : 'undefined');
+            
+            // **CHROME SPECIFIC CHECKS**
+            if (isChrome) {
+                console.log('🔧 Chrome erkannt - führe spezifische Checks durch...');
+                
+                if (!isSecure) {
+                    console.error('❌ Chrome benötigt HTTPS für Push Notifications!');
+                    this.showNotification('❌ Push-Benachrichtigungen benötigen HTTPS in Chrome', 'error');
+                    return false;
+                }
+                
+                // User Activation Check für Chrome
+                if (navigator.userActivation && !navigator.userActivation.hasBeenActive) {
+                    console.warn('⚠️ Chrome: Keine User Activation erkannt');
+                }
+                
+                // Check if site is in PWA mode
+                const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+                console.log('🔧 Chrome PWA Mode:', isPWA);
+            }
+            
+            // **iOS SPECIFIC CHECKS**
             if (isIOS) {
                 console.log('🍎 iOS Safari erkannt');
                 console.log('🔒 Secure Context (HTTPS):', isSecure);
@@ -224,17 +273,33 @@ class PushNotificationManager {
             
             // Prüfe aktuelle Berechtigung
             let permission = Notification.permission;
-            console.log('Aktuelle Notification Permission:', permission);
+            console.log('🔔 Aktuelle Notification Permission:', permission);
             
             if (permission === 'denied') {
-                console.warn('Push Notification Berechtigung wurde verweigert');
-                this.showNotification('❌ Push-Benachrichtigungen wurden blockiert. Bitte in den Browser-Einstellungen aktivieren.', 'error');
+                console.warn('❌ Push Notification Berechtigung wurde verweigert');
+                if (isChrome) {
+                    this.showNotification('❌ Push-Benachrichtigungen wurden blockiert. Klicken Sie auf das 🔒-Symbol in der Adressleiste und aktivieren Sie Benachrichtigungen.', 'error');
+                } else {
+                    this.showNotification('❌ Push-Benachrichtigungen wurden blockiert. Bitte in den Browser-Einstellungen aktivieren.', 'error');
+                }
                 return false;
             }
             
             // Berechtigung anfordern wenn noch nicht gesetzt
             if (permission === 'default') {
                 console.log('🔔 Frage nach Push-Notification Berechtigung...');
+                
+                // **CHROME SPEZIFISCHE BEHANDLUNG**
+                if (isChrome) {
+                    console.log('🔧 Chrome: Versuche Notification.requestPermission()...');
+                    
+                    // User Activation für Chrome prüfen
+                    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) {
+                        console.error('❌ Chrome: Keine User Activation - Permission Request wird fehlschlagen');
+                        this.showNotification('❌ Bitte klicken Sie direkt auf den Button, um Push-Benachrichtigungen zu aktivieren', 'warning');
+                        return false;
+                    }
+                }
                 
                 // **iOS SPEZIFISCHE BEHANDLUNG**
                 if (isIOS) {
@@ -248,6 +313,12 @@ class PushNotificationManager {
                 permission = await Notification.requestPermission();
                 console.log('🔔 Permission Ergebnis:', permission);
                 
+                if (isChrome && permission !== 'granted') {
+                    console.error('❌ Chrome: Permission nicht erhalten');
+                    this.showNotification('❌ Chrome: Permission wurde verweigert. Versuchen Sie es erneut oder prüfen Sie die Browser-Einstellungen.', 'error');
+                    return false;
+                }
+                
                 if (isIOS) {
                     console.log('🍎 iOS Permission Ergebnis:', permission);
                     if (permission !== 'granted') {
@@ -259,22 +330,35 @@ class PushNotificationManager {
             }
             
             if (permission !== 'granted') {
-                console.warn('Push Notification Berechtigung verweigert:', permission);
+                console.warn('❌ Push Notification Berechtigung verweigert:', permission);
                 this.showNotification('❌ Push-Benachrichtigungen wurden nicht erlaubt', 'warning');
                 return false;
             }
             
-            console.log('🔔 Push-Notification Berechtigung erhalten, erstelle Subscription...');
+            console.log('✅ Push-Notification Berechtigung erhalten, erstelle Subscription...');
             
             // **SUBSCRIPTION DEBUGGING**
-            console.log('🔧 VAPID Public Key:', this.vapidPublicKey ? 'Vorhanden' : 'FEHLT');
+            console.log('🔧 VAPID Public Key:', this.vapidPublicKey ? `Vorhanden (${this.vapidPublicKey.substring(0, 20)}...)` : 'FEHLT');
             console.log('🔧 Registration:', this.registration ? 'OK' : 'FEHLT');
+            console.log('🔧 PushManager:', this.registration?.pushManager ? 'OK' : 'FEHLT');
             
             // Subscription erstellen
             console.log('🔧 Versuche pushManager.subscribe...');
+            
+            // **VAPID KEY VALIDATION FÜR CHROME**
+            let applicationServerKey;
+            try {
+                applicationServerKey = this.urlBase64ToUint8Array(this.vapidPublicKey);
+                console.log('✅ VAPID Key erfolgreich konvertiert:', applicationServerKey.length, 'bytes');
+            } catch (error) {
+                console.error('❌ VAPID Key Konvertierung fehlgeschlagen:', error);
+                this.showNotification('❌ VAPID Key Format-Fehler', 'error');
+                return false;
+            }
+            
             const subscription = await this.registration.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey)
+                applicationServerKey: applicationServerKey
             });
             
             console.log('✅ Subscription erstellt:', subscription);
@@ -423,18 +507,36 @@ class PushNotificationManager {
     
     // Hilfsfunktion: VAPID Key von Base64 zu Uint8Array konvertieren
     urlBase64ToUint8Array(base64String) {
-        const padding = '='.repeat((4 - base64String.length % 4) % 4);
-        const base64 = (base64String + padding)
-            .replace(/\\-/g, '+')
-            .replace(/_/g, '/');
-        
-        const rawData = window.atob(base64);
-        const outputArray = new Uint8Array(rawData.length);
-        
-        for (let i = 0; i < rawData.length; ++i) {
-            outputArray[i] = rawData.charCodeAt(i);
+        try {
+            // Debugging für Chrome
+            console.log('🔧 VAPID Key Konvertierung - Input:', base64String.substring(0, 20) + '...');
+            
+            // URL-safe Base64 padding hinzufügen
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding)
+                .replace(/-/g, '+')  // Korrigiert: \\ entfernt
+                .replace(/_/g, '/');
+            
+            console.log('🔧 Nach Padding/Replace:', base64.substring(0, 20) + '...');
+            
+            const rawData = window.atob(base64);
+            console.log('🔧 Raw Data Length:', rawData.length);
+            
+            const outputArray = new Uint8Array(rawData.length);
+            
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            
+            console.log('🔧 Output Array Length:', outputArray.length);
+            console.log('🔧 Output Array Sample:', Array.from(outputArray.slice(0, 10)));
+            
+            return outputArray;
+        } catch (error) {
+            console.error('❌ VAPID Key Konvertierung fehlgeschlagen:', error);
+            console.error('❌ Input war:', base64String);
+            throw error;
         }
-        return outputArray;
     }
 }
 
