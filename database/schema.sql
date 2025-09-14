@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS gaeste (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_status CHECK (status IN ('Offen', 'Zugesagt', 'Abgesagt', 'offen', 'zugesagt', 'abgesagt')),
-    CONSTRAINT chk_seite CHECK (seite IN ('Käthe', 'Pascal', 'Beide')),
+    -- chk_seite entfernt für dynamische Seite-Werte basierend auf braut_name/braeutigam_name
     CONSTRAINT chk_teilnahme CHECK (zum_weisser_saal IN ('Ja', 'Nein')),
     CONSTRAINT chk_essen CHECK (zum_essen IN ('Ja', 'Nein')),
     CONSTRAINT chk_party CHECK (zur_party IN ('Ja', 'Nein')),

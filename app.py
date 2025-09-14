@@ -4410,6 +4410,34 @@ def api_gaeste_sync_teilnahme():
         logger.error(f"Fehler bei der Synchronisation: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/gaeste/seite-options', methods=['GET'])
+def api_gaeste_seite_options():
+    """Gibt verfügbare Seite-Optionen basierend auf den Einstellungen zurück"""
+    try:
+        if not data_manager:
+            return jsonify({'error': 'DataManager nicht initialisiert'}), 500
+        
+        # Namen aus den Einstellungen laden
+        braut_name = data_manager.get_setting('braut_name', 'Käthe')
+        braeutigam_name = data_manager.get_setting('braeutigam_name', 'Pascal')
+        
+        # Seite-Optionen erstellen
+        seite_options = [
+            {'value': braut_name, 'label': braut_name},
+            {'value': braeutigam_name, 'label': braeutigam_name},
+            {'value': 'Beide', 'label': f'{braut_name} & {braeutigam_name}'}
+        ]
+        
+        return jsonify({
+            'success': True,
+            'options': seite_options,
+            'valid_values': [braut_name, braeutigam_name, 'Beide']
+        })
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Seite-Optionen: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/gaeste/add', methods=['POST'])
 def api_gaeste_add():
     try:
@@ -4423,6 +4451,20 @@ def api_gaeste_add():
             if field not in gast_data or not str(gast_data[field]).strip():
                 return jsonify({'error': f'Feld "{field}" ist erforderlich'}), 400
         
+        # Validierung für Seite-Feld (CHECK constraint) - dynamische Werte
+        if 'Seite' in gast_data and gast_data['Seite']:
+            braut_name = data_manager.get_setting('braut_name', 'Käthe')
+            braeutigam_name = data_manager.get_setting('braeutigam_name', 'Pascal')
+            valid_seite_values = [braut_name, braeutigam_name, 'Beide']
+            if gast_data['Seite'] not in valid_seite_values:
+                return jsonify({'error': f'Ungültiger Wert für Seite: {gast_data["Seite"]}. Erlaubt: {", ".join(valid_seite_values)}'}), 400
+        
+        # Validierung für Status-Feld (CHECK constraint)
+        if 'Status' in gast_data:
+            valid_status_values = ['Offen', 'Zugesagt', 'Abgesagt', 'offen', 'zugesagt', 'abgesagt']
+            if gast_data['Status'] not in valid_status_values:
+                return jsonify({'error': f'Ungültiger Wert für Status: {gast_data["Status"]}'}), 400
+        
         # Standardwerte für alle möglichen Felder setzen
         defaults = {
             'Begleitung': '',
@@ -4430,7 +4472,7 @@ def api_gaeste_add():
             'Anzahl_Personen': 1,
             'Optional': 0,
             'Weisser_Saal': 0,
-            'Seite': '',
+            'Seite': data_manager.get_setting('braut_name', 'Käthe'),  # Dynamischer Standardwert
             'Kontakt': '',
             'Anzahl_Essen': 0,
             'Anzahl_Party': 0,
@@ -4477,6 +4519,26 @@ def api_gaeste_update(guest_id):
             return jsonify({'error': 'DataManager nicht initialisiert'}), 500
         
         gast_data = request.json
+        
+        # Validierung für Seite-Feld (CHECK constraint) - dynamische Werte
+        if 'Seite' in gast_data:
+            braut_name = data_manager.get_setting('braut_name', 'Käthe')
+            braeutigam_name = data_manager.get_setting('braeutigam_name', 'Pascal')
+            valid_seite_values = [braut_name, braeutigam_name, 'Beide']
+            if gast_data['Seite'] not in valid_seite_values:
+                return jsonify({'error': f'Ungültiger Wert für Seite: {gast_data["Seite"]}. Erlaubt: {", ".join(valid_seite_values)}'}), 400
+        
+        # Validierung für Status-Feld (CHECK constraint)
+        if 'Status' in gast_data:
+            valid_status_values = ['Offen', 'Zugesagt', 'Abgesagt', 'offen', 'zugesagt', 'abgesagt']
+            if gast_data['Status'] not in valid_status_values:
+                return jsonify({'error': f'Ungültiger Wert für Status: {gast_data["Status"]}'}), 400
+        
+        # Validierung für Teilnahme-Felder (CHECK constraints)
+        teilnahme_fields = ['Zum_Weisser_Saal', 'Zum_Essen', 'Zur_Party', 'Zum_Standesamt']
+        for field in teilnahme_fields:
+            if field in gast_data and gast_data[field] not in ['Ja', 'Nein']:
+                return jsonify({'error': f'Ungültiger Wert für {field}: {gast_data[field]}. Erlaubt: Ja, Nein'}), 400
         
         # Numerische Felder sicherstellen
         numeric_fields = ['Kind', 'Anzahl_Personen', 'Optional', 'Weisser_Saal', 'Anzahl_Essen', 'Anzahl_Party']

@@ -115,6 +115,9 @@ class SQLiteHochzeitsDatenManager:
                 # Budget-Tabelle migrieren falls nötig
                 self._migrate_budget_table()
                 
+                # Seite-Constraint Migration für dynamische Werte
+                self._migrate_seite_constraint()
+                
         except Exception as e:
             logger.error(f"Fehler bei Datenbankinitialisierung: {e}")
             raise
@@ -768,6 +771,148 @@ class SQLiteHochzeitsDatenManager:
                 
         except Exception as e:
             logger.error(f"Fehler bei Budget-Migration: {e}")
+    
+    def _migrate_seite_constraint(self):
+        """Entfernt die statische chk_seite Constraint für dynamische Seite-Werte"""
+        try:
+            with self._lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Prüfe ob die alte Constraint noch existiert
+                cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='gaeste'")
+                table_sql = cursor.fetchone()
+                
+                if table_sql and 'chk_seite' in table_sql[0]:
+                    logger.info("🔄 Migriere Gaeste-Tabelle für dynamische Seite-Werte...")
+                    
+                    # Hole aktuelle Brautpaar-Namen aus Einstellungen
+                    cursor.execute("SELECT wert FROM einstellungen WHERE schluessel = 'braut_name'")
+                    braut_result = cursor.fetchone()
+                    braut_name = braut_result[0] if braut_result else 'Käthe'
+                    
+                    cursor.execute("SELECT wert FROM einstellungen WHERE schluessel = 'braeutigam_name'")
+                    braeutigam_result = cursor.fetchone()
+                    braeutigam_name = braeutigam_result[0] if braeutigam_result else 'Pascal'
+                    
+                    # 1. Erstelle temporäre Tabelle ohne chk_seite Constraint
+                    cursor.execute("""
+                        CREATE TABLE gaeste_temp (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            vorname TEXT NOT NULL,
+                            nachname TEXT,
+                            kategorie TEXT DEFAULT 'Familie',
+                            seite TEXT DEFAULT 'Käthe',
+                            status TEXT DEFAULT 'Offen',
+                            anzahl_personen INTEGER DEFAULT 1,
+                            kind INTEGER DEFAULT 0,
+                            begleitung INTEGER DEFAULT 0,
+                            optional INTEGER DEFAULT 0,
+                            weisser_saal INTEGER DEFAULT 0,
+                            anzahl_essen INTEGER DEFAULT 0,
+                            anzahl_party INTEGER DEFAULT 0,
+                            zum_weisser_saal TEXT DEFAULT 'Nein',
+                            zum_essen TEXT DEFAULT 'Nein',
+                            zur_party TEXT DEFAULT 'Nein',
+                            zum_standesamt TEXT DEFAULT 'Nein',
+                            email TEXT,
+                            kontakt TEXT,
+                            adresse TEXT,
+                            bemerkungen TEXT,
+                            guest_code TEXT UNIQUE,
+                            guest_password TEXT,
+                            max_personen INTEGER,
+                            first_login INTEGER DEFAULT 1,
+                            first_login_at DATETIME,
+                            last_modified INTEGER,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT chk_status CHECK (status IN ('Offen', 'Zugesagt', 'Abgesagt', 'offen', 'zugesagt', 'abgesagt')),
+                            CONSTRAINT chk_teilnahme CHECK (zum_weisser_saal IN ('Ja', 'Nein')),
+                            CONSTRAINT chk_essen CHECK (zum_essen IN ('Ja', 'Nein')),
+                            CONSTRAINT chk_party CHECK (zur_party IN ('Ja', 'Nein')),
+                            CONSTRAINT chk_standesamt CHECK (zum_standesamt IN ('Ja', 'Nein'))
+                        )
+                    """)
+                    
+                    # 2. Kopiere Daten und korrigiere Seite-Werte
+                    cursor.execute("SELECT * FROM gaeste")
+                    guests = cursor.fetchall()
+                    
+                    # Hole Spalten-Info
+                    cursor.execute("PRAGMA table_info(gaeste)")
+                    columns = [col[1] for col in cursor.fetchall()]
+                    
+                    valid_values = [braut_name, braeutigam_name, 'Beide']
+                    updated_count = 0
+                    
+                    for guest in guests:
+                        guest_dict = dict(zip(columns, guest))
+                        
+                        # Korrigiere seite-Wert falls nötig
+                        current_seite = guest_dict.get('seite')
+                        if current_seite and current_seite not in valid_values:
+                            if current_seite in ['Braut', 'Käthe']:
+                                guest_dict['seite'] = braut_name
+                            elif current_seite in ['Bräutigam', 'Pascal']:
+                                guest_dict['seite'] = braeutigam_name
+                            elif current_seite in ['Beide', 'Gemeinsam']:
+                                guest_dict['seite'] = 'Beide'
+                            else:
+                                guest_dict['seite'] = braut_name  # Standardwert
+                            updated_count += 1
+                            logger.info(f"Gast {guest_dict['id']}: Seite '{current_seite}' -> '{guest_dict['seite']}'")
+                        
+                        # Füge Daten in temporäre Tabelle ein
+                        placeholders = ', '.join(['?' for _ in columns])
+                        values = [guest_dict[col] for col in columns]
+                        cursor.execute(f"INSERT INTO gaeste_temp ({', '.join(columns)}) VALUES ({placeholders})", values)
+                    
+                    # 3. Ersetze alte Tabelle
+                    cursor.execute("DROP TABLE gaeste")
+                    cursor.execute("ALTER TABLE gaeste_temp RENAME TO gaeste")
+                    
+                    logger.info(f"✅ Gaeste-Tabelle migriert! {updated_count} Seiten-Werte aktualisiert")
+                
+                else:
+                    # Constraint bereits entfernt, nur Daten prüfen
+                    cursor.execute("SELECT wert FROM einstellungen WHERE schluessel = 'braut_name'")
+                    braut_result = cursor.fetchone()
+                    braut_name = braut_result[0] if braut_result else 'Käthe'
+                    
+                    cursor.execute("SELECT wert FROM einstellungen WHERE schluessel = 'braeutigam_name'")
+                    braeutigam_result = cursor.fetchone()
+                    braeutigam_name = braeutigam_result[0] if braeutigam_result else 'Pascal'
+                    
+                    # Prüfe und korrigiere ungültige Seite-Werte
+                    cursor.execute("SELECT id, seite FROM gaeste")
+                    guests = cursor.fetchall()
+                    
+                    valid_values = [braut_name, braeutigam_name, 'Beide']
+                    updated_count = 0
+                    
+                    for guest_id, current_seite in guests:
+                        if current_seite and current_seite not in valid_values:
+                            new_seite = braut_name  # Standardwert
+                            if current_seite in ['Braut', 'Käthe']:
+                                new_seite = braut_name
+                            elif current_seite in ['Bräutigam', 'Pascal']:
+                                new_seite = braeutigam_name
+                            elif current_seite in ['Beide', 'Gemeinsam']:
+                                new_seite = 'Beide'
+                            
+                            cursor.execute("UPDATE gaeste SET seite = ? WHERE id = ?", (new_seite, guest_id))
+                            updated_count += 1
+                            logger.info(f"Gast {guest_id}: Seite '{current_seite}' -> '{new_seite}'")
+                    
+                    if updated_count > 0:
+                        logger.info(f"✅ {updated_count} Gäste-Seiten korrigiert")
+                
+                conn.commit()
+                conn.close()
+                
+        except Exception as e:
+            logger.error(f"Fehler bei Seite-Constraint Migration: {e}")
     
     # =============================================================================
     # Legacy Data Migration 
@@ -1539,15 +1684,9 @@ class SQLiteHochzeitsDatenManager:
                 else:
                     status = 'Offen'
             
-            seite = guest_data.get('seite', guest_data.get('Seite', 'Käthe'))
-            if isinstance(seite, str):
-                seite = seite.strip()
-                if seite.lower() in ['käthe', 'kaethe']:
-                    seite = 'Käthe'
-                elif seite.lower() == 'pascal':
-                    seite = 'Pascal'
-                else:
-                    seite = 'Beide'
+            # Verwende Validierungsfunktion für Seite-Wert
+            seite_value = guest_data.get('seite', guest_data.get('Seite', ''))
+            validated_seite = self._validate_seite_value(seite_value)
             
             with self._lock:
                 conn = self._get_connection()
@@ -1565,7 +1704,7 @@ class SQLiteHochzeitsDatenManager:
                     guest_data.get('vorname', guest_data.get('Vorname', '')),
                     guest_data.get('nachname', guest_data.get('Nachname', '')),
                     guest_data.get('kategorie', guest_data.get('Kategorie', 'Familie')),
-                    seite,
+                    validated_seite,  # Verwende validierten Wert
                     status,
                     guest_data.get('anzahl_personen', guest_data.get('Anzahl_Personen', 1)),
                     guest_data.get('kind', guest_data.get('Kind', 0)),
@@ -1616,11 +1755,44 @@ class SQLiteHochzeitsDatenManager:
             logger.error(f"Fehler beim Löschen von Gast {guest_id}: {e}")
             return False
     
+    def _validate_seite_value(self, seite: str) -> str:
+        """Validiert und normalisiert den Seite-Wert basierend auf den aktuellen Einstellungen"""
+        if not seite:
+            return self.get_setting('braut_name', 'Käthe')
+        
+        # Hole aktuelle Namen aus den Einstellungen
+        braut_name = self.get_setting('braut_name', 'Käthe')
+        braeutigam_name = self.get_setting('braeutigam_name', 'Pascal')
+        
+        # Normalisiere und validiere den Wert
+        seite = seite.strip()
+        valid_values = [braut_name, braeutigam_name, 'Beide']
+        
+        # Direkter Match
+        if seite in valid_values:
+            return seite
+        
+        # Legacy-Werte konvertieren
+        if seite.lower() in ['braut', 'käthe', 'kaethe']:
+            return braut_name
+        elif seite.lower() in ['bräutigam', 'braeutigam', 'pascal']:
+            return braeutigam_name
+        elif seite.lower() in ['beide', 'gemeinsam']:
+            return 'Beide'
+        
+        # Fallback auf Braut-Seite
+        logger.warning(f"Unbekannter Seite-Wert '{seite}', verwende '{braut_name}'")
+        return braut_name
+
     def update_guest(self, guest_id: int, guest_data: Dict[str, Any]) -> bool:
         """Aktualisiert einen vorhandenen Gast"""
         try:
             # Teilnahme-Logik anwenden
             guest_data = self._apply_participation_logic(guest_data)
+            
+            # Seite-Wert validieren und normalisieren
+            seite_value = guest_data.get('Seite', guest_data.get('seite', ''))
+            validated_seite = self._validate_seite_value(seite_value)
             
             with self._lock:
                 conn = sqlite3.connect(self.db_path)
@@ -1639,7 +1811,7 @@ class SQLiteHochzeitsDatenManager:
                     guest_data.get('Vorname', ''),
                     guest_data.get('Nachname', ''),
                     guest_data.get('Kategorie', 'Familie'),
-                    guest_data.get('Seite', 'Käthe'),
+                    validated_seite,  # Verwende validierten Wert
                     guest_data.get('Status', 'Offen'),
                     guest_data.get('Anzahl_Personen', 1),
                     guest_data.get('Kind', 0),

@@ -2,9 +2,17 @@
 
 let currentGuests = [];
 let selectedGuests = new Set();
+let seiteMapping = {
+    braut_name: 'Katharina',    // wird dynamisch geladen
+    braeutigam_name: 'Pascal',  // wird dynamisch geladen
+    beide: 'Beide'
+};
 
 document.addEventListener('DOMContentLoaded', async function() {
 
+    
+    // Seite-Optionen laden (dynamisch basierend auf Einstellungen)
+    await loadSeiteOptions();
     
     // Event Listeners
     setupEventListeners();
@@ -75,6 +83,104 @@ function setupEventListeners() {
     
     // Synchronisation der automatischen Anzahl-Anpassung für neue Gäste
     syncParticipationLogic();
+}
+
+async function loadSeiteOptions() {
+    /**
+     * Lädt die verfügbaren Seite-Optionen dynamisch aus den Einstellungen
+     */
+    try {
+        const response = await fetch('/api/gaeste/seite-options');
+        const result = await response.json();
+        
+        if (result.success && result.options) {
+            // Update beide Seite-Dropdowns
+            updateSeiteDropdowns(result.options);
+            
+            // Aktualisiere seiteMapping für die Badge-Klassen
+            if (result.options.length >= 2) {
+                seiteMapping.braut_name = result.options[0].value;
+                seiteMapping.braeutigam_name = result.options[1].value;
+            }
+            
+            console.log('✅ Seite-Optionen geladen:', result.options);
+            console.log('📋 Seite-Mapping aktualisiert:', seiteMapping);
+        } else {
+            console.warn('⚠️ Keine Seite-Optionen erhalten, verwende Standard-Werte');
+            // Fallback zu Standard-Werten
+            const fallbackOptions = [
+                {value: 'Käthe', label: 'Käthe'},
+                {value: 'Pascal', label: 'Pascal'},
+                {value: 'Beide', label: 'Käthe & Pascal'}
+            ];
+            updateSeiteDropdowns(fallbackOptions);
+        }
+        
+    } catch (error) {
+        console.error('❌ Fehler beim Laden der Seite-Optionen:', error);
+        // Fallback zu Standard-Werten
+        const fallbackOptions = [
+            {value: 'Käthe', label: 'Käthe'},
+            {value: 'Pascal', label: 'Pascal'},
+            {value: 'Beide', label: 'Käthe & Pascal'}
+        ];
+        updateSeiteDropdowns(fallbackOptions);
+    }
+}
+
+function getSeiteBadgeClass(seite) {
+    /**
+     * Bestimmt die richtige Badge-Klasse für eine Seite basierend auf den dynamischen Namen
+     */
+    if (seite === seiteMapping.braut_name) {
+        return 'badge-seite-braut';
+    } else if (seite === seiteMapping.braeutigam_name) {
+        return 'badge-seite-braeutigam';
+    } else if (seite === 'Beide') {
+        return 'badge-seite-beide';
+    }
+    
+    // Fallback für unbekannte Seiten
+    return 'badge-wedding-secondary';
+}
+
+function updateSeiteDropdowns(options) {
+    /**
+     * Aktualisiert alle Seite-Dropdowns mit den neuen Optionen
+     */
+    const dropdownIds = ['guestSeite', 'editGuestSeite'];
+    
+    dropdownIds.forEach(dropdownId => {
+        const dropdown = document.getElementById(dropdownId);
+        if (!dropdown) return;
+        
+        // Aktuellen Wert speichern
+        const currentValue = dropdown.value;
+        
+        // Dropdown leeren (außer erste Option bei Add-Form)
+        if (dropdownId === 'guestSeite') {
+            // Für "Gast hinzufügen" behalte "Bitte wählen..." Option
+            dropdown.innerHTML = '<option value="">Bitte wählen...</option>';
+        } else {
+            // Für "Gast bearbeiten" keine Leer-Option
+            dropdown.innerHTML = '';
+        }
+        
+        // Neue Optionen hinzufügen
+        options.forEach(option => {
+            const optionElement = document.createElement('option');
+            optionElement.value = option.value;
+            optionElement.textContent = option.label;
+            dropdown.appendChild(optionElement);
+        });
+        
+        // Vorherigen Wert wiederherstellen falls möglich
+        if (currentValue && [...dropdown.options].some(opt => opt.value === currentValue)) {
+            dropdown.value = currentValue;
+        }
+    });
+    
+    console.log('✅ Seite-Dropdowns aktualisiert für:', dropdownIds);
 }
 
 async function loadAndDisplayGuests() {
@@ -173,6 +279,9 @@ function displayGuests(guests) {
         const statusClass = status === 'Zugesagt' ? 'badge-wedding-success' : 
                            status === 'Abgesagt' ? 'badge-wedding-danger' : 'badge-wedding-warning';
         
+        // Kategorie-Badge-Klasse (auch für Namen verwendet)
+        const kategorieClass = kategorie === 'Familie' ? 'badge-wedding-primary' : 'badge-wedding-info';
+        
         return `
             <tr class="${isSelected ? 'table-active' : ''}">
                 <td>
@@ -180,20 +289,30 @@ function displayGuests(guests) {
                            data-id="${guestId}" ${isSelected ? 'checked' : ''}
                            onchange="handleGuestSelection(${guestId}, this.checked)">
                 </td>
-                <td>${escapeHtml(vorname)}</td>
-                <td>${escapeHtml(nachname)}</td>
                 <td>
-                    <span class="badge ${kategorie === 'Familie' ? 'badge-wedding-primary' : 'badge-wedding-info'}">
+                    <span class="badge ${kategorieClass}">
+                        ${escapeHtml(vorname)}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge ${kategorieClass}">
+                        ${escapeHtml(nachname)}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge ${kategorieClass}">
                         ${escapeHtml(kategorie)}
                     </span>
                 </td>
                 <td>
-                    <span class="badge ${seite === 'Käthe' ? 'badge-wedding-pink' : seite === 'Pascal' ? 'badge-wedding-blue' : 'badge-wedding-purple'}">
+                    <span class="badge ${getSeiteBadgeClass(seite)}">
                         ${escapeHtml(seite)}
                     </span>
                 </td>
                 <td class="text-center">
-                    <strong>${anzahlPersonen}</strong>
+                    <span class="badge ${anzahlPersonen > 0 ? 'badge-wedding-success' : 'badge-wedding-light'}">
+                        ${anzahlPersonen}
+                    </span>
                 </td>
                 <td class="text-center">
                     <span class="badge ${weisserSaal > 0 ? 'badge-wedding-success' : 'badge-wedding-light'}">

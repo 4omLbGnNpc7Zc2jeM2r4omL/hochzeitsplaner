@@ -21,6 +21,50 @@
 .bg-purple {
     background-color: #9c27b0 !important;
 }
+
+/* Seiten-Badges mit Gradienten */
+.badge-seite-braut {
+    background: linear-gradient(135deg, #ff6b9d, #e91e63, #c2185b) !important;
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 4px rgba(233, 30, 99, 0.3);
+}
+
+.badge-seite-braeutigam {
+    background: linear-gradient(135deg, #64b5f6, #2196f3, #1976d2) !important;
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
+}
+
+.badge-seite-beide {
+    background: linear-gradient(135deg, #ffd54f, #d4af37, #b8860b) !important;
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 4px rgba(212, 175, 55, 0.3);
+}
+
+/* Hover-Effekte für die Seiten-Badges */
+.badge-seite-braut:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(233, 30, 99, 0.4);
+    transition: all 0.2s ease;
+}
+
+.badge-seite-braeutigam:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(33, 150, 243, 0.4);
+    transition: all 0.2s ease;
+}
+
+.badge-seite-beide:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(212, 175, 55, 0.4);
+    transition: all 0.2s ease;
+}
 </style>
 {% endblock %}
 
@@ -240,8 +284,8 @@
                             <label for="guestSeite" class="form-label">Seite</label>
                             <select class="form-select" id="guestSeite">
                                 <option value="">Bitte wählen...</option>
-                                <option value="Braut">Braut</option>
-                                <option value="Bräutigam">Bräutigam</option>
+                                <option value="Käthe">Käthe</option>
+                                <option value="Pascal">Pascal</option>
                                 <option value="Beide">Beide</option>
                             </select>
                         </div>
@@ -359,7 +403,7 @@
                             <select class="form-select" id="editGuestSeite">
                                 <option value="Käthe">Käthe</option>
                                 <option value="Pascal">Pascal</option>
-                                <option value="Gemeinsam">Gemeinsam</option>
+                                <option value="Beide">Beide</option>
                             </select>
                         </div>
                         <div class="col-md-4 mb-3">
